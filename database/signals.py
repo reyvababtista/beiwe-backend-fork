@@ -45,7 +45,7 @@ def create_survey_archive(sender, **kwargs):
     survey_fields.append('study_id')
     
     # Prepare a new archive containing the archive-specific information
-    new_archive = SurveyArchive(survey=my_survey, archive_start=my_survey.last_modified)
+    new_archive = SurveyArchive(survey=my_survey, archive_start=my_survey.last_updated)
     
     try:
         # Get the most recent archive for this Survey, to check whether the Survey has been edited

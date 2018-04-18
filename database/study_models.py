@@ -121,14 +121,7 @@ class Survey(AbstractSurvey):
     inner list containing any number of times of the day. Times of day are integer values
     indicating the number of seconds past midnight.
     """
-    
-    # Every time that a Survey object is saved (except upon creation), a SurveyArchive object
-    # is created. The SurveyArchive object contains all of the AbstractSurvey fields that the
-    # Survey object did *before* it was saved, as well as a pair of timestamps marking during
-    # what time period the SurveyArchive applies. The code that creates SurveyArchive objects
-    # is found in database.signals.create_survey_archive.
-    last_modified = models.DateTimeField(auto_now=True)
-    
+
     # This is required for file name and path generation
     object_id = models.CharField(max_length=24, unique=True, validators=[LengthValidator(24)])
     

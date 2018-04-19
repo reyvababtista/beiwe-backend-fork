@@ -26,11 +26,11 @@ TASKS = {
 
 # we never want to kill or cap runtime of our cron jobs.
 TIME_LIMITS = {
-    FIVE_MINUTES: 1000*60*60*24*365,    # 1000 years (never kill)
-    HOURLY: 1000*60*60*24*365,          # 1000 years (never kill)
-    FOUR_HOURLY: 1000*60*60*24*365,     # 1000 years (never kill)
-    DAILY: 1000*60*60*24*365,           # 1000 years (never kill)
-    WEEKLY: 1000*60*60*24*365,          # 1000 years (never kill)
+    FIVE_MINUTES: 10*60*60*24*365,    # 10 years (never kill)
+    HOURLY: 10*60*60*24*365,          # 10 years (never kill)
+    FOUR_HOURLY: 10*60*60*24*365,     # 10 years (never kill)
+    DAILY: 10*60*60*24*365,           # 10 years (never kill)
+    WEEKLY: 10*60*60*24*365,          # 10 years (never kill)
 }
 
 KILL_TIMES = TIME_LIMITS

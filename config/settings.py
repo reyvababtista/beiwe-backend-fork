@@ -5,6 +5,9 @@ To customize any of these values, append a line to config/remote_db_env.py such 
 os.environ['S3_BUCKET'] = 'bucket_name'
 """
 
+AWS_ACCESS_KEY_ID = getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = getenv("AWS_SECRET_ACCESS_KEY")
+
 # This is the secret key for the website. Mostly it is used to sign cookies. You should provide a
 #  cryptographically secure string to this value.
 FLASK_SECRET_KEY = getenv("FLASK_SECRET_KEY")
@@ -32,3 +35,5 @@ IS_STAGING = getenv("IS_STAGING") or "PRODUCTION"
 # S3 bucket access
 S3_ACCESS_CREDENTIALS_USER = getenv("S3_ACCESS_CREDENTIALS_USER")
 S3_ACCESS_CREDENTIALS_KEY = getenv("S3_ACCESS_CREDENTIALS_KEY")
+
+S3_REGION_NAME = getenv("S3_REGION_NAME", "us-east-1")

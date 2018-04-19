@@ -1,3 +1,4 @@
+import json
 from os import path
 
 from flask import flash, request
@@ -29,7 +30,11 @@ def allowed_filename(filename):
 def update_device_settings(new_device_settings, study, filename):
     if request.form.get('device_settings', 'false') == 'true':
         # Don't copy the PK to the device settings to be updated
-        new_device_settings.pop('id')
+        if 'id' in new_device_settings.keys():
+            new_device_settings.pop('id')
+        if '_id' in new_device_settings.keys():
+            new_device_settings.pop('_id')
+        new_device_settings['consent_sections'] = json.dumps(new_device_settings['consent_sections'])
         study.device_settings.update(**new_device_settings)
         return "Overwrote %s's App Settings with the values from %s." % \
                (study.name, filename)
@@ -42,9 +47,16 @@ def add_new_surveys(new_survey_settings, study, filename):
     audio_surveys_added = 0
     if request.form.get('surveys', 'false') == 'true':
         for survey_settings in new_survey_settings:
+
             # Don't copy unique fields to the new Survey object
-            survey_settings.pop('id')
-            survey_settings.pop('object_id')
+            unique_fields = ['id', 'object_id', '_id']
+            for field in unique_fields:
+                if field in survey_settings.keys():
+                    survey_settings.pop(field)
+
+            survey_settings['content'] = json.dumps(survey_settings['content'])
+            survey_settings['settings'] = json.dumps(survey_settings['settings'])
+
             Survey.create_with_object_id(study=study, **survey_settings)
             if survey_settings['survey_type'] == 'tracking_survey':
                 surveys_added += 1

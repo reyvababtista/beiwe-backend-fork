@@ -621,7 +621,6 @@ def batch_retrieve_for_processing(ftp_as_object):
         try:
             print(ftp['s3_file_path'] + "\ngetting data...")
             ret['file_contents'] = s3_retrieve(ftp['s3_file_path'], ftp["study"].object_id, raw_path=True)
-            print("finished getting data")
         except Exception as e:
             ret['traceback'] = format_exc(e)
             ret['exception'] = e
@@ -644,7 +643,7 @@ def batch_upload(upload):
         del upload
         new_contents = new_contents.decode("zip")
         s3_upload(chunk_path, new_contents, study_object_id, raw_path=True)
-        print("data uploaded!")
+        print("data uploaded!", chunk_path)
         if isinstance(chunk, ChunkRegistry):
             # If the contents are being appended to an existing ChunkRegistry object
             chunk.low_memory_update_chunk_hash(new_contents)

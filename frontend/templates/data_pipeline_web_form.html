@@ -40,9 +40,9 @@
         {# Study ID #}
         <div class="form-group">
           <label for="study_selector">Study</label>
-          <select class="form-control" name="study_id" id="study_selector">
+          <select class="form-control" name="study_pk" id="study_selector">
             {% for study in downloadable_studies %}
-              <option value="{{ study._id }}">{{ study.name }}</option>
+              <option value="{{ study.id }}">{{ study.name }}</option>
             {% endfor %}
           </select>
         </div>

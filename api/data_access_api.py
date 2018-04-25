@@ -14,7 +14,7 @@ from database.models import ChunkRegistry, Participant, Researcher, Study
 from libs.s3 import s3_retrieve, s3_upload
 from libs.streaming_bytes_io import StreamingBytesIO
 
-from database.data_access_models import PipelineUpload, InvalidUploadParameterError
+from database.data_access_models import PipelineUpload, InvalidUploadParameterError, PipelineUploadTags
 
 # Data Notes
 # The call log has the timestamp column as the 3rd column instead of the first.
@@ -411,13 +411,13 @@ def data_pipeline_upload():
     # case: invalid study
     study_id = request.values["study_id"]
 
-    if not Study.objects.exists(object_id=study_id):
+    if not Study.objects.filter(object_id=study_id).exists():
         return abort(404)
 
     study_obj = Study.objects.get(object_id=study_id)
 
     # case: study not authorized for user
-    if not study_obj.get_reserachers().filter(id=researcher.id).exists():
+    if not study_obj.get_researchers().filter(id=researcher.id).exists():
         return abort(403)
 
     # block extra keys
@@ -430,17 +430,23 @@ def data_pipeline_upload():
         return Response("\n".join(errors), 400)
         
     try:
-        creation_args = PipelineUpload.get_creation_arguments(request.values, request.files['file'])
+        creation_args, tags = PipelineUpload.get_creation_arguments(request.values, request.files['file'])
     except InvalidUploadParameterError as e:
         return Response(e.message, 400)
     s3_upload(
             creation_args['s3_path'],
             request.files['file'].read(),
-            creation_args['study_id'],
+            Study.objects.get(id=creation_args['study_id']).object_id,
             raw_path=True
     )
-    pipeline_upload = PipelineUpload(creation_args, random_id=True)
+
+    pipeline_upload = PipelineUpload(object_id=PipelineUpload.generate_objectid_string('object_id'), **creation_args)
     pipeline_upload.save()
+
+    for tag in tags:
+        pipeline_upload_tag = PipelineUploadTags(pipeline_upload=pipeline_upload, tag=tag)
+        pipeline_upload_tag.save()
+
     return Response("SUCCESS", status=200)
 
 
@@ -457,10 +463,10 @@ def pipeline_data_download():
         except JSONDecodeError:
             tags = request.form.getlist('tags')
 
-        query = PipelineUpload.objects.filter(study_id=study_obj.id, tags={"$in": tags})
+        query = PipelineUpload.objects.filter(study__id=study_obj.id, tags__tag__in=tags)
         
     else:
-        query = PipelineUpload.objects.filter(study_id=study_obj.id)
+        query = PipelineUpload.objects.filter(study__id=study_obj.id)
     
     ####################################
     return Response(
@@ -483,7 +489,7 @@ def zip_generator_for_pipeline(files_list):
         chunks_and_content = pool.imap_unordered(batch_retrieve_pipeline_s3, files_list, chunksize=1)
         for pipeline_upload, file_contents in chunks_and_content:
             # file_name = determine_file_name(chunk)
-            zip_input.writestr("data/" + pipeline_upload['file_name'], file_contents)
+            zip_input.writestr("data/" + pipeline_upload.file_name, file_contents)
             # These can be large, and we don't want them sticking around in memory as we wait for the yield
             del file_contents, pipeline_upload
             yield zip_output.getvalue()  # yield the (compressed) file information
@@ -507,8 +513,9 @@ def zip_generator_for_pipeline(files_list):
         
 def batch_retrieve_pipeline_s3(pipeline_upload):
     """ Data is returned in the form (chunk_object, file_data). """
-    return pipeline_upload, s3_retrieve(pipeline_upload["s3_path"],
-                                        pipeline_upload["study_id"],
+    study = Study.objects.get(id = pipeline_upload.study_id)
+    return pipeline_upload, s3_retrieve(pipeline_upload.s3_path,
+                                        study.object_id,
                                         raw_path=True)
 
 

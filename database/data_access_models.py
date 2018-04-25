@@ -179,6 +179,8 @@ class PipelineUpload(AbstractModel):
                 % params["study_id"] if params["study_id"] else None
             )
 
+        study_id = Study.objects.get(object_id=study_id_object_id).id
+
         if len(params['file_name']) > 256:
             errors.append("encountered invalid file_name, file_names cannot be more than 256 characters")
 
@@ -200,7 +202,7 @@ class PipelineUpload(AbstractModel):
         if errors:
             raise InvalidUploadParameterError("\n".join(errors))
 
-        creation_time = timezone.now()
+        created_on = timezone.now()
         file_hash = low_memory_chunk_hash(file_object.read())
         file_object.seek(0)
 
@@ -208,19 +210,20 @@ class PipelineUpload(AbstractModel):
             PIPELINE_FOLDER,
             params["study_id"],
             params["file_name"],
-            creation_time.isoformat(),
+            created_on.isoformat(),
             ''.join(random.choice(string.ascii_letters + string.digits) for i in range(32)),
             # todo: file_name?
         )
 
-        return {
-            "creation_time": creation_time,
+        creation_arguments = {
+            "created_on": created_on,
             "s3_path": s3_path,
-            "study_id": study_id_object_id,
-            "tags": tags,
+            "study_id": study_id,
             "file_name": params["file_name"],
             "file_hash": file_hash,
         }
+
+        return creation_arguments, tags
 
 
 class PipelineUploadTags(AbstractModel):

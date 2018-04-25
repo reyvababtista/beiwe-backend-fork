@@ -56,7 +56,12 @@ INSTALLED_APPS = [
 SHELL_PLUS = "ipython"
 
 SHELL_PLUS_PRE_IMPORTS = []
-SHELL_PLUS_POST_IMPORTS = []
+SHELL_PLUS_POST_IMPORTS = [
+    ["libs.s3", ("s3_list_files")],
+    ["pprint", ("pprint")],
+    ["datetime", ("date", "datetime", "timedelta")],
+]
+
 
 # Using the default test runner
 TEST_RUNNER = 'django.test.runner.DiscoverRunner'

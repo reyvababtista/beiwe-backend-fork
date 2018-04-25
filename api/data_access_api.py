@@ -8,7 +8,7 @@ from flask import Blueprint, request, abort, json, Response
 from config import load_django
 
 from config.constants import (API_TIME_FORMAT, VOICE_RECORDING, ALL_DATA_STREAMS,
-    SURVEY_ANSWERS, SURVEY_TIMINGS)
+    SURVEY_ANSWERS, SURVEY_TIMINGS, IMAGE_FILE)
 from database.base_models import is_object_id
 from database.models import ChunkRegistry, Participant, Researcher, Study
 from libs.s3 import s3_retrieve, s3_upload
@@ -261,21 +261,24 @@ def determine_file_name(chunk):
     extension = chunk["chunk_path"][-3:]  # get 3 letter file extension from the source.
     if chunk["data_type"] == SURVEY_ANSWERS:
         # add the survey_id from the file path.
-        return "%s/%s/%s/%s.%s" % (chunk["participant__patient_id"], chunk["data_type"], chunk["chunk_path"].rsplit("/", 2)[1],
+        return "%s/%s/%s/%s.%s" % (chunk["participant__patient_id"], chunk["data_type"],
+                                   chunk["chunk_path"].rsplit("/", 2)[1], # this is the survey id
                                    str(chunk["time_bin"]).replace(":", "_"), extension)
     
     elif chunk["data_type"] == SURVEY_TIMINGS:
         # add the survey_id from the database entry.
-        return "%s/%s/%s/%s.%s" % (chunk["participant__patient_id"], chunk["data_type"], chunk["survey__object_id"],
+        return "%s/%s/%s/%s.%s" % (chunk["participant__patient_id"], chunk["data_type"],
+                                   chunk["survey__object_id"],  # this is the survey id
                                    str(chunk["time_bin"]).replace(":", "_"), extension)
     
-    elif chunk["data_type"] == VOICE_RECORDING:
+    elif chunk["data_type"] in [VOICE_RECORDING, IMAGE_FILE]:
         # Due to a bug that was not noticed until July 2016 audio surveys did not have the survey id
         # that they were associated with.  Later versions of the app (legacy update 1 and Android 6)
         # correct this.  We can identify those files by checking for the existence of the extra /.
         # When we don't find it, we revert to original behavior.
         if chunk["chunk_path"].count("/") == 4:  #
-            return "%s/%s/%s/%s.%s" % (chunk["participant__patient_id"], chunk["data_type"], chunk["chunk_path"].rsplit("/", 2)[1],
+            return "%s/%s/%s/%s.%s" % (chunk["participant__patient_id"], chunk["data_type"],
+                                       chunk["chunk_path"].rsplit("/", 2)[1],  # this is the survey id
                                        str(chunk["time_bin"]).replace(":", "_"), extension)
     
     # all other files have this form:

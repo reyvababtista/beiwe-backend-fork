@@ -265,13 +265,24 @@ def determine_file_name(chunk):
                                    chunk["chunk_path"].rsplit("/", 2)[1], # this is the survey id
                                    str(chunk["time_bin"]).replace(":", "_"), extension)
     
+    elif chunk["data_type"] == IMAGE_FILE:
+        # add the survey_id from the file path.
+        return "%s/%s/%s/%s/%s/%s.%s" % (
+            chunk["participant__patient_id"],
+            chunk["data_type"],
+            chunk["chunk_path"].rsplit("/", 4)[1], # this is the survey id
+            chunk["chunk_path"].rsplit("/", 3)[1], # this is the instance of the user taking a survey
+            chunk["chunk_path"].rsplit("/", 2)[1], # this is the per-image folder
+            str(chunk["time_bin"]).replace(":", "_"), extension
+        )
+    
     elif chunk["data_type"] == SURVEY_TIMINGS:
         # add the survey_id from the database entry.
         return "%s/%s/%s/%s.%s" % (chunk["participant__patient_id"], chunk["data_type"],
                                    chunk["survey__object_id"],  # this is the survey id
                                    str(chunk["time_bin"]).replace(":", "_"), extension)
     
-    elif chunk["data_type"] in [VOICE_RECORDING, IMAGE_FILE]:
+    elif chunk["data_type"] == VOICE_RECORDING:
         # Due to a bug that was not noticed until July 2016 audio surveys did not have the survey id
         # that they were associated with.  Later versions of the app (legacy update 1 and Android 6)
         # correct this.  We can identify those files by checking for the existence of the extra /.
@@ -282,8 +293,6 @@ def determine_file_name(chunk):
                                        str(chunk["time_bin"]).replace(":", "_"), extension)
     
     # all other files have this form:
-    from pprint import pprint
-    pprint(chunk)
     return "%s/%s/%s.%s" % (chunk['participant__patient_id'], chunk["data_type"],
                             str(chunk["time_bin"]).replace(":", "_"), extension)
 

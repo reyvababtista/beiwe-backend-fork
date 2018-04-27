@@ -267,13 +267,12 @@ def determine_file_name(chunk):
     
     elif chunk["data_type"] == IMAGE_FILE:
         # add the survey_id from the file path.
-        return "%s/%s/%s/%s/%s/%s.%s" % (
+        return "%s/%s/%s/%s/%s" % (
             chunk["participant__patient_id"],
             chunk["data_type"],
-            chunk["chunk_path"].rsplit("/", 4)[1], # this is the survey id
-            chunk["chunk_path"].rsplit("/", 3)[1], # this is the instance of the user taking a survey
-            chunk["chunk_path"].rsplit("/", 2)[1], # this is the per-image folder
-            str(chunk["time_bin"]).replace(":", "_"), extension
+            chunk["chunk_path"].rsplit("/", 3)[1], # this is the survey id
+            chunk["chunk_path"].rsplit("/", 2)[1], # this is the instance of the user taking a survey
+            chunk["chunk_path"].rsplit("/", 1)[1]
         )
     
     elif chunk["data_type"] == SURVEY_TIMINGS:

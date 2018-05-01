@@ -1,7 +1,7 @@
 import functools
 
 from flask import request
-from database.models import Participant
+from database.user_models import Participant
 
 
 def checkbox_to_boolean(list_checkbox_params, dict_all_params):

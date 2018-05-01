@@ -31,9 +31,9 @@ from db.user_models import Admins as MAdminSet, Users as MUserSet
 
 # Import Django models
 from database.models import (
-    Researcher as DAdmin, DeviceSettings as DSettings, Participant as DUser,
-    Study as DStudy, Survey as DSurvey, ChunkRegistry as DChunk, UploadTracking as DUpload
+    DeviceSettings as DSettings, Study as DStudy, Survey as DSurvey, ChunkRegistry as DChunk, UploadTracking as DUpload
 )
+from database.user_models import Participant as DUser, Researcher as DAdmin
 
 
 class NoSuchDatabaseObject(Exception): pass

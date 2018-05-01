@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from database.study_models import Researcher
+from database.user_models import Researcher
 
 
 class Command(BaseCommand):

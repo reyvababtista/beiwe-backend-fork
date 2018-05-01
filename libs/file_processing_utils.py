@@ -7,7 +7,8 @@ from config.constants import (
 )
 from libs.file_processing import process_file_chunks
 from libs.s3 import s3_list_files, s3_delete, s3_upload
-from database.models import ChunkRegistry, FileProcessLock, FileToProcess, Participant, Study
+from database.models import ChunkRegistry, FileProcessLock, FileToProcess, Study
+from database.user_models import Participant
 
 
 def reindex_all_files_to_process():

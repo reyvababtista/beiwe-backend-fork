@@ -3,7 +3,7 @@ import functools
 from flask import request, abort
 from werkzeug.datastructures import MultiDict
 
-from database.models import Participant
+from database.user_models import Participant
 
 
 ####################################################################################################

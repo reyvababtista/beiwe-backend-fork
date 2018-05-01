@@ -78,6 +78,8 @@ class Study(AbstractModel):
 
 
 class AbstractSurvey(AbstractModel):
+    """ AbstractSurvey contains all fields that we want to have copied into a survey backup whenever
+    it is updated. """
     
     AUDIO_SURVEY = 'audio_survey'
     TRACKING_SURVEY = 'tracking_survey'
@@ -117,11 +119,17 @@ class Survey(AbstractSurvey):
     specification: it is zero-indexed with day 0 as Sunday. 'timings' is a list of 7 lists, each
     inner list containing any number of times of the day. Times of day are integer values
     indicating the number of seconds past midnight.
+    
+    Inherits the following fields from AbstractSurvey
+    content
+    survey_type
+    settings
+    timings
     """
 
     # This is required for file name and path generation
     object_id = models.CharField(max_length=24, unique=True, validators=[LengthValidator(24)])
-    
+    # the study field is not inherited because we need to change its related name
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='surveys')
 
     @classmethod
@@ -137,7 +145,7 @@ class Survey(AbstractSurvey):
         as well as any other given keyword arguments. If the Survey is audio and no other
         settings are given, give it the default audio survey settings.
         """
-
+        
         if survey_type == cls.AUDIO_SURVEY and 'settings' not in kwargs:
             kwargs['settings'] = json.dumps(AUDIO_SURVEY_SETTINGS)
 
@@ -146,10 +154,10 @@ class Survey(AbstractSurvey):
 
 
 class SurveyArchive(AbstractSurvey):
-    
+    """ All felds declared in abstract survey are copied whenever a change is made to a survey """
     archive_start = models.DateTimeField()
     archive_end = models.DateTimeField(default=timezone.now)
-    
+    # two new foreign key references
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='archives')
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='surveys_archive')
 

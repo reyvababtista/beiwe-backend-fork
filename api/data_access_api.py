@@ -27,7 +27,7 @@ data_access_api = Blueprint('data_access_api', __name__)
 
 #########################################################################################
 
-def get_and_validate_study_id():
+def get_and_validate_study_id(chunked_download=False):
     """
     Checks for a valid study object id or primary key.
     If neither is given, a 400 (bad request) error is raised.
@@ -37,7 +37,7 @@ def get_and_validate_study_id():
     """
     study = _get_study_or_abort_404(request.values.get('study_id', None),
                                     request.values.get('study_pk', None))
-    if not study.is_test:
+    if not study.is_test and chunked_download:
         # You're only allowed to download chunked data from test studies
         return abort(404)
     else:
@@ -153,7 +153,7 @@ def get_data():
     # uncomment the following line when doing a reindex
     # return abort(503)
     
-    study = get_and_validate_study_id()
+    study = get_and_validate_study_id(chunked_download=True)
     get_and_validate_researcher(study)
     
     query = {}
@@ -462,7 +462,7 @@ def data_pipeline_upload():
 
 @data_access_api.route("/get-pipeline/v1", methods=["GET", "POST"])
 def pipeline_data_download():
-    study_obj = get_and_validate_study_id()
+    study_obj = get_and_validate_study_id(chunked_download=False)
     get_and_validate_researcher(study_obj)
     
     # the following two cases are for difference in content wrapping between the CLI script and

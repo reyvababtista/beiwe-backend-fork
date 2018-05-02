@@ -30,9 +30,9 @@ from db.study_models import (
 from db.user_models import Admins as MAdminSet, Users as MUserSet
 
 # Import Django models
-from database.models import (
-    DeviceSettings as DSettings, Study as DStudy, Survey as DSurvey, ChunkRegistry as DChunk, UploadTracking as DUpload
-)
+from database.study_models import DeviceSettings as DSettings, Study as DStudy, Survey as DSurvey
+from database.data_access_models import ChunkRegistry as DChunk
+from database.profiling_models import UploadTracking as DUpload
 from database.user_models import Participant as DUser, Researcher as DAdmin
 
 

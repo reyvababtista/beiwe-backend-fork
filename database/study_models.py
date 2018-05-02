@@ -16,7 +16,7 @@ from database.validators import (
     LengthValidator
 )
 
-from database.base_models import AbstractModel, JSONTextField
+from database.models import JSONTextField, AbstractModel
 
 
 class Study(AbstractModel):

@@ -7,7 +7,8 @@ from flask import request
 
 from config.constants import ASYMMETRIC_KEY_LENGTH
 from config.settings import IS_STAGING
-from database.models import Study, DecryptionKeyError, EncryptionErrorMetadata, LineEncryptionError
+from database.profiling_models import DecryptionKeyError, EncryptionErrorMetadata, LineEncryptionError
+from database.study_models import Study
 from libs.logging import log_error
 from security import decode_base64
 

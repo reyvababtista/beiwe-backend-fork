@@ -1,7 +1,7 @@
 from flask import abort, Blueprint, render_template
 
 from config.settings import DOMAIN_NAME
-from database.models import Survey
+from database.study_models import Survey
 from libs.admin_authentication import authenticate_admin_study_access,\
     get_admins_allowed_studies, admin_is_system_admin
 

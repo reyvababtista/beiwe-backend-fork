@@ -8,7 +8,8 @@ from werkzeug.exceptions import BadRequestKeyError
 
 from config.constants import ALLOWED_EXTENSIONS, DEVICE_IDENTIFIERS_HEADER
 from config.settings import IS_STAGING
-from database.models import FileToProcess, UploadTracking
+from database.data_access_models import FileToProcess
+from database.profiling_models import UploadTracking
 from database.user_models import Participant
 from libs.android_error_reporting import send_android_error_report
 from libs.encryption import decrypt_device_file, HandledError

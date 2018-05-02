@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from flask import session, redirect, request, json
 from werkzeug.exceptions import abort
 
-from database.models import Study
+from database.study_models import Study
 from database.user_models import Researcher
 from libs.security import generate_easy_alphanumeric_string
 

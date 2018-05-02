@@ -1,4 +1,5 @@
-from database.models import Study, Researcher
+from database.study_models import Study
+from database.user_models import Researcher
 
 from pipeline.boto_helpers import get_aws_object_names, get_boto_client
 

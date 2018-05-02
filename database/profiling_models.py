@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from config.constants import UPLOAD_FILE_TYPE_MAPPING
 from libs.security import decode_base64
-from database.base_models import AbstractModel, JSONTextField
+from database.models import JSONTextField, AbstractModel
 
 
 class EncryptionErrorMetadata(AbstractModel):

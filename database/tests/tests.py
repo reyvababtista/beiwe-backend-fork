@@ -4,7 +4,9 @@ import json
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from database.models import Researcher, Study, Survey, DeviceSettings, Participant
+from database.study_models import Study, Survey, DeviceSettings
+from database.user_models import Participant, Researcher
+
 
 # Fields that we don't fill in in translation to django types.
 class ReferenceReversed(Exception): pass

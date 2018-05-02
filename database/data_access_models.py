@@ -10,7 +10,7 @@ from django.utils import timezone
 from config.constants import ALL_DATA_STREAMS, CHUNKABLE_FILES, CHUNK_TIMESLICE_QUANTUM, PIPELINE_FOLDER
 from database.validators import LengthValidator
 from libs.security import chunk_hash, low_memory_chunk_hash
-from database.base_models import AbstractModel
+from database.models import AbstractModel
 from database.study_models import Study
 
 

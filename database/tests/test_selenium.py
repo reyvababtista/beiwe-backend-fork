@@ -23,7 +23,8 @@ from django.test import TransactionTestCase, SimpleTestCase
 from flask import Flask, request
 from app import app as flask_app, subdomain
 from config.django_settings import WEBDRIVER_LOC
-from database.study_models import Study, Researcher
+from database.study_models import Study
+from database.user_models import Researcher
 from pages import admin_pages
 
 PAGE_RESPONSES = {

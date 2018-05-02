@@ -35,7 +35,8 @@ from time import sleep
 from datetime import datetime, timedelta
 
 from config.constants import FILE_PROCESS_PAGE_SIZE, CELERY_EXPIRY_MINUTES, CELERY_ERROR_REPORT_TIMEOUT_SECONDS
-from database.models import FileProcessLock, Participant
+from database.data_access_models import FileProcessLock
+from database.user_models import Participant
 from libs.file_processing import ProcessingOverlapError, do_process_user_file_chunks
 from libs.logging import email_system_administrators
 from libs.sentry import make_error_sentry

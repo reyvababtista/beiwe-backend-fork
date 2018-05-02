@@ -2,7 +2,8 @@ from flask import abort, Blueprint, redirect, request
 from flask.templating import render_template
 
 from config.settings import DOMAIN_NAME, IS_STAGING
-from database.models import Researcher, Study
+from database.study_models import Study
+from database.user_models import Researcher
 from libs.admin_authentication import (
     authenticate_system_admin, authenticate_admin_login, admin_is_system_admin,
     get_admins_allowed_studies

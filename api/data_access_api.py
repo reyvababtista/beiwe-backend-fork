@@ -9,8 +9,10 @@ from config import load_django
 
 from config.constants import (API_TIME_FORMAT, VOICE_RECORDING, ALL_DATA_STREAMS,
     SURVEY_ANSWERS, SURVEY_TIMINGS, IMAGE_FILE)
-from database.base_models import is_object_id
-from database.models import ChunkRegistry, Participant, Researcher, Study
+from database.models import is_object_id
+from database.data_access_models import ChunkRegistry
+from database.study_models import Study
+from database.user_models import Participant, Researcher
 from libs.s3 import s3_retrieve, s3_upload
 from libs.streaming_bytes_io import StreamingBytesIO
 

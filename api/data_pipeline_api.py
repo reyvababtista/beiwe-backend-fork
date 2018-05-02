@@ -1,6 +1,6 @@
 from flask import Blueprint, flash, redirect
 
-from database.models import Study
+from database.study_models import Study
 from libs.admin_authentication import authenticate_admin_study_access
 from pipeline.boto_helpers import get_aws_object_names
 from pipeline.index import create_one_job, refresh_data_access_credentials

@@ -7,7 +7,7 @@ except ImportError:
     ACCESS_KEY, SECRET_KEY = None, None
 
 API_URL_BASE = 'https://staging.beiwe.org/'
-
+API_URL_BASE = 'http://localhost:8080/'
 from pprint import pprint
 def make_pipeline_request(study_id, access_key=ACCESS_KEY, secret_key=SECRET_KEY, tags=None):
     """

@@ -10,14 +10,16 @@
   <script type="text/javascript" src="../static/javascript/libraries/collapse.js"></script>
   <script type="text/javascript" src="../static/javascript/libraries/bootstrap-datetimepicker.js"></script>
   <script type="text/javascript" src="../static/javascript/data_download_page.js"></script>
-  <script type="text/javascript">
-    {#var users_by_study = '{{ users_by_study|tojson }}';#}
+  <script>
+    var downloadableStudies = {{ downloadable_studies|safe }};
+    var tagsByStudy = {{ tags_by_study|safe }};
   </script>
+  <script src="/static/javascript/app/survey-builder/controllers/data-pipeline-web-form-controller.js"></script>
 {% endblock %}
 
 {% block content %}
 
-  <div class="container">
+  <div class="container" ng-controller="DataPipelineWebFormController">
     <br><br>
     <div class="row well">
       <form action="/get-pipeline/v1" method="POST" id="data_download_parameters_form">
@@ -38,23 +40,20 @@
 
         {# Data Selectors #}
         {# Study ID #}
-        <div class="form-group">
+        <div class="form-group" >
           <label for="study_selector">Study</label>
-          <select class="form-control" name="study_pk" id="study_selector">
-            {% for study in downloadable_studies %}
-              <option value="{{ study.id }}">{{ study.name }}</option>
-            {% endfor %}
+          <select class="form-control" name="study_pk" ng-model="selectedStudyId">
+            <option value="" disabled>--- Select Study ---</option>
+              <option ng-repeat="study in downloadableStudies" value="{%raw%}{{ study.id }}{%endraw%}">{%raw%}{{ study.name }}{%endraw%}</option>
           </select>
         </div>
 
         {# Data Stream Selector #}
         <div class="form-group">
-          <label for="data_stream_selector">tags</label>
-          <select class="form-control" name="tags" id="data_stream_selector" size=25 multiple>
-            {% for tag in tags %}
-              <option>{{ tag }}</option>
-            {% endfor %}
-          </select>
+            <label for="data_stream_selector">tags</label>
+            <select id="data_stream_selector" ng-model="selectedTag"
+                    ng-options="tag for tag in tagsByStudy[selectedStudyId] track by tag"
+                    name="tags" class="form-control" size=25 multiple></select>
         </div>
         <br><br>
 

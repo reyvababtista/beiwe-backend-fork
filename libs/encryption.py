@@ -10,7 +10,7 @@ from config.settings import IS_STAGING
 from database.profiling_models import DecryptionKeyError, EncryptionErrorMetadata, LineEncryptionError
 from database.study_models import Study
 from libs.logging import log_error
-from security import decode_base64
+from security import decode_base64, encode_base64
 
 
 class DecryptionKeyInvalidError(Exception): pass
@@ -84,9 +84,9 @@ def decrypt_device_file(patient_id, original_data, private_key, user):
             LineEncryptionError.objects.create(
                 type=error_type,
                 base64_decryption_key=private_key.decrypt(decoded_key),
-                line=line,
-                prev_line=file_data[i - 1] if i > 0 else '',
-                next_line=file_data[i + 1] if i < len(file_data) - 1 else '',
+                line=encode_base64(line),
+                prev_line=encode_base64(file_data[i - 1] if i > 0 else ''),
+                next_line=encode_base64(file_data[i + 1] if i < len(file_data) - 1 else ''),
             )
             
     bad_lines = []

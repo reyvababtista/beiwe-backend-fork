@@ -29,6 +29,8 @@
     var randomizeWithMemory = settings.randomize_with_memory || false;
     var numberOfRandomQuestions = settings.number_of_random_questions || null;
     var trackingSurvey = ('{{ survey.survey_type }}' == "tracking_survey");
+    var audioSurvey = ('{{ survey.survey_type }}' == "audio_survey");
+    var imageSurvey = ('{{ survey.survey_type }}' == "image_survey");
   </script>
   <script src="/static/javascript/survey-editor/schedule.js"></script>
   <script src="/static/javascript/survey-editor/survey-editor.js"></script>
@@ -61,16 +63,16 @@
         <p>ID: {{ study.object_id }}</p>
         <p>Your changes will not be saved until you click "Save and Deploy."</p>
         <button type="submit" class="btn btn-success btn-lg save_and_deploy_button" onclick="end('{{ domain_name }}'); return false;">
-          <span class="glyphicon glyphicon-upload"></span>Save & Deploy
+          <span class="glyphicon glyphicon-upload"></span> Save & Deploy
         </button>
       </div>
-    
+
       <hr>
-    
+
       {% include 'survey_schedule.html' %}
-    
+
       <div id="surveySchedule"></div>
-    
+
       <hr>
 
       {% if survey.survey_type == "tracking_survey" %}
@@ -106,7 +108,7 @@
         </div>
       </div>
 
-      {% else %}
+      {% elif survey.survey_type == "audio_survey" %}
         <div class="row">
           <h3>Voice Recording Prompt</h3>
           <input id="voice_recording_prompt_text_input" type="text" class="form-control"
@@ -117,37 +119,43 @@
           <h3>Technical Settings</h3>
           <div class="well well-sm">
             <p>Audio recordings contain a single channel and are made using the active microphone on the device, which may may be on a connected headset.  Older versions of the Beiwe App will make compressed recordings at 64Kbps.</p>
-  
+
             <p><b>Compressed</b> audio files use AAC compression. 64Kbps should be sufficient for a vocal recording under nearly all situations, and produces roughly <b>one half of a megabyte </b> of data for each minute of audio. The sample rate of a compressed recording is always 44,100Hz. </p>
-  
+
             <p><b>Uncompressed</b> audio recordings produce wav files. A wav file with a sample rate of 44,100 ("CD quality") has a bit rate equivalence of 706Kbps, or roughly <b>five megabytes</b> of data for each minute of audio.</p>
             </div>
-  
+
           <input type="radio" name="audio_survey_type" id="radio_compressed" value="compressed"
                  onclick="audioSurveyTypeChange('compressed')" {{ 'checked' if survey.settings.audio_survey_type == 'compressed' }}>
           <label for="radio_compressed"> Compressed audio&nbsp;&nbsp;&nbsp; </label>
-          
+
           <input type="radio" name="audio_survey_type" value="raw" id="radio_uncompressed"
                  onclick="audioSurveyTypeChange('raw')"  {{ 'checked' if survey.settings.audio_survey_type == 'raw' }} >
           <label for="radio_uncompressed"> Uncompressed audio&nbsp;&nbsp;&nbsp; </label>
-          
+
           <select id="compressed_options" name="bit_rate" >
             <option value="32000" {{ 'selected' if survey.settings.bit_rate == 32000 }}>32Kbps</option>
             <option value="64000" {{ 'selected' if survey.settings.bit_rate == 64000 or not survey.settings.bit_rate }}>64Kbps</option>
             <option value="96000" {{ 'selected' if survey.settings.bit_rate == 96000 }}>96Kbps</option>
             <option value="128000" {{ 'selected' if survey.settings.bit_rate == 128000 }}>128Kbps</option>
           </select>
-  
+
           <select id="raw_options" name="sample_rate" >
             <option value="16000" {{ 'selected' if survey.settings['sample_rate'] == 16000 }}>16,000Hz</option>
             <option value="22050" {{ 'selected' if survey.settings['sample_rate'] == 22050 }}>22,050Hz</option>
             <option value="44100" {{ 'selected' if survey.settings['sample_rate'] == 44100 or not survey.settings['sample_rate'] }}>44,100Hz</option>
           </select>
         </div>
+
+      {% else %}
+        {# if survey type is image_survey #}
+        <input type="checkbox" name="always_available" id="always_available"
+        {% if survey.settings['always_available'] %} checked {% endif %}>
+        <label for="always_available"><b> Make image survey always available</b> </label> if checked, the survey will be available to the participants at all times regardless of schedule <br>
       {% endif %}
-      
+
       <hr><br>
-    
+
       <div class="row">
         <button type="submit" class="btn btn-success btn-lg save_and_deploy_button" onclick="end('{{ domain_name }}'); return false;">
         <span class="glyphicon glyphicon-upload"></span>Save & Deploy

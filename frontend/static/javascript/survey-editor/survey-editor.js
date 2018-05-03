@@ -41,12 +41,17 @@ function get_survey_settings() {
             'randomize_with_memory': scope.surveyBuilder.randomizeWithMemory,
             'number_of_random_questions': scope.surveyBuilder.numberOfRandomQuestions
         };
-    } else {
+    } else if (audioSurvey) {
         var audioSurveyType = $("[name='audio_survey_type']:checked").val();
         ret = {'trigger_on_first_download': trigger_on_first_download,
                 'audio_survey_type': audioSurveyType };
         if (audioSurveyType == 'raw') { ret['sample_rate'] = parseInt($('#raw_options').val()); }
         if (audioSurveyType == 'compressed') { ret['bit_rate'] = parseInt($('#compressed_options').val()); }
+        return ret;
+    } else {
+        var make_image_survey_always_available = document.getElementById('always_available').checked;
+        ret = {'trigger_on_first_download': trigger_on_first_download,
+                'always_available': make_image_survey_always_available };
         return ret;
     };
 }
@@ -56,7 +61,7 @@ function end(domainName) {
     if (trackingSurvey) {
         content = scope.surveyBuilder.questions;
         scope.surveyBuilder.errors = null;  // Reset errors
-    } else {
+    } else if (audioSurvey) {
         content_list = [];
         // Remove double-quotes, which break the JSON parser.
         var voice_recording_prompt_text_input = $('#voice_recording_prompt_text_input').val();

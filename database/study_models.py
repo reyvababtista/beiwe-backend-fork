@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from config.study_constants import (
     ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT, DEFAULT_CONSENT_SECTIONS_JSON,
-    SURVEY_SUBMIT_SUCCESS_TOAST_TEXT, AUDIO_SURVEY_SETTINGS
+    SURVEY_SUBMIT_SUCCESS_TOAST_TEXT, AUDIO_SURVEY_SETTINGS, IMAGE_SURVEY_SETTINGS
 )
 from database.user_models import Researcher
 from database.validators import (
@@ -142,12 +142,14 @@ class Survey(AbstractSurvey):
     def create_with_settings(cls, survey_type, **kwargs):
         """
         Create a new Survey with the provided survey type and attached to the given Study,
-        as well as any other given keyword arguments. If the Survey is audio and no other
-        settings are given, give it the default audio survey settings.
+        as well as any other given keyword arguments. If the Survey is audio/image and no other
+        settings are given, give it the default audio/image survey settings.
         """
         
         if survey_type == cls.AUDIO_SURVEY and 'settings' not in kwargs:
             kwargs['settings'] = json.dumps(AUDIO_SURVEY_SETTINGS)
+        elif survey_type == cls.IMAGE_SURVEY and 'settings' not in kwargs:
+            kwargs['settings'] = json.dumps(IMAGE_SURVEY_SETTINGS)
 
         survey = cls.create_with_object_id(survey_type=survey_type, **kwargs)
         return survey

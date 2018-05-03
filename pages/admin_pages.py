@@ -42,6 +42,7 @@ def view_study(study_id=None):
     study = Study.objects.get(pk=study_id)
     tracking_survey_ids = study.get_survey_ids_and_object_ids_for_study('tracking_survey')
     audio_survey_ids = study.get_survey_ids_and_object_ids_for_study('audio_survey')
+    image_survey_ids = study.get_survey_ids_and_object_ids_for_study('image_survey')
     participants = study.participants.all()
 
     return render_template(
@@ -49,6 +50,7 @@ def view_study(study_id=None):
         study=study,
         patients=participants,
         audio_survey_ids=audio_survey_ids,
+        image_survey_ids=image_survey_ids,
         tracking_survey_ids=tracking_survey_ids,
         allowed_studies=get_admins_allowed_studies(),
         system_admin=admin_is_system_admin()
@@ -133,7 +135,7 @@ def reset_download_api_credentials():
     researcher = Researcher.objects.get(username=session['admin_username'])
     access_key, secret_key = researcher.reset_access_credentials()
     msg = """<h3>Your Data-Download API access credentials have been reset!</h3>
-        <p>Your new <b>Access Key</b> is: 
+        <p>Your new <b>Access Key</b> is:
           <div class="container-fluid">
             <textarea rows="1" cols="85" readonly="readonly" onclick="this.focus();this.select()">%s</textarea></p>
           </div>

@@ -22,6 +22,7 @@ class AbstractPasswordUser(AbstractModel):
                                 help_text='A hash of the user\'s password')
     salt = models.CharField(max_length=24, validators=[url_safe_base_64_validator])
 
+    # This stub function declaration is present because it is used in the set_password funcion below
     def generate_hash_and_salt(self, password):
         """
         Generate a password hash and random salt from a given password. This is different

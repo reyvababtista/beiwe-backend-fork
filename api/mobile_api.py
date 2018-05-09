@@ -293,4 +293,4 @@ def contains_valid_extension(file_name):
 def get_latest_surveys(OS_API=""):
     participant = Participant.objects.get(patient_id=request.values['patient_id'])
     study = participant.study
-    return json.dumps(study.get_surveys_for_study())
+    return json.dumps(study.get_surveys_for_study(requesting_os=OS_API))

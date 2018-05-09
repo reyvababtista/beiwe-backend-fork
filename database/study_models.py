@@ -53,7 +53,7 @@ class Study(AbstractModel):
                 .annotate(name_lower=Func(F('name'), function='LOWER'))
                 .order_by('name_lower'))
 
-    def get_surveys_for_study(self):
+    def get_surveys_for_study(self, requesting_os):
         survey_json_list = []
         for survey in self.surveys.filter(deleted=False):
             survey_dict = survey.as_native_python()
@@ -61,7 +61,13 @@ class Study(AbstractModel):
             survey_dict.pop('id')
             survey_dict.pop('deleted')
             survey_dict['_id'] = survey_dict.pop('object_id')
-            survey_json_list.append(survey_dict)
+            
+            # Exclude image surveys for the Android app to avoid crashing it
+            if requesting_os == "ANDROID" and survey.survey_type == "image_survey":
+                pass
+            else:
+                survey_json_list.append(survey_dict)
+                
         return survey_json_list
 
     def get_survey_ids_for_study(self, survey_type='tracking_survey'):

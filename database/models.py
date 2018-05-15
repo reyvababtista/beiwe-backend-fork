@@ -65,7 +65,54 @@ class AbstractModel(models.Model):
     def as_dict(self):
         """ Provides a dictionary representation of the object """
         return {field.name: getattr(self, field.name) for field in self._meta.fields}
-
+    
+    @property
+    def _contents(self):
+        """ Convenience purely because this is the syntax used on some other projects """
+        return self.as_dict()
+    
+    @property
+    def _uncached_instance(self):
+        """ convenience for grabbing a new, different model object. Not intended for use in production. """
+        return self._meta.model.objects.get(id=self.id)
+    
+    @property
+    def _related(self):
+        """ Gets all related objects for this database object (warning: probably huge).
+            This is intended for debugging only. """
+        ret = {}
+        db_calls = 0
+        entities_returned = 0
+        for related_field in self._meta.related_objects:
+            # There is no predictable way to access related models that do not have related names.
+            # ... unless there is a way to inspect related_field.related_model._meta._relation_tree
+            # and determine the field relationship to then magically create a query? :D
+            
+            # one to one fields use this...
+            if related_field.one_to_one and related_field.related_name:
+                related_entity = getattr(self, related_field.related_name)
+                ret[related_field.related_name] = related_entity.as_dict() if related_entity else None
+            
+            # many to one and many to many use this.
+            elif related_field.related_name:
+                # get all the related things using .values() for access, but convert to dict
+                # because the whole point is we want these thing to be prettyprintable and nice.
+                related_manager = getattr(self, related_field.related_name)
+                # print related_manager.all()
+                db_calls += 1
+                ret[related_field.related_name] = [x for x in related_manager.all().values()]
+                entities_returned += len(ret[related_field.related_name])
+        
+        print("%s database calls required, %s entities returned." % (db_calls, entities_returned))
+        return ret
+        
+    @property
+    def _everything(self):
+        """ Gets _related and _contents. Will probably be huge. Debugging only. """
+        ret = self._contents
+        ret.update(self._related)
+        return ret
+    
     def as_native_python(self, remove_timestamps=True):
         """
         Collect all of the fields of the model and return their values in a python dict,
@@ -104,6 +151,8 @@ class AbstractModel(models.Model):
         super(AbstractModel, self).save(*args, **kwargs)
 
     def update(self, **kwargs):
+        """ Convenience method on database instance objects to update the database using a dictionary.
+            (exists to make porting from mongodb easier) """
         for attr, value in kwargs.iteritems():
             setattr(self, attr, value)
         self.save()

@@ -60,12 +60,6 @@ SHELL_PLUS_POST_IMPORTS = [
     ["libs.s3", ("s3_list_files")],
     ["pprint", ("pprint")],
     ["datetime", ("date", "datetime", "timedelta")],
-    # Gr, for some reason shell_plus can't find these models files, need to add them manually.
-    ["database.data_access_models", ("ChunkRegistry", "FileToProcess", "FileProcessLock",
-                                     "InvalidUploadParameterError", "PipelineUpload",
-                                     "PipelineUploadTags",)],
-    ["database.profiling_models", ("EncryptionErrorMetadata", "LineEncryptionError",
-                                   "DecryptionKeyError", "UploadTracking",)]
 ]
 
 # Using the default test runner

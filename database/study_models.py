@@ -184,6 +184,7 @@ class DeviceSettings(AbstractModel):
     wifi = models.BooleanField(default=True)
     bluetooth = models.BooleanField(default=False)
     power_state = models.BooleanField(default=True)
+    use_anonymized_hashing = models.BooleanField(default=False)
 
     # Whether iOS-specific data streams are turned on
     proximity = models.BooleanField(default=False)

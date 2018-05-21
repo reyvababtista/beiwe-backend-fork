@@ -70,10 +70,6 @@ class UploadTracking(AbstractModel):
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='upload_trackers')
     
     @classmethod
-    def get_trailing(cls, time_delta):
-        return cls.objects.filter(timestamp__gte=timezone.now() - time_delta)
-    
-    @classmethod
     def get_trailing_count(cls, time_delta):
         cls.objects.filter(timestamp__gte=timezone.now() - time_delta).count()
     
@@ -89,21 +85,30 @@ class UploadTracking(AbstractModel):
         data["totals"]["total_megabytes"] = 0
         data["totals"]["total_count"] = 0
         data["totals"]["users"] = set()
+        days_delta = timezone.now() - timedelta(days=days)
+        # .values is a huge speedup, .iterator isn't but it does let us print progress realistically
+        query = UploadTracking.objects.filter(timestamp__gte=days_delta).values(
+                "file_path", "file_size", "participant"
+        ).iterator()
         
-        for i, upload in enumerate(cls.get_trailing(timedelta(days=days))):
+        for i, upload in enumerate(query):
             # global stats
             data["totals"]["total_count"] += 1
-            data["totals"]["total_megabytes"] += upload['file_size'] / 1024. / 1024.
-            data["totals"]["users"].add(upload['user_id'])
+            data["totals"]["total_megabytes"] += upload["file_size"]/ 1024. / 1024.
+            data["totals"]["users"].add(upload["participant"])
             
-            # get data stream type from file_path
-            file_type = UPLOAD_FILE_TYPE_MAPPING[upload['file_path'].split("/", 2)[1]]
+            # get data stream type from file_path (woops, ios log broke this code, fixed)
+            path_extraction = upload["file_path"].split("/", 2)[1]
+            if path_extraction == "ios":
+                path_extraction = "ios_log"
+                
+            file_type = UPLOAD_FILE_TYPE_MAPPING[path_extraction]
             # update per-data-stream information
-            data[file_type]["megabytes"] += upload['file_size'] / 1024. / 1024.
+            data[file_type]["megabytes"] += upload["file_size"]/ 1024. / 1024.
             data[file_type]["count"] += 1
             
             if get_usernames:
-                data[file_type]["users"].add(upload["user_id"])
+                data[file_type]["users"].add(upload["participant"])
             if i % 10000 == 0:
                 print("processed %s uploads..." % i)
         

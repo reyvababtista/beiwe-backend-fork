@@ -39,16 +39,27 @@ class ChunkRegistry(AbstractModel):
         
         if data_type not in CHUNKABLE_FILES:
             raise UnchunkableDataTypeError
+
+        chunk_hash_str = chunk_hash(file_contents)
         
         time_bin = int(time_bin) * CHUNK_TIMESLICE_QUANTUM
-        chunk_hash_str = chunk_hash(file_contents)
+        time_bin = timezone.make_aware(datetime.utcfromtimestamp(time_bin), timezone.utc)
+        # previous time_bin form was this:
+        # datetime.fromtimestamp(time_bin)
+        # On the server, but not necessarily in development environments, datetime.fromtimestamp(0)
+        # provides the same date and time as datetime.utcfromtimestamp(0).
+        # timezone.make_aware(datetime.utcfromtimestamp(0), timezone.utc) creates a time zone
+        # aware datetime that is unambiguous in the UTC timezone and generally identecal timestamps.
+        # Django's behavior (at least on this project, but this project is set to the New York
+        # timezone so it should be generalizable) is to add UTC as a timezone when storing a naive
+        # datetime in the database.
         
         cls.objects.create(
             is_chunkable=True,
             chunk_path=chunk_path,
             chunk_hash=chunk_hash_str,
             data_type=data_type,
-            time_bin=datetime.fromtimestamp(time_bin),
+            time_bin=time_bin,
             study_id=study_id,
             participant_id=participant_id,
             survey_id=survey_id,

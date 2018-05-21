@@ -67,6 +67,9 @@ class ChunkRegistry(AbstractModel):
     
     @classmethod
     def register_unchunked_data(cls, data_type, time_bin, chunk_path, study_id, participant_id, survey_id=None):
+        # see comment in register_chunked_data above
+        time_bin = int(time_bin) * CHUNK_TIMESLICE_QUANTUM
+        time_bin = timezone.make_aware(datetime.utcfromtimestamp(time_bin), timezone.utc)
         
         if data_type in CHUNKABLE_FILES:
             raise ChunkableDataTypeError
@@ -76,7 +79,7 @@ class ChunkRegistry(AbstractModel):
             chunk_path=chunk_path,
             chunk_hash='',
             data_type=data_type,
-            time_bin=datetime.fromtimestamp(time_bin),
+            time_bin=time_bin,
             study_id=study_id,
             participant_id=participant_id,
             survey_id=survey_id,

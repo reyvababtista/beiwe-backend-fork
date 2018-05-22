@@ -372,7 +372,7 @@ def migrate_chunk_registries():
     num_registries_handled = 0
     num_bulk_creates = 0
     for i, m_chunk in enumerate(MChunkSet.iterator()):
-        if i % 10000:
+        if i % 10000 == 0:
             print i, "..."
         with error_handler:
             try:
@@ -458,7 +458,7 @@ def migrate_upload_trackers():
     num_uploads_handled = 0
     num_bulk_creates = 0
     for i, m_upload in enumerate(MUploadSet.iterator()):
-        if i % 10000:
+        if i % 10000 == 0:
             print i, '...'
         with error_handler:
             try:

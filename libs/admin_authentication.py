@@ -67,7 +67,10 @@ def authenticate_admin_study_access(some_function):
             return redirect("/")
 
         username = session["admin_username"]
-        researcher = Researcher.objects.get(username=username)
+        try:
+            researcher = Researcher.objects.get(username=username)
+        except Researcher.DoesNotExist:
+            return abort(404)
 
         # Get values first from kwargs, then from the POST request
         survey_id = kwargs.get('survey_id', request.values.get('survey_id', None))

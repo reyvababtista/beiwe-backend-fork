@@ -371,8 +371,9 @@ def migrate_chunk_registries():
     d_chunk_list = []
     num_registries_handled = 0
     num_bulk_creates = 0
-    for m_chunk in MChunkSet.iterator():
-        
+    for i, m_chunk in enumerate(MChunkSet.iterator()):
+        if i % 10000:
+            print i, "..."
         with error_handler:
             try:
                 d_study_info = study_id_dict[m_chunk.study_id]
@@ -456,8 +457,9 @@ def migrate_upload_trackers():
     d_upload_list = []
     num_uploads_handled = 0
     num_bulk_creates = 0
-    for m_upload in MUploadSet.iterator():
-        
+    for i, m_upload in enumerate(MUploadSet.iterator()):
+        if i % 10000:
+            print i, '...'
         with error_handler:
             try:
                 d_user_info = user_id_dict[m_upload.user_id]

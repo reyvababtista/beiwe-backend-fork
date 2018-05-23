@@ -1,5 +1,5 @@
 boto==2.48.0
-celery==4.1.0
+celery==4.1.1
 boto3==1.4.8
 # cronutils>=0.2.0
 Django==1.11.5

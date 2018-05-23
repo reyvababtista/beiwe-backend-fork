@@ -82,9 +82,8 @@ def get_python27_platform_arn():
     # Note: regardless of the MaxRecords value, we're only seeing boto3 return 100 records max
     for platform in eb_client.list_platform_versions(MaxRecords=1000, Filters=botoFilters)['PlatformSummaryList']:
         if (platform.get('PlatformCategory', None) == 'Python' and
-                    "2.7" in platform.get('PlatformArn', []) and
-                    "64bit" in platform.get('PlatformArn', []) and
-                    "Amazon Linux/2" in platform.get('PlatformArn', [])
+                    "Python 2.7" in platform.get('PlatformArn', []) and
+                    "64bit Amazon Linux" in platform.get('PlatformArn', [])
             ):
             platforms.append(platform['PlatformArn'])
 

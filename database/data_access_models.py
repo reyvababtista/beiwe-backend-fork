@@ -24,15 +24,15 @@ class ChunkRegistry(AbstractModel):
     DATA_TYPE_CHOICES = tuple([(stream_name, stream_name) for stream_name in ALL_DATA_STREAMS])
 
     is_chunkable = models.BooleanField()
-    chunk_path = models.CharField(max_length=256)  # , unique=True)
+    chunk_path = models.CharField(max_length=256, db_index=True)  # , unique=True)
     chunk_hash = models.CharField(max_length=25, blank=True)
 
-    data_type = models.CharField(max_length=32, choices=DATA_TYPE_CHOICES)  # , db_index=True)
-    time_bin = models.DateTimeField()  # db_index=True)
+    data_type = models.CharField(max_length=32, choices=DATA_TYPE_CHOICES, db_index=True)
+    time_bin = models.DateTimeField(db_index=True)
 
-    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='chunk_registries')  # , db_index=True)
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='chunk_registries')  # , db_index=True)
-    survey = models.ForeignKey('Survey', blank=True, null=True, on_delete=models.PROTECT, related_name='chunk_registries')  # , db_index=True)
+    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True)
+    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True)
+    survey = models.ForeignKey('Survey', blank=True, null=True, on_delete=models.PROTECT, related_name='chunk_registries', db_index=True)
     
     @classmethod
     def register_chunked_data(cls, data_type, time_bin, chunk_path, file_contents, study_id, participant_id, survey_id=None):

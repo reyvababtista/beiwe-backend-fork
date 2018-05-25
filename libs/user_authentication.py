@@ -12,16 +12,19 @@ from database.user_models import Participant
 def authenticate_user_ignore_password(some_function):
     @functools.wraps(some_function)
     def authenticate_and_call(*args, **kwargs):
+        is_ios = kwargs["OS_API"] == Participant.IOS_API
         correct_for_basic_auth()
-        if validate_post_ignore_password():
+        if validate_post_ignore_password(is_ios):
             return some_function(*args, **kwargs)
         return abort(401 if (kwargs["OS_API"] == Participant.IOS_API) else 403)
     return authenticate_and_call
 
 
-def validate_post_ignore_password():
+def validate_post_ignore_password(is_ios):
     """Check if user exists, that a password was provided but ignores its validation, and if the
-    device id matches. """
+    device id matches.
+    IOS apparently has problems retaining the device id, so we wantt to bypass it when it is an ios user
+    """
     if ("patient_id" not in request.values
         or "password" not in request.values
         or "device_id" not in request.values):
@@ -34,7 +37,9 @@ def validate_post_ignore_password():
     # Disabled
     # if not participant.validate_password(request.values['password']):
     #     return False
-    if not participant.device_id == request.values['device_id']:
+    # Only execute if it is an android device
+    if not is_ios and not participant.device_id == request.values['device_id']:
+        print "device_id is wrong"
         return False
     return True
 

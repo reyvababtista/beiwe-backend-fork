@@ -7,9 +7,8 @@ from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import BadRequestKeyError
 
 from config.constants import ALLOWED_EXTENSIONS, DEVICE_IDENTIFIERS_HEADER
-from config.settings import IS_STAGING
 from database.data_access_models import FileToProcess
-from database.profiling_models import UploadTracking
+from database.profiling_models import UploadTracking, DecryptionKeyError
 from database.user_models import Participant
 from libs.android_error_reporting import send_android_error_report
 from libs.encryption import decrypt_device_file, HandledError, DecryptionKeyInvalidError
@@ -41,7 +40,6 @@ mobile_api = Blueprint('mobile_api', __name__)
 @mobile_api.route('/upload', methods=['POST'])
 @mobile_api.route('/upload/ios/', methods=['GET', 'POST'])
 @determine_os_api
-# @authenticate_user
 @authenticate_user_ignore_password
 def upload(OS_API=""):
     """ Entry point to upload GPS, Accelerometer, Audio, PowerState, Calls Log, Texts Log,
@@ -113,6 +111,14 @@ def upload(OS_API=""):
         return render_template('blank.html'), 200
     #This is what the decryption failure mode SHOULD be, but we are still identifying the decryption bug
     except DecryptionKeyInvalidError:
+        tags = {
+            "participant": patient_id,
+            "operating system": "ios" if "ios" in request.path.lower() else "android",
+            "DecryptionKeyError id": str(DecryptionKeyError.objects.last().id),
+            "file_name": file_name,
+        }
+        make_sentry_client('eb', tags).captureMessage("DecryptionKeyInvalidError")
+        
         return render_template('blank.html'), 200
 
     # print "decryption success:", file_name

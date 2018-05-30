@@ -1,4 +1,4 @@
-import json
+import json, traceback
 from os import urandom
 
 from Crypto.Cipher import AES
@@ -10,7 +10,7 @@ from config.settings import IS_STAGING
 from database.profiling_models import DecryptionKeyError, EncryptionErrorMetadata, LineEncryptionError
 from database.study_models import Study
 from libs.logging import log_error
-from security import decode_base64, encode_base64
+from security import decode_base64, encode_base64, PaddingException
 
 
 class DecryptionKeyInvalidError(Exception): pass
@@ -87,8 +87,17 @@ def decrypt_device_file(patient_id, original_data, private_key, user):
                 line=encode_base64(line),
                 prev_line=encode_base64(file_data[i - 1] if i > 0 else ''),
                 next_line=encode_base64(file_data[i + 1] if i < len(file_data) - 1 else ''),
+                participant=user,
             )
-            
+    
+    def create_decryption_key_error(traceback):
+        DecryptionKeyError.objects.create(
+                file_path=request.values['file_name'],
+                contents=original_data,
+                traceback=traceback,
+                participant=user,
+        )
+    
     bad_lines = []
     error_types = []
     error_count = 0
@@ -97,22 +106,24 @@ def decrypt_device_file(patient_id, original_data, private_key, user):
     
     if not file_data:
         raise HandledError("The file had no data in it.  Return 200 to delete file from device.")
-        
-    try: #get the decryption key from the file.
+    
+    # The following code is strange because of an unfortunate design design decision made quite
+    # some time ago: the decryption key is encoded as base64 twice, once wrapping the output of the
+    # RSA encryption, and once wrapping the AES decryption key.
+    # The second of the two except blocks likely means that the device failed to write the encryption
+    # key as the first line of the file, but it may be a valid (but undecryptable) line of the  file.
+    try:
         decoded_key = decode_base64(file_data[0].encode("utf-8"))
-        decrypted_key = decode_base64(private_key.decrypt( decoded_key ) )
-    except (TypeError, IndexError) as e:
-        DecryptionKeyError.objects.create(
-            file_path=request.values['file_name'],
-            contents=original_data,
-            participant=user,
-        )
+    except (TypeError, IndexError, PaddingException) as e:
+        create_decryption_key_error(traceback.format_exc())
         raise DecryptionKeyInvalidError("invalid decryption key. %s" % e.message)
     
-    # (we have an inefficiency in this encryption process, this might not need to be doubly
-    # encoded in base64.  This is probably never going to be changed.)
-    # The following is all error catching code for bugs we encountered (and solved) in development.
-    # print "length decrypted key", len(decrypted_key)
+    try:
+        decrypted_key = decode_base64(private_key.decrypt( decoded_key ) )
+    except (TypeError, IndexError, PaddingException) as e:
+        create_decryption_key_error(traceback.format_exc())
+        raise DecryptionKeyInvalidError("invalid decryption key. %s" % e.message)
+    
     
     for i, line in enumerate(file_data):
         #we need to skip the first line (the decryption key), but need real index values in i
@@ -215,8 +226,9 @@ def decrypt_device_file(patient_id, original_data, private_key, user):
             file_name=request.values['file_name'],
             total_lines=len(file_data),
             number_errors=error_count,
-            errors_lines=json.dumps(bad_lines),
+            error_lines=json.dumps(bad_lines),
             error_types=json.dumps(error_types),
+            participant=user,
         )
         
     return return_data

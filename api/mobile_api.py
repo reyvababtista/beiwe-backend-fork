@@ -12,11 +12,10 @@ from database.data_access_models import FileToProcess
 from database.profiling_models import UploadTracking
 from database.user_models import Participant
 from libs.android_error_reporting import send_android_error_report
-from libs.encryption import decrypt_device_file, HandledError
+from libs.encryption import decrypt_device_file, HandledError, DecryptionKeyInvalidError
 from libs.http_utils import determine_os_api
 from libs.logging import log_error
 from libs.s3 import s3_upload, get_client_public_key_string, get_client_private_key
-from libs.security import OurBase64Error
 from libs.sentry import make_sentry_client
 from libs.user_authentication import (authenticate_user, authenticate_user_registration,
     authenticate_user_ignore_password)
@@ -53,13 +52,13 @@ def upload(OS_API=""):
     The API returns a 200 response when the file has A) been successfully handled, B) the file it
     has been sent is empty, C) the file did not decrypt properly.  We encountered problems in
     production with incorrectly encrypted files (as well as Android generating "rList" files
-    under unknown circumstances) and the app then uploads them.  The source of encryption errors
-    is not well understood and could not be tracked down.  In order to salvage partial data the
-    server decrypts files to the best of its ability and uploads it to S3.  In order to delete
-    these files we still send a 200 response.
-
-    (The above about encryption is awful, in a theoretical version 2.0 the 200 response would be
-    replaced with a difference response code to allow for better debugging and less/fewer ... hax.)
+    under unknown circumstances) and the app then uploads them.  When the device receives a 200
+    that is its signal to delete the file.
+    When a file is undecryptable (this was tracked to a scenario where the device could not
+    create/write an AES encryption key) we send a 200 response to stop that device attempting to
+    re-upload the data.
+    In the event of a single line being undecryptable (can happen due to io errors on the device)
+    we drop only that line (and store the erroring line in an attempt to track it down.
 
     A 400 error means there is something is wrong with the uploaded file or its parameters,
     administrators will be emailed regarding this upload, the event will be logged to the apache
@@ -112,19 +111,9 @@ def upload(OS_API=""):
         print("the following error was handled:")
         log_error(e, "%s; %s; %s" % (patient_id, file_name, e.message))
         return render_template('blank.html'), 200
-    except OurBase64Error:
-        if IS_STAGING:
-            print "decryption problems" + "#"*200
-            print
-            print patient_id
-            print
-            print file_name
-            print uploaded_file
-            print
-        raise
-# This is what the decryption failure mode SHOULD be, but we are still identifying the decryption bug
-#     except DecryptionKeyInvalidError:
-#         return render_template('blank.html'), 200
+    #This is what the decryption failure mode SHOULD be, but we are still identifying the decryption bug
+    except DecryptionKeyInvalidError:
+        return render_template('blank.html'), 200
 
     # print "decryption success:", file_name
     # if uploaded data a) actually exists, B) is validly named and typed...
@@ -159,7 +148,6 @@ def upload(OS_API=""):
         sentry_client = make_sentry_client('eb', tags)
         sentry_client.captureMessage(error_message)
         
-        # log_and_email_500_error(Exception("upload error"), error_message)
         return abort(400)
 
 

@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from django.db import models
 from django.utils import timezone
 
 from config.constants import UPLOAD_FILE_TYPE_MAPPING
 from libs.security import decode_base64
-from database.models import JSONTextField, AbstractModel
+from database.models import JSONTextField, AbstractModel, Participant
 
 
 class EncryptionErrorMetadata(AbstractModel):
@@ -13,8 +13,9 @@ class EncryptionErrorMetadata(AbstractModel):
     file_name = models.CharField(max_length=256)
     total_lines = models.PositiveIntegerField()
     number_errors = models.PositiveIntegerField()
-    errors_lines = JSONTextField()
+    error_lines = JSONTextField()
     error_types = JSONTextField()
+    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, null=True)
 
 
 class LineEncryptionError(AbstractModel):
@@ -48,13 +49,14 @@ class LineEncryptionError(AbstractModel):
     base64_decryption_key = models.CharField(max_length=256)
     prev_line = models.TextField(blank=True)
     next_line = models.TextField(blank=True)
+    participant = models.ForeignKey(Participant, null=True, on_delete=models.PROTECT)
 
 
 class DecryptionKeyError(AbstractModel):
     
     file_path = models.CharField(max_length=256)
     contents = models.TextField()
-    
+    traceback = models.TextField(null=True)
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='decryption_key_errors')
     
     def decode(self):

@@ -1,5 +1,6 @@
 from database.study_models import Study
 from database.user_models import Researcher
+from libs.sentry import make_error_sentry
 
 from pipeline.boto_helpers import get_aws_object_names, get_boto_client
 
@@ -109,10 +110,12 @@ def create_all_jobs(freq):
     
     # TODO: If there are issues with servers not getting spun up in time, make this a
     # ThreadPool with random spacing over the course of 5-10 minutes.
+    error_sentry = make_error_sentry("data", tags={"pipeline_frequency": freq})
     for study in Study.objects.filter(deleted=False):
-        # For each study, create a job
-        object_id = study.object_id
-        create_one_job(freq, object_id, aws_object_names)
+        with error_sentry:
+            # For each study, create a job
+            object_id = study.object_id
+            create_one_job(freq, object_id, aws_object_names)
 
 
 def hourly():

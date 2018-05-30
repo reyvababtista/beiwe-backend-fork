@@ -21,8 +21,6 @@ def render_edit_survey(survey_id=None):
         return abort(404)
 
     s = survey.as_native_python()
-    from pprint import pprint
-    pprint(s)
     study = survey.study
     return render_template(
         'edit_survey.html',

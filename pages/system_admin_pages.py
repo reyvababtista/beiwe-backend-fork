@@ -1,18 +1,18 @@
 import json
+from collections import defaultdict
 
 from django.core.exceptions import ValidationError
-from flask import abort, Blueprint, flash, redirect, render_template, request,\
-    session
+from flask import (abort, Blueprint, flash, redirect, render_template, request,
+    session)
 
 from config.constants import CHECKBOX_TOGGLES, TIMER_VALUES
-from libs.admin_authentication import authenticate_system_admin,\
-    get_admins_allowed_studies, admin_is_system_admin,\
-    authenticate_admin_study_access
-from libs.copy_study import copy_existing_study_if_asked_to
-from libs.http_utils import checkbox_to_boolean, combined_multi_dict_to_dict,\
-    string_to_int
 from database.study_models import Study
 from database.user_models import Researcher
+from libs.admin_authentication import (authenticate_system_admin,
+    get_admins_allowed_studies, admin_is_system_admin,
+    authenticate_admin_study_access)
+from libs.copy_study import copy_existing_study_if_asked_to
+from libs.http_utils import checkbox_to_boolean, string_to_int
 
 system_admin_pages = Blueprint('system_admin_pages', __name__)
 
@@ -164,8 +164,25 @@ def device_settings(study_id=None):
         abort(403)
         
     settings = study.get_study_device_settings()
-    params = combined_multi_dict_to_dict( request.values )
+    params = {k:v for k,v in request.values.iteritems() if not k.startswith("consent_section")}
+    consent_sections = {k: v for k, v in request.values.iteritems() if k.startswith("consent_section")}
     params = checkbox_to_boolean(CHECKBOX_TOGGLES, params)
     params = string_to_int(TIMER_VALUES, params)
+    # the ios consent sections are a json field but the frontend returns something weird,
+    # see the documentation in unflatten_consent_sections for details
+    params["consent_sections"] = json.dumps(unflatten_consent_sections(consent_sections))
     settings.update(**params)
     return redirect('/edit_study/{:d}'.format(study.id))
+
+
+def unflatten_consent_sections(consent_sections_dict):
+    # consent_sections is a flat structure with structure like this:
+    # { 'label_ending_in.text': 'text content',  'label_ending_in.more': 'more content' }
+    # we need to transform it into a nested structure like this:
+    # { 'label': {'text':'text content',  'more':'more content' }
+    refactored_consent_sections = defaultdict(dict)
+    for key, content in consent_sections_dict.iteritems():
+        _, label, content_type = key.split(".")
+        print _, label, content_type
+        refactored_consent_sections[label][content_type] = content
+    return dict(refactored_consent_sections)

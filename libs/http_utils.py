@@ -23,11 +23,6 @@ def string_to_int(list_int_params, dict_all_params):
     return dict_all_params
 
 
-def combined_multi_dict_to_dict(cmd):
-    """ converts an ImmutableMultiDict to a mutable python Dict. """
-    return {key: value for key, value in cmd.items()}
-
-
 def determine_os_api(some_function):
     """ Add this as a decorator to a url function, under (after) the wsgi route
     decorator.  It detects if the url ends in /ios.

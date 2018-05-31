@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from os.path import relpath
+from os.path import relpath, exists as file_exists
 from time import sleep
 
 from deployment_helpers.aws.iam import create_server_access_credentials
@@ -12,11 +12,12 @@ from deployment_helpers.constants import (AWS_CREDENTIALS_FILE, get_global_confi
     VALIDATE_GLOBAL_CONFIGURATION_MESSAGE, VALIDATE_AWS_CREDENTIALS_MESSAGE,
     get_pushed_full_processing_server_env_file_path, get_beiwe_environment_variables,
     get_beiwe_python_environment_variables_file_path, get_finalized_credentials_file_path,
-    get_finalized_environment_variables, GLOBAL_CONFIGURATION_FILE_KEYS, AWS_CREDENTIALS_FILE_KEYS)
+    get_finalized_environment_variables, GLOBAL_CONFIGURATION_FILE_KEYS, AWS_CREDENTIALS_FILE_KEYS,
+    get_server_configuration_file, get_server_configuration_file_path)
 from deployment_helpers.general_utils import log, random_alphanumeric_string, EXIT
 
-PUBLIC_DSN_REGEX = re.compile('^https://[\S]+@sentry\.io/[\S]+$')
-PRIVATE_DSN_REGEX = re.compile('^https://[\S]+:[\S]+@sentry\.io/[\S]+$')
+# Sentry changed their default DSN formatting in early 2018, we test for the old and the new.
+DSN_REGEX = re.compile('^(https://[\S]+:[\S]+@sentry\.io/[\S]+$|^https://[\S]+@sentry\.io/[\S]+$)')
 
 ####################################################################################################
 ################################### Reference Configs ##############################################
@@ -25,9 +26,9 @@ PRIVATE_DSN_REGEX = re.compile('^https://[\S]+:[\S]+@sentry\.io/[\S]+$')
 def reference_environment_configuration_file():
     return {
         "DOMAIN": "studies.mywebsite.com",
-        "SENTRY_ELASTIC_BEANSTALK_DSN": "https://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX@sentry.io/######",
-        "SENTRY_DATA_PROCESSING_DSN": "https://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX@sentry.io/######",
-        "SENTRY_ANDROID_DSN": "https://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX@sentry.io/######",
+        "SENTRY_ELASTIC_BEANSTALK_DSN": "https://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX@sentry.io/######",
+        "SENTRY_DATA_PROCESSING_DSN": "https://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX@sentry.io/######",
+        "SENTRY_ANDROID_DSN": "https://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX@sentry.io/######",
         "SENTRY_JAVASCRIPT_DSN": "https://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX@sentry.io/######",
     }
 
@@ -150,22 +151,24 @@ def validate_beiwe_environment_config(eb_environment_name):
     
     for name, dsn in sentry_dsns.iteritems():
         if ensure_nonempty_string(dsn, name, errors, beiwe_variables_name):
-            if name == "SENTRY_JAVASCRIPT_DSN":
-                if not PUBLIC_DSN_REGEX.match(dsn):
-                    errors.append('({}) Invalid DSN: {}'.format(beiwe_variables_name, dsn))
-            elif not PRIVATE_DSN_REGEX.match(dsn):
+            if not DSN_REGEX.match(dsn):
                 errors.append('({}) Invalid DSN: {}'.format(beiwe_variables_name, dsn))
+            # if name == "SENTRY_JAVASCRIPT_DSN":
+            #     if not PUBLIC_DSN_REGEX.match(dsn):
+            #         errors.append('({}) Invalid DSN: {}'.format(beiwe_variables_name, dsn))
+            # elif not PRIVATE_DSN_REGEX.match(dsn):
+            #     errors.append('({}) Invalid DSN: {}'.format(beiwe_variables_name, dsn))
                 
     domain_name = beiwe_variables.get('DOMAIN', None)
     ensure_nonempty_string(domain_name, 'Domain name', errors, beiwe_variables_name)
 
     for key in reference_environment_configuration_keys:
         if key not in beiwe_variables:
-            errors.append("({}) {} is missing.")
+            errors.append("{} is missing.".format(key))
 
     for key in beiwe_variables:
         if key not in reference_environment_configuration_keys:
-            errors.append("({}) {} is present but was not expected.")
+            errors.append("{} is present but was not expected.".format(key))
     
     # Raise any errors
     if errors:
@@ -173,6 +176,11 @@ def validate_beiwe_environment_config(eb_environment_name):
             log.error(e)
         sleep(0.1)  # python logging has some issues if you exit too fast... isn't it supposed to be synchronous?
         EXIT(1)  # forcibly exit, do not continue to run any code.
+        
+    # Check for presence of the server settings file:
+    if not file_exists(get_server_configuration_file_path(eb_environment_name)):
+        log.error("No server settings file exists at %s." % get_server_configuration_file_path(eb_environment_name))
+        EXIT(1)
         
     # Put the data into one dict to be returned
     return {

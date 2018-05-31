@@ -3,8 +3,7 @@ from pprint import pprint
 ## The various errors we use.
 from deployment_helpers.aws.boto_helpers import create_iam_client, create_iam_resource
 from deployment_helpers.constants import (EB_INSTANCE_PROFILE_ROLE, EB_INSTANCE_PROFILE_NAME,
-    EB_SERVICE_ROLE, get_automation_policy, BEIWE_AUTOMATION_POLICY_NAME,
-    get_s3_bucket_access_policy)
+    EB_SERVICE_ROLE, get_automation_policy, BEIWE_AUTOMATION_POLICY_NAME, get_aws_access_policy)
 
 
 class PythonPlatformDiscoveryError(Exception): pass
@@ -102,7 +101,8 @@ def get_or_create_s3_access_policy(s3_bucket_name):
         if policy_name == policy['PolicyName']:
             return policy
 
-    policy = get_s3_bucket_access_policy() % s3_bucket_name
+    policy = get_aws_access_policy() % s3_bucket_name
+    
     return iam_client.create_policy(
             PolicyName=policy_name,
             PolicyDocument=policy,
@@ -110,7 +110,7 @@ def get_or_create_s3_access_policy(s3_bucket_name):
     )['Policy']
 
 
-def create_s3_access_credentials(s3_bucket_name):
+def create_server_access_credentials(s3_bucket_name):
     iam_client = create_iam_client()
     user_name = "s3-data-access-user-" + s3_bucket_name
     user_name = user_name[:63] # limited to 63 characters
@@ -122,6 +122,6 @@ def create_s3_access_credentials(s3_bucket_name):
     iam_user = iam_resource.User(user_name)
     access_key_pair = iam_user.create_access_key_pair()
     return {
-        "S3_ACCESS_CREDENTIALS_USER": access_key_pair.access_key_id,
-        "S3_ACCESS_CREDENTIALS_KEY": access_key_pair.secret_access_key,
+        "BEIWE_SERVER_AWS_ACCESS_KEY_ID": access_key_pair.access_key_id,
+        "BEIWE_SERVER_AWS_SECRET_ACCESS_KEY": access_key_pair.secret_access_key,
     }

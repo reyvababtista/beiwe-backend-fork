@@ -38,21 +38,18 @@ from deployment_helpers.configuration_utils import (
     validate_beiwe_environment_config, create_finalized_configuration,
     create_processing_server_configuration_file)
 from deployment_helpers.constants import (
-    FILES_TO_PUSH, LOG_FILE,
-    PUSHED_FILES_FOLDER, REMOTE_HOME_DIR, REMOTE_USERNAME,
-    DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH, STAGED_FILES,
-    DO_SETUP_EB_UPDATE_OPEN,
-    HELP_SETUP_NEW_ENVIRONMENT, get_beiwe_python_environment_variables_file_path,
-    get_server_configuration_file_path, ENVIRONMENT_NAME_RESTRICTIONS,
-    DO_CREATE_ENVIRONMENT, USER_SPECIFIC_CONFIG_FOLDER, EXTANT_ENVIRONMENT_PROMPT,
-    get_pushed_full_processing_server_env_file_path,
-    REMOTE_CRONJOB_FILE_PATH, get_finalized_environment_variables, get_server_configuration_file,
-    LOCAL_GIT_KEY_PATH, REMOTE_GIT_KEY_PATH, REMOTE_PYENV_INSTALLER_FILE,
-    LOCAL_PYENV_INSTALLER_FILE, REMOTE_INSTALL_CELERY_WORKER, LOCAL_INSTALL_CELERY_WORKER,
-    get_global_config, LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
-    LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, APT_MANAGER_INSTALLS, APT_WORKER_INSTALLS,
-    APT_SINGLE_SERVER_AMI_INSTALLS, LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH,
-    REMOTE_APACHE_CONFIG_FILE_PATH)
+    APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS, APT_WORKER_INSTALLS,
+    DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH, DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN,
+    ENVIRONMENT_NAME_RESTRICTIONS, EXTANT_ENVIRONMENT_PROMPT, FILES_TO_PUSH,
+    get_beiwe_python_environment_variables_file_path, get_finalized_environment_variables,
+    get_global_config, get_pushed_full_processing_server_env_file_path,
+    get_server_configuration_file, get_server_configuration_file_path, HELP_SETUP_NEW_ENVIRONMENT,
+    LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
+    LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_GIT_KEY_PATH,
+    LOCAL_INSTALL_CELERY_WORKER, LOCAL_PYENV_INSTALLER_FILE, LOG_FILE, PUSHED_FILES_FOLDER,
+    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_GIT_KEY_PATH, REMOTE_HOME_DIR,
+    REMOTE_INSTALL_CELERY_WORKER, REMOTE_PYENV_INSTALLER_FILE, REMOTE_USERNAME, STAGED_FILES,
+    USER_SPECIFIC_CONFIG_FOLDER)
 from deployment_helpers.general_utils import log, EXIT, current_time_string, do_zip_reduction, retry
 
 
@@ -195,6 +192,7 @@ def apt_installs(manager=False, single_server_ami=False):
 
 
 def push_beiwe_configuration(eb_environment_name, single_server_ami=False):
+    # single server ami gets the demmy environment file, cluster gets the customized one.
     if single_server_ami:
         put(LOCAL_AMI_ENV_CONFIG_FILE_PATH,
             DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH)

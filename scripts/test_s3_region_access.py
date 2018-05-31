@@ -1,5 +1,5 @@
 import boto3
-from config.settings import S3_ACCESS_CREDENTIALS_KEY, S3_ACCESS_CREDENTIALS_USER
+from config.settings import BEIWE_SERVER_AWS_SECRET_ACCESS_KEY, BEIWE_SERVER_AWS_ACCESS_KEY_ID
 
 regions = [
     'us-east-2',
@@ -24,8 +24,8 @@ regions = [
 
 for region in regions:
     conn = boto3.client('s3',
-                        aws_access_key_id=S3_ACCESS_CREDENTIALS_USER,
-                        aws_secret_access_key=S3_ACCESS_CREDENTIALS_KEY,
+                        aws_access_key_id=BEIWE_SERVER_AWS_ACCESS_KEY_ID,
+                        aws_secret_access_key=BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
                         region_name=region)
 
     try:

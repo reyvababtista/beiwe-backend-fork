@@ -42,8 +42,6 @@ MANDATORY_VARS = {
     'SENTRY_ELASTIC_BEANSTALK_DSN',
     'SENTRY_JAVASCRIPT_DSN',
     'SYSADMIN_EMAILS',
-    'S3_ACCESS_CREDENTIALS_USER',
-    'S3_ACCESS_CREDENTIALS_KEY',
 }
 
 # Check that all the mandatory variables exist...
@@ -69,7 +67,30 @@ if settings.IS_STAGING is True or settings.IS_STAGING.upper() == "TRUE":
     settings.IS_STAGING = True
 else:
     settings.IS_STAGING = False
+
+#
+# Stick any warning about environment variables that may have changed here
+#
+old_credentials_warning = \
+"WARNING: This runtime environment is be using the out-of-date environment variable '%s', " \
+"please change it to the new environment variable '%s'. (The system will continue to work " \
+"with the old environment variable).\n"
+
+pipeline_warning = \
+"(Due to the condition below you may need to update the access credentials in order to use " \
+"the Data Pipeline feature of Beiwe.)"
+
+if os.getenv("S3_ACCESS_CREDENTIALS_USER") and not os.getenv("BEIWE_SERVER_AWS_ACCESS_KEY_ID"):
+    print pipeline_warning
+    print old_credentials_warning % ("S3_ACCESS_CREDENTIALS_USER", "BEIWE_SERVER_AWS_ACCESS_KEY_ID")
     
+
+if os.getenv("S3_ACCESS_CREDENTIALS_KEY") and not os.getenv("BEIWE_SERVER_AWS_SECRET_ACCESS_KEY"):
+    print pipeline_warning
+    print old_credentials_warning % ("S3_ACCESS_CREDENTIALS_KEY", "BEIWE_SERVER_AWS_SECRET_ACCESS_KEY")
+
+#
+# print a useful error and cease execution if any required environment variables showed up.
 if errors:
     class BadServerConfigurationError(Exception): pass
-    raise BadServerConfigurationError("\n" + "\n".join(errors))
+    raise BadServerConfigurationError("\n" + "\n".join(sorted(errors)))

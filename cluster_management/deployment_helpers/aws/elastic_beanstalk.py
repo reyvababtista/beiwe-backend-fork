@@ -45,7 +45,7 @@ def construct_eb_environment_variables(eb_environment_name):
     env_var_string = ",".join(["%s=%s" % (k, v) for k, v in environment_variables.iteritems()])
     
     generated_configuration_details = {
-        "ServiceRole": get_or_create_eb_service_role()['Arn'],
+        "ServiceRole": get_or_create_eb_service_role()['RoleName'],
         "IamInstanceProfile": get_or_create_eb_instance_profile()['Arn'],
         "EnvironmentVariables": env_var_string,
         "EC2KeyName": global_config["DEPLOYMENT_KEY_NAME"],

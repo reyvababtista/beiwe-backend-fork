@@ -110,7 +110,7 @@ def get_aws_credentials():
 ELASTICBEANSTALK_ASSUME_ROLE_POLICY_DOCUMENT_PATH = path_join(GENERAL_CONFIG_FOLDER, "elasticbeanstalk_assume_role_policy_document.json")
 INSTANCE_ASSUME_ROLE_POLICY_DOCUMENT_PATH = path_join(GENERAL_CONFIG_FOLDER, "instance_assume_role_policy_document.json")
 AUTOMATION_POLICY_PATH = path_join(GENERAL_CONFIG_FOLDER, "beiwe_automation_policy.json")
-BEIWE_SERVER_AWS_ACCESS_PATH = path_join(GENERAL_CONFIG_FOLDER, "beiwe_aws_access.json")
+BEIWE_SERVER_AWS_ACCESS_PATH = path_join(GENERAL_CONFIG_FOLDER, "beiwe_server_aws_access.json")
 
 
 ## Elastic Beanstalk File Loaders

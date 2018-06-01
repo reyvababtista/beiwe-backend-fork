@@ -125,7 +125,7 @@ def get_users_in_study():
 
     study_object_id = request.values.get("study_id", "")
     # if not is_object_id(study_object_id):
-    if is_object_id(study_object_id):
+    if not is_object_id(study_object_id):
         return abort(404)
     
     try:

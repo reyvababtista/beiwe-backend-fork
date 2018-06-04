@@ -9,7 +9,13 @@ from time import sleep
 
 import boto3
 
-from boto_helpers import get_aws_object_names, get_configs_folder, set_default_region
+# The pipeline folder functions is its own python library, but this causes IDEs to be very confused
+# due to the resulting "invalid" import statements.  By catching the import error we allow IDEs to
+# work correctly, but only the first import statement is actually live code.
+try:
+    from boto_helpers import get_aws_object_names, get_configs_folder, set_default_region
+except ImportError:
+    from pipeline.boto_helpers import get_aws_object_names, get_configs_folder, set_default_region
 
 
 def run(repo_uri, ami_id):

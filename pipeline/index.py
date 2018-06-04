@@ -2,6 +2,7 @@ from database.study_models import Study
 from database.user_models import Researcher
 from libs.sentry import make_error_sentry
 
+# This component of pipeline is part of the Beiwe server, the correct import is 'from pipeline.xyz...'
 from pipeline.boto_helpers import get_aws_object_names, get_boto_client
 
 

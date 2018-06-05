@@ -1,8 +1,7 @@
 {
   "type": "EC2",
   "minvCpus": 0,
-  "desiredvCpus": 0,
+  "desiredvCpus": 2,
   "maxvCpus": 256,
-  "instanceTypes": ["m4"],
-  "subnets": ["subnet-e7c23d8e"]
+  "instanceTypes": ["m4"]
 }

@@ -45,6 +45,23 @@ def run(repo_uri, ami_id):
     instance_profile = aws_object_names['instance_profile']
     security_group = aws_object_names['security_group']
     
+    if "subnets" not in compute_environment_dict:
+        # "subnets": ["subnet-af1f02e6"]
+        ec2_client = boto3.client('ec2')
+        subnets = ec2_client.describe_subnets()['Subnets']
+        if len(set([y['VpcId'] for y in subnets])) != 1:
+            print "\n"
+            print "It looks like you have multiple VPCs in this region, which means this script"
+            print "cannot automatically determine the correct subnets on which to place"
+            print "the data pipeline compute servers."
+            print "You can resolve this by adding a line with the key 'subnets' like the following"
+            print "to the compute-environment.json file in the configs folder."
+            print """  "subnets": ["subnet-abc123"]"""
+            exit(1)
+        else:
+            # add a 1 item list containing a valid subnet
+            compute_environment_dict['subnets'] = [subnets[0]['SubnetId']]
+    
     # Create a new IAM role for the compute environment
     set_default_region()
     iam_client = boto3.client('iam')

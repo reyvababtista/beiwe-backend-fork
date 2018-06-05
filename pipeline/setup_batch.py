@@ -2,7 +2,7 @@
 A script for setting up an AWS environment to run the Beiwe Data Access Pipeline
 """
 
-from scripts import ami_script, docker_script, job_queue_script
+import ami_script, docker_script, job_queue_script
 
 
 if __name__ == '__main__':

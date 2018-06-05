@@ -3,7 +3,7 @@ A script to update the docker image in AWS. This exists because running docker_s
 causes import errors.
 """
 
-from scripts import docker_script
+import docker_script
 
 
 if __name__ == '__main__':

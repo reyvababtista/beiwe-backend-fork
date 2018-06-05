@@ -10,7 +10,7 @@ from time import sleep
 import boto3
 
 from script_helpers import set_default_region
-from ..configuration_getters import get_aws_object_names, get_configs_folder
+from configuration_getters import get_aws_object_names, get_configs_folder
 
 
 def run(repo_uri, ami_id):

@@ -1,7 +1,7 @@
 import subprocess
 
 # Do not modify this * import, this is how we solve all the pipeline/scripts folder's import problems
-from ..configuration_getters import custom_config_components
+from configuration_getters import custom_config_components
 
 
 def set_default_region():

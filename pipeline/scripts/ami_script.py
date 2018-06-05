@@ -77,8 +77,10 @@ def run():
         except ClientError:
             # In case the unencrypted AMI isn't ready yet
             tries += 1
-            if tries > 30:
+            if tries > 300:
                 raise
+            else:
+                print "waiting on unencrypted ami..."
             sleep(1)
         else:
             break
@@ -88,6 +90,6 @@ def run():
     # Delete the EC2 instance and the unencrypted AMI; only the encrypted AMI is useful
     # going forward.
     ec2_client.terminate_instances(InstanceIds=[ec2_instance_id])
-    ec2_client.deregister_image(ImageId=unencrypted_ami_id)
+    # ec2_client.deregister_image(ImageId=unencrypted_ami_id)
     
     return ami_id

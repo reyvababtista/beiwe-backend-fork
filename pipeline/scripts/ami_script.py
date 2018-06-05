@@ -9,13 +9,8 @@ from time import sleep
 import boto3
 from botocore.exceptions import ClientError
 
-# The pipeline folder functions is its own python library, but this causes IDEs to be very confused
-# due to the resulting "invalid" import statements.  By catching the import error we allow IDEs to
-# work correctly, but only the first import statement is actually live code.
-try:
-    from boto_helpers import get_aws_object_names, get_configs_folder, set_default_region
-except ImportError:
-    from pipeline.boto_helpers import get_aws_object_names, get_configs_folder, set_default_region
+from script_helpers import set_default_region
+from ..configuration_getters import get_configs_folder, get_aws_object_names
 
 def run():
     """

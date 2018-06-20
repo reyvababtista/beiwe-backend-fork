@@ -32,7 +32,7 @@ class Study(AbstractModel):
                                  help_text='ID used for naming S3 files')
 
     is_test = models.BooleanField(default=True)
-
+    
     @classmethod
     def create_with_object_id(cls, **kwargs):
         """
@@ -82,7 +82,12 @@ class Study(AbstractModel):
     def get_researchers(self):
         return Researcher.objects.filter(studies=self)
 
-
+    # We override the as_native_python function to not include the encryption key.
+    def as_native_python(self, remove_timestamps=True, remove_encryption_key=True):
+        ret = super(Study, self).as_native_python(remove_timestamps=remove_timestamps)
+        ret.pop("encryption_key")
+        return ret
+    
 class AbstractSurvey(AbstractModel):
     """ AbstractSurvey contains all fields that we want to have copied into a survey backup whenever
     it is updated. """

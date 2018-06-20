@@ -167,8 +167,9 @@ def get_data():
     else:
         get_these_files = handle_database_query(study.pk, query, registry=None)
     
-    # If the request is from the web form we need to include mime information
+    # If the request is from the web form we need to indicate that it is an attachment,
     # and don't want to create a registry file.
+    # Oddly, it is the presence of  mimetype=zip that causes the streaming response to actually stream.
     if 'web_form' in request.values:
         return Response(
             zip_generator(get_these_files, construct_registry=False),
@@ -176,7 +177,10 @@ def get_data():
             headers={'Content-Disposition': 'attachment; filename="data.zip"'}
         )
     else:
-        return Response(zip_generator(get_these_files, construct_registry=True))
+        return Response(
+                zip_generator(get_these_files, construct_registry=True),
+                mimetype="zip"
+        )
 
 
 # from libs.security import generate_random_string
@@ -215,6 +219,7 @@ def zip_generator(files_list, construct_registry=False):
                 duplicate_files.add((file_name, chunk['chunk_path']))
                 continue
             processed_files.add(file_name)
+            # print file_name
             zip_input.writestr(file_name, file_contents)
             # These can be large, and we don't want them sticking around in memory as we wait for the yield
             del file_contents, chunk
@@ -371,13 +376,12 @@ def handle_database_query(study_id, query, registry=None):
                     "participant__patient_id", "study_id", "survey_id", "survey__object_id"]
 
     chunks = ChunkRegistry.get_chunks_time_range(study_id, **query)
-
+    
     if not registry:
         return chunks.values(*chunk_fields)
-
+    
     # If there is a registry, we need to filter the chunks
     else:
-        # AJK TODO make sure this works well
         # Get all chunks whose path and hash are both in the registry
         possible_registered_chunks = (
             chunks
@@ -385,14 +389,14 @@ def handle_database_query(study_id, query, registry=None):
             .values('pk', 'chunk_path', 'chunk_hash')
         )
         
-        # Select only those chunks that actually are in the registry
-        registered_chunk_pks = [c['pk']
-                                for c in possible_registered_chunks
-                                if registry[c['chunk_path']] == c['chunk_hash']]
+        # determine those chunks that we do not want present in the download
+        # (get a list of pks that have hashes that don't match the database)
+        registered_chunk_pks = [
+            c['pk'] for c in possible_registered_chunks if registry[c['chunk_path']] == c['chunk_hash']
+        ]
         
-        # Return a QuerySet of the chunks that aren't in the registry
+        # add the exclude and return the queryset
         unregistered_chunks = chunks.exclude(pk__in=registered_chunk_pks)
-        
         return unregistered_chunks.values(*chunk_fields)
 
 

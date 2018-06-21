@@ -259,8 +259,10 @@ def parse_registry(reg_dat):
     """ Parses the provided registry.dat file and returns a dictionary of chunk
     file names and hashes.  (The registry file is just a json dictionary containing
     a list of file names and hashes.) """
-    ret = json.loads(reg_dat)
-    print type(ret)
+    try:
+        ret = json.loads(reg_dat)
+    except ValueError:
+        return abort(400)
     if not isinstance(ret, dict):
         return abort(400)
     return ret

@@ -42,8 +42,11 @@ def update_survey(survey_id=None):
         survey = Survey.objects.get(pk=survey_id)
     except Survey.DoesNotExist:
         return abort(404)
-    
-    content = json.loads(request.values['content'])
+
+    # BUG: There is an unknown situation where the frontend sends a string requiring an extra
+    # deserialization operation, causing 'content' to be a string containing a json string
+    # containing a json list, instead of just a string containing a json list.
+    content = recursive_survey_content_json_decode(request.values['content'])
     content = make_slider_min_max_values_strings(content)
     
     if survey.survey_type == Survey.TRACKING_SURVEY:
@@ -58,6 +61,18 @@ def update_survey(survey_id=None):
     survey.update(content=content, timings=timings, settings=settings)
     
     return make_response("", 201)
+
+
+def recursive_survey_content_json_decode(json_entity):
+    """ Decodes through up to 100 attempts a json entity until it has deserialized to a list. """
+    count = 100
+    decoded_json = None
+    while not isinstance(decoded_json, list):
+        count -= 1
+        if count < 0:
+            raise Exception("could not decode json entity to list")
+        decoded_json = json.loads(json_entity)
+    return decoded_json
 
 
 def make_slider_min_max_values_strings(json_content):

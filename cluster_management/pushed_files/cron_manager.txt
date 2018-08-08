@@ -22,6 +22,7 @@
 # m h  dom mon dow   command
 
 PATH=/home/ubuntu/.pyenv/shims:/usr/bin:/bin
+PROJECT_PATH="/home/ubuntu/beiwe-backend/services"
 
 # Note: we actually run the"five_minutes" cron job every 15 minutes.
 

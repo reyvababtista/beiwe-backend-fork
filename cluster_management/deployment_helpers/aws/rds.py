@@ -137,6 +137,7 @@ def get_most_recent_postgres_engine():
     for engine in reversed(rds_client.describe_db_engine_versions()['DBEngineVersions']):
         if 'postgres' == engine["Engine"]:
             return engine
+    raise Exception("Could not find most recent postgres version.")
 
 
 def get_db_info(eb_environment_name):

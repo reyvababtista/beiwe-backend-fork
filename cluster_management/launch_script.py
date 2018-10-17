@@ -45,9 +45,9 @@ from deployment_helpers.constants import (
     get_global_config, get_pushed_full_processing_server_env_file_path,
     get_server_configuration_file, get_server_configuration_file_path, HELP_SETUP_NEW_ENVIRONMENT,
     LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
-    LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_GIT_KEY_PATH,
+    LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH,
     LOCAL_INSTALL_CELERY_WORKER, LOCAL_PYENV_INSTALLER_FILE, LOG_FILE, PUSHED_FILES_FOLDER,
-    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_GIT_KEY_PATH, REMOTE_HOME_DIR,
+    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_HOME_DIR,
     REMOTE_INSTALL_CELERY_WORKER, REMOTE_PYENV_INSTALLER_FILE, REMOTE_USERNAME, STAGED_FILES,
     USER_SPECIFIC_CONFIG_FOLDER)
 from deployment_helpers.general_utils import log, EXIT, current_time_string, do_zip_reduction, retry
@@ -100,14 +100,10 @@ def push_files():
 
 def load_git_repo():
     """ Get a local copy of the git repository """
-    # Grab the read-only key from the local repository
-    put(LOCAL_GIT_KEY_PATH, REMOTE_GIT_KEY_PATH)
-    run('chmod 600 {key_path}'.format(key_path=REMOTE_GIT_KEY_PATH))
-    
     # Git clone the repository into the remote beiwe-backend folder
     # Note that here stderr is redirected to the log file, because git clone prints
     # to stderr rather than stdout.
-    run('cd {home}; git clone git@github.com:onnela-lab/beiwe-backend.git 2>> {log}'
+    run('cd {home}; git clone https://github.com/onnela-lab/beiwe-backend.git 2>> {log}'
         .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
     
     # Make sure the code is on the right branch

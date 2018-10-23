@@ -34,8 +34,9 @@ def _do_retrieve(bucket_name, key_path, number_retries=DEFAULT_S3_RETRIES):
         return conn.get_object(Bucket=bucket_name, Key=key_path, ResponseContentType='string')
     except Exception:
         if number_retries > 0:
-            print("s3_retrieve failed with incomplete read, retrying on %s" % key_path)
+            print("s3_retrieve failed, retrying on %s" % key_path)
             return _do_retrieve(bucket_name, key_path, number_retries=number_retries - 1)
+        
         raise
 
 

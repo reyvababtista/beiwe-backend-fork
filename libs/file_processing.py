@@ -501,18 +501,17 @@ def fix_app_log_file(file_contents, file_path):
             int(row_elements[0]) #grab first element, check if it is a valid int
             new_rows.append(row_elements)
         except ValueError as e:
-            if ("Device does not" == row[:15] or
-                "Trying to start Accelerometer" == row[:29] ):
-                #use time stamp from previous row
-                new_rows.append(new_rows[-1][0] + row)
-                continue
             if ("bluetooth Failure" == row[:17] or
                 "our not-quite-race-condition" == row[:28] or
                 "accelSensorManager" in row[:18] or #this actually covers 2 cases
                 "a sessionactivity tried to clear the" == row[:36] ):
                 #Just drop matches to the above lines
                 continue
-            raise
+            else:
+                # previously this was a whitelist:
+                # if "Device does not" == row[:15] or "Trying to start Accelerometer" == row[:29]
+                new_rows.append(new_rows[-1][0] + row)
+                continue
     return "timestamp, event\n" + "\n".join(",".join(row) for row in new_rows)
 
 """###################################### CSV Utils ##################################"""

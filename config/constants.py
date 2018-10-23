@@ -11,7 +11,7 @@ from config.settings import DOMAIN_NAME
 
 ## Networking
 #This value is used in libs.s3, does what it says.
-DEFAULT_S3_RETRIES = getenv("DEFAULT_S3_RETRIES") or 1
+DEFAULT_S3_RETRIES = getenv("DEFAULT_S3_RETRIES") or 3
 
 ## File processing directives
 #NOTE: these numbers were determined through trial and error on a C4 Large AWS instance.

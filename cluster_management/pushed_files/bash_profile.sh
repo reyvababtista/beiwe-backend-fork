@@ -151,5 +151,5 @@ PS1="$GREEN\u$NO_COLOUR:\w$YELLOW\$(parse_git_branch)$NO_COLOUR\$ "
 
 
 #add pyenv folders to PATH to enable using pyenv
-export PATH="/home/ubuntu/.pyenv/bin:$PATH"
-eval "$(pyenv init -)"
+#export PATH="/home/ubuntu/.pyenv/bin:$PATH"
+#eval "$(pyenv init -)"

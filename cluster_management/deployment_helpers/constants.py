@@ -11,6 +11,7 @@ REMOTE_USERNAME = 'ubuntu'
 # Note: port 50,001 is used for supervisord
 RABBIT_MQ_PORT = 50000
 
+
 ## EC2 Instance Deployment Variables
 APT_WORKER_INSTALLS = [
     'ack-grep',  # Search within files
@@ -25,6 +26,8 @@ APT_WORKER_INSTALLS = [
     'nload',
     'sendmail',  # Necessary for cronutils
     'silversearcher-ag',  # Search within files
+    'python',
+    'python-pip',
 ]
 
 APT_MANAGER_INSTALLS = copy(APT_WORKER_INSTALLS)
@@ -38,7 +41,6 @@ APT_SINGLE_SERVER_AMI_INSTALLS.extend([
     'postgresql',
     'postgresql-contrib',
     'sysv-rc-conf',
-    'python-pip',
 ])
 
 # Files to push from the local server before the rest of launch
@@ -143,6 +145,10 @@ REMOTE_INSTALL_CELERY_WORKER = path_join(REMOTE_HOME_DIR, 'install_celery_worker
 LOCAL_AMI_ENV_CONFIG_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'ami_env_config.py')
 LOCAL_APACHE_CONFIG_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'ami_apache.conf')
 REMOTE_APACHE_CONFIG_FILE_PATH = path_join(REMOTE_HOME_DIR, 'ami_apache.conf')
+LOCAL_RABBIT_MQ_CONFIG_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'rabbitmq_configuration.txt')
+REMOTE_RABBIT_MQ_CONFIG_FILE_PATH = path_join(REMOTE_HOME_DIR, 'rabbitmq_configuration.txt')
+REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH = path_join('/etc/rabbitmq/rabbitmq-env.conf')
+RABBIT_MQ_PASSWORD_FILE = CLUSTER_MANAGEMENT_FOLDER + 'rabbit_mq_password.txt'
 
 ####################################################################################################
 ####################################### Dynamic Files ##############################################

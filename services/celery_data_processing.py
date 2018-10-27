@@ -32,7 +32,7 @@ except IOError:
     print "could not load the manager ip file, defaulting to 127.0.0.1 in guest mode."
     celery_app = Celery(
             "data_processing_tasks",
-            broker='pyamqp://gues@127.0.0.1//',
+            broker='pyamqp://guest@127.0.0.1//',
             backend='rpc://',
             task_publish_retry=False,
             task_track_started=True

@@ -22,7 +22,7 @@ The Beiwe backend is the AWS-based source code for collecting data, managing stu
 
 The data analysis pipeline infrastructure has not been fully tested at this time but is included in this repo.  It is designed to create containers to run specific code from the data analysis pipeline repo on specified studies and is completely configurable to your particular research.
 
-For documentation on the Beiwe back-end and building your own backend server, [start here](https://github.com/onnela-lab/beiwe-backend/wiki).  
+For documentation on the Beiwe back-end and building your own backend server, [start here](https://github.com/onnela-lab/beiwe-backend/wiki/Deployment-instructions).  
 
 For user documentation on Beiwe,  [start here](https://github.com/onnela-lab/beiwe/wiki).  
 ## [beiwe-android](https://github.com/onnela-lab/beiwe-android)

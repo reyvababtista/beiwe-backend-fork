@@ -258,6 +258,14 @@
                     <input id="seconds_before_auto_logout" name="seconds_before_auto_logout" class="form-control" type="number" placeholder="Enter duration here (seconds)" value="{{ settings['seconds_before_auto_logout'] }}" {{ "disabled" if readonly }}>
                 </div>
             </div>
+            <div class="form-group">
+                <label for="use_gps_fuzzing" class="col-xs-8 control-label">Fuzz/anonymize GPS data:<br>(make every phone generate a random latitude offset and a random longitude offset, and add those constant offsets to the recorded GPS coordinates)</label>
+                <div class="col-xs-4 checkbox checkbox-custom">
+                    <label>
+                        <input name="use_gps_fuzzing" id="use_gps_fuzzing" type="checkbox" {{ "checked" if settings["use_gps_fuzzing"] }} {{ "disabled" if readonly }}/>
+                    </label>
+                </div>
+            </div>
         </div>
     </div>
     <div class="row">

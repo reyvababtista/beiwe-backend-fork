@@ -1,8 +1,11 @@
 # We need to execute this file directly, so we always run the import hack
-from os.path import abspath as _abspath
 import imp as _imp
+from os.path import abspath as _abspath
+
 _current_folder_init = _abspath(__file__).rsplit('/', 1)[0] + "/__init__.py"
 _imp.load_source("__init__", _current_folder_init)
+
+from config import load_django
 
 from kombu.exceptions import OperationalError
 from celery import Celery, states
@@ -14,19 +17,28 @@ FAILED = [states.REVOKED, states.RETRY, states.FAILURE]
 
 try:
     with open("/home/ubuntu/manager_ip", 'r') as f:
-        manager_ip = f.read()
-except IOError:
-    print "could not load the manager ip file, defaulting to 127.0.0.1"
-    manager_ip = "127.0.0.1"
+        manager_info = f.read()
+    manager_ip, password = manager_info.splitlines()
+    celery_app = Celery(
+            "data_processing_tasks",
+            # note that the 2nd trailing slash here is actually required and
+            broker='pyamqp://beiwe:%s@%s//' % (password, manager_ip),
+            backend='rpc://',
+            task_publish_retry=False,
+            task_track_started=True
+    )
 
-celery_app = Celery("data_processing_tasks",
-                    broker='pyamqp://guest@%s//' % manager_ip,
-                    backend='rpc://',
-                    task_publish_retry=False,
-                    task_track_started=True )
+except IOError:
+    print "could not load the manager ip file, defaulting to 127.0.0.1 in guest mode."
+    celery_app = Celery(
+            "data_processing_tasks",
+            broker='pyamqp://guest@127.0.0.1//',
+            backend='rpc://',
+            task_publish_retry=False,
+            task_track_started=True
+    )
 
 # Load Django
-from config import load_django
 
 ################################################################################
 ############################# Data Processing ##################################

@@ -40,28 +40,45 @@ def get_manager_public_ip(eb_environment_name):
 
 
 def get_manager_instance_by_eb_environment_name(eb_environment_name):
-    manager = get_instances_by_name(PROCESSING_MANAGER_NAME % eb_environment_name)
-    if len(manager) > 1:
-        log.error("discovered multiple manager servers.  This configuration is not supported and should be corrected.")
-    try:
-        return manager[0]
-    except IndexError:
+    """ Get a manager dictionary of the currently running manager server. """
+    managers = get_instances_by_name(PROCESSING_MANAGER_NAME % eb_environment_name)
+    
+    if len(managers) > 1:
+        msg = "Discovered multiple manager servers. This configuration is not supported and should be corrected."
+        log.error(msg)
+        raise Exception(msg)
+    
+    if managers:
+        return managers[0]
+    else:
+        log.warning("No manager found.")
         return None
 
 
 def get_instances_by_name(instance_name):
     """ thank you to https://rob.salmond.ca/filtering-instances-by-name-with-boto3/ for having
-    sufficient SEO to be a googleable answer on how to even do this. """
-    ret = create_ec2_client().describe_instances(
+    sufficient SEO to be a googleable answer on how to even do this.
+    And then this stack overflow for how to query by instances that are running:
+    https://stackoverflow.com/questions/37293366/what-is-the-correct-ways-to-write-boto3-filters-to-use-customise-tag-name
+    """
+    reservations = create_ec2_client().describe_instances(
             Filters=[
                 {'Name': 'tag:Name',
-                 'Values': [instance_name]}]
-          )
-    try:
-        return ret['Reservations'][0]["Instances"]
-    except IndexError:
-        log.warn("could not find any instances matching the name '%s'" % instance_name)
-        return []
+                 'Values': [instance_name]},
+                {'Name': 'instance-state-name',
+                 'Values': ['running']},
+            ]
+    )['Reservations']
+    
+    # need to concatenate all instances from every "reservation", whatever that is.
+    instances = []
+    for reservation in reservations:
+        instances.extend(reservation['Instances'])
+    
+    if not instances:
+        log.error("Could not find any instances matching the name '%s'" % instance_name)
+        
+    return instances
 
 ####################################################################################################
 ######################################### Utilities ################################################
@@ -218,7 +235,7 @@ def create_processing_control_server(eb_environment_name, aws_server_type):
     # TODO: functions that terminate all worker and all manager servers for an environment
     
     manager_info = get_manager_instance_by_eb_environment_name(eb_environment_name)
-    if manager_info is not None and manager_info['State']['Name'] != 'terminated':
+    if manager_info is not None:
         if manager_info['InstanceType'] == aws_server_type:
             msg = "A manager server, %s, already exists for this environment, and it is of the provided type (%s)." % (manager_info['InstanceId'], aws_server_type)
         else:

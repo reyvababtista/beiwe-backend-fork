@@ -2,14 +2,14 @@ import json
 import os
 from time import sleep
 
-from deployment_helpers.aws.boto_helpers import create_rds_client, create_ec2_resource
-from deployment_helpers.aws.security_groups import (create_security_group,
+from deployment_helpers.aws.boto_helpers import create_ec2_resource, create_rds_client
+from deployment_helpers.aws.security_groups import (
     create_sec_grp_rule_parameters_allowing_traffic_from_another_security_group,
-    get_security_group_by_name)
+    create_security_group, get_security_group_by_name)
 from deployment_helpers.constants import (DBInstanceNotFound, get_db_credentials_file_path,
     get_server_configuration_file)
-from deployment_helpers.general_utils import (random_alphanumeric_starting_with_letter, log,
-    current_time_string, EXIT, random_alphanumeric_string)
+from deployment_helpers.general_utils import (EXIT, current_time_string, log,
+    random_alphanumeric_starting_with_letter, random_alphanumeric_string)
 
 # t1.micro, m1.small, m1.medium, m1.large, m1.xlarge, m2.xlarge, m2.2xlarge, m2.4xlarge,
 # m3.medium, m3.large, m3.xlarge, m3.2xlarge, m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge,
@@ -133,11 +133,28 @@ def add_eb_environment_to_rds_database_security_group(eb_environment_name, eb_se
 ####################################################################################################
 
 def get_most_recent_postgres_engine():
+    """ The database version query will be paginated (at time of writing providing the Engine
+    parameter lists 30 items in the region) if the environment contains more than 100 database
+    versions available.  Annoyingly, the most recent version of postgres is the last item in the
+    paginated returns.
+    (The pagination code was tested by not filtering by engine type and worked when committed.) """
     rds_client = create_rds_client()
-    for engine in reversed(rds_client.describe_db_engine_versions()['DBEngineVersions']):
-        if 'postgres' == engine["Engine"]:
-            return engine
-    raise Exception("Could not find most recent postgres version.")
+    query_response = rds_client.describe_db_engine_versions(Engine="postgres")
+    
+    list_of_database_versions = []
+    list_of_database_versions.extend(query_response['DBEngineVersions'])
+    
+    while 'Marker' in query_response:
+        query_response = rds_client.describe_db_engine_versions(
+                Marker=query_response['Marker'], Engine="postgres"
+        )
+        list_of_database_versions.extend(query_response['DBEngineVersions'])
+        
+    if not list_of_database_versions:
+        raise Exception("Could not find most recent postgres version.")
+    
+    return list_of_database_versions[-1]
+    
 
 
 def get_db_info(eb_environment_name):

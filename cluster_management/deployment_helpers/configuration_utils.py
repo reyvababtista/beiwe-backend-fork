@@ -13,7 +13,7 @@ from deployment_helpers.constants import (AWS_CREDENTIALS_FILE, get_global_confi
     get_pushed_full_processing_server_env_file_path, get_beiwe_environment_variables,
     get_beiwe_python_environment_variables_file_path, get_finalized_credentials_file_path,
     get_finalized_environment_variables, GLOBAL_CONFIGURATION_FILE_KEYS, AWS_CREDENTIALS_FILE_KEYS,
-    get_server_configuration_file, get_server_configuration_file_path)
+    get_server_configuration_file, get_server_configuration_file_path, RABBIT_MQ_PASSWORD_FILE)
 from deployment_helpers.general_utils import log, random_alphanumeric_string, EXIT
 
 # Sentry changed their default DSN formatting in early 2018, we test for the old and the new.
@@ -225,3 +225,12 @@ def create_processing_server_configuration_file(eb_environment_name):
     string_to_write = '\n'.join(list_to_write) + '\n'
     with open(get_pushed_full_processing_server_env_file_path(eb_environment_name), 'w') as fn:
         fn.write(string_to_write)
+
+
+def create_rabbit_mq_password():
+    with open(RABBIT_MQ_PASSWORD_FILE, 'w') as f:
+        f.write(random_alphanumeric_string(20))
+
+def get_rabbit_mq_password():
+    with open(RABBIT_MQ_PASSWORD_FILE, 'r') as f:
+        return f.read()

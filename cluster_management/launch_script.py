@@ -22,6 +22,7 @@ import os
 import re
 import sys
 from os.path import relpath, join as path_join
+from time import sleep
 
 from fabric.api import put, run, sudo, env as fabric_env
 
@@ -36,7 +37,7 @@ from deployment_helpers.configuration_utils import (
     are_aws_credentials_present, is_global_configuration_valid,
     reference_environment_configuration_file, reference_data_processing_server_configuration,
     validate_beiwe_environment_config, create_finalized_configuration,
-    create_processing_server_configuration_file)
+    create_processing_server_configuration_file, create_rabbit_mq_password, get_rabbit_mq_password)
 from deployment_helpers.constants import (
     APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS, APT_WORKER_INSTALLS,
     DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH, DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN,
@@ -45,11 +46,12 @@ from deployment_helpers.constants import (
     get_global_config, get_pushed_full_processing_server_env_file_path,
     get_server_configuration_file, get_server_configuration_file_path, HELP_SETUP_NEW_ENVIRONMENT,
     LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
-    LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_GIT_KEY_PATH,
+    LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH,
     LOCAL_INSTALL_CELERY_WORKER, LOCAL_PYENV_INSTALLER_FILE, LOG_FILE, PUSHED_FILES_FOLDER,
-    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_GIT_KEY_PATH, REMOTE_HOME_DIR,
+    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_HOME_DIR,
     REMOTE_INSTALL_CELERY_WORKER, REMOTE_PYENV_INSTALLER_FILE, REMOTE_USERNAME, STAGED_FILES,
-    USER_SPECIFIC_CONFIG_FOLDER)
+    USER_SPECIFIC_CONFIG_FOLDER, RABBIT_MQ_PORT, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH,
+    REMOTE_RABBIT_MQ_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH)
 from deployment_helpers.general_utils import log, EXIT, current_time_string, do_zip_reduction, retry
 
 
@@ -84,11 +86,17 @@ def remove_unneeded_ssh_keys():
     sudo("shred -u /etc/ssh/*_key /etc/ssh/*_key.pub")
 
 
-def push_manager_private_ip(eb_environment_name):
-    ip = get_manager_private_ip(eb_environment_name)
-    command = "printf {ip} > {manager_ip}".format(ip=ip,
-                                                  manager_ip=path_join(REMOTE_HOME_DIR, "manager_ip"))
-    run(command)
+def push_manager_private_ip_and_password(eb_environment_name):
+    ip = get_manager_private_ip(eb_environment_name) + ":" + str(RABBIT_MQ_PORT)
+    password = get_rabbit_mq_password()
+    filename = path_join(REMOTE_HOME_DIR, "manager_ip")
+    # echo puts a new line at the end of the output
+    run("echo {text} > {filename}".format(text=ip, filename=filename))
+    run("printf {text} >> {filename}".format(text=password, filename=filename))
+    # command = "printf {text} > {filename}".format(
+    #         text=ip + "\n" + password,
+    #         filename=path_join(REMOTE_HOME_DIR, "manager_ip"))
+    # run(command)
     
     
 def push_files():
@@ -100,28 +108,24 @@ def push_files():
 
 def load_git_repo():
     """ Get a local copy of the git repository """
-    # Grab the read-only key from the local repository
-    put(LOCAL_GIT_KEY_PATH, REMOTE_GIT_KEY_PATH)
-    run('chmod 600 {key_path}'.format(key_path=REMOTE_GIT_KEY_PATH))
-    
     # Git clone the repository into the remote beiwe-backend folder
     # Note that here stderr is redirected to the log file, because git clone prints
     # to stderr rather than stdout.
-    run('cd {home}; git clone git@github.com:onnela-lab/beiwe-backend.git 2>> {log}'
+    run('cd {home}; git clone https://github.com/onnela-lab/beiwe-backend.git 2>> {log}'
         .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
     
     # Make sure the code is on the right branch
     # git checkout prints to both stderr *and* stdout, so redirect them both to the log file
-    # FIXME: for local testing this uses the django branch
-    run('cd {home}/beiwe-backend; git checkout development 1>> {log} 2>> {log}'
+    run('cd {home}/beiwe-backend; git checkout master 1>> {log} 2>> {log}'
         .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
 
 
-def setup_python(using_pyenv=True):
+def setup_python(using_pyenv=False):
     """
     Install pyenv as well as the latest version of Python 2, accessible
     via REMOTE_HOME_DIR/.pyenv/shims/python.
     """
+    # using pyenv is deprecated, this section will be deleted.
     if using_pyenv:
         # Copy the installation script from the local repository onto the remote server,
         # make it executable and execute it.
@@ -149,7 +153,8 @@ def setup_python(using_pyenv=True):
         run('{shims}/pip install -r {home}/beiwe-backend/Requirements.txt >> {log}'
             .format(home=REMOTE_HOME_DIR, log=LOG_FILE, shims=pyenv_shims_dir))
     else:
-        run('pip install -r {home}/beiwe-backend/Requirements.txt >> {log}'
+        sudo("pip install --upgrade pip")
+        sudo('pip install -r {home}/beiwe-backend/Requirements.txt >> {log}'
             .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
 
 
@@ -173,12 +178,27 @@ def setup_manager_cron():
     run('crontab -u {user} {file}'.format(file=REMOTE_CRONJOB_FILE_PATH, user=REMOTE_USERNAME))
 
 
+def setup_rabbitmq():
+    # push the conviguration file so that it listens on the configured port
+    put(LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH)
+    sudo("cp {source} {dest}".format(
+            source=REMOTE_RABBIT_MQ_CONFIG_FILE_PATH, dest=REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH
+    ))
+    
+    # setup a new password
+    create_rabbit_mq_password()
+    sudo("rabbitmqctl add_user beiwe {password}".format(password=get_rabbit_mq_password()))
+    sudo('rabbitmqctl set_permissions -p / beiwe ".*" ".*" ".*"')
+    sudo("service rabbitmq-server restart")
+    
+
 def setup_single_server_ami_cron():
     put(LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, REMOTE_CRONJOB_FILE_PATH)
     run('crontab -u {user} {file}'.format(file=REMOTE_CRONJOB_FILE_PATH, user=REMOTE_USERNAME))
 
 
 def apt_installs(manager=False, single_server_ami=False):
+    
     if manager:
         apt_install_list = APT_MANAGER_INSTALLS
     elif single_server_ami:
@@ -187,9 +207,27 @@ def apt_installs(manager=False, single_server_ami=False):
         apt_install_list = APT_WORKER_INSTALLS
     installs_string = " ".join(apt_install_list)
     
-    sudo('apt-get -y update >> {log}'.format(log=LOG_FILE))
-    sudo('apt-get -y install {installs} >> {log}'.format(installs=installs_string, log=LOG_FILE))
-
+    # Sometimes (usually on slower servers) the remote server isn't done with initial setup when
+    # we get to this step, so it has a bunch of retry logic.
+    installs_failed = True
+    warning_printed = False
+    for i in range(10):
+        try:
+            sudo('apt-get -y update >> {log}'.format(log=LOG_FILE))
+            sudo('apt-get -y install {installs} >> {log}'.format(installs=installs_string, log=LOG_FILE))
+            installs_failed = False
+            break
+        except FabricExecutionError:
+            if not warning_printed:
+                log.warning(
+                        "WARNING: encountered problems when trying to run apt installs.\n"
+                        "Usually this means the server is running a software upgrade in the background.\n"
+                        "Will try 10 times, waiting 5 seconds each time."
+                )
+            sleep(5)
+    
+    if installs_failed:
+        raise Exception("Could not install software on remote machine.")
 
 def push_beiwe_configuration(eb_environment_name, single_server_ami=False):
     # single server ami gets the demmy environment file, cluster gets the customized one.
@@ -365,14 +403,14 @@ def do_create_manager():
         EXIT(1)
     public_ip = instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
     
-    # TODO: fabric up the rabbitmq and cron task, ensure other servers can connect, watch data process
     configure_fabric(name, public_ip)
     push_files()
     apt_installs(manager=True)
+    setup_rabbitmq()
     load_git_repo()
     setup_python()
     push_beiwe_configuration(name)
-    push_manager_private_ip(name)
+    push_manager_private_ip_and_password(name)
     setup_manager_cron()
 
 
@@ -380,7 +418,7 @@ def do_create_worker():
     name = prompt_for_extant_eb_environment_name()
     do_fail_if_environment_does_not_exist(name)
     manager_instance = get_manager_instance_by_eb_environment_name(name)
-    if manager_instance is None or manager_instance['State']['Name'] != 'running':
+    if manager_instance is None:
         log.error(
             "There is no manager server for the %s cluster, cannot deploy a worker until there is." % name)
         EXIT(1)
@@ -410,7 +448,7 @@ def do_create_worker():
     load_git_repo()
     setup_python()
     push_beiwe_configuration(name)
-    push_manager_private_ip(name)
+    push_manager_private_ip_and_password(name)
     setup_celery_worker()
     setup_worker_cron()
 

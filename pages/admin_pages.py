@@ -45,6 +45,10 @@ def view_study(study_id=None):
     image_survey_ids = study.get_survey_ids_and_object_ids_for_study('image_survey')
     participants = study.participants.all()
 
+    study_fields = list(study.fields.all().values_list('field_name', flat=True))
+    for p in participants:
+        p.values_dict = {tag.field.field_name: tag.value for tag in p.field_values.all()}
+
     return render_template(
         'view_study.html',
         study=study,
@@ -53,7 +57,8 @@ def view_study(study_id=None):
         image_survey_ids=image_survey_ids,
         tracking_survey_ids=tracking_survey_ids,
         allowed_studies=get_admins_allowed_studies(),
-        system_admin=admin_is_system_admin()
+        system_admin=admin_is_system_admin(),
+        study_fields=study_fields,
     )
 
 

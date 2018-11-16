@@ -2,12 +2,13 @@ import json
 from collections import defaultdict
 
 from django.core.exceptions import ValidationError
+from django.db.models.deletion import ProtectedError
 from flask import (abort, Blueprint, flash, redirect, render_template, request,
     session)
 
 from config.constants import CHECKBOX_TOGGLES, TIMER_VALUES
-from database.study_models import Study
-from database.user_models import Researcher
+from database.study_models import Study, StudyField
+from database.user_models import Researcher, Participant, ParticipantFieldValue
 from libs.admin_authentication import (authenticate_system_admin,
     get_admins_allowed_studies, admin_is_system_admin,
     authenticate_admin_study_access)
@@ -103,6 +104,75 @@ def edit_study(study_id=None):
         system_admin=admin_is_system_admin(),
         redirect_url='/edit_study/{:s}'.format(study_id),
     )
+
+
+@system_admin_pages.route('/study_tags/<string:study_id>', methods=['GET', 'POST'])
+@authenticate_system_admin
+def study_tags(study_id=None):
+    study = Study.objects.get(pk=study_id)
+
+    if request.method == 'GET':
+        return render_template(
+            'study_tags.html',
+            study=study,
+            fields=study.fields.all(),
+            allowed_studies=get_admins_allowed_studies(),
+        )
+
+    new_field = request.values.get('new_field', None)
+    if new_field:
+        StudyField.objects.get_or_create(study=study, field_name=new_field)
+
+    return redirect('/study_tags/{:d}'.format(study.id))
+
+
+@system_admin_pages.route('/delete_field/<string:study_id>', methods=['POST'])
+@authenticate_system_admin
+def delete_field(study_id=None):
+    study = Study.objects.get(pk=study_id)
+
+    field = request.values.get('field', None)
+    if field:
+        try:
+            study_field = StudyField.objects.get(study=study, field_name=field)
+        except StudyField.DoesNotExist:
+            study_field = None
+
+        try:
+            if study_field:
+                study_field.delete()
+        except ProtectedError:
+            flash("This field can not be removed because it is already in use", 'danger')
+
+    return redirect('/study_tags/{:d}'.format(study.id))
+
+
+@system_admin_pages.route('/patient_fields/<string:patient_id>', methods=['GET', 'POST'])
+@authenticate_system_admin
+def patient_fields(patient_id=None):
+    try:
+        patient = Participant.objects.get(pk=patient_id)
+    except Participant.DoesNotExist:
+        return abort(404)
+
+    patient.values_dict = {tag.field.field_name: tag.value for tag in patient.field_values.all()}
+    study = patient.study
+    if request.method == 'GET':
+        return render_template(
+            'patient_fields.html',
+            fields=study.fields.all(),
+            study=study,
+            patient=patient,
+        )
+
+    fields = list(study.fields.values_list('field_name', flat=True))
+    for key, value in request.values.iteritems():
+        if key in fields:
+            pfv, created = ParticipantFieldValue.objects.get_or_create(participant=patient, field=StudyField.objects.get(study=study, field_name=key))
+            pfv.value = value
+            pfv.save()
+
+    return redirect('/view_study/{:d}'.format(study.id))
 
 
 @system_admin_pages.route('/create_study', methods=['GET', 'POST'])

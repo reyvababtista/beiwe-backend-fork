@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+    <ol class="breadcrumb">
+        <li>
+            <a href="/view_study/{{ study.id }}">{{ study.name }}</a>
+        </li>
+        <li class="active">
+            Edit User Tags
+        </li>
+    </ol>
+
+    <div class="row">
+        <h2>Edit User Tags</h2>
+    </div>
+
+    <div class="row form-horizontal">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Tag</th>
+                    <th>Remove Tag</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for field in fields %}
+                <tr>
+                    <td>
+                        {{ field.field_name }}
+                    </td>
+                    <td>
+                        <form action="/delete_field/{{ study.id }}" method="POST">
+                        <input type="hidden" name="study_id" value="{{ study.id }}">
+                        <input type="hidden" name="field" value="{{ field.field_name }}">
+                        <button type="submit" class="btn btn-warning btn-sm">Remove Tag</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <br>
+        <form action="/study_tags/{{ study.id }}" method="POST">
+            <input type="hidden" name="study_id" value="{{ study.id }}">
+            <label>Add New Tag</label>
+            <input type="text" class="form-control" name="new_field" />
+            <button type="submit" class="btn btn-warning btn-sm">Add New Tag</button>
+        </form>
+
+    </div>
+
+{% endblock %}

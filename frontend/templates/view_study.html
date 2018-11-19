@@ -32,7 +32,7 @@
               <th>Phone registered</th>
               <th>Phone OS</th>
               <th>Reset password</th>
-              {% for field in study_fields %}
+              {% for field in study_fields | sort(case_sensitive=False) %}
                   <th>{{ field }}</th>
               {% endfor %}
             </tr>
@@ -73,7 +73,7 @@
                     </div>
                   </form>
                 </td>
-                {% for field in study_fields %}
+                {% for field in study_fields | sort(case_sensitive=False) %}
                   <td class="custom-field-value">
                       <a href="/view_study/{{ study.pk }}/patient_fields/{{ patient.pk }}" title="Edit this value">
                           <span class="custom-field-edit-link glyphicon glyphicon-pencil"></span>
@@ -164,7 +164,7 @@
 
       {% if system_admin == True %}
         <div class="row">
-          <h3>Available Custom Fields</h3>
+          <h3>Custom Fields</h3>
           <p><a href="/study_fields/{{ study['id'] }}">View the custom fields available for this study</a></p>
         </div>
       {% endif %}

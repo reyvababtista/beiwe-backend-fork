@@ -42,7 +42,10 @@ function confirm_delete_study(study_name, study_id) {
 /* Pop up a confirmation dialog and only delete the custom field if the user types an EXACT string */
 function confirm_delete_custom_field(field_name, field_id, study_id) {
     var required_matching_text = "Yes, I want to delete " + field_name;
-    var prompt_message = "Are you ABSOLUTELY SURE that you want to delete the custom field " + field_name +"?\nIf you're DEAD CERTAIN, type '" + required_matching_text + "' in the box here:";
+    var prompt_message = ("Are you ABSOLUTELY SURE that you want to delete the custom field " +
+                          field_name +" from this study?\nThis will also delete all data " +
+                          "in that custom field on this study.\nIf you're DEAD CERTAIN, type '" +
+                          required_matching_text + "' in the box here:");
     var confirmation_prompt = prompt(prompt_message);
     if (confirmation_prompt == required_matching_text) {
         $.ajax({

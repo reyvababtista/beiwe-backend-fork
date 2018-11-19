@@ -106,14 +106,14 @@ def edit_study(study_id=None):
     )
 
 
-@system_admin_pages.route('/study_tags/<string:study_id>', methods=['GET', 'POST'])
+@system_admin_pages.route('/study_fields/<string:study_id>', methods=['GET', 'POST'])
 @authenticate_system_admin
-def study_tags(study_id=None):
+def study_fields(study_id=None):
     study = Study.objects.get(pk=study_id)
 
     if request.method == 'GET':
         return render_template(
-            'study_tags.html',
+            'study_custom_fields.html',
             study=study,
             fields=study.fields.all(),
             allowed_studies=get_admins_allowed_studies(),
@@ -124,7 +124,7 @@ def study_tags(study_id=None):
     if new_field:
         StudyField.objects.get_or_create(study=study, field_name=new_field)
 
-    return redirect('/study_tags/{:d}'.format(study.id))
+    return redirect('/study_fields/{:d}'.format(study.id))
 
 
 @system_admin_pages.route('/delete_field/<string:study_id>', methods=['POST'])
@@ -135,7 +135,7 @@ def delete_field(study_id=None):
     field = request.values.get('field', None)
     if field:
         try:
-            study_field = StudyField.objects.get(study=study, field_name=field)
+            study_field = StudyField.objects.get(study=study, id=field)
         except StudyField.DoesNotExist:
             study_field = None
 
@@ -145,37 +145,7 @@ def delete_field(study_id=None):
         except ProtectedError:
             flash("This field can not be removed because it is already in use", 'danger')
 
-    return redirect('/study_tags/{:d}'.format(study.id))
-
-
-@system_admin_pages.route('/patient_fields/<string:patient_id>', methods=['GET', 'POST'])
-@authenticate_system_admin
-def patient_fields(patient_id=None):
-    try:
-        patient = Participant.objects.get(pk=patient_id)
-    except Participant.DoesNotExist:
-        return abort(404)
-
-    patient.values_dict = {tag.field.field_name: tag.value for tag in patient.field_values.all()}
-    study = patient.study
-    if request.method == 'GET':
-        return render_template(
-            'view_patient_custom_field_values.html',
-            fields=study.fields.all(),
-            study=study,
-            patient=patient,
-            allowed_studies=get_admins_allowed_studies(),
-            system_admin=admin_is_system_admin(),
-        )
-
-    fields = list(study.fields.values_list('field_name', flat=True))
-    for key, value in request.values.iteritems():
-        if key in fields:
-            pfv, created = ParticipantFieldValue.objects.get_or_create(participant=patient, field=StudyField.objects.get(study=study, field_name=key))
-            pfv.value = value
-            pfv.save()
-
-    return redirect('/view_study/{:d}'.format(study.id))
+    return redirect('/study_fields/{:d}'.format(study.id))
 
 
 @system_admin_pages.route('/create_study', methods=['GET', 'POST'])

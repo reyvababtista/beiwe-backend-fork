@@ -75,7 +75,7 @@
                 </td>
                 {% for field in study_fields %}
                   <td class="custom-field-value">
-                      <a href="/patient_fields/{{ patient.pk }}" title="Edit this value">
+                      <a href="/view_study/{{ study.pk }}/patient_fields/{{ patient.pk }}" title="Edit this value">
                           <span class="custom-field-edit-link glyphicon glyphicon-pencil"></span>
                           <span class="non-link-text">{{ patient.values_dict[field] }}</span>
                       </a>
@@ -162,10 +162,12 @@
           <p><a href="/data-pipeline/{{ study.id }}">View the data pipeline information for this study</a></p>
         </div>
 
+      {% if system_admin == True %}
         <div class="row">
           <h3>Available Custom Fields</h3>
-          <p><a href="/study_tags/{{ study['id'] }}">View the custom fields available for this study</a></p>
+          <p><a href="/study_fields/{{ study['id'] }}">View the custom fields available for this study</a></p>
         </div>
+      {% endif %}
 
       </div>
     </div>

@@ -38,3 +38,24 @@ function confirm_delete_study(study_name, study_id) {
         });
     };
 }
+
+/* Pop up a confirmation dialog and only delete the custom field if the user types an EXACT string */
+function confirm_delete_custom_field(field_name, field_id, study_id) {
+    var required_matching_text = "Yes, I want to delete " + field_name;
+    var prompt_message = "Are you ABSOLUTELY SURE that you want to delete the custom field " + field_name +"?\nIf you're DEAD CERTAIN, type '" + required_matching_text + "' in the box here:";
+    var confirmation_prompt = prompt(prompt_message);
+    if (confirmation_prompt == required_matching_text) {
+        $.ajax({
+            type: 'POST',
+            url: '/delete_field/' + study_id,
+            data: {
+                field: field_id,
+                confirmation: "true"
+            }
+        }).done(function() {
+            location.href = "/study_fields/" + study_id;
+        }).fail(function() {
+            alert("There was a problem with deleting the custom_field.");
+        });
+    };
+}

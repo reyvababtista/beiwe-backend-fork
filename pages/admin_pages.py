@@ -1,7 +1,7 @@
 import json
 
-from flask import Blueprint, flash, Markup, redirect, render_template, request,\
-    session
+from flask import Blueprint, flash, Markup, redirect, render_template, request, \
+    session, abort
 
 from libs import admin_authentication
 from libs.admin_authentication import authenticate_admin_login,\
@@ -9,8 +9,8 @@ from libs.admin_authentication import authenticate_admin_login,\
     admin_is_system_admin
 from libs.security import check_password_requirements
 
-from database.study_models import Study
-from database.user_models import Researcher
+from database.study_models import Study, StudyField
+from database.user_models import Researcher, Participant, ParticipantFieldValue
 
 admin_pages = Blueprint('admin_pages', __name__)
 
@@ -73,6 +73,36 @@ def view_study_data_pipeline(study_id=None):
         allowed_studies=get_admins_allowed_studies(),
         system_admin=admin_is_system_admin(),
     )
+
+
+@admin_pages.route('/view_study/<string:study_id>/patient_fields/<string:patient_id>', methods=['GET', 'POST'])
+@authenticate_admin_study_access
+def patient_fields(study_id, patient_id=None):
+    try:
+        patient = Participant.objects.get(pk=patient_id)
+    except Participant.DoesNotExist:
+        return abort(404)
+
+    patient.values_dict = {tag.field.field_name: tag.value for tag in patient.field_values.all()}
+    study = patient.study
+    if request.method == 'GET':
+        return render_template(
+            'view_patient_custom_field_values.html',
+            fields=study.fields.all(),
+            study=study,
+            patient=patient,
+            allowed_studies=get_admins_allowed_studies(),
+            system_admin=admin_is_system_admin(),
+        )
+
+    fields = list(study.fields.values_list('field_name', flat=True))
+    for key, value in request.values.iteritems():
+        if key in fields:
+            pfv, created = ParticipantFieldValue.objects.get_or_create(participant=patient, field=StudyField.objects.get(study=study, field_name=key))
+            pfv.value = value
+            pfv.save()
+
+    return redirect('/view_study/{:d}'.format(study.id))
 
 
 """########################## Login/Logoff ##################################"""

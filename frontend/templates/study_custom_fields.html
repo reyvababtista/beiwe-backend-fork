@@ -7,20 +7,20 @@
             <a href="/view_study/{{ study.id }}">{{ study.name }}</a>
         </li>
         <li class="active">
-            Edit User Tags
+            Edit Patient Custom Fields
         </li>
     </ol>
 
     <div class="row">
-        <h2>Edit User Tags</h2>
+        <h2>Edit Patient Custom Fields</h2>
     </div>
 
     <div class="row form-horizontal">
         <table class="table">
             <thead>
                 <tr>
-                    <th>Tag</th>
-                    <th>Remove Tag</th>
+                    <th>Custom Field</th>
+                    <th>Remove Custom Field</th>
                 </tr>
             </thead>
             <tbody>
@@ -30,10 +30,10 @@
                         {{ field.field_name }}
                     </td>
                     <td>
-                        <form action="/delete_field/{{ study.id }}" method="POST">
+                        <form>
                         <input type="hidden" name="study_id" value="{{ study.id }}">
                         <input type="hidden" name="field" value="{{ field.field_name }}">
-                        <button type="submit" class="btn btn-warning btn-sm">Remove Tag</button>
+                        <button onclick="confirm_delete_custom_field('{{ field.field_name|replace("'", "")|replace('"', "") }}', '{{ field.id }}', '{{ study.id }}')" class="btn btn-danger btn-sm"><span class="glyphicon glyphicon-trash"></span> Remove Custom Field</button>
                         </form>
                     </td>
                 </tr>
@@ -41,11 +41,11 @@
             </tbody>
         </table>
         <br>
-        <form action="/study_tags/{{ study.id }}" method="POST">
+        <form action="/study_fields/{{ study.id }}" method="POST">
             <input type="hidden" name="study_id" value="{{ study.id }}">
-            <label>Add New Tag</label>
+            <label>Add New Custom Field</label>
             <input type="text" class="form-control" name="new_field" />
-            <button type="submit" class="btn btn-warning btn-sm">Add New Tag</button>
+            <button type="submit" class="btn btn-success btn-sm"><span class="glyphicon glyphicon-plus"></span> Add New Custom Field</button>
         </form>
 
     </div>

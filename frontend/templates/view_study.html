@@ -75,8 +75,10 @@
                 </td>
                 {% for field in study_fields %}
                   <td class="custom-field-value">
-                      <a href="/patient_fields/{{ patient.pk }}" title="Edit this value"><span class="custom-field-edit-link glyphicon glyphicon-pencil"></span></a>
-                      {{ patient.values_dict[field] }}
+                      <a href="/patient_fields/{{ patient.pk }}" title="Edit this value">
+                          <span class="custom-field-edit-link glyphicon glyphicon-pencil"></span>
+                          <span class="non-link-text">{{ patient.values_dict[field] }}</span>
+                      </a>
                   </td>
                 {% endfor %}
               </tr>

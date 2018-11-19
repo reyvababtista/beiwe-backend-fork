@@ -30,8 +30,25 @@ textarea {
     text-align: left;
 }
 
+/* Custom fields in the Patients table on the View Study page */
+table.dataTable tbody td.custom-field-value {
+    padding: 0px;
+}
+td.custom-field-value a {
+    width: 100%;
+    display: block;
+    padding: 13px;
+}
+td.custom-field-value a:link,
+td.custom-field-value a:visited,
+td.custom-field-value a:hover,
+td.custom-field-value a:active {
+    color: #333;
+    text-decoration: none;
+}
 td.custom-field-value span.custom-field-edit-link {
     visibility: hidden;
+    color: #428bca;
 }
 td.custom-field-value:hover span.custom-field-edit-link {
     visibility: visible;

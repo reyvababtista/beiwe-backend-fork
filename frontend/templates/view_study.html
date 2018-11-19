@@ -32,7 +32,6 @@
               <th>Phone registered</th>
               <th>Phone OS</th>
               <th>Reset password</th>
-              <th>Edit Fields</th>
               {% for field in study_fields %}
                   <th>{{ field }}</th>
               {% endfor %}
@@ -74,15 +73,11 @@
                     </div>
                   </form>
                 </td>
-                <td>
-                  <a href="/patient_fields/{{ patient.pk }}" class="btn btn-info">Edit Fields</a>
-                </td>
                 {% for field in study_fields %}
-                <td>
-                  <div class="form-inline">
-                    {{ patient.values_dict[field] }}
-                  </div>
-                </td>
+                  <td class="custom-field-value">
+                      <a href="/patient_fields/{{ patient.pk }}" title="Edit this value"><span class="custom-field-edit-link glyphicon glyphicon-pencil"></span></a>
+                      {{ patient.values_dict[field] }}
+                  </td>
                 {% endfor %}
               </tr>
             {% endfor %}
@@ -166,8 +161,8 @@
         </div>
 
         <div class="row">
-          <h3>Study Tags</h3>
-          <p><a href="/study_tags/{{ study['id'] }}">Edit the custom tags attached to this study</a></p>
+          <h3>Available Custom Fields</h3>
+          <p><a href="/study_tags/{{ study['id'] }}">View the custom fields available for this study</a></p>
         </div>
 
       </div>

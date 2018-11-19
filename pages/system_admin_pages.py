@@ -117,6 +117,7 @@ def study_tags(study_id=None):
             study=study,
             fields=study.fields.all(),
             allowed_studies=get_admins_allowed_studies(),
+            system_admin=admin_is_system_admin(),
         )
 
     new_field = request.values.get('new_field', None)
@@ -159,10 +160,12 @@ def patient_fields(patient_id=None):
     study = patient.study
     if request.method == 'GET':
         return render_template(
-            'patient_fields.html',
+            'view_patient_custom_field_values.html',
             fields=study.fields.all(),
             study=study,
             patient=patient,
+            allowed_studies=get_admins_allowed_studies(),
+            system_admin=admin_is_system_admin(),
         )
 
     fields = list(study.fields.values_list('field_name', flat=True))
@@ -224,9 +227,9 @@ def device_settings(study_id=None):
         return render_template(
             "device_settings.html",
             study=study.as_native_python(),
-            allowed_studies=get_admins_allowed_studies(),
             settings=settings.as_native_python(),
-            readonly=not admin_is_system_admin(),
+            readonly=readonly,
+            allowed_studies=get_admins_allowed_studies(),
             system_admin=admin_is_system_admin()
         )
     

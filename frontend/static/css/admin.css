@@ -29,3 +29,10 @@ textarea {
 #many-new-patients-loading-spinner p {
     text-align: left;
 }
+
+td.custom-field-value span.custom-field-edit-link {
+    visibility: hidden;
+}
+td.custom-field-value:hover span.custom-field-edit-link {
+    visibility: visible;
+}

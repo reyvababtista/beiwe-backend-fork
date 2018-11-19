@@ -71,6 +71,7 @@ def view_study_data_pipeline(study_id=None):
         'data-pipeline.html',
         study=study,
         allowed_studies=get_admins_allowed_studies(),
+        system_admin=admin_is_system_admin(),
     )
 
 

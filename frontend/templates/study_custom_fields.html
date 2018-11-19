@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+    <ol class="breadcrumb">
+        <li>
+            <a href="/view_study/{{ study.id }}">{{ study.name }}</a>
+        </li>
+        <li class="active">
+            Edit which Custom Fields are on this study
+        </li>
+    </ol>
+
+    <div class="row">
+        <h2>Edit which Custom Fields are on this study</h2>
+    </div>
+
+    <div class="row form-horizontal">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Custom Field</th>
+                    <th>Remove Custom Field</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for field in fields | sort(attribute='field_name', case_sensitive=False) %}
+                <tr>
+                    <td>
+                        {{ field.field_name }}
+                    </td>
+                    <td>
+                        <form>
+                        <input type="hidden" name="study_id" value="{{ study.id }}">
+                        <input type="hidden" name="field" value="{{ field.field_name }}">
+                        <button onclick="confirm_delete_custom_field('{{ field.field_name|replace("'", "")|replace('"', "") }}', '{{ field.id }}', '{{ study.id }}')" class="btn btn-danger"><span class="glyphicon glyphicon-trash"></span> Remove Custom Field</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <br>
+        <form action="/study_fields/{{ study.id }}" method="POST">
+            <input type="hidden" name="study_id" value="{{ study.id }}">
+            <label>Add New Custom Field</label>
+            <input type="text" class="form-control" name="new_field" />
+            <button type="submit" class="btn btn-success"><span class="glyphicon glyphicon-plus"></span> Add New Custom Field</button>
+        </form>
+
+    </div>
+
+{% endblock %}

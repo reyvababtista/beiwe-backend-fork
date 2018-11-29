@@ -135,6 +135,18 @@ class Participant(AbstractPasswordUser):
         return '{} {} of Study {}'.format(self.__class__.__name__, self.patient_id, self.study.name)
 
 
+class ParticipantFieldValue(models.Model):
+    """
+    These objects can be deleted.
+    """
+    participant = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='field_values')
+    field = models.ForeignKey('StudyField', on_delete=models.CASCADE, related_name='field_values')
+    value = models.TextField()
+
+    class Meta:
+        unique_together = (("participant", "field"),)
+
+
 class Researcher(AbstractPasswordUser):
     """
     The Researcher database object contains the password hashes and unique usernames of any

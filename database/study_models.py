@@ -87,7 +87,16 @@ class Study(AbstractModel):
         ret = super(Study, self).as_native_python(remove_timestamps=remove_timestamps)
         ret.pop("encryption_key")
         return ret
-    
+
+
+class StudyField(models.Model):
+    study = models.ForeignKey(Study, on_delete=models.PROTECT, related_name='fields')
+    field_name = models.TextField()
+
+    class Meta:
+        unique_together = (("study", "field_name"),)
+
+
 class AbstractSurvey(AbstractModel):
     """ AbstractSurvey contains all fields that we want to have copied into a survey backup whenever
     it is updated. """
@@ -190,6 +199,7 @@ class DeviceSettings(AbstractModel):
     bluetooth = models.BooleanField(default=False)
     power_state = models.BooleanField(default=True)
     use_anonymized_hashing = models.BooleanField(default=True)
+    use_gps_fuzzing = models.BooleanField(default=False)
 
     # Whether iOS-specific data streams are turned on
     proximity = models.BooleanField(default=False)

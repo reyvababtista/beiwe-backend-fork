@@ -2,12 +2,13 @@ import json
 from collections import defaultdict
 
 from django.core.exceptions import ValidationError
+from django.db.models.deletion import ProtectedError
 from flask import (abort, Blueprint, flash, redirect, render_template, request,
     session)
 
 from config.constants import CHECKBOX_TOGGLES, TIMER_VALUES
-from database.study_models import Study
-from database.user_models import Researcher
+from database.study_models import Study, StudyField
+from database.user_models import Researcher, Participant, ParticipantFieldValue
 from libs.admin_authentication import (authenticate_system_admin,
     get_admins_allowed_studies, admin_is_system_admin,
     authenticate_admin_study_access)
@@ -105,6 +106,48 @@ def edit_study(study_id=None):
     )
 
 
+@system_admin_pages.route('/study_fields/<string:study_id>', methods=['GET', 'POST'])
+@authenticate_system_admin
+def study_fields(study_id=None):
+    study = Study.objects.get(pk=study_id)
+
+    if request.method == 'GET':
+        return render_template(
+            'study_custom_fields.html',
+            study=study,
+            fields=study.fields.all(),
+            allowed_studies=get_admins_allowed_studies(),
+            system_admin=admin_is_system_admin(),
+        )
+
+    new_field = request.values.get('new_field', None)
+    if new_field:
+        StudyField.objects.get_or_create(study=study, field_name=new_field)
+
+    return redirect('/study_fields/{:d}'.format(study.id))
+
+
+@system_admin_pages.route('/delete_field/<string:study_id>', methods=['POST'])
+@authenticate_system_admin
+def delete_field(study_id=None):
+    study = Study.objects.get(pk=study_id)
+
+    field = request.values.get('field', None)
+    if field:
+        try:
+            study_field = StudyField.objects.get(study=study, id=field)
+        except StudyField.DoesNotExist:
+            study_field = None
+
+        try:
+            if study_field:
+                study_field.delete()
+        except ProtectedError:
+            flash("This field can not be removed because it is already in use", 'danger')
+
+    return redirect('/study_fields/{:d}'.format(study.id))
+
+
 @system_admin_pages.route('/create_study', methods=['GET', 'POST'])
 @authenticate_system_admin
 def create_study():
@@ -154,9 +197,9 @@ def device_settings(study_id=None):
         return render_template(
             "device_settings.html",
             study=study.as_native_python(),
-            allowed_studies=get_admins_allowed_studies(),
             settings=settings.as_native_python(),
-            readonly=not admin_is_system_admin(),
+            readonly=readonly,
+            allowed_studies=get_admins_allowed_studies(),
             system_admin=admin_is_system_admin()
         )
     

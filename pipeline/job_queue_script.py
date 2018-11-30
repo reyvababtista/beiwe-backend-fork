@@ -116,13 +116,11 @@ def run(repo_uri, ami_id):
     
     # Create a security group for the compute environment
     ec2_client = boto3.client('ec2')
-    try:
-        group_id = ec2_client.describe_security_groups(GroupNames=[security_group])['SecurityGroups'][0]['GroupId']
-    except Exception:
-        group_id = ec2_client.create_security_group(
-            Description='Security group for AWS Batch',
-            GroupName=security_group,
-        )['GroupId']
+
+    group_id = ec2_client.create_security_group(
+        Description='Security group for AWS Batch',
+        GroupName=security_group,
+    )['GroupId']
 
     compute_environment_dict['securityGroupIds'] = [group_id]
     
@@ -162,12 +160,17 @@ def run(repo_uri, ami_id):
     print('Compute environment created')
     
     # Create a batch job queue
-    batch_client.create_job_queue(
-        jobQueueName=aws_object_names['queue_name'],
-        priority=1,
-        computeEnvironmentOrder=[{'order': 0, 'computeEnvironment': comp_env_name}],
-    )
-    print('Job queue created')
+
+    try:
+        batch_client.create_job_queue(
+            jobQueueName=aws_object_names['queue_name'],
+            priority=1,
+            computeEnvironmentOrder=[{'order': 0, 'computeEnvironment': comp_env_name}],
+        )
+        print('Job queue created')
+    except Exception:
+        print('WARNING: job queue creation failed, assuming that this means it already exists.')
+
     
     # Create a batch job definition
     container_props_dict['image'] = repo_uri

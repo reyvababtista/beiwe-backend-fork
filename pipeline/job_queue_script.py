@@ -10,7 +10,7 @@ from time import sleep
 import boto3
 
 from script_helpers import set_default_region
-from configuration_getters import get_aws_object_names, get_configs_folder
+from configuration_getters import get_aws_object_names, get_configs_folder, get_current_region
 
 
 def run(repo_uri, ami_id):
@@ -162,7 +162,7 @@ def run(repo_uri, ami_id):
         },
         {
             'name': 'region_name',
-            'value': aws_object_names['region_name'],
+            'value': get_current_region(),
         },
         {
             'name': 'server_url',

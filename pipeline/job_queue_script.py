@@ -65,11 +65,17 @@ def run(repo_uri, ami_id):
     # Create a new IAM role for the compute environment
     set_default_region()
     iam_client = boto3.client('iam')
-    resp = iam_client.create_role(
-        RoleName=comp_env_role,
-        AssumeRolePolicyDocument=assume_batch_role_policy_json,
-    )
-    comp_env_role_arn = resp['Role']['Arn']
+
+    try:
+        comp_env_role_arn = iam_client.create_role(
+            RoleName=comp_env_role,
+            AssumeRolePolicyDocument=assume_batch_role_policy_json,
+        )['Role']['Arn']
+    except Exception:
+        for role in iam_client.list_roles()['Roles']:
+            if role['RoleName'] == comp_env_role:
+                comp_env_role_arn = role['Arn']
+                
     try:
         iam_client.put_role_policy(
             RoleName=comp_env_role,

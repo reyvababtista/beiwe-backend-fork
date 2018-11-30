@@ -70,26 +70,39 @@ def run(repo_uri, ami_id):
         AssumeRolePolicyDocument=assume_batch_role_policy_json,
     )
     comp_env_role_arn = resp['Role']['Arn']
-    iam_client.put_role_policy(
-        RoleName=comp_env_role,
-        PolicyName='aws-batch-service-policy',  # This name isn't used anywhere else
-        PolicyDocument=batch_service_role_policy_json,
-    )
-    print('Batch role created')
+    try:
+        iam_client.put_role_policy(
+            RoleName=comp_env_role,
+            PolicyName='aws-batch-service-policy',  # This name isn't used anywhere else
+            PolicyDocument=batch_service_role_policy_json,
+        )
+        print('Batch role created')
+    except Exception:
+        print('WARNING: Batch service role creation failed, assuming that this means it already exists.')
     
     # Create an EC2 instance profile for the compute environment
-    iam_client.create_role(
-        RoleName=instance_profile,
-        AssumeRolePolicyDocument=assume_ec2_role_policy_json,
-    )
-    iam_client.put_role_policy(
-        RoleName=instance_profile,
-        PolicyName='aws-batch-instance-policy',  # This name isn't used anywhere else
-        PolicyDocument=batch_instance_role_policy_json,
-    )
+    try:
+        iam_client.create_role(
+            RoleName=instance_profile,
+            AssumeRolePolicyDocument=assume_ec2_role_policy_json,
+        )
+    except Exception:
+        print('WARNING: Batch role creation failed, assuming that this means it already exists.')
+
+    try:
+        iam_client.put_role_policy(
+            RoleName=instance_profile,
+            PolicyName='aws-batch-instance-policy',  # This name isn't used anywhere else
+            PolicyDocument=batch_instance_role_policy_json,
+        )
+    except Exception:
+        print('WARNING: assigning role creation failed, assuming that this means it already exists.')
+
+
     resp = iam_client.create_instance_profile(
         InstanceProfileName=instance_profile,
     )
+
     instance_profile_arn = resp['InstanceProfile']['Arn']
     compute_environment_dict['instanceRole'] = instance_profile_arn
     iam_client.add_role_to_instance_profile(

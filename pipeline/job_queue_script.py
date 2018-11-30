@@ -66,7 +66,6 @@ def run(repo_uri, ami_id):
     set_default_region()
     iam_client = boto3.client('iam')
 
-
     comp_env_role_arn = iam_client.create_role(
         RoleName=comp_env_role,
         AssumeRolePolicyDocument=assume_batch_role_policy_json,
@@ -128,15 +127,12 @@ def run(repo_uri, ami_id):
     batch_client = boto3.client('batch')
     compute_environment_dict['imageId'] = ami_id
 
-    try:
-        batch_client.create_compute_environment(
-            computeEnvironmentName=comp_env_name,
-            type='MANAGED',
-            computeResources=compute_environment_dict,
-            serviceRole=comp_env_role_arn,
-        )
-    except Exception:
-        print("compute environment appears to already exist...")
+    batch_client.create_compute_environment(
+        computeEnvironmentName=comp_env_name,
+        type='MANAGED',
+        computeResources=compute_environment_dict,
+        serviceRole=comp_env_role_arn,
+    )
 
     # The compute environment takes somewhere between 10 and 45 seconds to create. Until it
     # is created, we cannot create a job queue. So first, we wait until the compute environment
@@ -163,17 +159,12 @@ def run(repo_uri, ami_id):
     print('Compute environment created')
     
     # Create a batch job queue
-
-    try:
-        batch_client.create_job_queue(
-            jobQueueName=aws_object_names['queue_name'],
-            priority=1,
-            computeEnvironmentOrder=[{'order': 0, 'computeEnvironment': comp_env_name}],
-        )
-        print('Job queue created')
-    except Exception:
-        print('WARNING: job queue creation failed, assuming that this means it already exists.')
-
+    batch_client.create_job_queue(
+        jobQueueName=aws_object_names['queue_name'],
+        priority=1,
+        computeEnvironmentOrder=[{'order': 0, 'computeEnvironment': comp_env_name}],
+    )
+    print('Job queue created')
     
     # Create a batch job definition
     container_props_dict['image'] = repo_uri

@@ -1,11 +1,9 @@
 import subprocess
 
-# Do not modify this * import, this is how we solve all the pipeline/scripts folder's import problems
-from configuration_getters import get_custom_config
+from pipeline.configuration_getters import get_current_region
 
 
 def set_default_region():
-    aws_object_names = get_custom_config()
-    region_name = aws_object_names['region_name']
+    region_name = get_current_region()
     subprocess.check_call(['aws', 'configure', 'set', 'default.region', region_name])
 

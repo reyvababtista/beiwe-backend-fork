@@ -1,6 +1,6 @@
 import subprocess
 
-from pipeline.configuration_getters import get_current_region
+from configuration_getters import get_current_region
 
 
 def set_default_region():

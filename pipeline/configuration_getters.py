@@ -71,7 +71,8 @@ def _validate_and_get_configs(config_list, config_file_path):
     prompt = "Provide the domain that your Beiwe deployment will uses. " \
              "Example: 'studies.beiwe-studies.net' (do not include a protocol)" \
              "\n\n$ "
-    config_list["server_url"] = raw_input(prompt)
+
+    config_data["server_url"] = raw_input(prompt)
 
     # if there are any missing settings, fail with helpful error message
     missing_configs = [setting for setting in config_list if setting not in config_data]

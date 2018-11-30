@@ -1,5 +1,6 @@
 import boto3
 
+# This component of pipeline is part of the Beiwe server, the correct import is 'from pipeline.xyz...'
 from pipeline.configuration_getters import get_current_region
 
 

@@ -128,13 +128,16 @@ def run(repo_uri, ami_id):
     batch_client = boto3.client('batch')
     compute_environment_dict['imageId'] = ami_id
 
-    batch_client.create_compute_environment(
-        computeEnvironmentName=comp_env_name,
-        type='MANAGED',
-        computeResources=compute_environment_dict,
-        serviceRole=comp_env_role_arn,
-    )
-    
+    try:
+        batch_client.create_compute_environment(
+            computeEnvironmentName=comp_env_name,
+            type='MANAGED',
+            computeResources=compute_environment_dict,
+            serviceRole=comp_env_role_arn,
+        )
+    except Exception:
+        print("compute environment appears to already exist...")
+
     # The compute environment takes somewhere between 10 and 45 seconds to create. Until it
     # is created, we cannot create a job queue. So first, we wait until the compute environment
     # has finished being created.

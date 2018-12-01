@@ -32,9 +32,9 @@ def run_manual_code(study_id):
     # Report all errors to sentry including DataPipelineNotConfigured errors.
     with error_sentry:
         ssm_client = get_boto_client('ssm', pipeline_region)
-        refresh_data_access_credentials('manually', ssm_client=ssm_client)
+        refresh_data_access_credentials('manually', ssm_client=ssm_client, webserver=True)
         batch_client = get_boto_client('batch', pipeline_region)
-        create_one_job('manually', object_id, batch_client)
+        create_one_job('manually', object_id, batch_client, webserver=True)
         flash('Data pipeline code successfully initiated!', 'success')
     
     if error_sentry.errors:

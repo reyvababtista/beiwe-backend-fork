@@ -51,7 +51,7 @@ def get_generic_config():
 
 def get_eb_config():
     try:
-        config_data = _load_json_file(generic_config_components)
+        config_data = _load_json_file(get_aws_object_names_file())
     except DataPipelineNotConfigured:
         config_data = {}
 

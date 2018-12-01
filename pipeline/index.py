@@ -1,3 +1,5 @@
+from config.settings import DOMAIN_NAME
+
 from database.study_models import Study
 from database.user_models import Researcher
 from libs.sentry import make_error_sentry
@@ -7,7 +9,7 @@ from pipeline.boto_helpers import get_boto_client
 from pipeline.configuration_getters import get_generic_config, get_eb_config
 
 
-def refresh_data_access_credentials(freq, ssm_client=None):
+def refresh_data_access_credentials(freq, ssm_client=None, webserver=False):
     """
     Refresh the data access credentials for a particular BATCH USER user and upload them
     (encrypted) to the AWS Parameter Store. This enables AWS batch jobs to get the
@@ -34,7 +36,13 @@ def refresh_data_access_credentials(freq, ssm_client=None):
     # Reset the credentials. This ensures that they aren't stale.
     access_key, secret_key = mock_researcher.reset_access_credentials()
 
-    generic_config = get_generic_config()
+    if not webserver:
+        generic_config = get_generic_config()
+    else:
+        generic_config = get_eb_config()
+        generic_config["server_url"] = DOMAIN_NAME
+
+
     # Append the frequency to the SSM (AWS Systems Manager) names. This ensures that the
     # different frequency jobs' keys do not overwrite each other.
     access_key_ssm_name = '{}-{}'.format(generic_config['access_key_ssm_name'], freq)
@@ -57,7 +65,7 @@ def refresh_data_access_credentials(freq, ssm_client=None):
     )
 
 
-def create_one_job(freq, object_id, client=None):
+def create_one_job(freq, object_id, client=None, webserver=False):
     """
     Create an AWS batch job
     The aws_object_names and client parameters are optional. They are provided in case
@@ -71,10 +79,11 @@ def create_one_job(freq, object_id, client=None):
     """
     
     # Get the AWS parameters and client if not provided
-    try:
+    if not webserver:
         aws_object_names = get_generic_config()
-    except Exception:
+    else:
         aws_object_names = get_eb_config()
+        aws_object_names["server_url"] = DOMAIN_NAME
 
     # requires region_name be defined.
     if client is None:

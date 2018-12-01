@@ -49,9 +49,22 @@ def get_generic_config():
     return _validate_and_get_configs(generic_config_components, get_aws_object_names_file())
 
 
+def get_eb_config():
+    try:
+        config_data = _load_json_file(generic_config_components)
+    except DataPipelineNotConfigured:
+        config_data = {}
+
+    # override/populate everything that has an environment variable for it
+    for setting in generic_config_components:
+        if setting in os.environ:
+            config_data[setting] = os.environ[setting]
+
+    config_data["region_name"] = get_current_region()
+    return config_data
+
 def get_aws_object_names():
-    settings = get_generic_config()
-    return settings
+    return get_generic_config()
 
 
 def _validate_and_get_configs(config_list, config_file_path):

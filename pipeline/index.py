@@ -4,7 +4,7 @@ from libs.sentry import make_error_sentry
 
 # This component of pipeline is part of the Beiwe server, the correct import is 'from pipeline.xyz...'
 from pipeline.boto_helpers import get_boto_client
-from pipeline.configuration_getters import get_generic_config
+from pipeline.configuration_getters import get_generic_config, get_eb_config
 
 
 def refresh_data_access_credentials(freq, ssm_client=None):
@@ -71,7 +71,11 @@ def create_one_job(freq, object_id, client=None):
     """
     
     # Get the AWS parameters and client if not provided
-    aws_object_names = get_generic_config()
+    try:
+        aws_object_names = get_generic_config()
+    except Exception:
+        aws_object_names = get_eb_config()
+
     # requires region_name be defined.
     if client is None:
         client = get_boto_client('batch')

@@ -159,7 +159,22 @@
                     </label>
                 </div>
             </div>
-
+            <div class="form-group">
+                <label for="call_clinician_button_enabled" class="col-xs-8 control-label">Enable the call clinician button in the app</label>
+                <div class="col-xs-4 checkbox checkbox-custom">
+                    <label>
+                        <input name="call_clinician_button_enabled" id="call_clinician_button_enabled" type="checkbox" {{ "checked" if settings["call_clinician_button_enabled"] }} {{ "disabled" if readonly }}/>
+                    </label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="call_research_assistant_button_enabled" class="col-xs-8 control-label">Enable the call research assistant button in the app</label>
+                <div class="col-xs-4 checkbox checkbox-custom">
+                    <label>
+                        <input name="call_research_assistant_button_enabled" id="call_research_assistant_button_enabled" type="checkbox" {{ "checked" if settings["call_research_assistant_button_enabled"] }} {{ "disabled" if readonly }}/>
+                    </label>
+                </div>
+            </div>
         </div>
         <div class="col-xs-6">
             <div class="form-group">

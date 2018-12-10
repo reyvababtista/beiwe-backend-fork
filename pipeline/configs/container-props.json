@@ -3,6 +3,6 @@
   "memory": 2000,
   "command": [
     "/bin/bash",
-    "runner.sh"
+    "Pipeline/utils/runner.sh"
   ]
 }

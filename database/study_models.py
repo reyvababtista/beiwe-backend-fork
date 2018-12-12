@@ -200,6 +200,8 @@ class DeviceSettings(AbstractModel):
     power_state = models.BooleanField(default=True)
     use_anonymized_hashing = models.BooleanField(default=True)
     use_gps_fuzzing = models.BooleanField(default=False)
+    call_clinician_button_enabled = models.BooleanField(default=True)
+    call_research_assistant_button_enabled = models.BooleanField(default=True)
 
     # Whether iOS-specific data streams are turned on
     proximity = models.BooleanField(default=False)

@@ -2,7 +2,7 @@
   "access_key_ssm_name": "ali-test-ac",
   "ami_name": "alitestdata-pipeline-ami",
   "comp_env_name": "alitestdata-pipeline-env",
-  "comp_env_role": "AWSBatchServiceRole",
+  "comp_env_role": "alitestAWSBatchServiceRole",
   "ecr_repo_name": "alitestdata-pipeline-docker",
   "instance_profile": "aliecsInstanceRole",
   "job_defn_name": "alitestdata-pipeline-job-defn",

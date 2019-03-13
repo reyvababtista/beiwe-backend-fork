@@ -9,7 +9,7 @@ RUN ["add-apt-repository", "'deb https://cloud.r-project.org/bin/linux/ubuntu bi
 
 # Install system requirements
 RUN ["apt", "update"]
-RUN ["apt", "install", "-y", "python3-pip", "r-base"]
+RUN ["apt", "install", "-y", "gnupg2", "python3-pip", "r-base"]
 
 # Work from home directory
 WORKDIR /home

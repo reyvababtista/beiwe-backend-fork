@@ -1,6 +1,9 @@
 # Parent image
 FROM ubuntu:18.04
 
+# Certian installers have GUI's, this variable overide interactive installation.
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Install system requirements
 RUN ["apt", "update"]
 RUN ["apt", "install", "-y", "gnupg2", "python3-pip", "software-properties-common"]

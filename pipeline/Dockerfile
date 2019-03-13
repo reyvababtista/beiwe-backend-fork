@@ -9,7 +9,7 @@ RUN ["apt", "install", "-y", "gnupg2", "python3-pip", "software-properties-commo
 # an external repository to install R from. First, we need to add GPG key:
 RUN ["apt-key", "adv", "--keyserver", "keyserver.ubuntu.com", "--recv-keys", "E298A3A825C0D65DFD57CBB651716619E084DAB9"]
 # Once we have the trusted key, we add the repository as follows:
-RUN ["add-apt-repository", "'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/'"]
+RUN ["add-apt-repository", "deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/"]
 RUN ["apt", "install", "-y", "r-base"]
 
 

@@ -1,7 +1,7 @@
 {
   "access_key_ssm_name": "beiwe-daa-key-0",
   "ami_name": "data-pipeline-ami",
-  "comp_env_name": "data-pipeline-compute-environment",
+  "comp_env_name": "data-pipeline-compute-environment-1",
   "comp_env_role": "AWSBatchServiceRole",
   "ecr_repo_name": "data-pipeline-docker",
   "instance_profile": "ecsInstanceRole",

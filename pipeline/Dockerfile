@@ -13,6 +13,7 @@ RUN ["apt", "install", "-y", "gnupg2", "python3-pip", "software-properties-commo
 RUN ["apt-key", "adv", "--keyserver", "keyserver.ubuntu.com", "--recv-keys", "E298A3A825C0D65DFD57CBB651716619E084DAB9"]
 # Once we have the trusted key, we add the repository as follows:
 RUN ["add-apt-repository", "deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/"]
+RUN ["apt", "update"]
 RUN ["apt", "install", "-y", "r-base"]
 
 

@@ -50,7 +50,7 @@ def process_file_chunks():
         for participant in participants:
             while True:
                 previous_number_bad_files = number_bad_files
-                starting_length = participant.files_to_process.count()
+                starting_length = participant.files_to_process.exclude(deleted=True).count()
 
                 print("%s processing %s, %s files remaining" % (datetime.now(), participant.patient_id, starting_length))
 
@@ -63,7 +63,7 @@ def process_file_chunks():
                 )
 
                 # If no files were processed, quit processing
-                if (participant.files_to_process.count() == starting_length
+                if (participant.files_to_process.exclude(deleted=True).count() == starting_length
                         and previous_number_bad_files == number_bad_files):
                     # Cases:
                     #   every file broke, might as well fail here, and would cause infinite loop otherwise.
@@ -107,11 +107,14 @@ def do_process_user_file_chunks(count, error_handler, skip_count, participant):
     # A Django query with a slice (e.g. .all()[x:y]) makes a LIMIT query, so it
     # only gets from the database those FTPs that are in the slice.
     print participant.as_native_python()
-    print len(participant.files_to_process.all())
+    print len(participant.files_to_process.exclude(deleted=True).all())
     print count
     print skip_count
+
+    files_to_process = participant.files_to_process.exclude(deleted=True).all()
+
     for data in pool.map(batch_retrieve_for_processing,
-                         participant.files_to_process.all()[skip_count:count+skip_count],
+                         files_to_process[skip_count:count+skip_count],
                          chunksize=1):
         with error_handler:
             # If we encountered any errors in retrieving the files for processing, they have been

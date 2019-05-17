@@ -33,7 +33,9 @@ class ChunkRegistry(AbstractModel):
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True)
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True)
     survey = models.ForeignKey('Survey', blank=True, null=True, on_delete=models.PROTECT, related_name='chunk_registries', db_index=True)
-    
+
+    file_size = models.IntegerField(null=True, default=None)
+
     @classmethod
     def register_chunked_data(cls, data_type, time_bin, chunk_path, file_contents, study_id, participant_id, survey_id=None):
         

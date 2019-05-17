@@ -1,0 +1,24 @@
+branch-defaults:
+  development:
+    environment: beiwe-env
+  master:
+    environment: beiwe-env
+  production:
+    environment: beiwe-env
+environment-defaults:
+  beiwe-env:
+    branch: null
+    repository: null
+global:
+  application_name: beiwe-application
+  default_ec2_keyname: beiwejj-key-pair
+  default_platform: arn:aws:elasticbeanstalk:us-east-1::platform/Python 2.7 running
+    on 64bit Amazon Linux/2.7.5
+  default_region: us-east-1
+  include_git_submodules: true
+  instance_profile: null
+  platform_name: null
+  platform_version: null
+  profile: eb-cli
+  sc: git
+  workspace_type: Application

@@ -10,13 +10,14 @@ from config import load_django
 from config.constants import (API_TIME_FORMAT, VOICE_RECORDING, ALL_DATA_STREAMS,
     SURVEY_ANSWERS, SURVEY_TIMINGS, IMAGE_FILE)
 from database.models import is_object_id
-from database.data_access_models import ChunkRegistry
+from database.data_access_models import ChunkRegistry, PipelineRegistry
 from database.study_models import Study
 from database.user_models import Participant, Researcher
 from libs.s3 import s3_retrieve, s3_upload
 from libs.streaming_bytes_io import StreamingBytesIO
 
-from database.data_access_models import PipelineUpload, InvalidUploadParameterError, PipelineUploadTags
+from database.data_access_models import PipelineUpload, InvalidUploadParameterError, \
+    PipelineUploadTags
 
 # Data Notes
 # The call log has the timestamp column as the 3rd column instead of the first.
@@ -470,11 +471,43 @@ def data_pipeline_upload():
     return Response("SUCCESS", status=200)
 
 
+@data_access_api.route("/pipeline-json-upload/v1", methods=['POST'])
+def json_pipeline_upload():
+    access_key = request.values["access_key"]
+    access_secret = request.values["secret_key"]
+
+    if not Researcher.objects.filter(access_key_id=access_key).exists():
+        return abort(403)  # access key DNE
+    researcher = Researcher.objects.get(access_key_id=access_key)
+    if not researcher.validate_access_credentials(access_secret):
+        return abort(403)  # incorrect secret key
+    # case: invalid study
+    study_id = request.values["study_id"]
+
+    if not Study.objects.filter(object_id=study_id).exists():
+        return abort(404)
+
+    study_obj = Study.objects.get(object_id=study_id)
+
+    # case: study not authorized for user
+    if not study_obj.get_researchers().filter(id=researcher.id).exists():
+        return abort(403)
+
+    json_data = request.values["summary_output"]
+    summary_type = request.values["summary_type"]
+    participant_id = 11  # TODO(Ali): need to figure out a way to get the patient_id
+    PipelineRegistry.register_pipeline_data(study_id, participant_id, json_data, summary_type)
+
+    # Debugging
+    # print request.data
+    return Response("SUCCESS", status=200)
+
+
 @data_access_api.route("/get-pipeline/v1", methods=["GET", "POST"])
 def pipeline_data_download():
     study_obj = get_and_validate_study_id(chunked_download=False)
     get_and_validate_researcher(study_obj)
-    
+
     # the following two cases are for difference in content wrapping between the CLI script and
     # the download page.
     if 'tags' in request.values:

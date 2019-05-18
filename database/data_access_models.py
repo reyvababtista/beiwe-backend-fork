@@ -8,6 +8,7 @@ from django.db import models
 from django.utils import timezone
 
 from config.constants import ALL_DATA_STREAMS, CHUNKABLE_FILES, CHUNK_TIMESLICE_QUANTUM, PIPELINE_FOLDER
+from database.common_models import JSONTextField
 from database.validators import LengthValidator
 from libs.security import chunk_hash, low_memory_chunk_hash
 from database.models import AbstractModel
@@ -17,6 +18,17 @@ from database.study_models import Study
 class FileProcessingLockedError(Exception): pass
 class UnchunkableDataTypeError(Exception): pass
 class ChunkableDataTypeError(Exception): pass
+
+
+class PipelineRegistry(AbstractModel):
+    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True)
+    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True)
+
+    # TODO: construct list of of canonical names for the pipeline data types
+    data_type = models.CharField(max_length=32, db_index=True)
+    processed_data = JSONTextField(null=True, blank=True)
+    # TODO: why do we need this
+    # uploaded_at = models.DateTimeField(db_index=True)
 
 
 class ChunkRegistry(AbstractModel):

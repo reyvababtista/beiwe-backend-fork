@@ -8,7 +8,7 @@ from werkzeug.contrib.fixers import ProxyFix
 from config import load_django
 
 from api import (participant_administration, admin_api, copy_study_api, data_access_api,
-    data_pipeline_api, mobile_api, survey_api)
+    data_pipeline_api, mobile_api, survey_api, dashboard_api)
 from config.settings import SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN
 from libs.admin_authentication import is_logged_in
 from libs.security import set_secret_key
@@ -49,6 +49,8 @@ app.register_blueprint(data_access_api.data_access_api)
 app.register_blueprint(data_access_web_form.data_access_web_form)
 app.register_blueprint(copy_study_api.copy_study_api)
 app.register_blueprint(data_pipeline_api.data_pipeline_api)
+app.register_blueprint(dashboard_api.dashboard_api)
+
 
 # Don't set up Sentry for local development
 if os.environ['DJANGO_DB_ENV'] != 'local':

@@ -6,6 +6,15 @@
 
 {% block content %}
 
-  this is the dashboard page for the study {{ study_name }}
+  this is the dashboard page for the study {{ study_name }}.
+  <p></p>
+  Participants in this study:
+  {% for participant in participants %}
+    {{participant}},
+  {% endfor %}
+  <p></p>
+
+  Participants in this study as a json list (embed this however makes sense):
+  {{ participants|tojson }}
 
 {% endblock %}

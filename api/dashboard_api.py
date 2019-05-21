@@ -39,9 +39,15 @@ def query_data_for_user(study_id, patient_id):
 
     start, end = extract_date_args()
     data_stream = extract_data_stream_args()
+    data = dashboard_chunkregistry_query(participant.id, data_stream=data_stream, start=start, end=end)
 
-    args = {"participant__id": participant.id}
+    return Response(
+        dumps(data),
+        mimetype="text/json",
+    )
 
+def dashboard_chunkregistry_query(participant_id, data_stream=None, start=None, end=None):
+    args = {"participant__id": participant_id}
     if start:
         args["time_bin__gte "] = start,
     if end:
@@ -58,12 +64,7 @@ def query_data_for_user(study_id, patient_id):
             "data_stream": chunk[1],
             "time_bin": chunk[2].strftime(REDUCED_API_TIME_FORMAT),
         })
-
-    return Response(
-        dumps(ret_chunks),
-        mimetype="text/json",
-    )
-
+    return ret_chunks
 
 def extract_date_args():
     start = request.values.get("start", None)

@@ -1,7 +1,6 @@
 from multiprocessing.pool import ThreadPool
 from zipfile import ZipFile, ZIP_STORED
 
-from boto.utils import JSONDecodeError
 from datetime import datetime
 from flask import Blueprint, request, abort, json, Response
 
@@ -340,7 +339,7 @@ def determine_data_streams_for_db_query(query):
         # the CLI script and the download page.
         try:
             query['data_types'] = json.loads(request.values['data_streams'])
-        except JSONDecodeError:
+        except ValueError:
             query['data_types'] = request.form.getlist('data_streams')
         
         for data_stream in query['data_types']:
@@ -356,7 +355,7 @@ def determine_users_for_db_query(query):
     if 'user_ids' in request.values:
         try:
             query['user_ids'] = [user for user in json.loads(request.values['user_ids'])]
-        except JSONDecodeError:
+        except ValueError:
             query['user_ids'] = request.form.getlist('user_ids')
         
         # Ensure that all user IDs are patient_ids of actual Participants
@@ -513,7 +512,7 @@ def pipeline_data_download():
     if 'tags' in request.values:
         try:
             tags = json.loads(request.values['tags'])
-        except JSONDecodeError:
+        except ValueError:
             tags = request.form.getlist('tags')
 
         query = PipelineUpload.objects.filter(study__id=study_obj.id, tags__tag__in=tags)

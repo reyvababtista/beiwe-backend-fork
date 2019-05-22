@@ -29,24 +29,29 @@ def dashboard_page(study_id=None):
     )
 
 
-@dashboard_api.route("/dashboard/<string:study_id>/<string:patient_id>", methods=["GET"])
+@dashboard_api.route("/dashboard/<string:study_id>/<string:patient_id>", methods=["GET", "POST"])
 @authenticate_admin_study_access
 def query_data_for_user(study_id, patient_id):
-    try:
-        participant = Participant.objects.filter(study=study_id, patient_id=patient_id).get()
-    except Participant.DoesNotExist:
-        return abort(400, "No such user exists.")
-
-    start, end = extract_date_args()
-    data_stream = extract_data_stream_args()
+    participant = get_participant(patient_id, study_id)
+    start, end = extract_date_args_from_request()
+    data_stream = extract_data_stream_args_from_request()
     data = dashboard_chunkregistry_query(participant.id, data_stream=data_stream, start=start, end=end)
+    return Response(dumps(data), mimetype="text/json")
 
-    return Response(
-        dumps(data),
-        mimetype="text/json",
-    )
+
+@dashboard_api.route("/dashboard/<string:study_id>/<string:patient_id>/<string:data_stream>", methods=["GET", "POST"])
+@authenticate_admin_study_access
+def query_data_for_user_for_data_stream(study_id, patient_id, data_stream):
+    participant = get_participant(patient_id, study_id)
+    start, end = extract_date_args_from_request()
+    data = dashboard_chunkregistry_query(participant.id, data_stream=data_stream, start=start, end=end)
+    return Response(dumps(data), mimetype="text/json")
+
 
 def dashboard_chunkregistry_query(participant_id, data_stream=None, start=None, end=None):
+    """ Queries ChunkRegistry based on the provided parameters and returns a list of dictionaries
+    with 3 keys: bytes, data_stream, and time_bin. """
+
     args = {"participant__id": participant_id}
     if start:
         args["time_bin__gte "] = start,
@@ -55,18 +60,27 @@ def dashboard_chunkregistry_query(participant_id, data_stream=None, start=None, 
     if data_stream:
         args["data_type"] = data_stream
 
-    chunks = ChunkRegistry.objects.filter(**args).values_list("file_size", "data_type", "time_bin")
+    # on a (good) test device running on sqlite, for 12,200 chunks, this takes ~135ms
+    # sticking the query_set directly into a list is a slight speedup. (We need it all in memory anyway.)
+    chunks = list(
+        ChunkRegistry.objects.filter(**args)
+        .extra(
+            select={
+                # rename the data_type and file_size fields in the db query itself for speed
+                'data_stream': 'data_type',
+                'bytes': 'file_size',
+            }
+        ).values("bytes", "data_stream", "time_bin")
+    )
 
-    ret_chunks = []
+    # on a (good) test device running on sqlite, for 12,200 chunks, this takes ~18ms
     for chunk in chunks:
-        ret_chunks.append({
-            "bytes": chunk[0],
-            "data_stream": chunk[1],
-            "time_bin": chunk[2].strftime(REDUCED_API_TIME_FORMAT),
-        })
-    return ret_chunks
+        chunk["time_bin"] = chunk["time_bin"].strftime(REDUCED_API_TIME_FORMAT)
+    return chunks
 
-def extract_date_args():
+
+def extract_date_args_from_request():
+    """ Gets start and end arguments from GET/POST params, throws 400 on date formatting errors. """
     start = request.values.get("start", None)
     end = request.values.get("end", None)
     try:
@@ -80,10 +94,24 @@ def extract_date_args():
     return start, end
 
 
-def extract_data_stream_args():
+def extract_data_stream_args_from_request():
+    """ Gets data stream if it is provided as a request POST or GET parameter,
+    throws 400 errors on unknown data streams. """
     data_stream = request.values.get("data_stream", None)
     if data_stream:
         if data_stream not in ALL_DATA_STREAMS:
             return abort(400, "unrecognized data stream '%s'" % data_stream)
-
     return data_stream
+
+
+def get_participant(patient_id, study_id):
+    """ Just factoring out a common abort operation. """
+    try:
+        return Participant.objects.get(study=study_id, patient_id=patient_id)
+    except Participant.DoesNotExist:
+        # 2 useful error messages
+        if not Participant.objects.get(patient_id=patient_id).exists():
+            return abort(400, "No such user exists.")
+        else:
+            return abort(400, "No such user exists in this study.")
+

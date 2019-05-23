@@ -54,6 +54,7 @@ def dashboard_chunkregistry_query(participant_id, data_stream=None, start=None, 
     with 3 keys: bytes, data_stream, and time_bin. """
 
     args = {"participant__id": participant_id}
+    participant = Participant.objects.get(id=participant_id)
     if start:
         args["time_bin__gte "] = start,
     if end:
@@ -75,12 +76,6 @@ def dashboard_chunkregistry_query(participant_id, data_stream=None, start=None, 
     )
 
     # on a (good) test device running on sqlite, for 12,200 chunks, this takes ~18ms
-    for chunk in chunks:
-        ret_chunks.append({
-            "bytes": chunk[0],
-            "data_stream": chunk[1],
-            "time_bin": chunk[2].strftime(REDUCED_API_TIME_FORMAT),
-        })
 
     #the times list (no repeats)
 

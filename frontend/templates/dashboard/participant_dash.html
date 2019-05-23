@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Study Dashboard{% endblock %}
+
+{#{% block head %}#}
+{#{% endblock %}#}
+
+
+{% block content %}
+
+    <h1> {{ participant }} Dashboard </h1>
+
+
+   {# my new code for the table #}
+    <style>
+        table {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            width = 50px;
+        }
+        td, th{
+            border: 1px solid #0c0c0c;
+            text-align: left;
+            padding: 8px;
+        }
+        tr: nth-child(even){
+            background-color: #888888;
+        }
+
+    </style>
+
+
+    {# we are getting a list of times and a list of lists to populate the table #}
+    {# make sure it runs fast enough and that the format of hours/time is correct #}
+
+    {%  if times %}
+        <table>
+            <tr>
+            <thead>
+            <td> </td>
+            {% for time in times %}
+                   <th>{{ time }}</th>
+                {% endfor %}
+            </thead>
+            </tr>
+                {% for stream in byte_streams %}
+                    <tr>
+                        {% for bytes in stream %}
+                            {% if bytes == -1 %}
+                                <td> </td>
+                            {% else %}
+                                <td> {{ bytes }} </td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+        </table>
+     {% else %}
+        <p> There is no data currently available for {{ participant }}</p>
+    {% endif %}
+
+{% endblock %}
+

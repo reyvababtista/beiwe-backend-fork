@@ -16,7 +16,6 @@ dashboard_api = Blueprint('dashboard_api', __name__)
 DATETIME_FORMAT_ERROR = \
     "Dates and times provided to this endpoint must be formatted like this: 2010-11-22T4 (%s)" % REDUCED_API_TIME_FORMAT
 
-
 @dashboard_api.route("/dashboard/<string:study_id>", methods=["GET"])
 @authenticate_admin_study_access
 def dashboard_page(study_id=None):
@@ -26,10 +25,12 @@ def dashboard_page(study_id=None):
         'dashboard/dashboard.html',
         study_name=Study.objects.filter(pk=study_id).values_list("name", flat=True).get(),
         participants=participants,
+        study_id=study_id,
     )
 
 
-@dashboard_api.route("/dashboard/<string:study_id>/<string:patient_id>", methods=["GET", "POST"])
+#for dashboard of a singular patient
+@dashboard_api.route("/dashboard/<string:study_id>/patient/<string:patient_id>", methods=["GET"])
 @authenticate_admin_study_access
 def query_data_for_user(study_id, patient_id):
     participant = get_participant(patient_id, study_id)
@@ -75,8 +76,83 @@ def dashboard_chunkregistry_query(participant_id, data_stream=None, start=None, 
 
     # on a (good) test device running on sqlite, for 12,200 chunks, this takes ~18ms
     for chunk in chunks:
-        chunk["time_bin"] = chunk["time_bin"].strftime(REDUCED_API_TIME_FORMAT)
-    return chunks
+        ret_chunks.append({
+            "bytes": chunk[0],
+            "data_stream": chunk[1],
+            "time_bin": chunk[2].strftime(REDUCED_API_TIME_FORMAT),
+        })
+
+    #the times list (no repeats)
+
+    if len(chunks) != 0:
+        times = []
+        iterator = 0
+        copy = False
+        for item in chunks:
+            curr_time = item[2].strftime(REDUCED_API_TIME_FORMAT)
+            for prev in range(iterator):
+                prev_item = chunks[prev]
+                prev_time = prev_item[2].strftime(REDUCED_API_TIME_FORMAT)
+                if(curr_time == prev_time):
+                    copy = True
+            if copy == False:
+                times.append(curr_time)
+            copy = False
+            iterator+=1
+
+        #List of Data Streams which each hold a list of bytes per time
+        #1. iterate over the diff types of data streams
+        #2. iterate over the possible times (collapsed from repeated possible times)
+        #3. iterate over the items and if they have the correct data stream and time, enter the bytes to curr_data list
+        #4. append the curr_data list to the byte_streams list to have a list of lists
+
+        byte_streams = []
+        for stream in ALL_DATA_STREAMS:
+            curr_data = []
+            curr_data.append(stream)
+            for time in times:
+                found = False
+                for item in chunks:
+                    if item[1].lower() == stream.lower() and item[2].strftime(REDUCED_API_TIME_FORMAT) == time:
+                        curr_data.append(item[0])
+                        found = True
+                        break
+                if found == False:
+                    curr_data.append(-1)
+            byte_streams.append(curr_data)
+
+    else:
+        byte_streams = []
+        times = []
+
+    return render_template(
+        'dashboard/participant_dash.html',
+        participant=participant,
+        times=times,
+        byte_streams=byte_streams,
+    )
+
+
+    # byte_streams = []
+    # for stream in ALL_DATA_STREAMS:
+    #     s = []
+    #     s.append(stream)
+    #     byte_streams.append(s)
+    #
+    # for time in times:
+    #     populated = [ 0 * ALL_DATA_STREAMS]
+    #     for item in chunks:
+    #         if item[2].strftime(REDUCED_API_TIME_FORMAT) == time:
+    #             it = 0
+    #             for stream in ALL_DATA_STREAMS:
+    #                 if item[1].lower() == stream.lower():
+    #                     populated[it] = 1
+    #                     byte_streams[it].append(item[0])
+    #                     break
+    #                 it+=1
+    #     for i in populated:
+    #         if i == 0:
+    #             byte_streams[i].append(-1)
 
 
 def extract_date_args_from_request():

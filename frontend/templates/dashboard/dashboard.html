@@ -6,15 +6,45 @@
 
 {% block content %}
 
-  this is the dashboard page for the study {{ study_name }}.
-  <p></p>
-  Participants in this study:
-  {% for participant in participants %}
-    {{participant}},
-  {% endfor %}
-  <p></p>
+    <h1> {{ study_name }} Dashboard </h1>
 
-  Participants in this study as a json list (embed this however makes sense):
-  {{ participants|tojson }}
+
+   {# my new code for the table #}
+    <style>
+        table {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+        }
+        td, th{
+            border: 1px solid #0c0c0c;
+            text-align: left;
+            padding: 8px;
+        }
+        tr: nth-child(even){
+            background-color: #888888;
+        }
+
+    </style>
+
+    <table>
+        <tr>
+           <thead> <th> Participant </th> </thead>
+        </tr>
+        {% for participant in participants %}
+            <tr><td><a href="{{ study_id }}/patient/{{participant}}">{{participant}}</a></td></tr>
+        {% endfor %}
+    </table>
+
+
+    {# old code that was here #}
+{#   Participants in this study:#}
+{#  {% for participant in participants %}#}
+{#    <p>{{participant}},</p>#}
+{#  {% endfor %}#}
+{#  <p></p>#}
+{##}
+{#  Participants in this study as a json list (embed this however makes sense):#}
+{#  {{ participants|tojson }}#}
 
 {% endblock %}

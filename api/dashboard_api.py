@@ -37,8 +37,6 @@ def query_data_for_user_for_data_stream(study_id, patient_id, data_stream):
     return Response(dumps(data), mimetype="text/json")
 
 
-
-#for dashboard of a singular patient
 @dashboard_api.route("/dashboard/<string:study_id>/patient/<string:patient_id>", methods=["GET"])
 @authenticate_admin_study_access
 def query_data_for_user(study_id, patient_id):
@@ -48,58 +46,31 @@ def query_data_for_user(study_id, patient_id):
     chunks = dashboard_chunkregistry_query(participant.id, data_stream=data_stream, start=start, end=end)
 
     if len(chunks):
-        times = list(t["time_bin"] for t in chunks) #list of unique times
-        unique_times = list(set(times))
-
-        byte_streams = dict()
-        for stream in ALL_DATA_STREAMS:
-            data_bytes = [item["bytes"] if item["data_stream"] == stream and item["time_bin"] == time else -1
-                          for time in unique_times for item in chunks]
-            byte_streams[stream] = data_bytes
-
-    else: #edge case if no data has been entered
-        byte_streams = dict()
-        times = []
+        unique_times = list(set(list(t["time_bin"] for t in chunks)))
+        byte_streams = {
+            stream: [
+                get_bytes(chunks, stream, time) for time in unique_times
+            ] for stream in ALL_DATA_STREAMS
+        }
+    else:  # edge case if no data has been entered
+        byte_streams = {}
+        unique_times = []
 
     return render_template(
         'dashboard/participant_dash.html',
         participant=participant,
-        times=times,
+        times=unique_times,
         byte_streams=byte_streams,
     )
 
 
-#replaced with new code:
-# times = []
-# iterator = 0
-# copy = False
-# for item in chunks:
-#     curr_time = item["time_bin"].strftime(REDUCED_API_TIME_FORMAT)
-#     for prev in range(iterator):
-#         prev_item = chunks[prev]
-#         prev_time = prev_item["time_bin"].strftime(REDUCED_API_TIME_FORMAT)
-#         if curr_time == prev_time:
-#             copy = True
-#     if copy == False:
-#         times.append(curr_time)
-#     copy = False
-#     iterator += 1
-# create list of lists for each stream and bytes in those streams at a specific time
-# byte_streams = []
-# for stream in ALL_DATA_STREAMS:
-#     s = []
-#     s.append(stream)
-#     byte_streams.append(s)
-# for time in times:
-#     populated = [0] * len(ALL_DATA_STREAMS)
-#     for item in chunks:
-#         if item["time_bin"].strftime(REDUCED_API_TIME_FORMAT) == time:
-#             stream = item["data_stream"]
-#             populated[int(stream_nums.get(stream))] = 1
-#             byte_streams[int(stream_nums.get(stream))].append(item["bytes"])
-#     for i in range(len(populated)):  # to make sure that blanks are entered if no data
-#         if populated[i] == 0:
-#             byte_streams[i].append(-1)
+def get_bytes(chunks, stream, time):
+    """ returns byte value for correct chunk based on data stream and type comparisons"""
+    for chunk in chunks:
+        if chunk["time_bin"] == time and chunk["data_stream"] == stream:
+            return chunk["bytes"]
+        else:
+            return -1
 
 
 def dashboard_chunkregistry_query(participant_id, data_stream=None, start=None, end=None):

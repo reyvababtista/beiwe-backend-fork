@@ -14,7 +14,7 @@
     <style>
         table {
             font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-            width = 50px;
+            width: 50px;
         }
         td, th{
             border: 1px solid #0c0c0c;
@@ -33,17 +33,18 @@
 
     {%  if times %}
         <table>
-            <tr>
             <thead>
+            <tr>
             <td> </td>
             {% for time in times %}
                    <th>{{ time }}</th>
                 {% endfor %}
-            </thead>
             </tr>
-                {% for stream in byte_streams %}
+            </thead>
+                {% for stream, byte_list in byte_streams.items() %} {# iterate over keys #}
                     <tr>
-                        {% for bytes in stream %}
+                        <td> {{ stream}}</td> {# print name of data stream #}
+                        {% for bytes in byte_list %} {# iterate over bytes in values #}
                             {% if bytes == -1 %}
                                 <td> </td>
                             {% else %}

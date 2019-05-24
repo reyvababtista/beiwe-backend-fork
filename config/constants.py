@@ -86,7 +86,6 @@ API_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 # used in the dashboard
 REDUCED_API_TIME_FORMAT = "%Y-%m-%dT%H"
 
-
 ## Chunks
 # This value is in seconds, it sets the time period that chunked files will be sliced into.
 CHUNK_TIMESLICE_QUANTUM = 3600

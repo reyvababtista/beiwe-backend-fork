@@ -5,7 +5,7 @@ from json import dumps
 
 from flask import abort, Blueprint, render_template, request, Response
 
-from config.constants import ALL_DATA_STREAMS, REDUCED_API_TIME_FORMAT, data_stream_dict
+from config.constants import ALL_DATA_STREAMS, REDUCED_API_TIME_FORMAT
 from database.data_access_models import ChunkRegistry
 from database.study_models import Study
 from database.user_models import Participant
@@ -46,7 +46,7 @@ def query_data_for_user(study_id, patient_id):
     chunks = dashboard_chunkregistry_query(participant.id, data_stream=data_stream, start=start, end=end)
 
     if len(chunks):
-        unique_times = list(set(list(t["time_bin"] for t in chunks)))
+        unique_times = sorted(list(set(list((t["time_bin"]).date() for t in chunks))))
         byte_streams = {
             stream: [
                 get_bytes(chunks, stream, time) for time in unique_times
@@ -66,12 +66,14 @@ def query_data_for_user(study_id, patient_id):
 
 def get_bytes(chunks, stream, time):
     """ returns byte value for correct chunk based on data stream and type comparisons"""
+    all_bytes = 0
     for chunk in chunks:
-        if chunk["time_bin"] == time and chunk["data_stream"] == stream:
-            return chunk["bytes"]
-        else:
-            return -1
-
+        if (chunk["time_bin"]).date() == time and chunk["data_stream"] == stream:
+            all_bytes += chunk["bytes"]
+    if all_bytes != 0:
+        return all_bytes
+    else:
+        return -1
 
 def dashboard_chunkregistry_query(participant_id, data_stream=None, start=None, end=None):
     """ Queries ChunkRegistry based on the provided parameters and returns a list of dictionaries

@@ -15,7 +15,7 @@
                 <tr>
                     <td> </td>
                     {% for time in times %}
-                        <th>{{ time }}</th>
+                        <th>{{ time.strftime('%m/%d/%Y') }}</th>
                     {% endfor %}
                 </tr>
             </thead>

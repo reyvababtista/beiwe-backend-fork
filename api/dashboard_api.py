@@ -5,7 +5,7 @@ from json import dumps
 
 from flask import abort, Blueprint, render_template, request, Response
 
-from config.constants import ALL_DATA_STREAMS, REDUCED_API_TIME_FORMAT
+from config.constants import ALL_DATA_STREAMS, REDUCED_API_TIME_FORMAT, data_stream_dict
 from database.data_access_models import ChunkRegistry
 from database.study_models import Study
 from database.user_models import Participant
@@ -15,28 +15,6 @@ dashboard_api = Blueprint('dashboard_api', __name__)
 
 DATETIME_FORMAT_ERROR = \
     "Dates and times provided to this endpoint must be formatted like this: 2010-11-22T4 (%s)" % REDUCED_API_TIME_FORMAT
-
-#I think this should be able to be referenced since this exact thing is in the constants.py
-#but they are undefined unless this is included
-ACCELEROMETER = "accelerometer"
-BLUETOOTH = "bluetooth"
-CALL_LOG = "calls"
-GPS = "gps"
-IDENTIFIERS = "identifiers"
-ANDROID_LOG_FILE = "app_log"
-IOS_LOG_FILE = "ios_log"
-POWER_STATE = "power_state"
-SURVEY_ANSWERS = "survey_answers"
-SURVEY_TIMINGS = "survey_timings"
-TEXTS_LOG = "texts"
-VOICE_RECORDING = "audio_recordings"
-IMAGE_FILE = "image_survey"
-WIFI = "wifi"
-PROXIMITY = "proximity"
-GYRO = "gyro"
-MAGNETOMETER = "magnetometer"
-DEVICEMOTION = "devicemotion"
-REACHABILITY = "reachability"
 
 @dashboard_api.route("/dashboard/<string:study_id>", methods=["GET"])
 @authenticate_admin_study_access
@@ -69,65 +47,18 @@ def query_data_for_user(study_id, patient_id):
     data_stream = extract_data_stream_args_from_request()
     chunks = dashboard_chunkregistry_query(participant.id, data_stream=data_stream, start=start, end=end)
 
-    # create dictionary of all data streams to numbers - feels silly but enumerate doesn't work?
-    stream_nums = {
-        ACCELEROMETER: 0,
-        BLUETOOTH: 1,
-        CALL_LOG: 2,
-        DEVICEMOTION: 3,
-        GPS: 4,
-        IDENTIFIERS: 5,
-        GYRO: 6,
-        ANDROID_LOG_FILE: 7,
-        MAGNETOMETER: 8,
-        POWER_STATE: 9,
-        REACHABILITY: 10,
-        SURVEY_ANSWERS: 11,
-        SURVEY_TIMINGS: 12,
-        TEXTS_LOG: 13,
-        VOICE_RECORDING: 14,
-        WIFI: 15,
-        PROXIMITY: 16,
-        IOS_LOG_FILE: 17,
-        IMAGE_FILE: 18,
-    }
+    if len(chunks):
+        times = list(t["time_bin"] for t in chunks) #list of unique times
+        unique_times = list(set(times))
 
-    #create list of unique time
-    if len(chunks) != 0:
-        times = []
-        iterator = 0
-        copy = False
-        for item in chunks:
-            curr_time = item["time_bin"].strftime(REDUCED_API_TIME_FORMAT)
-            for prev in range(iterator):
-                prev_item = chunks[prev]
-                prev_time = prev_item["time_bin"].strftime(REDUCED_API_TIME_FORMAT)
-                if curr_time == prev_time:
-                    copy = True
-            if copy == False:
-                times.append(curr_time)
-            copy = False
-            iterator+=1
-
-        byte_streams = []
-
-        #create list of lists for each stream and bytes in those streams at a specific time
+        byte_streams = dict()
         for stream in ALL_DATA_STREAMS:
-            s = []
-            s.append(stream)
-            byte_streams.append(s)
-        for time in times:
-            populated = [0] * len(ALL_DATA_STREAMS)
-            for item in chunks:
-                if item["time_bin"].strftime(REDUCED_API_TIME_FORMAT) == time:
-                    stream = item["data_stream"]
-                    populated[int(stream_nums.get(stream))] = 1
-                    byte_streams[int(stream_nums.get(stream))].append(item["bytes"])
-            for i in range(len(populated)): #to make sure that blanks are entered if no data
-                if populated[i] == 0:
-                    byte_streams[i].append(-1)
+            data_bytes = [item["bytes"] if item["data_stream"] == stream and item["time_bin"] == time else -1
+                          for time in unique_times for item in chunks]
+            byte_streams[stream] = data_bytes
+
     else: #edge case if no data has been entered
-        byte_streams = []
+        byte_streams = dict()
         times = []
 
     return render_template(
@@ -137,6 +68,38 @@ def query_data_for_user(study_id, patient_id):
         byte_streams=byte_streams,
     )
 
+
+#replaced with new code:
+# times = []
+# iterator = 0
+# copy = False
+# for item in chunks:
+#     curr_time = item["time_bin"].strftime(REDUCED_API_TIME_FORMAT)
+#     for prev in range(iterator):
+#         prev_item = chunks[prev]
+#         prev_time = prev_item["time_bin"].strftime(REDUCED_API_TIME_FORMAT)
+#         if curr_time == prev_time:
+#             copy = True
+#     if copy == False:
+#         times.append(curr_time)
+#     copy = False
+#     iterator += 1
+# create list of lists for each stream and bytes in those streams at a specific time
+# byte_streams = []
+# for stream in ALL_DATA_STREAMS:
+#     s = []
+#     s.append(stream)
+#     byte_streams.append(s)
+# for time in times:
+#     populated = [0] * len(ALL_DATA_STREAMS)
+#     for item in chunks:
+#         if item["time_bin"].strftime(REDUCED_API_TIME_FORMAT) == time:
+#             stream = item["data_stream"]
+#             populated[int(stream_nums.get(stream))] = 1
+#             byte_streams[int(stream_nums.get(stream))].append(item["bytes"])
+#     for i in range(len(populated)):  # to make sure that blanks are entered if no data
+#         if populated[i] == 0:
+#             byte_streams[i].append(-1)
 
 
 def dashboard_chunkregistry_query(participant_id, data_stream=None, start=None, end=None):

@@ -33,10 +33,10 @@ OUTPUT_COLUMNS = [
 ]
 
 NECESSARY_COLUMNS = [
-    "Message Date",         # timestamp
-    "Type",                 # "Incoming" or "Outgoing"
-    "Text",                 # message content
-    "Sender ID",            # Usually a phone number, might be a different value, gets hashed
+    "Date",         # timestamp
+    "Call type",                 # "Incoming" or "Outgoing"
+    # "Text",                 # message content
+    "Number",            # Usually a phone number, might be a different value, gets hashed
 ]
 
 TZ_HELP_STRING = "--tz-help"
@@ -45,6 +45,7 @@ OUTPUT_CSV_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S"
 PYTHON_FILE_NAME = __file__.split(SYSTEM_FOLDER_SEPARATOR)[-1] if SYSTEM_FOLDER_SEPARATOR in __file__ else __file__
 
 TIME_FORMAT_ERROR_WARNING = "WARNING: this file contains ambiguous dates."
+TIME_FORMAT_ERROR_WARNING_FLAG = False
 HASH_CACHE = {}
 
 #############################
@@ -181,7 +182,7 @@ def extract_data():
         output_row = {}
 
         # First get the datetime objects we will need
-        dt = input_csv_datetime_string_to_tz_aware_datetime(input_row["Message Date"])
+        dt = input_csv_datetime_string_to_tz_aware_datetime(input_row["Date"])
         unix_timestamp = dt_to_utc_timestamp(dt)
 
         # text csv has 3 timestamps, but they all are from the same source
@@ -190,14 +191,14 @@ def extract_data():
         output_row["UTC time"] = dt_to_output_format(dt)
 
         # get a hashed id of the message sender (always the same for any given user)
-        output_row["hashed phone number"] = hash_contact_id(input_row["Sender ID"])
+        output_row["hashed phone number"] = hash_contact_id(input_row["Number"])
 
         # length row is very simple.
-        output_row["message length"] = consisent_character_length(input_row["Text"])
-
+        # output_row["message length"] = consisent_character_length(input_row["Text"])
+        output_row["message length"] = "N/A"
         # populate sent vs received with the expected string.
         # (doing a case insensitive compare for paranoid safety.)
-        message_type = input_row["Type"].lower()
+        message_type = input_row["Call type"].lower()
         output_row["sent vs received"] = "received SMS" if message_type == "incoming" else "sent SMS"
 
         # assemble the data into a correctly ordered list

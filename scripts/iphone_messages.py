@@ -9,16 +9,19 @@ import sys
 from datetime import datetime
 from os.path import sep as SYSTEM_FOLDER_SEPARATOR
 from sys import argv
-from dateutil.parser import parse
-# This script has 1 dependancy: pytz.
+
+# This script has 2 dependencies: pytz and python-dateutil
 # pytz is effectively part of the python std library, but it needs to be updated more frequently
 # than python itself is updated, and having it as a non-std library allows these changes to be
 # centralized.
+# python-dateutil is a library that contains a fuzzy date format parser.
 try:
     import pytz
+    from dateutil.parser import parse
 except ImportError:
-    print("This script requires the 'pytz' library be installed, it is required to handle timezone coversions correctly.")
-    print("Installing pytz should be as simple as running 'pip install pytz'.")
+    print("This script requires the 'pytz' and 'python-dateutil' library be installed. "
+          "These libraries are required to handle timezone conversions correctly.")
+    print("Installing pytz should be as simple as running 'pip install pytz python-dateutil'.")
     exit(1)
 
 IS_PYTHON_2 = True if sys.version[0] == '2' else False
@@ -44,7 +47,8 @@ INPUT_CSV_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 OUTPUT_CSV_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S"
 PYTHON_FILE_NAME = __file__.split(SYSTEM_FOLDER_SEPARATOR)[-1] if SYSTEM_FOLDER_SEPARATOR in __file__ else __file__
 
-TIME_FORMAT_ERROR_WARNING = "WARNING: this file contains ambiguous dates."
+TIME_FORMAT_ERROR_WARNING = "WARNING: this file contains date strings with an ambiguous formatting."
+TIME_FORMAT_ERROR_WARNING_FLAG = 0
 HASH_CACHE = {}
 
 #############################
@@ -107,7 +111,10 @@ def input_csv_datetime_string_to_tz_aware_datetime(dt_string):
     try:
         dt = datetime.strptime(dt_string, INPUT_CSV_DATE_FORMAT)
     except ValueError:
-        print(TIME_FORMAT_ERROR_WARNING)
+        global TIME_FORMAT_ERROR_WARNING_FLAG
+        if TIME_FORMAT_ERROR_WARNING_FLAG < 1:
+            print(TIME_FORMAT_ERROR_WARNING)
+            TIME_FORMAT_ERROR_WARNING_FLAG += 1
         dt = parse(dt_string)
     return add_tz_to_naive_datetime(dt)
 

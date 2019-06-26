@@ -45,65 +45,20 @@ NECESSARY_COLUMNS = [
 TZ_HELP_STRING = "--tz-help"
 INPUT_CSV_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 OUTPUT_CSV_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S"
+START_END_DATE_FORMAT = "%Y-%m-%d"
 PYTHON_FILE_NAME = __file__.split(SYSTEM_FOLDER_SEPARATOR)[-1] if SYSTEM_FOLDER_SEPARATOR in __file__ else __file__
 
 TIME_FORMAT_ERROR_WARNING = "WARNING: this file contains date strings with an ambiguous formatting."
 TIME_FORMAT_ERROR_WARNING_FLAG = 0
 HASH_CACHE = {}
 
-#############################
-### Arg Parsing and Setup ###
-#############################
-# argv[0] = name of this file
-# argv[1] = path of csv file to operate on
-# argv[2] = timezone to assume when extracting data
-
-# if the user has provided the timezone help argument anywhere print all timezones
-if TZ_HELP_STRING in argv:
-    print("All timezone options (%s):" % len(pytz.all_timezones))
-    for t in pytz.all_timezones:
-        print("\t", t)
-    exit(0)
-
-if len(argv) in [1, 2]:
-    print("Usage: %s csv_file_to_parse timezone" % PYTHON_FILE_NAME)
-    print()
-    print("First parameter: a csv file.")
-    print("Second parameter: a string indicating the timezone to use.")
-    print()
-    print("(Try '%s %s' for a listing of available timezones)." % (PYTHON_FILE_NAME, TZ_HELP_STRING))
-    exit(1)
-
-tz = argv[2]
-try:
-    tz = pytz.timezone(tz)
-except pytz.UnknownTimeZoneError:
-    print("Unregognized timezone:", tz)
-    print("(Try '%s %s' for a listing of available timezones)." % (PYTHON_FILE_NAME, TZ_HELP_STRING))
-    exit(1)
-
-INPUT_FILE_NAME = argv[1]
-
-# attempt to get a nice-ish output file name right next to the input file.
-if INPUT_FILE_NAME.endswith(".csv"):
-    OUTPUT_FILE_NAME = INPUT_FILE_NAME[:-4] + ".out.csv"
-else:
-    OUTPUT_FILE_NAME = INPUT_FILE_NAME + ".out.csv"
-
-# This method of consuming the input file should handle all newline cases correctly.
-with open(INPUT_FILE_NAME) as f:
-    csv_reader = csv.DictReader(f.read().splitlines())
-
-# throw any errors about missing, necessary
-for fieldname in NECESSARY_COLUMNS:
-    assert fieldname in csv_reader.fieldnames, "This file is missing the '%s' column." % fieldname
 
 ###############
 ### Helpers ###
 ###############
 
 def add_tz_to_naive_datetime(dt):
-    # is_dst=False is the default, sticking it here for complexity
+    # is_dst=False is the default, sticking it here for completeness
     return tz.localize(dt, is_dst=False)
 
 
@@ -130,7 +85,7 @@ def dt_to_output_format(dt):
 
 
 def hash_contact_id(contact_id):
-    """ The Android app mechanism for hashng contacts is to use pbkdf2 on the last 10 digits of
+    """ The Android app mechanism for hashing contacts is to use pbkdf2 on the last 10 digits of
     the contact's phone number.  To imitate this exactly requires more information than is
     available in the script (we would need an iteration count and a salt).
     Instead all we do here is a single, standard SHA256 round.
@@ -169,7 +124,7 @@ def hash_contact_id(contact_id):
     return ret
 
 
-def consisent_character_length(text):
+def consistent_character_length(text):
     # python 2 and 3 have different string formats, we want to use unicode encoding because
     # the length should be the number of characters, not the number of 7-bit ascii bytes.
     if IS_PYTHON_2:
@@ -177,6 +132,94 @@ def consisent_character_length(text):
     else:
         return len(text)
 
+
+def determine_within_end_start(dt):
+    """ handles the logic for various cases of whether start and end date parameters were provided """
+    if END_DATE and START_DATE:
+        return START_DATE < dt < END_DATE
+    elif END_DATE:
+        pass # case cannot occur, only start date on its own
+    elif START_DATE:
+        return START_DATE < dt
+    else:
+        return True
+
+
+#############################
+### Arg Parsing and Setup ###
+#############################
+# argv[0] = name of this file
+# argv[1] = path of csv file to operate on
+# argv[2] = timezone to assume when extracting data
+# argv[3] = optional: date to start getting data
+# argv[4] = optional: date to stop getting data
+# if the user has provided the timezone help argument anywhere print all timezones
+
+if TZ_HELP_STRING in argv:
+    print("All timezone options (%s):" % len(pytz.all_timezones))
+    for t in pytz.all_timezones:
+        print("\t", t)
+    exit(0)
+
+if len(argv) in [1, 2]:
+    print("Usage: %s csv_file_to_parse timezone" % PYTHON_FILE_NAME)
+    print()
+    print("First parameter: a csv file.")
+    print("Second parameter: a string indicating the timezone to use.")
+    print("Third parameter (optional): a start date of events to include, of the form YYYY-MM-DD.")
+    print("Fourth parameter (optional): an end date of events to include, of the form YYYY-MM-DD.")
+    print()
+    print("(Try '%s %s' for a listing of available timezones)." % (PYTHON_FILE_NAME, TZ_HELP_STRING))
+    exit(1)
+
+tz = argv[2]
+try:
+    tz = pytz.timezone(tz)
+except pytz.UnknownTimeZoneError:
+    print("Unrecognized timezone:", tz)
+    print("(Try '%s %s' for a listing of available timezones)." % (PYTHON_FILE_NAME, TZ_HELP_STRING))
+    exit(1)
+
+INPUT_FILE_NAME = argv[1]
+
+# attempt to get a nice-ish output file name right next to the input file.
+if INPUT_FILE_NAME.endswith(".csv"):
+    OUTPUT_FILE_NAME = INPUT_FILE_NAME[:-4] + ".out.csv"
+else:
+    OUTPUT_FILE_NAME = INPUT_FILE_NAME + ".out.csv"
+
+# start.
+if len(argv) > 3:
+    try:
+        START_DATE = add_tz_to_naive_datetime(datetime.strptime(argv[3], START_END_DATE_FORMAT))
+    except ValueError as e:
+        print("The date provided for start date is either not of the form YYYY-MM-DD, or is an invalid date.")
+        exit(1)
+else:
+    START_DATE = None
+
+# end.
+if len(argv) > 4:
+    try:
+        END_DATE = add_tz_to_naive_datetime(datetime.strptime(argv[4], START_END_DATE_FORMAT))
+    except ValueError as e:
+        print("The date provided for end date is either not of the form YYYY-MM-DD, or is an invalid date.")
+        exit(1)
+else:
+    END_DATE = None
+
+if START_DATE and END_DATE:
+    if START_DATE > END_DATE:
+        print("\nError: start date must come before end date.")
+        exit(1)
+
+# This method of consuming the input file should handle all newline cases correctly.
+with open(INPUT_FILE_NAME) as f:
+    csv_reader = csv.DictReader(f.read().splitlines())
+
+# throw any errors about missing, necessary
+for fieldname in NECESSARY_COLUMNS:
+    assert fieldname in csv_reader.fieldnames, "This file is missing the '%s' column." % fieldname
 
 ############
 ### Main ###
@@ -189,6 +232,11 @@ def extract_data():
 
         # First get the datetime objects we will need
         dt = input_csv_datetime_string_to_tz_aware_datetime(input_row["Message Date"])
+
+        # determine if row is within date range
+        if not determine_within_end_start(dt):
+            continue
+
         unix_timestamp = dt_to_utc_timestamp(dt)
 
         # text csv has 3 timestamps, but they all are from the same source
@@ -200,7 +248,7 @@ def extract_data():
         output_row["hashed phone number"] = hash_contact_id(input_row["Sender ID"])
 
         # length row is very simple.
-        output_row["message length"] = consisent_character_length(input_row["Text"])
+        output_row["message length"] = consistent_character_length(input_row["Text"])
 
         # populate sent vs received with the expected string.
         # (doing a case insensitive compare for paranoid safety.)

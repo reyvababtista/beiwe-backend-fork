@@ -30,16 +30,15 @@ OUTPUT_COLUMNS = [
     "timestamp",
     "UTC time",
     "hashed phone number",
-    "sent vs received",
-    "message length",
-    "time sent",
+    "call type",
+    "duration in seconds",
 ]
 
 NECESSARY_COLUMNS = [
     "Date",         # timestamp
-    "Call type",                 # "Incoming" or "Outgoing"
-    # "Text",                 # message content -- not present in ios sms files created with imazing
-    "Number",            # Usually a phone number, might be a different value, gets hashed
+    "Call type",    # "Incoming" or "Outgoing"
+    "Number",       # Usually a phone number, might be a different value, gets hashed
+    "Duration",     # duration of the call
 ]
 
 TZ_HELP_STRING = "--tz-help"
@@ -169,14 +168,11 @@ def hash_contact_id(contact_id):
     return ret
 
 
-def consisent_character_length(text):
-    # python 2 and 3 have different string formats, we want to use unicode encoding because
-    # the length should be the number of characters, not the number of 7-bit ascii bytes.
-    if IS_PYTHON_2:
-        return len(text.decode("utf-8"))
-    else:
-        return len(text)
-
+def determine_duration_in_seconds(duration_string):
+    """ takes a timestamp of the form '10:10:10' (hours, minutes, seconds) and returns an integer
+    number of seconds. """
+    hours, minutes, seconds = duration_string.split(":")
+    return (int(hours)*60*60) + (int(minutes)*60) + int(seconds)
 
 ############
 ### Main ###
@@ -189,29 +185,26 @@ def extract_data():
 
         # First get the datetime objects we will need
         dt = input_csv_datetime_string_to_tz_aware_datetime(input_row["Date"])
-        unix_timestamp = dt_to_utc_timestamp(dt)
 
         # text csv has 3 timestamps, but they all are from the same source
-        output_row["timestamp"] = unix_timestamp
-        output_row["time sent"] = unix_timestamp
+        output_row["timestamp"] = dt_to_utc_timestamp(dt)
         output_row["UTC time"] = dt_to_output_format(dt)
 
         # get a hashed id of the message sender (always the same for any given user)
         output_row["hashed phone number"] = hash_contact_id(input_row["Number"])
 
-        # SMS source files do not contain message content or size, we need to provide a default value
-        output_row["message length"] = "N/A"
+        # call type maps to either 'Incoming' or 'Outgoing'
+        output_row["call type"] = input_row["Call type"].title() + " Call"
 
-        # populate sent vs received with the expected string.
-        # (doing a case insensitive compare for paranoid safety.)
-        message_type = input_row["Call type"].lower()
-        output_row["sent vs received"] = "received SMS" if message_type == "incoming" else "sent SMS"
+        # duration is a standard timestamp, needs to be converted to seconds.
+        output_row["duration in seconds"] = determine_duration_in_seconds(input_row["Duration"])
 
         # assemble the data into a correctly ordered list
         output_rows.append([output_row[column] for column in OUTPUT_COLUMNS])
 
     # sort by time (integer value of first column, which is the unix timestamp)
     output_rows.sort(key=lambda x: int(x[0]))
+
     return output_rows
 
 

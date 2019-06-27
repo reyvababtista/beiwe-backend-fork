@@ -35,27 +35,27 @@ function getDayOfWeek() {
 function get_survey_settings() {
     var trigger_on_first_download = document.getElementById('trigger_on_first_download').checked;
     if (trackingSurvey) {
-        var make_tracking_survey_always_available = document.getElementById('tracking_always_available').checked;
+        var make_survey_always_available = document.getElementById('always_available').checked;
         return {
             'trigger_on_first_download': trigger_on_first_download,
             'randomize': scope.surveyBuilder.randomize,
             'randomize_with_memory': scope.surveyBuilder.randomizeWithMemory,
             'number_of_random_questions': scope.surveyBuilder.numberOfRandomQuestions,
-            'tracking_always_available' : make_tracking_survey_always_available
+            'always_available' : make_survey_always_available
         };
     } else if (audioSurvey) {
-        var make_audio_survey_always_available = document.getElementById('audio_always_available').checked;
+        var make_survey_always_available = document.getElementById('always_available').checked;
         var audioSurveyType = $("[name='audio_survey_type']:checked").val();
         ret = {'trigger_on_first_download': trigger_on_first_download,
                 'audio_survey_type': audioSurveyType,
-                'audio_always_available' : make_audio_survey_always_available};
+                'always_available' : make_survey_always_available};
         if (audioSurveyType == 'raw') { ret['sample_rate'] = parseInt($('#raw_options').val()); }
         if (audioSurveyType == 'compressed') { ret['bit_rate'] = parseInt($('#compressed_options').val()); }
         return ret;
     } else {
-        var make_image_survey_always_available = document.getElementById('image_always_available').checked;
+        var make_survey_always_available = document.getElementById('always_available').checked;
         ret = {'trigger_on_first_download': trigger_on_first_download,
-                'image_always_available': make_image_survey_always_available };
+                'always_available': make_survey_always_available };
         return ret;
     }
 }

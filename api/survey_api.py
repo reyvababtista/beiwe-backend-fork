@@ -46,8 +46,20 @@ def update_survey(survey_id=None):
     # BUG: There is an unknown situation where the frontend sends a string requiring an extra
     # deserialization operation, causing 'content' to be a string containing a json string
     # containing a json list, instead of just a string containing a json list.
-    content = recursive_survey_content_json_decode(request.values['content'])
-    content = make_slider_min_max_values_strings(content)
+    # print(request.values.get('content', ''))
+    json_content = request.values.get('content')
+    content = None
+
+    # Weird corner case: the Image survey does not have any content associated with it. Therefore,
+    # when you try and make a post request to save any settings you have, it gives you a 500 error
+    # because the request.values.get('content') returns a json item of "". The recursive_survey_content_json_decode
+    # function is not able to decode 2 double quotations marks. This is why retrieving the json_content from the post
+    # request is put outside of the decode statement. HOWEVER, evaluating json_content == "" returns false, since the
+    # LITERAL value of the json_content is 2 quotation marks, NOT an empty string. Thus, we need to compare the
+    # json_content to a string of 2 quotation marks (ie. '""')
+    if json_content != '""':
+        content = recursive_survey_content_json_decode(json_content)
+        content = make_slider_min_max_values_strings(content)
     
     if survey.survey_type == Survey.TRACKING_SURVEY:
         errors = do_validate_survey(content)

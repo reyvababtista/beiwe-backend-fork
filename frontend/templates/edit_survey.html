@@ -31,6 +31,9 @@
     var trackingSurvey = ('{{ survey.survey_type }}' == "tracking_survey");
     var audioSurvey = ('{{ survey.survey_type }}' == "audio_survey");
     var imageSurvey = ('{{ survey.survey_type }}' == "image_survey");
+    var image_always_available = settings.image_always_available || false;
+    var audio_always_available = settings.audio_always_available || false;
+    var tracking_always_available = settings.tracking_always_available || false;
   </script>
   <script src="/static/javascript/survey-editor/schedule.js"></script>
   <script src="/static/javascript/survey-editor/survey-editor.js"></script>
@@ -107,7 +110,10 @@
           </div>
         </div>
       </div>
-
+      {#   add ability to make the tracking surveys always accessible    #}
+      <input type="checkbox" name="tracking_always_available" id="tracking_always_available"
+        {% if survey.settings['tracking_always_available'] %} checked {% endif %}>
+          <label for="tracking_always_available"><b> Make tracking survey always available</b> </label> if checked, the survey will be available to the participants at all times regardless of schedule <br>
       {% elif survey.survey_type == "audio_survey" %}
         <div class="row">
           <h3>Voice Recording Prompt</h3>
@@ -146,12 +152,15 @@
             <option value="44100" {{ 'selected' if survey.settings['sample_rate'] == 44100 or not survey.settings['sample_rate'] }}>44,100Hz</option>
           </select>
         </div>
-
+        {#    add ability to make the audio surveys always accessible    #}
+        <input type="checkbox" name="audio_always_available" id="audio_always_available"
+        {% if survey.settings['audio_always_available'] %} checked {% endif %}>
+        <label for="audio_always_available"><b> Make audio survey always available</b> </label> if checked, the survey will be available to the participants at all times regardless of schedule <br>
       {% else %}
-        {# if survey type is image_survey #}
-        <input type="checkbox" name="always_available" id="always_available"
-        {% if survey.settings['always_available'] %} checked {% endif %}>
-        <label for="always_available"><b> Make image survey always available</b> </label> if checked, the survey will be available to the participants at all times regardless of schedule <br>
+        {# if survey type is image_survey, have option to make it always accesible #}
+        <input type="checkbox" name="image_always_available" id="image_always_available"
+        {% if survey.settings['image_always_available'] %} checked {% endif %}>
+        <label for="image_always_available"><b> Make image survey always available</b> </label> if checked, the survey will be available to the participants at all times regardless of schedule <br>
       {% endif %}
 
       <hr><br>

@@ -52,10 +52,9 @@
     {%  if times %}
       <div class="content ng-cloak" ng-controller='buttonController' id="bctrl">
         <div class="dates">
-            <p>Date Range of Data Entries for Participant: {{ first_date_data.strftime('%m/%d/%Y') }}
+            <p>Available Dates: {{ first_date_data.strftime('%m/%d/%Y') }}
                 - {{ last_date_data.strftime('%m/%d/%Y') }}
             </p>
-            <p>Viewing Dates: {{ times[0].strftime('%m/%d/%Y') }} - {{ times[-1].strftime('%m/%d/%Y')}}</p>
         </div>
         <div class="date_bar">
             <div>
@@ -66,7 +65,6 @@
             <div class="choose-date">
               {# Start Date #}
               <div class="col-sm-4">
-                <div class="form-group">
                   <label for="start_datetime">Start Date</label>
                   <div class="input-group date" id="start_datetimepicker">
                     <input type="text" class="form-control" id="start_datetime" value="">
@@ -74,12 +72,10 @@
                       <span class="glyphicon glyphicon-calendar"></span>
                     </span>
                   </div>
-                </div>
               </div>
 
               {# End Date #}
               <div class="col-sm-4">
-                <div class="form-group">
                   <label for="end_datetime">End Date</label>
                   <div class="input-group date" id="end_datetimepicker">
                     <input type="text" class="form-control" id="end_datetime">
@@ -87,7 +83,6 @@
                       <span class="glyphicon glyphicon-calendar"></span>
                     </span>
                   </div>
-                </div>
               </div>
               <a ng-click="createPatientDateRangeUrl()" class="btn btn-primary">Submit</a>
             </div>

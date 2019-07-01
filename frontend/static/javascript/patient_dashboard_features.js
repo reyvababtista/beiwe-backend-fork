@@ -1,5 +1,5 @@
 $(document).ready(function() {
-    // $('#dashboard-datastream-table').DataTable();
+    $('#dashboard-datastream-table').DataTable();
     $('#start_datetimepicker').datetimepicker({
         format: "YYYY-MM-DD",
         defaultDate: window.start_date,

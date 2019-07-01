@@ -59,6 +59,8 @@ def view_study(study_id=None):
         allowed_studies=get_admins_allowed_studies(),
         system_admin=admin_is_system_admin(),
         study_fields=study_fields,
+        page_location='study_landing',
+        study_id=study_id,
     )
 
 

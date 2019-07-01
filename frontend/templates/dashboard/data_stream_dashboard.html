@@ -35,7 +35,7 @@
 {% block content %}
   {#  ################## TOP OF PAGE CONTENT ################# #}
   <div class="title">
-    <h1 class="h3"> {{ data_stream }} Data for {{ study_name }} Study
+    <h1 class="h3"> {{ data_stream }} Data for {{ study.name }} Study
       <div class="choose-stream">
         <div class="dropdown">
           <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
@@ -84,6 +84,8 @@
           <div class="panel-body">
             <div class="filters">
               <div class="well">
+                <h5 class="h5"> Create Flag: </h5>
+                <br>
                 <div class="radio-buttons">
                   <div class="form-check">
                     <input class="form-check-input" type="radio" ng-model="flag_operator" value=">"
@@ -114,15 +116,19 @@
                   <input type="number" ng-model="flag_value" class="form-control"
                        placeholder="Flag Value">
                 </div>
-                <button class="btn btn-primary add-flag" type="button" ng-if="flagExists() === 2" ng-click="addFlag()">
+                <button class="btn btn-primary add-flag" type="button" ng-if="flagExists() === 2 && valueIsNumber(flag_value)" ng-click="addFlag()">
                   Add Flag
                 </button>
                 <div class="invalid_input" ng-if="flagExists() === 1">
                   <p>Invalid Input: This flag already exists.</p>
                 </div>
+                <div class="invalid_input" ng-if="!valueIsNumber(flag_value) && flag_value !== null">
+                  <p>Invalid Input: Please enter ONLY numerical inputs.</p>
+                </div>
               </div>
               <div class="well">
-      {#           ------------- add the filter setting stuff here -------------#}
+                <h5 class="h5"> Create Gradient: </h5>
+                <br>
                 <div class="input-group mb-3 color_range_min">
                   <div class="input-group-addon">
                     <span class="input-group-number" id="basic-addon1">Minimum</span>
@@ -137,14 +143,17 @@
                   <input type="number" ng-model="color_high_range" class="form-control"
                        placeholder="Maximum">
                 </div>
-                <div class="invalid_input" ng-if="evalColorRange()">
+                <div class="invalid_input" ng-if="evalColorRange() && valueIsNumber(color_low_range) && valueIsNumber(color_high_range)">
                   <p>Invalid Input: Please make sure Minimum is less than Maximum.</p>
                 </div>
-                <div class="invalid_input" ng-if="color_high_range!== null && color_low_range !== null && show_color">
+                <div class="invalid_input" ng-if="color_high_range!== null && color_low_range !== null && show_color && valueIsNumber(color_low_range) && valueIsNumber(color_high_range)">
                   <p>Only one gradient is allowed.</p>
                 </div>
+                <div class="invalid_input" ng-if="(!valueIsNumber(color_low_range) || !valueIsNumber(color_high_range)) && color_low_range !== null && color_high_range !== null">
+                  <p>Invalid Input: Please enter ONLY numerical inputs.</p>
+                </div>
                 <button class="btn btn-primary add-flag" type="button"
-                        ng-if="!show_color && !evalColorRange() && color_high_range !== null && color_low_range !== null"
+                        ng-if="!show_color && !evalColorRange() && color_high_range !== null && color_low_range !== null && valueIsNumber(color_low_range) && valueIsNumber(color_high_range)"
                         ng-click="addGradient()">
                   Add Gradient
                 </button>
@@ -175,10 +184,9 @@
         {% endif %}
       </div>
 
+{#    Start Date #}
       <div class="choose-date">
-        {# Start Date #}
         <div class="col-sm-4">
-          <div class="form-group">
             <label for="start_datetime">Start Date</label>
             <div class="input-group date" id="start_datetimepicker">
               <input type="text" class="form-control" id="start_datetime" value="">
@@ -186,12 +194,10 @@
                 <span class="glyphicon glyphicon-calendar"></span>
               </span>
             </div>
-          </div>
         </div>
 
         {# End Date #}
         <div class="col-sm-4">
-          <div class="form-group">
             <label for="end_datetime">End Date</label>
             <div class="input-group date" id="end_datetimepicker">
               <input type="text" class="form-control" id="end_datetime">
@@ -199,7 +205,6 @@
                 <span class="glyphicon glyphicon-calendar"></span>
               </span>
             </div>
-          </div>
         </div>
         <a ng-click="createDateRangeUrl()" class="btn btn-primary">Submit</a>
       </div>

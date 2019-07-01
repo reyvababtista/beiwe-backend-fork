@@ -3,7 +3,7 @@
  * identifies the max and min per ROW and highlights based on that gradient
  */
 $(document).ready(function() {
-    // $('#dashboard-datastream-table').DataTable();
+    $('#dashboard-datastream-table').DataTable();
     $('#start_datetimepicker').datetimepicker({
         format: "YYYY-MM-DD",
         defaultDate: window.start_date,
@@ -43,6 +43,8 @@ $(document).ready(function() {
         $scope.createDateRangeUrl = createDateRangeUrl;
         $scope.addGradient = addGradient;
         $scope.getCurrentGradient = getCurrentGradient;
+        $scope.valueIsNumber = valueIsNumber;
+        $scope.convertToNumber = convertToNumber;
         $scope.flag_operator = null;
         $scope.flag_value = null;
         $scope.current_gradient = $window.current_gradient;
@@ -58,6 +60,31 @@ $(document).ready(function() {
         setUp();
 
         // ------------------------ FUNCTIONS ----------------------- //
+        //NOTE: this checking is necessary DESPITE the fact that type=number is specified in the input fields
+        // BECAUSE some browsers do not support type=number and will allow any characters.
+        //converts a number with commas in it to a regular number
+        // if any other non numerical character is found it returns False
+        function convertToNumber(number){
+            number = number.toString();
+            let new_num = number.replace(/[^0-9]/,'');
+            if(new_num !== ''){
+                    return new_num;
+                }
+            else{
+                return false;
+            }
+        }
+
+        //returns true if number is normal or has commas in it, false in all other circumstances
+        function valueIsNumber(number){
+            if(number === null || number === undefined) {
+                return false;
+            }
+            else if(convertToNumber(number) === false){
+                return false;
+            }
+            return true;
+        }
 
         function getCurrentGradient(gradient_value){
             if(gradient_value === null){
@@ -68,7 +95,9 @@ $(document).ready(function() {
 
         function addGradient() {
             $scope.show_color = true;
-            $scope.current_gradient = [$scope.color_low_range, $scope.color_high_range];
+            let color_low = convertToNumber($scope.color_low_range);
+            let color_high = convertToNumber($scope.color_high_range);
+            $scope.current_gradient = [color_low, color_high];
             $scope.color_low_range = null;
             $scope.color_high_range = null;
         }
@@ -116,10 +145,12 @@ $(document).ready(function() {
 
         //add flag
         function addFlag(){
-            $scope.all_flags_list.push([$scope.flag_operator, $scope.flag_value]);
+            number = convertToNumber($scope.flag_value);
+            $scope.all_flags_list.push([$scope.flag_operator, number]);
             $scope.flag_operator = null;
             $scope.flag_value = null;
         }
+
 
         //create a new url for the next and past buttons
         function createNewUrl(base_url){

@@ -1,7 +1,7 @@
 from flask import abort, Blueprint, redirect, request
 from flask.templating import render_template
 
-from config.settings import DOMAIN_NAME, IS_STAGING
+from config.settings import DOMAIN_NAME, DOWNLOADABLE_APK_URL, IS_STAGING
 from database.study_models import Study
 from database.user_models import Researcher
 from libs.admin_authentication import (
@@ -86,7 +86,7 @@ def download_page():
 
 @admin_api.route("/download")
 def download_current():
-    return redirect("https://s3.amazonaws.com/beiwe-app-backups/release/Beiwe-2.4.1-onnelaLabServer-release.apk")
+    return redirect(DOWNLOADABLE_APK_URL)
 
 
 @admin_api.route("/download_debug")

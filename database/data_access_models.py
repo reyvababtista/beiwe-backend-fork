@@ -44,6 +44,9 @@ class PipelineRegistry(AbstractModel):
 
 
 class ChunkRegistry(AbstractModel):
+    # this is declared in the abstract model but needs to be indexed for pipeline queries.
+    last_updated = models.DateTimeField(auto_now=True, db_index=True)
+
     is_chunkable = models.BooleanField()
     chunk_path = models.CharField(max_length=256, db_index=True)  # , unique=True)
     chunk_hash = models.CharField(max_length=25, blank=True)
@@ -139,6 +142,16 @@ class ChunkRegistry(AbstractModel):
     def low_memory_update_chunk_hash(self, list_data_to_hash):
         self.chunk_hash = low_memory_chunk_hash(list_data_to_hash)
         self.save()
+
+    @classmethod
+    def get_updated_users_for_study(cls, study, date_of_last_activity):
+        """ Returns a list of patient ids that have had new or updated ChunkRegistry data
+        since the datetime provided. """
+        # note that date of last activity is actually date of last data processing operation on the
+        # data uploaded by a user.
+        return cls.objects.filter(
+            study=study, last_updated__gte=date_of_last_activity
+        ).values_list("participant__patient_id", flat=True).distinct()
 
 
 class FileToProcess(AbstractModel):

@@ -1,6 +1,4 @@
-import os
-
-from flask import Blueprint, flash, redirect, abort
+from flask import Blueprint, flash, redirect
 
 from database.study_models import Study
 from libs.admin_authentication import authenticate_admin_study_access
@@ -22,10 +20,7 @@ def run_manual_code(study_id):
     pipeline_region = get_current_region()
 
     # Get the object ID of the study, used in the pipeline
-    query = Study.objects.filter(pk=study_id)
-    if not query.exists():
-        return abort(404)
-    object_id = query.get().object_id
+    study = Study.objects.get(pk=study_id)
 
     error_sentry = make_error_sentry("data", tags={"pipeline_frequency": "manually"})
     # Get new data access credentials for the manual user, submit a manual job, display message
@@ -34,7 +29,8 @@ def run_manual_code(study_id):
         ssm_client = get_boto_client('ssm', pipeline_region)
         refresh_data_access_credentials('manually', ssm_client=ssm_client, webserver=True)
         batch_client = get_boto_client('batch', pipeline_region)
-        create_one_job('manually', object_id, batch_client, webserver=True)
+        for patient_id in study.participants.values_list("patient_id", flat=True):
+            create_one_job('manually', study, patient_id, batch_client, webserver=True)
         flash('Data pipeline code successfully initiated!', 'success')
     
     if error_sentry.errors:

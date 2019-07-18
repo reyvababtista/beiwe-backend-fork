@@ -23,9 +23,6 @@ def get_configs_folder():
 def get_aws_object_names_file():
     return path_join(get_configs_folder(), 'aws-object-names.json')
 
-
-cached_domain = None
-
 #
 # Configuration getters and validator
 #
@@ -85,18 +82,6 @@ def _validate_and_get_configs(config_list, config_file_path):
         if setting in os.environ:
             config_data[setting] = os.environ[setting]
 
-    # prompt for the url or provide it in an environment variable or in the contents of the config file.
-    global cached_domain
-    if cached_domain is None:
-        if "server_url" in config_data and config_data["server_url"]:
-            cached_domain = config_data["server_url"]
-        else:
-            prompt = "Provide the domain that your Beiwe deployment will uses. " \
-                     "Example: 'studies.beiwe-studies.net' (do not include a protocol)" \
-                     "\n\n$ "
-            cached_domain = raw_input(prompt)
-
-    config_data["server_url"] = cached_domain
     config_data["region_name"] = get_current_region()
 
     # if there are any missing settings, fail with helpful error message

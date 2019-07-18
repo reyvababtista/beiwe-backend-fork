@@ -170,10 +170,7 @@ def run(repo_uri, ami_id):
         }, {
             'name': 'region_name',
             'value': get_current_region(),
-        }, {
-            'name': 'server_url',
-            'value': aws_object_names['server_url'],
-        },
+        }
     ]
 
     final_job_definition_name = create_job_definition(

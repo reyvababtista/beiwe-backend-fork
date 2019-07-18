@@ -40,8 +40,6 @@ def refresh_data_access_credentials(freq, ssm_client=None, webserver=False):
         generic_config = get_generic_config()
     else:
         generic_config = get_eb_config()
-        generic_config["server_url"] = DOMAIN_NAME
-
 
     # Append the frequency to the SSM (AWS Systems Manager) names. This ensures that the
     # different frequency jobs' keys do not overwrite each other.
@@ -84,7 +82,6 @@ def create_one_job(freq, study, patient_id, client=None, webserver=False):
         aws_object_names = get_generic_config()
     else:
         aws_object_names = get_eb_config()
-        aws_object_names["server_url"] = DOMAIN_NAME
 
     # requires region_name be defined.
     if client is None:
@@ -106,9 +103,13 @@ def create_one_job(freq, study, patient_id, client=None, webserver=False):
                     'name': 'FREQ',
                     'value': freq,
                 }, {
-                    'name': "patient_id",
-                    "value": patient_id,
-                },
+                    'name': 'patient_id',
+                    'value': patient_id,
+                },{
+                    'name': 'server_url',
+                    'value': DOMAIN_NAME,
+                }
+
             ],
         },
     )

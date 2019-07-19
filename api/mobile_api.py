@@ -17,7 +17,7 @@ from libs.logging import log_error
 from libs.s3 import s3_upload, get_client_public_key_string, get_client_private_key
 from libs.sentry import make_sentry_client
 from libs.user_authentication import (authenticate_user, authenticate_user_registration,
-    authenticate_user_ignore_password)
+    minimal_validation)
 
 ################################################################################
 ############################# GLOBALS... #######################################
@@ -40,7 +40,7 @@ mobile_api = Blueprint('mobile_api', __name__)
 @mobile_api.route('/upload', methods=['POST'])
 @mobile_api.route('/upload/ios/', methods=['GET', 'POST'])
 @determine_os_api
-@authenticate_user_ignore_password
+@minimal_validation
 def upload(OS_API=""):
     """ Entry point to upload GPS, Accelerometer, Audio, PowerState, Calls Log, Texts Log,
     Survey Response, and debugging files to s3.

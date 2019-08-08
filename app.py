@@ -1,6 +1,7 @@
 import os
 
 import jinja2
+from datetime import datetime
 from flask import Flask, render_template, redirect
 from raven.contrib.flask import Sentry
 from werkzeug.contrib.fixers import ProxyFix
@@ -37,6 +38,7 @@ def subdomain(directory):
 
 # Register pages here
 app = subdomain("frontend")
+app.jinja_env.globals['current_year'] = datetime.now().strftime('%Y')
 app.register_blueprint(mobile_api.mobile_api)
 app.register_blueprint(admin_pages.admin_pages)
 app.register_blueprint(mobile_pages.mobile_pages)
@@ -82,4 +84,3 @@ if __name__ == '__main__':
     # http_server = WSGIServer(('', 8080), app)
     # http_server.serve_forever()
     app.run(host='0.0.0.0', port=int(os.getenv("PORT", "8080")), debug=True)
-

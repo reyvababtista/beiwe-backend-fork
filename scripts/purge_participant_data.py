@@ -11,6 +11,7 @@ import json
 from datetime import datetime
 from sys import argv
 from os.path import abspath as _abspath
+from pprint import pprint
 
 # modify python path so that this script can be targeted directly but still import everything.
 _current_folder_init = _abspath(__file__).rsplit('/', 1)[0]+ "/__init__.py"
@@ -18,12 +19,12 @@ _imp.load_source("__init__", _current_folder_init)
 
 # noinspection PyUnresolvedReferences
 from config import load_django
-
+from config.settings import S3_BUCKET
 from config.constants import CHUNKS_FOLDER, API_TIME_FORMAT
 from database.user_models import Participant
 from database.data_access_models import ChunkRegistry
 from libs.file_processing import unix_time_to_string
-from libs.s3 import s3_list_files
+from libs.s3 import s3_list_files, s3_list_versions, conn as s3_conn
 
 
 UNIX_EPOCH_START = datetime(1970,1,1)
@@ -129,11 +130,6 @@ def assemble_deletable_files(sorted_data):
         # technically it is a datetime object
         expunge_start_date = convert_date(expunge_start_date)
         expunge_start_unix_timestamp = int((expunge_start_date - UNIX_EPOCH_START).total_seconds()) * 1000
-        print(
-            patient_id,
-            "timestamp: %s, (%s)" %
-            (expunge_start_date, expunge_start_unix_timestamp)
-        )
 
         prefix = str(participant.study.object_id) + "/" + patient_id + "/"
         s3_files = s3_list_files(prefix, as_generator=True)
@@ -141,11 +137,19 @@ def assemble_deletable_files(sorted_data):
         chunks_prefix = CHUNKS_FOLDER + "/" + prefix
         s3_chunks_files = s3_list_files(chunks_prefix, as_generator=True)
 
-        deletable_file_paths.extend(assemble_raw_files(s3_files, expunge_start_unix_timestamp))
-        deletable_file_paths.extend(assemble_chunked_files(s3_chunks_files, expunge_start_date))
+        raw_files = assemble_raw_files(s3_files, expunge_start_unix_timestamp)
+        chunked_files = assemble_chunked_files(s3_chunks_files, expunge_start_date)
+
+        print(
+            patient_id,
+            "timestamp: %s, (unixtime: %s): %s files" %
+            (expunge_start_date, expunge_start_unix_timestamp/1000, len(raw_files) + len(chunked_files))
+        )
+
+        deletable_file_paths.extend(raw_files)
+        deletable_file_paths.extend(chunked_files)
 
     return deletable_file_paths
-
 
 
 def assemble_raw_files(s3_file_paths, expunge_timestamp):
@@ -174,6 +178,33 @@ def assemble_chunked_files(s3_chunks_files, expunge_start_date):
             ret.append(file_path)
     return ret
 
+
+def delete_versions(files_to_delete):
+    print("Deleting many files, this could take a while...")
+    for s3_file_path in files_to_delete:
+        file_args = s3_list_versions(s3_file_path)
+
+        print(
+            "Deleting %s version(s) of %s with the following VersionIds: %s" %
+            (len(file_args), s3_file_path, ", ".join([f['VersionId'] for f in file_args]) )
+        )
+
+        delete_args = {
+            "Bucket": S3_BUCKET,
+            "Delete": {
+                'Objects': file_args,
+                'Quiet': False,
+            },
+        }
+
+        s3_conn.delete_objects(**delete_args)
+
+
 setup_data = setup()
 delete_chunk_registries(setup_data)
-print(assemble_deletable_files(setup_data))
+
+print("\nAssembling the files to delete...")
+deletable_files = assemble_deletable_files(setup_data)
+
+delete_versions(deletable_files)
+

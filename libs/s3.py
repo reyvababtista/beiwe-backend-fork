@@ -5,6 +5,8 @@ from config.settings import (S3_BUCKET, BEIWE_SERVER_AWS_ACCESS_KEY_ID,
     BEIWE_SERVER_AWS_SECRET_ACCESS_KEY, S3_REGION_NAME)
 from libs import encryption
 
+class S3VersionException(Exception): pass
+
 conn = boto3.client('s3',
                     aws_access_key_id=BEIWE_SERVER_AWS_ACCESS_KEY_ID,
                     aws_secret_access_key=BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
@@ -45,6 +47,38 @@ def s3_list_files(prefix, as_generator=False):
         note: entering the empty string into this search without later calling
         the object results in a truncated/paginated view."""
     return _do_list_files(S3_BUCKET, prefix, as_generator=as_generator)
+
+
+def s3_list_versions(prefix, allow_multiple_matches=False):
+    """
+    Page structure - each page is a dictionary with these keys:
+     Name, ResponseMetadata, Versions, MaxKeys, Prefix, KeyMarker, IsTruncated, VersionIdMarker
+    We only care about 'Versions', which is a list of all object versions matching that prefix.
+    Versions is a list of dictionaries with these keys:
+     LastModified, VersionId, ETag, StorageClass, Key, Owner, IsLatest, Size
+
+    returns a list of dictionaries.
+    If allow_multiple_matches is False the keys are LastModified, VersionId, IsLatest.
+    If allow_multiple_matches is True the key 'Key' is added, containing the s3 file path.
+    """
+
+    paginator = conn.get_paginator('list_object_versions')
+    page_iterator = paginator.paginate(Bucket=S3_BUCKET, Prefix=prefix)
+
+    versions = []
+    for page in page_iterator:
+        # versions are not guaranteed, usually this means the file was deleted and only has deletion markers.
+        if 'Versions' not in page.keys():
+            continue
+
+        for s3_version in page['Versions']:
+            if not allow_multiple_matches and s3_version['Key'] != prefix:
+                raise S3VersionException("the prefix '%s' was not an exact match" % prefix)
+            versions.append({
+                'VersionId': s3_version["VersionId"],
+                'Key': s3_version['Key'],
+            })
+    return versions
 
 
 def _do_list_files(bucket_name, prefix, as_generator=False):

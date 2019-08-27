@@ -103,10 +103,13 @@ def _load_json_file(file_path):
 
 def get_current_region():
     try:
-        # AWS linux: full_region is of the form "placement: us-east-1a"
-        full_region = check_output(["ec2-metadata", "--availability-zone"]).strip()
-        return full_region.split(" ")[1][:-1]
-    except Exception:
-        # on ubuntu: sudo apt-get -y install cloud-utils, and the executable doesn't have a dash.
-        # return is of the form "us-east-1b" possibly with whitespace.
-        return check_output(["ec2metadata", "--availability-zone"]).strip()[:-1]
+        try:
+            # AWS linux: full_region is of the form "placement: us-east-1a"
+            full_region = check_output(["ec2-metadata", "--availability-zone"]).strip()
+            return full_region.split(" ")[1][:-1]
+        except Exception:
+            # on ubuntu: sudo apt-get -y install cloud-utils, and the executable doesn't have a dash.
+            # return is of the form "us-east-1b" possibly with whitespace.
+            return check_output(["ec2metadata", "--availability-zone"]).strip()[:-1]
+    except OSError:
+        raise Exception("get_current_region can only be called on an amazon server with ec2metadata/ec2-metadata installed")

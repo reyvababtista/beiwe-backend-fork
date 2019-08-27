@@ -211,7 +211,7 @@ class Researcher(AbstractPasswordUser):
         return generate_hash_and_salt(password)
 
     def elevate_to_admin(self):
-        self.admin = True
+        self.site_admin = True
         self.save()
 
     def validate_access_credentials(self, proposed_secret_key):

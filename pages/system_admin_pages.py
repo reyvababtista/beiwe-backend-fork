@@ -15,12 +15,12 @@ from libs.admin_authentication import (authenticate_site_admin,
 from libs.copy_study import copy_existing_study_if_asked_to
 from libs.http_utils import checkbox_to_boolean, string_to_int
 
-admin_pages = Blueprint('admin_pages', __name__)
+system_admin_pages = Blueprint('system_admin_pages', __name__)
 
 # TODO: Document.
 
 
-@admin_pages.route('/manage_researchers', methods=['GET'])
+@system_admin_pages.route('/manage_researchers', methods=['GET'])
 @authenticate_site_admin
 def manage_researchers():
     researcher_list = []
@@ -36,7 +36,7 @@ def manage_researchers():
     )
 
 
-@admin_pages.route('/edit_researcher/<string:researcher_pk>', methods=['GET', 'POST'])
+@system_admin_pages.route('/edit_researcher/<string:researcher_pk>', methods=['GET', 'POST'])
 @authenticate_site_admin
 def edit_researcher(researcher_pk):
     researcher = Researcher.objects.get(pk=researcher_pk)
@@ -54,7 +54,7 @@ def edit_researcher(researcher_pk):
     )
 
 
-@admin_pages.route('/create_new_researcher', methods=['GET', 'POST'])
+@system_admin_pages.route('/create_new_researcher', methods=['GET', 'POST'])
 @authenticate_site_admin
 def create_new_researcher():
     if request.method == 'GET':
@@ -79,7 +79,7 @@ def create_new_researcher():
 """########################### Study Pages ##################################"""
 
 
-@admin_pages.route('/manage_studies', methods=['GET'])
+@system_admin_pages.route('/manage_studies', methods=['GET'])
 @authenticate_site_admin
 def manage_studies():
     studies = [study.as_native_python() for study in Study.get_all_studies_by_name()]
@@ -91,7 +91,7 @@ def manage_studies():
     )
 
 
-@admin_pages.route('/edit_study/<string:study_id>', methods=['GET'])
+@system_admin_pages.route('/edit_study/<string:study_id>', methods=['GET'])
 @authenticate_site_admin
 def edit_study(study_id=None):
     study = Study.objects.get(pk=study_id)
@@ -106,7 +106,7 @@ def edit_study(study_id=None):
     )
 
 
-@admin_pages.route('/study_fields/<string:study_id>', methods=['GET', 'POST'])
+@system_admin_pages.route('/study_fields/<string:study_id>', methods=['GET', 'POST'])
 @authenticate_site_admin
 def study_fields(study_id=None):
     study = Study.objects.get(pk=study_id)
@@ -127,7 +127,7 @@ def study_fields(study_id=None):
     return redirect('/study_fields/{:d}'.format(study.id))
 
 
-@admin_pages.route('/delete_field/<string:study_id>', methods=['POST'])
+@system_admin_pages.route('/delete_field/<string:study_id>', methods=['POST'])
 @authenticate_site_admin
 def delete_field(study_id=None):
     study = Study.objects.get(pk=study_id)
@@ -148,7 +148,7 @@ def delete_field(study_id=None):
     return redirect('/study_fields/{:d}'.format(study.id))
 
 
-@admin_pages.route('/create_study', methods=['GET', 'POST'])
+@system_admin_pages.route('/create_study', methods=['GET', 'POST'])
 @authenticate_site_admin
 def create_study():
     if request.method == 'GET':
@@ -175,7 +175,7 @@ def create_study():
         return redirect('/create_study')
 
 
-@admin_pages.route('/delete_study/<string:study_id>', methods=['POST'])
+@system_admin_pages.route('/delete_study/<string:study_id>', methods=['POST'])
 @authenticate_site_admin
 def delete_study(study_id=None):
     """ This functionality has been disabled pending testing and feature change."""
@@ -186,7 +186,7 @@ def delete_study(study_id=None):
         return "success"
 
 
-@admin_pages.route('/device_settings/<string:study_id>', methods=['GET', 'POST'])
+@system_admin_pages.route('/device_settings/<string:study_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def device_settings(study_id=None):
     study = Study.objects.get(pk=study_id)

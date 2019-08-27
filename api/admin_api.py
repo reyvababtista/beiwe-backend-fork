@@ -1,9 +1,10 @@
 from flask import abort, Blueprint, redirect, request
 from flask.templating import render_template
 
+from config.constants import ResearcherType
 from config.settings import DOMAIN_NAME, DOWNLOADABLE_APK_URL, IS_STAGING
 from database.study_models import Study
-from database.user_models import Researcher
+from database.user_models import Researcher, StudyRelation
 from libs.admin_authentication import (
     authenticate_researcher_login, get_researcher_allowed_studies,
     authenticate_site_admin, researcher_is_site_admin)
@@ -20,7 +21,9 @@ def add_researcher_to_study():
     researcher_id = request.values['researcher_id']
     study_id = request.values['study_id']
     Researcher.studies.through.objects.get_or_create(researcher_id=researcher_id, study_id=study_id)
-
+    StudyRelation.objects.get_or_create(
+        study_id=study_id, researcher_id=researcher_id, relationship=ResearcherType.researcher
+    )
     # This gets called by both edit_researcher and edit_study, so the POST request
     # must contain which URL it came from.
     return redirect(request.values['redirect_url'])
@@ -32,7 +35,7 @@ def remove_researcher_from_study():
     researcher_id = request.values['researcher_id']
     study_id = request.values['study_id']
     Researcher.objects.get(pk=researcher_id).studies.remove(study_id)
-
+    StudyRelation.objects.filter(study_id=study_id, researcher_id=researcher_id).delete()
     return redirect(request.values['redirect_url'])
 
 
@@ -45,6 +48,7 @@ def delete_researcher(researcher_id):
         return abort(404)
     
     researcher.studies.clear()
+    StudyRelation.objects.filter(researcher=researcher).delete()
     researcher.delete()
     return redirect('/manage_researchers')
 

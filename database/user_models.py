@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models import F, Func
 
+from config.constants import ResearcherType
 from database.models import AbstractModel
 from database.validators import id_validator, standard_base_64_validator, url_safe_base_64_validator
 from libs.security import (compare_password, device_hash, generate_easy_alphanumeric_string,
@@ -210,9 +211,14 @@ class Researcher(AbstractPasswordUser):
     def generate_hash_and_salt(self, password):
         return generate_hash_and_salt(password)
 
-    def elevate_to_admin(self):
+    def elevate_to_site_admin(self):
         self.site_admin = True
         self.save()
+
+    def elevate_to_study_admin(self, study):
+        study_relation = StudyRelation.objects.get_or_create(reseacher=self, study=study)
+        study_relation.relation = ResearcherType.study_admin
+        study_relation.save()
 
     def validate_access_credentials(self, proposed_secret_key):
         """ Returns True/False if the provided secret key is correct for this user."""

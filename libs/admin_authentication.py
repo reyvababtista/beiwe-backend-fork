@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from flask import session, redirect, request, json
 from werkzeug.exceptions import abort
 
-from config.constants import ResearcherType
+from config.constants import ResearcherType, ALL_RESEARCHER_TYPES
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation
 from libs.security import generate_easy_alphanumeric_string
@@ -101,10 +101,13 @@ def authenticate_researcher_study_access(some_function):
         if not Study.objects.filter(pk=study_id).exists():
             return abort(404)
 
-        # allow site admins through, allow only authorized study admins.
-        study_relation = StudyRelation.objects.get(study_id=study_id, researcher=researcher).relationship
-        if not researcher.site_admin and study_relation != ResearcherType.study_admin:
-            return abort(403)
+        study_relation = StudyRelation.objects.filter(study_id=study_id, researcher=researcher)
+
+        # always allow site admins
+        # currently we allow all study relations.
+        if not researcher.site_admin:
+            if not study_relation.exists() or study_relation.get().relationship not in ALL_RESEARCHER_TYPES:
+                return abort(403)
 
         return some_function(*args, **kwargs)
 

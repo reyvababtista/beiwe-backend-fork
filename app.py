@@ -1,30 +1,20 @@
 import os
+from datetime import datetime
 
 import jinja2
-from datetime import datetime
-from flask import Flask, render_template, redirect
+from flask import Flask, redirect, render_template
 from raven.contrib.flask import Sentry
 from werkzeug.contrib.fixers import ProxyFix
 
 from config import load_django
 
-from api import (participant_administration, admin_api, copy_study_api, data_access_api,
-    data_pipeline_api, mobile_api, survey_api, dashboard_api)
+from api import (admin_api, copy_study_api, dashboard_api, data_access_api, data_pipeline_api,
+    mobile_api, participant_administration, survey_api)
 from config.settings import SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN
 from libs.admin_authentication import is_logged_in
 from libs.security import set_secret_key
-from pages import (admin_pages, mobile_pages, survey_designer, admin_pages,
-    data_access_web_form)
-
-
-# # if running locally we want to use a sqlite database
-# if __name__ == '__main__':
-#     os.environ['DJANGO_DB_ENV'] = "local"
-#
-# # if running through WSGI we want
-# if not __name__ == '__main__':
-#     os.environ['DJANGO_DB_ENV'] = "remote"
-# Load and set up Django
+from pages import (admin_pages, data_access_web_form, mobile_pages, survey_designer,
+    system_admin_pages)
 
 
 def subdomain(directory):
@@ -42,7 +32,7 @@ app.jinja_env.globals['current_year'] = datetime.now().strftime('%Y')
 app.register_blueprint(mobile_api.mobile_api)
 app.register_blueprint(admin_pages.admin_pages)
 app.register_blueprint(mobile_pages.mobile_pages)
-app.register_blueprint(admin_pages.admin_pages)
+app.register_blueprint(system_admin_pages.system_admin_pages)
 app.register_blueprint(survey_designer.survey_designer)
 app.register_blueprint(admin_api.admin_api)
 app.register_blueprint(participant_administration.participant_administration)

@@ -4,8 +4,9 @@ from datetime import datetime, timedelta
 from flask import session, redirect, request, json
 from werkzeug.exceptions import abort
 
+from config.constants import ResearcherType
 from database.study_models import Study
-from database.user_models import Researcher
+from database.user_models import Researcher, StudyRelation
 from libs.security import generate_easy_alphanumeric_string
 
 
@@ -15,9 +16,8 @@ from libs.security import generate_easy_alphanumeric_string
 
 
 def authenticate_admin_login(some_function):
-    """Decorator for functions (pages) that require a login.
-       Redirects to index if not authenticate_admin_login"""
-    
+    """ Decorator for functions (pages) that require a login.
+        Redirects to index if not authenticate_admin_login """
     @functools.wraps(some_function)
     def authenticate_and_call(*args, **kwargs):
         if is_logged_in():
@@ -28,13 +28,15 @@ def authenticate_admin_login(some_function):
     return authenticate_and_call
 
 
-def log_in_admin(username):
+def log_in_researcher(username):
+    """ populate session for a researcher """
     session['admin_uuid'] = generate_easy_alphanumeric_string()
     session['expiry'] = datetime.now() + timedelta(hours=6)
     session['admin_username'] = username
 
 
-def logout_loggedin_admin():
+def logout_researcher():
+    """ clear session information for a researcher """
     if "admin_uuid" in session:
         del session['admin_uuid']
     if "expiry" in session:
@@ -42,9 +44,10 @@ def logout_loggedin_admin():
 
 
 def is_logged_in():
+    """ automatically logs out the researcher if their session is timed out. """
     if 'expiry' in session and session['expiry'] > datetime.now():
         return 'admin_uuid' in session
-    logout_loggedin_admin()
+    logout_researcher()
 
 ################################################################################
 ########################## Study Editing Privileges ############################
@@ -66,9 +69,9 @@ def authenticate_admin_study_access(some_function):
         if not is_logged_in():
             return redirect("/")
 
-        username = session["admin_username"]
+        # assert researcher exists
         try:
-            researcher = Researcher.objects.get(username=username)
+            researcher = Researcher.objects.get(username=session["admin_username"])
         except Researcher.DoesNotExist:
             return abort(404)
 
@@ -80,41 +83,39 @@ def authenticate_admin_study_access(some_function):
         if not survey_id and not study_id:
             raise ArgumentMissingException()
 
-        # We want the survey_id check to execute first if both args are supplied.
+        # We want the survey_id check to execute first if both args are supplied, surveys are
+        # attached to studies but do not supply the study id.
         if survey_id:
-            study_set = Study.objects.filter(surveys=survey_id)
-            if not study_set.exists():
+            # get studies for a survey, fail with 404 if study does not exist
+            studies = Study.objects.filter(surveys=survey_id)
+            if not studies.exists():
                 return abort(404)
 
-            # Check that researcher is either a researcher on the study or an admin
-            study_id = study_set.values_list('pk', flat=True).get()
-            if not researcher.admin:
-                if not researcher.studies.filter(pk=study_id).exists():
-                    return abort(403)
+            # Check that researcher is either a researcher on the study or an admin,
+            # and populate study_id variable
+            study_id = studies.values_list('pk', flat=True).get()
 
-        if study_id:
-            study_set = Study.objects.filter(pk=study_id)
-            if not study_set.exists():
-                return abort(404)
+        # assert that such a study exists
+        if not Study.objects.filter(pk=study_id).exists():
+            return abort(404)
 
-            if not researcher.admin:
-                if not researcher.studies.filter(pk=study_id).exists():
-                    return abort(403)
+        # allow site admins through, allow only authorized study admins.
+        study_relation = StudyRelation.objects.get(study_id=study_id, researcher=researcher).relationship
+        if not researcher.site_admin and study_relation != ResearcherType.study_admin:
+            return abort(403)
 
         return some_function(*args, **kwargs)
 
     return authenticate_and_call
 
 
-# TODO: Low priority. Josh.  Find a way to do these solely in the nav bar template.
-def admin_is_system_admin():
-    # TODO: Low Priority. Josh. find a more efficient way of checking this and
-    # "allowed_studies" than passing it to every render_template.
+def is_site_admin():
+    """ Returns whether the current session user is a site admin """
     researcher = Researcher.objects.get(username=session['admin_username'])
-    return researcher.admin
+    return researcher.site_admin
 
 
-def get_admins_allowed_studies_as_query_set():
+def get_researchers_allowed_studies_as_query_set():
     researcher = Researcher.objects.get(username=session['admin_username'])
     return Study.get_all_studies_by_name().filter(researchers=researcher)
 

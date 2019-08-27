@@ -156,7 +156,7 @@ class Researcher(AbstractPasswordUser):
     """
 
     username = models.CharField(max_length=32, unique=True, help_text='User-chosen username, stored in plain text')
-    admin = models.BooleanField(default=False, help_text='Whether the researcher is also an admin')
+    site_admin = models.BooleanField(default=False, help_text='Whether the researcher is also an admin')
 
     access_key_id = models.CharField(max_length=64, validators=[standard_base_64_validator], unique=True, null=True, blank=True)
     access_key_secret = models.CharField(max_length=44, validators=[url_safe_base_64_validator], blank=True)
@@ -231,3 +231,25 @@ class Researcher(AbstractPasswordUser):
         self.access_key_secret_salt = secret_salt
         self.save()
         return access_key, secret_key
+
+
+class StudyRelation(AbstractModel):
+    """
+    This is the through-model for defining the relationship between a researcher and a study.
+    There are these relatioships:
+        site admin
+        study admin
+        researcher
+    """
+    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='researcher_relations', null=False)
+    researcher = models.ForeignKey('Researcher', on_delete=models.PROTECT, related_name='study_relations', null=False)
+    relationship = models.CharField(max_length=32, null=False, blank=False)
+
+    class Meta:
+        unique_together = ["study", "researcher"]
+
+    def __str__(self):
+        return "%s is a %s in %s" % (self.researcher.username,
+                                     self.relationship.replace("_", " ").title(),
+                                     self.study.name)
+

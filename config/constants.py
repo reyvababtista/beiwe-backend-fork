@@ -330,3 +330,11 @@ ITERATIONS = 1000  # number of SHA iterations in password hashing
 # Error reporting send-from emails
 E500_EMAIL_ADDRESS = 'e500_error@{}'.format(DOMAIN_NAME)
 OTHER_EMAIL_ADDRESS = 'telegram_service@{}'.format(DOMAIN_NAME)
+
+
+# Researcher User Types
+class ResearcherType:
+    # site_admin = "site_admin"  # site admin is not a study relationship
+    study_admin = "study_admin"
+    researcher = "study_researcher"
+

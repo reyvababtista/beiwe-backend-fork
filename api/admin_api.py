@@ -5,9 +5,8 @@ from config.settings import DOMAIN_NAME, DOWNLOADABLE_APK_URL, IS_STAGING
 from database.study_models import Study
 from database.user_models import Researcher
 from libs.admin_authentication import (
-    authenticate_system_admin, authenticate_admin_login, admin_is_system_admin,
-    get_admins_allowed_studies
-)
+    authenticate_researcher_login, get_researcher_allowed_studies,
+    authenticate_site_admin, researcher_is_site_admin)
 from libs.security import check_password_requirements
 
 admin_api = Blueprint('admin_api', __name__)
@@ -16,7 +15,7 @@ admin_api = Blueprint('admin_api', __name__)
 
 
 @admin_api.route('/add_researcher_to_study', methods=['POST'])
-@authenticate_system_admin
+@authenticate_site_admin
 def add_researcher_to_study():
     researcher_id = request.values['researcher_id']
     study_id = request.values['study_id']
@@ -28,7 +27,7 @@ def add_researcher_to_study():
 
 
 @admin_api.route('/remove_researcher_from_study', methods=['POST'])
-@authenticate_system_admin
+@authenticate_site_admin
 def remove_researcher_from_study():
     researcher_id = request.values['researcher_id']
     study_id = request.values['study_id']
@@ -38,7 +37,7 @@ def remove_researcher_from_study():
 
 
 @admin_api.route('/delete_researcher/<string:researcher_id>', methods=['GET', 'POST'])
-@authenticate_system_admin
+@authenticate_site_admin
 def delete_researcher(researcher_id):
     try:
         researcher = Researcher.objects.get(pk=researcher_id)
@@ -51,7 +50,7 @@ def delete_researcher(researcher_id):
 
 
 @admin_api.route('/set_researcher_password', methods=['POST'])
-@authenticate_system_admin
+@authenticate_site_admin
 def set_researcher_password():
     researcher = Researcher.objects.get(pk=request.form.get('researcher_id', None))
     new_password = request.form.get('password', '')
@@ -61,7 +60,7 @@ def set_researcher_password():
 
 
 @admin_api.route('/rename_study/<string:study_id>', methods=['POST'])
-@authenticate_system_admin
+@authenticate_site_admin
 def rename_study(study_id=None):
     study = Study.objects.get(pk=study_id)
     new_study_name = request.form.get('new_study_name', '')
@@ -74,12 +73,12 @@ def rename_study(study_id=None):
 
 
 @admin_api.route("/downloads")
-@authenticate_admin_login
+@authenticate_researcher_login
 def download_page():
     return render_template(
         "download_landing_page.html",
-        system_admin=admin_is_system_admin(),
-        allowed_studies=get_admins_allowed_studies(),
+        site_admin=researcher_is_site_admin(),
+        allowed_studies=get_researcher_allowed_studies(),
         domain_name=DOMAIN_NAME,
     )
 
@@ -90,25 +89,25 @@ def download_current():
 
 
 @admin_api.route("/download_debug")
-@authenticate_admin_login
+@authenticate_researcher_login
 def download_current_debug():
     return redirect("https://s3.amazonaws.com/beiwe-app-backups/release/Beiwe-debug.apk")
 
 
 @admin_api.route("/download_beta")
-@authenticate_admin_login
+@authenticate_researcher_login
 def download_beta():
     return redirect("https://s3.amazonaws.com/beiwe-app-backups/release/Beiwe.apk")
 
 
 @admin_api.route("/download_beta_debug")
-@authenticate_admin_login
+@authenticate_researcher_login
 def download_beta_debug():
     return redirect("https://s3.amazonaws.com/beiwe-app-backups/debug/Beiwe-debug.apk")
 
 
 @admin_api.route("/download_beta_release")
-@authenticate_admin_login
+@authenticate_researcher_login
 def download_beta_release():
     return redirect("https://s3.amazonaws.com/beiwe-app-backups/release/Beiwe-2.2.3-onnelaLabServer-release.apk")
 

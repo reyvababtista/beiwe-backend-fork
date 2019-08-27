@@ -13,7 +13,7 @@ from api import (participant_administration, admin_api, copy_study_api, data_acc
 from config.settings import SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN
 from libs.admin_authentication import is_logged_in
 from libs.security import set_secret_key
-from pages import (admin_pages, mobile_pages, survey_designer, system_admin_pages,
+from pages import (admin_pages, mobile_pages, survey_designer, admin_pages,
     data_access_web_form)
 
 
@@ -42,7 +42,7 @@ app.jinja_env.globals['current_year'] = datetime.now().strftime('%Y')
 app.register_blueprint(mobile_api.mobile_api)
 app.register_blueprint(admin_pages.admin_pages)
 app.register_blueprint(mobile_pages.mobile_pages)
-app.register_blueprint(system_admin_pages.system_admin_pages)
+app.register_blueprint(admin_pages.admin_pages)
 app.register_blueprint(survey_designer.survey_designer)
 app.register_blueprint(admin_api.admin_api)
 app.register_blueprint(participant_administration.participant_administration)

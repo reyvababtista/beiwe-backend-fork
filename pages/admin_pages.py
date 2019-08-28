@@ -4,9 +4,8 @@ from database.study_models import Study, StudyField
 from database.user_models import Participant, ParticipantFieldValue, Researcher
 from libs import admin_authentication
 from libs.admin_authentication import (authenticate_researcher_login,
-    authenticate_researcher_study_access,
-    get_researcher_allowed_studies, researcher_is_site_admin,
-    get_researcher_allowed_studies_as_query_set, SESSION_NAME)
+    authenticate_researcher_study_access, get_researcher_allowed_studies,
+    get_researcher_allowed_studies_as_query_set, researcher_is_an_admin, SESSION_NAME)
 from libs.security import check_password_requirements
 
 admin_pages = Blueprint('admin_pages', __name__)
@@ -29,7 +28,7 @@ def choose_study():
         'choose_study.html',
         studies=allowed_studies_json,
         allowed_studies=allowed_studies_json,
-        site_admin=researcher_is_site_admin()
+        is_admin=researcher_is_an_admin()
     )
 
 
@@ -54,7 +53,7 @@ def view_study(study_id=None):
         image_survey_ids=image_survey_ids,
         tracking_survey_ids=tracking_survey_ids,
         allowed_studies=get_researcher_allowed_studies(),
-        site_admin=researcher_is_site_admin(),
+        is_admin=researcher_is_an_admin(),
         study_fields=study_fields,
         page_location='study_landing',
         study_id=study_id,
@@ -70,7 +69,7 @@ def view_study_data_pipeline(study_id=None):
         'data-pipeline.html',
         study=study,
         allowed_studies=get_researcher_allowed_studies(),
-        site_admin=researcher_is_site_admin(),
+        is_admin=researcher_is_an_admin(),
     )
 
 
@@ -91,7 +90,7 @@ def patient_fields(study_id, patient_id=None):
             study=study,
             patient=patient,
             allowed_studies=get_researcher_allowed_studies(),
-            site_admin=researcher_is_site_admin(),
+            is_admin=researcher_is_an_admin(),
         )
 
     fields = list(study.fields.values_list('field_name', flat=True))
@@ -141,7 +140,7 @@ def login():
 def manage_credentials():
     return render_template('manage_credentials.html',
                            allowed_studies=get_researcher_allowed_studies(),
-                           site_admin=researcher_is_site_admin())
+                           is_admin=researcher_is_an_admin())
 
 
 @admin_pages.route('/reset_admin_password', methods=['POST'])

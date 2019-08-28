@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 from django.db import migrations, models
 import django.db.models.deletion
 
-from config.constants import ResearcherType
+from config.constants import ResearcherRole
 from database.user_models import Researcher, StudyRelation
 
 
@@ -19,7 +19,7 @@ def researcher_paradigm_shift(apps, schema_editor):
         # admin field -> site_admin, we convert all researchers that are not the default admin
         # account to a study admin on their studies.  Any exceptions to this will require
         # manual fixing.
-        admin_status = ResearcherType.study_admin if researcher.site_admin else ResearcherType.researcher
+        admin_status = ResearcherRole.study_admin if researcher.site_admin else ResearcherRole.researcher
 
         # We only want to elevate a site admin for the default admin, site admins have access to
         # everything but don't have any study relationships.

@@ -1,13 +1,12 @@
 from flask import abort, Blueprint, redirect, request
 from flask.templating import render_template
 
-from config.constants import ResearcherType
+from config.constants import ResearcherRole
 from config.settings import DOMAIN_NAME, DOWNLOADABLE_APK_URL, IS_STAGING
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation
-from libs.admin_authentication import (
-    authenticate_researcher_login, get_researcher_allowed_studies,
-    authenticate_site_admin, researcher_is_site_admin)
+from libs.admin_authentication import (authenticate_researcher_login, authenticate_site_admin,
+    get_researcher_allowed_studies, researcher_is_an_admin)
 from libs.security import check_password_requirements
 
 admin_api = Blueprint('admin_api', __name__)
@@ -22,7 +21,7 @@ def add_researcher_to_study():
     study_id = request.values['study_id']
     Researcher.studies.through.objects.get_or_create(researcher_id=researcher_id, study_id=study_id)
     StudyRelation.objects.get_or_create(
-        study_id=study_id, researcher_id=researcher_id, relationship=ResearcherType.researcher
+        study_id=study_id, researcher_id=researcher_id, relationship=ResearcherRole.researcher
     )
     # This gets called by both edit_researcher and edit_study, so the POST request
     # must contain which URL it came from.
@@ -81,7 +80,7 @@ def rename_study(study_id=None):
 def download_page():
     return render_template(
         "download_landing_page.html",
-        site_admin=researcher_is_site_admin(),
+        is_admin=researcher_is_an_admin(),
         allowed_studies=get_researcher_allowed_studies(),
         domain_name=DOMAIN_NAME,
     )

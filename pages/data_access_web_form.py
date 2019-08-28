@@ -7,7 +7,7 @@ from database.data_access_models import PipelineUploadTags
 from database.user_models import Participant, Researcher
 from libs.admin_authentication import (authenticate_researcher_login,
     get_researcher_allowed_studies, get_researcher_allowed_studies_as_query_set,
-    researcher_is_site_admin, SESSION_NAME)
+    SESSION_NAME)
 
 data_access_web_form = Blueprint('data_access_web_form', __name__)
 
@@ -28,7 +28,7 @@ def data_api_web_form_page():
         allowed_studies=get_researcher_allowed_studies(),
         users_by_study=json.dumps(users_by_study),
         ALL_DATA_STREAMS=ALL_DATA_STREAMS,
-        site_admin=researcher_is_site_admin()
+        is_admin=researcher_is_an_admin()
     )
 
 
@@ -67,7 +67,7 @@ def pipeline_download_page():
             downloadable_studies=get_researcher_allowed_studies(),
             users_by_study=users_by_study,
             tags_by_study=json.dumps(tags_by_study),
-            site_admin=researcher_is_site_admin()
+            is_admin=researcher_is_an_admin()
     )
 
 

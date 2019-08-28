@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from flask import session, redirect, request, json
 from werkzeug.exceptions import abort
 
-from config.constants import ResearcherType, ALL_RESEARCHER_TYPES
+from config.constants import ResearcherRole, ALL_RESEARCHER_TYPES
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation
 from libs.security import generate_easy_alphanumeric_string
@@ -12,6 +12,7 @@ from libs.security import generate_easy_alphanumeric_string
 SESSION_NAME = "researcher_username"
 EXPIRY_NAME = "expiry"
 SESSION_UUID = "session_uuid"
+STUDY_ADMIN_RESTRICTION = "study_admin_restriction"
 
 ################################################################################
 ############################ Website Functions #################################
@@ -51,6 +52,17 @@ def is_logged_in():
         return SESSION_UUID in session
     logout_researcher()
 
+
+def get_session_researcher():
+    """ Get the researcher declared in the session, raise 400 (bad request) if it is missing. """
+    if "researcher_username" not in session:
+        return abort(400)
+
+    try:
+        return Researcher.objects.get(username=session["researcher_username"])
+    except Researcher.DoesNotExist:
+        return abort(400)
+
 ################################################################################
 ########################## Study Editing Privileges ############################
 ################################################################################
@@ -71,11 +83,8 @@ def authenticate_researcher_study_access(some_function):
         if not is_logged_in():
             return redirect("/")
 
-        # assert researcher exists
-        try:
-            researcher = Researcher.objects.get(username=session["researcher_username"])
-        except Researcher.DoesNotExist:
-            return abort(404)
+        # (returns 400 if there is no researcher)
+        researcher = get_session_researcher()
 
         # Get values first from kwargs, then from the POST request
         survey_id = kwargs.get('survey_id', request.values.get('survey_id', None))
@@ -106,12 +115,20 @@ def authenticate_researcher_study_access(some_function):
         # always allow site admins
         # currently we allow all study relations.
         if not researcher.site_admin:
-            if not study_relation.exists() or study_relation.get().relationship not in ALL_RESEARCHER_TYPES:
+            if not study_relation.exists():
+                return abort(403)
+
+            if study_relation.get().relationship not in ALL_RESEARCHER_TYPES:
                 return abort(403)
 
         return some_function(*args, **kwargs)
 
     return authenticate_and_call
+
+
+def require_study_admin(some_function):
+    setattr(some_function, STUDY_ADMIN_RESTRICTION, True)
+    return some_function
 
 
 def get_researcher_allowed_studies_as_query_set():
@@ -140,27 +157,24 @@ def get_researcher_allowed_studies(as_json=True):
 ################################################################################
 
 def authenticate_site_admin(some_function):
-    """ Authenticate site admin, checks whether a user is a system admin before allowing access
-    to pages marked with this decorator.  If a study_id variable is supplied as a keyword
-    argument, the decorator will automatically grab the ObjectId in place of the string provided
-    in a route.
-    
-    NOTE: if you are using this function along with the authenticate_researcher_study_access decorator
-    you must place this decorator below it, otherwise behavior is undefined and probably causes a
-    500 error inside the authenticate_researcher_study_access decorator. """
+#    """ Authenticate site admin, checks whether a user is a system admin before allowing access
+#    to pages marked with this decorator.  If a study_id variable is supplied as a keyword
+#    argument, the decorator will automatically grab the ObjectId in place of the string provided
+#    in a route.
+#
+#    NOTE: if you are using this function along with the authenticate_researcher_study_access decorator
+#    you must place this decorator below it, otherwise behavior is undefined and probably causes a
+#    500 error inside the authenticate_researcher_study_access decorator. """
     @functools.wraps(some_function)
     def authenticate_and_call(*args, **kwargs):
         # Check for regular login requirement
         if not is_logged_in():
             return redirect("/")
 
-        try:
-            researcher = Researcher.objects.get(username=session[SESSION_NAME])
-        except Researcher.DoesNotExist:
-            return abort(404)
-
+        researcher = get_session_researcher()
         if not researcher.site_admin:
-            return abort(403)
+            if not researcher.study_relations.filter(relationship=ResearcherRole.study_admin):
+                return abort(403)
 
         # redirect if a study id is not present and real.
         # TODO: why do we do this?
@@ -173,7 +187,46 @@ def authenticate_site_admin(some_function):
     return authenticate_and_call
 
 
-def researcher_is_site_admin():
+def strictly_site_admin(some_function):
+    """ Authenticate site admin, checks whether a user is a system admin before allowing access
+        to pages marked with this decorator.  If a study_id variable is supplied as a keyword
+        argument, the decorator will automatically grab the ObjectId in place of the string provided
+        in a route.
+
+        NOTE: if you are using this function along with the authenticate_researcher_study_access decorator
+        you must place this decorator below it, otherwise behavior is undefined and probably causes a
+        500 error inside the authenticate_researcher_study_access decorator. """
+
+    @functools.wraps(some_function)
+    def authenticate_and_call(*args, **kwargs):
+        # Check for regular login requirement
+        if not is_logged_in():
+            return redirect("/")
+
+        researcher = get_session_researcher()
+        if not researcher.site_admin:
+            if not researcher.study_relations.filter(relationship=ResearcherRole.study_admin):
+                return abort(403)
+
+        # redirect if a study id is not present and real.
+        # TODO: why do we do this?
+        if 'study_id' in kwargs:
+            if not Study.objects.filter(pk=kwargs['study_id']).exists():
+                return redirect("/")
+
+        return some_function(*args, **kwargs)
+
+    return authenticate_and_call
+
+
+# todo: uncomment, reallow usage after reviewing bad imports
+# def researcher_is_site_admin():
+#     """ Returns whether the current session user is a site admin """
+#     researcher = Researcher.objects.get(username=session[SESSION_NAME])
+#     return researcher.site_admin
+
+
+def researcher_is_an_admin():
     """ Returns whether the current session user is a site admin """
-    researcher = Researcher.objects.get(username=session[SESSION_NAME])
-    return researcher.site_admin
+    researcher = get_session_researcher()
+    return researcher.site_admin or researcher.is_study_admin()

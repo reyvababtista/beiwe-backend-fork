@@ -1,15 +1,19 @@
 from __future__ import print_function
+
+import json
 from collections import OrderedDict
-from datetime import datetime, timedelta, date
+from datetime import date, datetime, timedelta
 
 from flask import abort, Blueprint, render_template, request
 
-from database.study_models import Study, DashboardColorSetting, DashboardGradient, DashboardInflection
-from config.constants import ALL_DATA_STREAMS, REDUCED_API_TIME_FORMAT, processed_data_stream_dict, complete_data_stream_dict
+from config.constants import (ALL_DATA_STREAMS, complete_data_stream_dict,
+    processed_data_stream_dict, REDUCED_API_TIME_FORMAT)
 from database.data_access_models import ChunkRegistry, PipelineRegistry
+from database.study_models import (DashboardColorSetting, DashboardGradient, DashboardInflection,
+    Study)
 from database.user_models import Participant
-from libs.admin_authentication import authenticate_researcher_study_access, get_researcher_allowed_studies, researcher_is_site_admin
-import json
+from libs.admin_authentication import (authenticate_researcher_study_access,
+    get_researcher_allowed_studies, researcher_is_an_admin)
 
 dashboard_api = Blueprint('dashboard_api', __name__)
 
@@ -30,7 +34,7 @@ def dashboard_page(study_id):
         study_id=study_id,
         data_stream_dict=complete_data_stream_dict,
         allowed_studies=get_researcher_allowed_studies(),
-        site_admin=researcher_is_site_admin(),
+        is_admin=researcher_is_an_admin(),
         page_location='dashboard_landing',
     )
 
@@ -164,7 +168,7 @@ def get_data_for_dashboard_datastream_display(study_id, data_stream):
         show_color=show_color,
         all_flags_list=all_flags_list,
         allowed_studies=get_researcher_allowed_studies(),
-        site_admin=researcher_is_site_admin(),
+        is_admin=researcher_is_an_admin(),
         page_location='dashboard_data',
     )
 
@@ -263,7 +267,7 @@ def get_data_for_dashboard_patient_display(study_id, patient_id):
         last_date_data=last_date_data_entry,
         data_stream_dict=complete_data_stream_dict,
         allowed_studies=get_researcher_allowed_studies(),
-        site_admin=researcher_is_site_admin(),
+        is_admin=researcher_is_an_admin(),
         page_location='dashboard_patient',
     )
 

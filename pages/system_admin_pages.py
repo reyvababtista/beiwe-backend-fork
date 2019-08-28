@@ -6,12 +6,12 @@ from django.db.models.deletion import ProtectedError
 from flask import (abort, Blueprint, flash, redirect, render_template, request,
     session)
 
-from config.constants import CHECKBOX_TOGGLES, TIMER_VALUES
+from config.constants import CHECKBOX_TOGGLES, TIMER_VALUES, ResearcherRole
 from database.study_models import Study, StudyField
 from database.user_models import Researcher, Participant, ParticipantFieldValue
 from libs.admin_authentication import (authenticate_site_admin,
-    get_researcher_allowed_studies, researcher_is_site_admin,
-    authenticate_researcher_study_access, SESSION_NAME)
+    get_researcher_allowed_studies, researcher_is_an_admin,
+    authenticate_researcher_study_access, SESSION_NAME, get_session_researcher)
 from libs.copy_study import copy_existing_study_if_asked_to
 from libs.http_utils import checkbox_to_boolean, string_to_int
 
@@ -23,33 +23,43 @@ system_admin_pages = Blueprint('system_admin_pages', __name__)
 @system_admin_pages.route('/manage_researchers', methods=['GET'])
 @authenticate_site_admin
 def manage_researchers():
+    session_researcher = get_session_researcher()
+
     researcher_list = []
-    for researcher in Researcher.get_all_researchers_by_username():
-        allowed_studies = Study.get_all_studies_by_name().filter(researchers=researcher).values_list('name', flat=True)
-        researcher_list.append((researcher.as_native_python(), list(allowed_studies)))
+    if session_researcher.site_admin:
+        relevant_researchers = Researcher.get_all_researchers_by_username()
+    else:
+        relevant_researchers = session_researcher.get_administered_researchers_by_username()
+
+    for researcher in relevant_researchers:
+        allowed_studies = list(
+            Study.get_all_studies_by_name()
+                .filter(researchers=researcher).values_list('name', flat=True)
+        )
+        researcher_list.append((researcher.as_native_python(), allowed_studies))
 
     return render_template(
         'manage_researchers.html',
         admins=json.dumps(researcher_list),
         allowed_studies=get_researcher_allowed_studies(),
-        site_admin=researcher_is_site_admin()
+        is_admin=researcher_is_an_admin()
     )
 
 
 @system_admin_pages.route('/edit_researcher/<string:researcher_pk>', methods=['GET', 'POST'])
 @authenticate_site_admin
 def edit_researcher(researcher_pk):
-    researcher = Researcher.objects.get(pk=researcher_pk)
-    admin_is_current_user = (researcher.username == session[SESSION_NAME])
-    current_studies = Study.get_all_studies_by_name().filter(researchers=researcher)
+    edit_researcher = Researcher.objects.get(pk=researcher_pk)
+    admin_is_current_user = (edit_researcher.username == session[SESSION_NAME])
+    current_studies = Study.get_all_studies_by_name().filter(researchers=edit_researcher)
     return render_template(
         'edit_researcher.html',
-        admin=researcher,
+        admin=edit_researcher,
         current_studies=current_studies,
         all_studies=Study.get_all_studies_by_name(),
         allowed_studies=get_researcher_allowed_studies(),
         admin_is_current_user=admin_is_current_user,
-        site_admin=researcher_is_site_admin(),
+        is_admin=researcher_is_an_admin(),
         redirect_url='/edit_researcher/{:s}'.format(researcher_pk),
     )
 
@@ -61,7 +71,7 @@ def create_new_researcher():
         return render_template(
             'create_new_researcher.html',
             allowed_studies=get_researcher_allowed_studies(),
-            site_admin=researcher_is_site_admin()
+            is_admin=researcher_is_an_admin()
         )
 
     # Drop any whitespace or special characters from the username
@@ -87,7 +97,7 @@ def manage_studies():
         'manage_studies.html',
         studies=json.dumps(studies),
         allowed_studies=get_researcher_allowed_studies(),
-        site_admin=researcher_is_site_admin()
+        is_admin=researcher_is_an_admin()
     )
 
 
@@ -101,7 +111,7 @@ def edit_study(study_id=None):
         study=study,
         all_researchers=all_researchers,
         allowed_studies=get_researcher_allowed_studies(),
-        site_admin=researcher_is_site_admin(),
+        is_admin=researcher_is_an_admin(),
         redirect_url='/edit_study/{:s}'.format(study_id),
     )
 
@@ -117,7 +127,7 @@ def study_fields(study_id=None):
             study=study,
             fields=study.fields.all(),
             allowed_studies=get_researcher_allowed_studies(),
-            site_admin=researcher_is_site_admin(),
+            is_admin=researcher_is_an_admin(),
         )
 
     new_field = request.values.get('new_field', None)
@@ -157,7 +167,7 @@ def create_study():
             'create_study.html',
             studies=json.dumps(studies),
             allowed_studies=get_researcher_allowed_studies(),
-            site_admin=researcher_is_site_admin()
+            is_admin=researcher_is_an_admin()
         )
 
     name = request.form.get('name', '')
@@ -190,7 +200,9 @@ def delete_study(study_id=None):
 @authenticate_researcher_study_access
 def device_settings(study_id=None):
     study = Study.objects.get(pk=study_id)
-    readonly = not researcher_is_site_admin()
+    researcher = get_session_researcher()
+
+    readonly = True if not researcher.is_study_admin() and not researcher.site_admin else False
 
     if request.method == 'GET':
         settings = study.get_study_device_settings()
@@ -200,7 +212,7 @@ def device_settings(study_id=None):
             settings=settings.as_native_python(),
             readonly=readonly,
             allowed_studies=get_researcher_allowed_studies(),
-            site_admin=researcher_is_site_admin()
+            is_admin=researcher_is_an_admin()
         )
     
     if readonly:

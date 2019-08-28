@@ -1,7 +1,7 @@
 from django.db import models
 from django.db.models import F, Func
 
-from config.constants import ResearcherType
+from config.constants import ResearcherRole
 from database.models import AbstractModel
 from database.validators import id_validator, standard_base_64_validator, url_safe_base_64_validator
 from libs.security import (compare_password, device_hash, generate_easy_alphanumeric_string,
@@ -206,7 +206,26 @@ class Researcher(AbstractPasswordUser):
         return (cls.objects
                 .filter(deleted=False)
                 .annotate(username_lower=Func(F('username'), function='LOWER'))
-                .order_by('username_lower'))
+                .order_by('username_lower')
+                .exclude(username__contains="BATCH USER").exclude(username__contains="AWS LAMBDA")
+                )
+
+
+    def get_administered_researchers(self):
+        study_ids = self.studies.values_list("id", flat=True)
+        researchers_ids = StudyRelation.objects.filter(study__in=study_ids)
+        researchers_ids = researchers_ids.values_list("researcher_id", flat=True).distinct()
+        return Researcher.objects.filter(id__in=researchers_ids)
+
+
+    def get_administered_researchers_by_username(self):
+        return (
+            self.get_administered_researchers()
+                .filter(deleted=False)
+                .annotate(username_lower=Func(F('username'), function='LOWER'))
+                .order_by('username_lower')
+                .exclude(username__contains="BATCH USER").exclude(username__contains="AWS LAMBDA")
+        )
 
     def generate_hash_and_salt(self, password):
         return generate_hash_and_salt(password)
@@ -216,8 +235,8 @@ class Researcher(AbstractPasswordUser):
         self.save()
 
     def elevate_to_study_admin(self, study):
-        study_relation = StudyRelation.objects.get_or_create(reseacher=self, study=study)
-        study_relation.relation = ResearcherType.study_admin
+        study_relation = StudyRelation.objects.get(researcher=self, study=study)
+        study_relation.relationship = ResearcherRole.study_admin
         study_relation.save()
 
     def validate_access_credentials(self, proposed_secret_key):
@@ -237,6 +256,15 @@ class Researcher(AbstractPasswordUser):
         self.access_key_secret_salt = secret_salt
         self.save()
         return access_key, secret_key
+
+    def get_admin_studies(self):
+        return self.study_relations.filter(relationship=ResearcherRole.study_admin)
+
+    def get_researcher_studies(self):
+        return self.study_relations.filter(relationship=ResearcherRole.researcher)
+
+    def is_study_admin(self):
+        return self.get_admin_studies().exists()
 
 
 class StudyRelation(AbstractModel):

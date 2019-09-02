@@ -7,6 +7,7 @@ from django.db import models
 from django.db.models import F, Func
 from django.utils import timezone
 
+from config.constants import ResearcherRole
 from config.study_constants import (ABOUT_PAGE_TEXT, AUDIO_SURVEY_SETTINGS, CONSENT_FORM_TEXT,
     DEFAULT_CONSENT_SECTIONS_JSON, IMAGE_SURVEY_SETTINGS, SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
 from database.models import AbstractModel, JSONTextField
@@ -47,6 +48,17 @@ class Study(AbstractModel):
                 .filter(deleted=False)
                 .annotate(name_lower=Func(F('name'), function='LOWER'))
                 .order_by('name_lower'))
+
+    @classmethod
+    def _get_administered_studies_by_name(cls, researcher):
+        return (
+            cls.objects.filter(
+                researcher_relations__researcher=researcher,
+                researcher_relations__relationship=ResearcherRole.study_admin,
+            ).annotate(name_lower=Func(F('name'), function='LOWER'))
+                .order_by('name_lower')
+        )
+
 
     def get_surveys_for_study(self, requesting_os):
         survey_json_list = []

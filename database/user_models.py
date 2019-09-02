@@ -227,6 +227,10 @@ class Researcher(AbstractPasswordUser):
                 .exclude(username__contains="BATCH USER").exclude(username__contains="AWS LAMBDA")
         )
 
+    def get_administered_studies_by_name(self):
+        from database.models import Study
+        return Study._get_administered_studies_by_name(self)
+
     def generate_hash_and_salt(self, password):
         return generate_hash_and_salt(password)
 
@@ -266,6 +270,11 @@ class Researcher(AbstractPasswordUser):
     def is_study_admin(self):
         return self.get_admin_studies().exists()
 
+    def check_study_admin(self, study_id):
+        return self.study_relations.filter(
+            relationship=ResearcherRole.study_admin,
+            study_id=study_id,
+        )
 
 class StudyRelation(AbstractModel):
     """

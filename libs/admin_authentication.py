@@ -58,8 +58,17 @@ def get_session_researcher():
     if "researcher_username" not in session:
         return abort(400)
 
+    # The first thing we do is check if the session researcher has been queried for already
     try:
-        return Researcher.objects.get(username=session["researcher_username"])
+        return request._beiwe_researcher
+    except AttributeError:
+        pass
+
+    # if it hasn't then grab it, cache it, return it
+    try:
+        researcher = Researcher.objects.get(username=session["researcher_username"])
+        setattr(request, "_beiwe_researcher", researcher)
+        return researcher
     except Researcher.DoesNotExist:
         return abort(400)
 

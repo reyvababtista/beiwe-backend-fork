@@ -5,8 +5,9 @@ from config.constants import ResearcherRole
 from config.settings import DOMAIN_NAME, DOWNLOADABLE_APK_URL, IS_STAGING
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation
-from libs.admin_authentication import (authenticate_researcher_login, authenticate_site_admin,
-    get_researcher_allowed_studies, researcher_is_an_admin)
+from libs.admin_authentication import (assert_admin, assert_researcher_under_admin,
+    authenticate_researcher_login, authenticate_site_admin, get_researcher_allowed_studies,
+    get_session_researcher, researcher_is_an_admin)
 from libs.security import check_password_requirements
 
 admin_api = Blueprint('admin_api', __name__)
@@ -19,10 +20,11 @@ admin_api = Blueprint('admin_api', __name__)
 def add_researcher_to_study():
     researcher_id = request.values['researcher_id']
     study_id = request.values['study_id']
-    Researcher.studies.through.objects.get_or_create(researcher_id=researcher_id, study_id=study_id)
+    assert_admin(study_id)
     StudyRelation.objects.get_or_create(
         study_id=study_id, researcher_id=researcher_id, relationship=ResearcherRole.researcher
     )
+
     # This gets called by both edit_researcher and edit_study, so the POST request
     # must contain which URL it came from.
     return redirect(request.values['redirect_url'])
@@ -33,7 +35,12 @@ def add_researcher_to_study():
 def remove_researcher_from_study():
     researcher_id = request.values['researcher_id']
     study_id = request.values['study_id']
-    Researcher.objects.get(pk=researcher_id).studies.remove(study_id)
+    try:
+        researcher = Researcher.objects.get(pk=researcher_id)
+    except Researcher.DoesNotExist:
+        return abort(404)
+    assert_admin(study_id)
+    assert_researcher_under_admin(researcher)
     StudyRelation.objects.filter(study_id=study_id, researcher_id=researcher_id).delete()
     return redirect(request.values['redirect_url'])
 
@@ -41,12 +48,16 @@ def remove_researcher_from_study():
 @admin_api.route('/delete_researcher/<string:researcher_id>', methods=['GET', 'POST'])
 @authenticate_site_admin
 def delete_researcher(researcher_id):
+    # only site admins can delete researchers from the system.
+    session_researcher = get_session_researcher()
+    if not session_researcher.site_admin:
+        return abort(403)
+
     try:
         researcher = Researcher.objects.get(pk=researcher_id)
     except Researcher.DoesNotExist:
         return abort(404)
-    
-    researcher.studies.clear()
+
     StudyRelation.objects.filter(researcher=researcher).delete()
     researcher.delete()
     return redirect('/manage_researchers')
@@ -56,6 +67,7 @@ def delete_researcher(researcher_id):
 @authenticate_site_admin
 def set_researcher_password():
     researcher = Researcher.objects.get(pk=request.form.get('researcher_id', None))
+    assert_researcher_under_admin(researcher)
     new_password = request.form.get('password', '')
     if check_password_requirements(new_password, flash_message=True):
         researcher.set_password(new_password)
@@ -66,6 +78,7 @@ def set_researcher_password():
 @authenticate_site_admin
 def rename_study(study_id=None):
     study = Study.objects.get(pk=study_id)
+    assert_admin(study_id)
     new_study_name = request.form.get('new_study_name', '')
     study.name = new_study_name
     study.save()

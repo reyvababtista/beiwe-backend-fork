@@ -53,8 +53,8 @@ class Study(AbstractModel):
     def _get_administered_studies_by_name(cls, researcher):
         return (
             cls.objects.filter(
-                researcher_relations__researcher=researcher,
-                researcher_relations__relationship=ResearcherRole.study_admin,
+                study_relations__researcher=researcher,
+                study_relations__relationship=ResearcherRole.study_admin,
             ).annotate(name_lower=Func(F('name'), function='LOWER'))
                 .order_by('name_lower')
         )
@@ -87,7 +87,7 @@ class Study(AbstractModel):
         return self.device_settings
 
     def get_researchers(self):
-        return Researcher.objects.filter(studies=self)
+        return Researcher.objects.filter(study_relations__study=self)
 
     # We override the as_native_python function to not include the encryption key.
     def as_native_python(self, remove_timestamps=True, remove_encryption_key=True):

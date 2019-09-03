@@ -1,10 +1,12 @@
+from __future__ import print_function
+
 import functools
 from datetime import datetime, timedelta
 
-from flask import session, redirect, request, json
+from flask import flash, json, redirect, request, session
 from werkzeug.exceptions import abort
 
-from config.constants import ResearcherRole, ALL_RESEARCHER_TYPES
+from config.constants import ALL_RESEARCHER_TYPES, ResearcherRole
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation
 from libs.security import generate_easy_alphanumeric_string
@@ -72,6 +74,35 @@ def get_session_researcher():
     except Researcher.DoesNotExist:
         return abort(400)
 
+
+def assert_admin(study_id):
+    """ This function will throw a 403 forbidden error and stop execution. """
+    session_researcher = get_session_researcher()
+    if not session_researcher.site_admin and not session_researcher.check_study_admin(study_id):
+        return abort(403)
+
+
+def assert_researcher_under_admin(researcher):
+    session_researcher = get_session_researcher()
+    if session_researcher.site_admin:
+        return
+
+    if researcher.site_admin:
+        flash("This user is a site administrator, action rejected.", "danger")
+        return abort(403)
+
+    if researcher.study_relations.filter(relationship=ResearcherRole.study_admin).exists():
+        flash("This user is a study administrator, action rejected.", "danger")
+        return abort(403)
+
+    session_studies = set(session_researcher.get_admin_study_relations().values_list("study_id", flat=True))
+    researcher_studies = set(researcher.get_researcher_study_relations().values_list("study_id", flat=True))
+
+    if not session_studies.intersection(researcher_studies):
+        flash("You are not an administrator for that researcher, action rejected.", "danger")
+        return abort(403)
+
+
 ################################################################################
 ########################## Study Editing Privileges ############################
 ################################################################################
@@ -135,24 +166,24 @@ def authenticate_researcher_study_access(some_function):
     return authenticate_and_call
 
 
-def require_study_admin(some_function):
-    setattr(some_function, STUDY_ADMIN_RESTRICTION, True)
-    return some_function
-
-
 def get_researcher_allowed_studies_as_query_set():
-    researcher = Researcher.objects.get(username=session[SESSION_NAME])
-    return Study.get_all_studies_by_name().filter(researchers=researcher)
+    session_researcher = get_session_researcher()
+    if session_researcher.site_admin:
+        return Study.get_all_studies_by_name()
+
+    return Study.get_all_studies_by_name().filter(
+        id__in=session_researcher.study_relations.values_list("id", flat=True)
+    )
 
 
 def get_researcher_allowed_studies(as_json=True):
     """
     Return a list of studies which the currently logged-in researcher is authorized to view and edit.
     """
-    researcher = Researcher.objects.get(username=session[SESSION_NAME])
+    session_researcher = get_session_researcher()
     study_set = [
         study for study in
-        Study.get_all_studies_by_name().filter(researchers=researcher)
+        Study.get_all_studies_by_name().filter(study_relations__researcher=session_researcher)
             .values("name", "object_id", "id", "is_test")
     ]
     if as_json:

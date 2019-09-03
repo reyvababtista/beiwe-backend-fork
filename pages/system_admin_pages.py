@@ -3,15 +3,14 @@ from collections import defaultdict
 
 from django.core.exceptions import ValidationError
 from django.db.models.deletion import ProtectedError
-from flask import (abort, Blueprint, flash, redirect, render_template, request,
-    session)
+from flask import (abort, Blueprint, flash, redirect, render_template, request)
 
-from config.constants import CHECKBOX_TOGGLES, TIMER_VALUES, ResearcherRole
+from config.constants import CHECKBOX_TOGGLES, TIMER_VALUES
 from database.study_models import Study, StudyField
-from database.user_models import Researcher, Participant, ParticipantFieldValue
-from libs.admin_authentication import (authenticate_site_admin,
-    get_researcher_allowed_studies, researcher_is_an_admin,
-    authenticate_researcher_study_access, SESSION_NAME, get_session_researcher)
+from database.user_models import Researcher
+from libs.admin_authentication import (authenticate_researcher_study_access,
+    authenticate_site_admin, get_researcher_allowed_studies, get_session_researcher,
+    researcher_is_an_admin)
 from libs.copy_study import copy_existing_study_if_asked_to
 from libs.http_utils import checkbox_to_boolean, string_to_int
 
@@ -66,7 +65,7 @@ def manage_researchers():
     for researcher in get_administerable_researchers():
         allowed_studies = list(
             Study.get_all_studies_by_name()
-                .filter(researchers=researcher).values_list('name', flat=True)
+                .filter(study_relations__researcher=researcher).values_list('name', flat=True)
         )
         researcher_list.append((researcher.as_native_python(), allowed_studies))
 
@@ -86,7 +85,7 @@ def edit_researcher(researcher_pk):
     return render_template(
         'edit_researcher.html',
         admin=edit_researcher,
-        current_studies=Study.get_all_studies_by_name().filter(researchers=edit_researcher),
+        current_studies=Study.get_all_studies_by_name().filter(study_relations__researcher=edit_researcher),
         all_studies=get_administerable_studies(),
         allowed_studies=get_researcher_allowed_studies(),
         is_session_researcher=is_session_researcher,

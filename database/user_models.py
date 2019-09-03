@@ -163,7 +163,7 @@ class Researcher(AbstractPasswordUser):
     access_key_secret = models.CharField(max_length=44, validators=[url_safe_base_64_validator], blank=True)
     access_key_secret_salt = models.CharField(max_length=24, validators=[url_safe_base_64_validator], blank=True)
 
-    studies = models.ManyToManyField('Study', related_name='researchers')
+    # studies = models.ManyToManyField('Study', related_name='researchers')
 
     @classmethod
     def create_with_password(cls, username, password, **kwargs):
@@ -210,13 +210,12 @@ class Researcher(AbstractPasswordUser):
                 .exclude(username__contains="BATCH USER").exclude(username__contains="AWS LAMBDA")
                 )
 
-
     def get_administered_researchers(self):
-        study_ids = self.studies.values_list("id", flat=True)
-        researchers_ids = StudyRelation.objects.filter(study__in=study_ids)
-        researchers_ids = researchers_ids.values_list("researcher_id", flat=True).distinct()
-        return Researcher.objects.filter(id__in=researchers_ids)
-
+        studies = self.study_relations.filter(
+            relationship=ResearcherRole.study_admin).values_list("study_id", flat=True)
+        researchers = StudyRelation.objects.filter(
+            study_id__in=studies).values_list("researcher_id", flat=True).distinct()
+        return Researcher.objects.filter(id__in=researchers)
 
     def get_administered_researchers_by_username(self):
         return (
@@ -261,14 +260,14 @@ class Researcher(AbstractPasswordUser):
         self.save()
         return access_key, secret_key
 
-    def get_admin_studies(self):
+    def get_admin_study_relations(self):
         return self.study_relations.filter(relationship=ResearcherRole.study_admin)
 
-    def get_researcher_studies(self):
+    def get_researcher_study_relations(self):
         return self.study_relations.filter(relationship=ResearcherRole.researcher)
 
     def is_study_admin(self):
-        return self.get_admin_studies().exists()
+        return self.get_admin_study_relations().exists()
 
     def check_study_admin(self, study_id):
         return self.study_relations.filter(
@@ -284,9 +283,13 @@ class StudyRelation(AbstractModel):
         study admin
         researcher
     """
-    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='researcher_relations', null=False)
-    researcher = models.ForeignKey('Researcher', on_delete=models.PROTECT, related_name='study_relations', null=False)
-    relationship = models.CharField(max_length=32, null=False, blank=False)
+    study = models.ForeignKey(
+        'Study', on_delete=models.PROTECT, related_name='study_relations', null=False, db_index=True
+    )
+    researcher = models.ForeignKey(
+        'Researcher', on_delete=models.PROTECT, related_name='study_relations', null=False, db_index=True
+    )
+    relationship = models.CharField(max_length=32, null=False, blank=False, db_index=True)
 
     class Meta:
         unique_together = ["study", "researcher"]

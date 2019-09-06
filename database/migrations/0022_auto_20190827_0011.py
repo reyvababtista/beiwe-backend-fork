@@ -25,27 +25,16 @@ WHERE "database_researcher_studies"."researcher_id" = {researcher_id}
 def researcher_paradigm_shift(apps, schema_editor):
     # create a StudyRelation object for every researcher on their studies.
     for researcher in Researcher.objects.all():
-        lower_username = researcher.username.lower()
-        if "batch user" in lower_username or "aws lambda" in lower_username:
-            continue
-
-        # admin field -> site_admin, we convert all researchers that are not the default admin
-        # account to a study admin on their studies.  Any exceptions to this will require
-        # manual fixing.
+        # admin field -> site_admin.  This is a field name change, no value needs to be determined.
         admin_status = ResearcherRole.study_admin if researcher.site_admin else ResearcherRole.researcher
 
-        # We only want to elevate a site admin for the default admin, site admins have access to
-        # everything but don't have any study relationships.
-        if researcher.username != "default_admin":
-            researcher.site_admin = False
-            researcher.save()
-            # for study in researcher.studies.all():
-            for study in Study.objects.raw(SQL_GET_STUDY_ID.format(researcher_id=researcher.id)):
-                StudyRelation.objects.create(
-                    study=study,
-                    researcher=researcher,
-                    relationship=admin_status,
-                )
+        # for study in researcher.studies.all():
+        for study in Study.objects.raw(SQL_GET_STUDY_ID.format(researcher_id=researcher.id)):
+            StudyRelation.objects.create(
+                study=study,
+                researcher=researcher,
+                relationship=admin_status,
+            )
 
 class Migration(migrations.Migration):
 

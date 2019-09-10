@@ -1,15 +1,19 @@
 from __future__ import print_function
+
+import json
 from collections import OrderedDict
-from datetime import datetime, timedelta, date
+from datetime import date, datetime, timedelta
 
 from flask import abort, Blueprint, render_template, request
 
-from database.study_models import Study, DashboardColorSetting, DashboardGradient, DashboardInflection
-from config.constants import ALL_DATA_STREAMS, REDUCED_API_TIME_FORMAT, processed_data_stream_dict, complete_data_stream_dict
+from config.constants import (ALL_DATA_STREAMS, complete_data_stream_dict,
+    processed_data_stream_dict, REDUCED_API_TIME_FORMAT)
 from database.data_access_models import ChunkRegistry, PipelineRegistry
+from database.study_models import (DashboardColorSetting, DashboardGradient, DashboardInflection,
+    Study)
 from database.user_models import Participant
-from libs.admin_authentication import authenticate_admin_study_access, get_admins_allowed_studies, admin_is_system_admin
-import json
+from libs.admin_authentication import (authenticate_researcher_study_access,
+    get_researcher_allowed_studies, researcher_is_an_admin)
 
 dashboard_api = Blueprint('dashboard_api', __name__)
 
@@ -18,7 +22,7 @@ DATETIME_FORMAT_ERROR = \
 
 
 @dashboard_api.route("/dashboard/<string:study_id>", methods=["GET"])
-@authenticate_admin_study_access
+@authenticate_researcher_study_access
 def dashboard_page(study_id):
     study = get_study_or_404(study_id)
     """ information for the general dashboard view for a study"""
@@ -29,14 +33,14 @@ def dashboard_page(study_id):
         participants=participants,
         study_id=study_id,
         data_stream_dict=complete_data_stream_dict,
-        allowed_studies=get_admins_allowed_studies(),
-        system_admin=admin_is_system_admin(),
+        allowed_studies=get_researcher_allowed_studies(),
+        is_admin=researcher_is_an_admin(),
         page_location='dashboard_landing',
     )
 
 
 @dashboard_api.route("/dashboard/<string:study_id>/data_stream/<string:data_stream>", methods=["GET", "POST"])
-@authenticate_admin_study_access
+@authenticate_researcher_study_access
 def get_data_for_dashboard_datastream_display(study_id, data_stream):
 
     """ parses information for the data stream dashboard view GET and POST requests"""
@@ -163,14 +167,14 @@ def get_data_for_dashboard_datastream_display(study_id, data_stream):
         last_day=last_day,
         show_color=show_color,
         all_flags_list=all_flags_list,
-        allowed_studies=get_admins_allowed_studies(),
-        system_admin=admin_is_system_admin(),
+        allowed_studies=get_researcher_allowed_studies(),
+        is_admin=researcher_is_an_admin(),
         page_location='dashboard_data',
     )
 
 
 @dashboard_api.route("/dashboard/<string:study_id>/patient/<string:patient_id>", methods=["GET"])
-@authenticate_admin_study_access
+@authenticate_researcher_study_access
 def get_data_for_dashboard_patient_display(study_id, patient_id):
     """ parses data to be displayed for the singular participant dashboard view """
     study = get_study_or_404(study_id)
@@ -262,8 +266,8 @@ def get_data_for_dashboard_patient_display(study_id, patient_id):
         first_date_data=first_date_data_entry,
         last_date_data=last_date_data_entry,
         data_stream_dict=complete_data_stream_dict,
-        allowed_studies=get_admins_allowed_studies(),
-        system_admin=admin_is_system_admin(),
+        allowed_studies=get_researcher_allowed_studies(),
+        is_admin=researcher_is_an_admin(),
         page_location='dashboard_patient',
     )
 

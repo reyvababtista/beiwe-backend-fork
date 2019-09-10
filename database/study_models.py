@@ -7,16 +7,12 @@ from django.db import models
 from django.db.models import F, Func
 from django.utils import timezone
 
-from config.study_constants import (
-    ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT, DEFAULT_CONSENT_SECTIONS_JSON,
-    SURVEY_SUBMIT_SUCCESS_TOAST_TEXT, AUDIO_SURVEY_SETTINGS, IMAGE_SURVEY_SETTINGS
-)
+from config.constants import ResearcherRole
+from config.study_constants import (ABOUT_PAGE_TEXT, AUDIO_SURVEY_SETTINGS, CONSENT_FORM_TEXT,
+    DEFAULT_CONSENT_SECTIONS_JSON, IMAGE_SURVEY_SETTINGS, SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
+from database.models import AbstractModel, JSONTextField
 from database.user_models import Researcher
-from database.validators import (
-    LengthValidator
-)
-
-from database.models import JSONTextField, AbstractModel
+from database.validators import LengthValidator
 
 
 class Study(AbstractModel):
@@ -53,6 +49,17 @@ class Study(AbstractModel):
                 .annotate(name_lower=Func(F('name'), function='LOWER'))
                 .order_by('name_lower'))
 
+    @classmethod
+    def _get_administered_studies_by_name(cls, researcher):
+        return (
+            cls.objects.filter(
+                study_relations__researcher=researcher,
+                study_relations__relationship=ResearcherRole.study_admin,
+            ).annotate(name_lower=Func(F('name'), function='LOWER'))
+                .order_by('name_lower')
+        )
+
+
     def get_surveys_for_study(self, requesting_os):
         survey_json_list = []
         for survey in self.surveys.filter(deleted=False):
@@ -80,7 +87,7 @@ class Study(AbstractModel):
         return self.device_settings
 
     def get_researchers(self):
-        return Researcher.objects.filter(studies=self)
+        return Researcher.objects.filter(study_relations__study=self)
 
     # We override the as_native_python function to not include the encryption key.
     def as_native_python(self, remove_timestamps=True, remove_encryption_key=True):

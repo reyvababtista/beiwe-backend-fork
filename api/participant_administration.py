@@ -3,7 +3,7 @@ from re import sub
 
 from flask import Blueprint, flash, redirect, request, Response
 
-from libs.admin_authentication import authenticate_admin_study_access
+from libs.admin_authentication import authenticate_researcher_study_access
 from libs.s3 import s3_upload, create_client_key_pair
 from libs.streaming_bytes_io import StreamingBytesIO
 from database.study_models import Study
@@ -13,7 +13,7 @@ participant_administration = Blueprint('participant_administration', __name__)
 
 
 @participant_administration.route('/reset_participant_password', methods=["POST"])
-@authenticate_admin_study_access
+@authenticate_researcher_study_access
 def reset_participant_password():
     """ Takes a patient ID and resets its password. Returns the new random password."""
     patient_id = request.values['patient_id']
@@ -30,7 +30,7 @@ def reset_participant_password():
 
 
 @participant_administration.route('/reset_device', methods=["POST"])
-@authenticate_admin_study_access
+@authenticate_researcher_study_access
 def reset_device():
     """
     Resets a participant's device. The participant will not be able to connect until they
@@ -51,7 +51,7 @@ def reset_device():
 
 
 @participant_administration.route('/create_new_patient', methods=["POST"])
-@authenticate_admin_study_access
+@authenticate_researcher_study_access
 def create_new_patient():
     """
     Creates a new user, generates a password and keys, pushes data to s3 and user database, adds
@@ -74,7 +74,7 @@ def create_new_patient():
 
 
 @participant_administration.route('/create_many_patients/<string:study_id>', methods=["POST"])
-@authenticate_admin_study_access
+@authenticate_researcher_study_access
 def create_many_patients(study_id=None):
     """ Creates a number of new users at once for a study.  Generates a password and keys for
     each one, pushes data to S3 and the user database, adds users to the study they're supposed

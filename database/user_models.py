@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models import F, Func
 
+from config.constants import ResearcherRole
 from database.models import AbstractModel
 from database.validators import id_validator, standard_base_64_validator, url_safe_base_64_validator
 from libs.security import (compare_password, device_hash, generate_easy_alphanumeric_string,
@@ -156,13 +157,13 @@ class Researcher(AbstractPasswordUser):
     """
 
     username = models.CharField(max_length=32, unique=True, help_text='User-chosen username, stored in plain text')
-    admin = models.BooleanField(default=False, help_text='Whether the researcher is also an admin')
+    site_admin = models.BooleanField(default=False, help_text='Whether the researcher is also an admin')
 
     access_key_id = models.CharField(max_length=64, validators=[standard_base_64_validator], unique=True, null=True, blank=True)
     access_key_secret = models.CharField(max_length=44, validators=[url_safe_base_64_validator], blank=True)
     access_key_secret_salt = models.CharField(max_length=24, validators=[url_safe_base_64_validator], blank=True)
 
-    studies = models.ManyToManyField('Study', related_name='researchers')
+    # studies = models.ManyToManyField('Study', related_name='researchers')
 
     @classmethod
     def create_with_password(cls, username, password, **kwargs):
@@ -205,14 +206,41 @@ class Researcher(AbstractPasswordUser):
         return (cls.objects
                 .filter(deleted=False)
                 .annotate(username_lower=Func(F('username'), function='LOWER'))
-                .order_by('username_lower'))
+                .order_by('username_lower')
+                .exclude(username__contains="BATCH USER").exclude(username__contains="AWS LAMBDA")
+                )
+
+    def get_administered_researchers(self):
+        studies = self.study_relations.filter(
+            relationship=ResearcherRole.study_admin).values_list("study_id", flat=True)
+        researchers = StudyRelation.objects.filter(
+            study_id__in=studies).values_list("researcher_id", flat=True).distinct()
+        return Researcher.objects.filter(id__in=researchers)
+
+    def get_administered_researchers_by_username(self):
+        return (
+            self.get_administered_researchers()
+                .filter(deleted=False)
+                .annotate(username_lower=Func(F('username'), function='LOWER'))
+                .order_by('username_lower')
+                .exclude(username__contains="BATCH USER").exclude(username__contains="AWS LAMBDA")
+        )
+
+    def get_administered_studies_by_name(self):
+        from database.models import Study
+        return Study._get_administered_studies_by_name(self)
 
     def generate_hash_and_salt(self, password):
         return generate_hash_and_salt(password)
 
-    def elevate_to_admin(self):
-        self.admin = True
+    def elevate_to_site_admin(self):
+        self.site_admin = True
         self.save()
+
+    def elevate_to_study_admin(self, study):
+        study_relation = StudyRelation.objects.get(researcher=self, study=study)
+        study_relation.relationship = ResearcherRole.study_admin
+        study_relation.save()
 
     def validate_access_credentials(self, proposed_secret_key):
         """ Returns True/False if the provided secret key is correct for this user."""
@@ -231,3 +259,43 @@ class Researcher(AbstractPasswordUser):
         self.access_key_secret_salt = secret_salt
         self.save()
         return access_key, secret_key
+
+    def get_admin_study_relations(self):
+        return self.study_relations.filter(relationship=ResearcherRole.study_admin)
+
+    def get_researcher_study_relations(self):
+        return self.study_relations.filter(relationship=ResearcherRole.researcher)
+
+    def is_study_admin(self):
+        return self.get_admin_study_relations().exists()
+
+    def check_study_admin(self, study_id):
+        return self.study_relations.filter(
+            relationship=ResearcherRole.study_admin,
+            study_id=study_id,
+        )
+
+class StudyRelation(AbstractModel):
+    """
+    This is the through-model for defining the relationship between a researcher and a study.
+    There are these relatioships:
+        site admin
+        study admin
+        researcher
+    """
+    study = models.ForeignKey(
+        'Study', on_delete=models.PROTECT, related_name='study_relations', null=False, db_index=True
+    )
+    researcher = models.ForeignKey(
+        'Researcher', on_delete=models.PROTECT, related_name='study_relations', null=False, db_index=True
+    )
+    relationship = models.CharField(max_length=32, null=False, blank=False, db_index=True)
+
+    class Meta:
+        unique_together = ["study", "researcher"]
+
+    def __str__(self):
+        return "%s is a %s in %s" % (self.researcher.username,
+                                     self.relationship.replace("_", " ").title(),
+                                     self.study.name)
+

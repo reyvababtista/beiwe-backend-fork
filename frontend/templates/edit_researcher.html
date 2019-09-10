@@ -52,7 +52,7 @@
 
     <br><br><br><br>
 
-    {% if not admin_is_current_user %}
+    {% if not is_session_researcher %}
     <div class="row">
       <h4>Reset Password</h4>
         <div class="well">
@@ -78,7 +78,7 @@
     <div class="row">
       <a href="/manage_researchers" class="btn btn-success"><span class="glyphicon glyphicon-arrow-left"></span>&nbsp;Back to all researchers</a>
 
-      {% if not admin_is_current_user %}
+      {% if not is_session_researcher %}
         <a href="/delete_researcher/{{ admin.id }}" class="btn btn-danger pull-right" onclick="return confirm('Are you certain you want to delete {{ admin._id }}?  This cannot be undone.')"><span class="glyphicon glyphicon-trash"></span>&nbsp;Delete {{ admin._id }}</a>
       {% endif %}
     </div>

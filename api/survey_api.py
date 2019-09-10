@@ -1,6 +1,6 @@
 from flask import abort, Blueprint, make_response, request, redirect, json
 
-from libs.admin_authentication import authenticate_admin_study_access
+from libs.admin_authentication import authenticate_researcher_study_access
 from libs.json_logic import do_validate_survey
 from database.study_models import Survey
 
@@ -12,14 +12,14 @@ survey_api = Blueprint('survey_api', __name__)
 
 
 @survey_api.route('/create_survey/<string:study_id>/<string:survey_type>', methods=['GET', 'POST'])
-@authenticate_admin_study_access
+@authenticate_researcher_study_access
 def create_survey(study_id=None, survey_type='tracking_survey'):
     new_survey = Survey.create_with_settings(study_id=study_id, survey_type=survey_type)
     return redirect('/edit_survey/{:d}'.format(new_survey.id))
 
 
 @survey_api.route('/delete_survey/<string:survey_id>', methods=['GET', 'POST'])
-@authenticate_admin_study_access
+@authenticate_researcher_study_access
 def delete_survey(survey_id=None):
     try:
         survey = Survey.objects.get(pk=survey_id)
@@ -36,7 +36,7 @@ def delete_survey(survey_id=None):
 
 
 @survey_api.route('/update_survey/<string:survey_id>', methods=['GET', 'POST'])
-@authenticate_admin_study_access
+@authenticate_researcher_study_access
 def update_survey(survey_id=None):
     try:
         survey = Survey.objects.get(pk=survey_id)

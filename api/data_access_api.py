@@ -98,7 +98,7 @@ def get_and_validate_researcher(study):
     except Researcher.DoesNotExist:
         return abort(403)  # access key DNE
     
-    if not StudyRelation.objects.filter(pk=study.pk, researcher=researcher).exists():
+    if not StudyRelation.objects.filter(study_id=study.pk, researcher=researcher).exists():
         return abort(403)  # researcher is not credentialed for this study
     
     if not researcher.validate_access_credentials(access_secret):
@@ -173,7 +173,7 @@ def get_data():
     
     study = get_and_validate_study_id(chunked_download=True)
     get_and_validate_researcher(study)
-    
+
     query = {}
     determine_data_streams_for_db_query(query)  # select data streams
     determine_users_for_db_query(query)  # select users

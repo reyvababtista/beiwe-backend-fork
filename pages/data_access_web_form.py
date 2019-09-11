@@ -7,7 +7,7 @@ from database.data_access_models import PipelineUploadTags
 from database.user_models import Participant, Researcher
 from libs.admin_authentication import (authenticate_researcher_login,
     get_researcher_allowed_studies, get_researcher_allowed_studies_as_query_set,
-    SESSION_NAME)
+    researcher_is_an_admin, SESSION_NAME)
 
 data_access_web_form = Blueprint('data_access_web_form', __name__)
 

@@ -172,7 +172,7 @@ def get_researcher_allowed_studies_as_query_set():
         return Study.get_all_studies_by_name()
 
     return Study.get_all_studies_by_name().filter(
-        id__in=session_researcher.study_relations.values_list("id", flat=True)
+        id__in=session_researcher.study_relations.values_list("study", flat=True)
     )
 
 

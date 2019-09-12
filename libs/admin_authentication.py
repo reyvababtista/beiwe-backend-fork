@@ -181,10 +181,13 @@ def get_researcher_allowed_studies(as_json=True):
     Return a list of studies which the currently logged-in researcher is authorized to view and edit.
     """
     session_researcher = get_session_researcher()
+    kwargs = {}
+    if not session_researcher.site_admin:
+        kwargs = dict(study_relations__researcher=session_researcher)
+
     study_set = [
         study for study in
-        Study.get_all_studies_by_name().filter(study_relations__researcher=session_researcher)
-            .values("name", "object_id", "id", "is_test")
+        Study.get_all_studies_by_name().filter(**kwargs).values("name", "object_id", "id", "is_test")
     ]
     if as_json:
         return json.dumps(study_set)

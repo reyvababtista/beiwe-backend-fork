@@ -144,18 +144,24 @@ def edit_study(study_id=None):
 
 
 @system_admin_pages.route('/study_fields/<string:study_id>', methods=['GET', 'POST'])
-@authenticate_site_admin
+@authenticate_researcher_study_access
 def study_fields(study_id=None):
     study = Study.objects.get(pk=study_id)
+    researcher = get_session_researcher()
+    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
 
     if request.method == 'GET':
         return render_template(
             'study_custom_fields.html',
             study=study,
             fields=study.fields.all(),
+            readonly=readonly,
             allowed_studies=get_researcher_allowed_studies(),
             is_admin=researcher_is_an_admin(),
         )
+
+    if readonly:
+        abort(403)
 
     new_field = request.values.get('new_field', None)
     if new_field:
@@ -165,9 +171,13 @@ def study_fields(study_id=None):
 
 
 @system_admin_pages.route('/delete_field/<string:study_id>', methods=['POST'])
-@authenticate_site_admin
+@authenticate_researcher_study_access
 def delete_field(study_id=None):
     study = Study.objects.get(pk=study_id)
+    researcher = get_session_researcher()
+    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
+    if readonly:
+        abort(403)
 
     field = request.values.get('field', None)
     if field:

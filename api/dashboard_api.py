@@ -520,9 +520,9 @@ def get_bytes_participant_match(stream_data, date):
     for data_point in stream_data:
         if (data_point["time_bin"]).date() == date:
             if all_bytes is None:
-                all_bytes = data_point["bytes"]
+                all_bytes = data_point.get("bytes", 0)
             else:
-                all_bytes += data_point["bytes"]
+                all_bytes += data_point.get("bytes", 0)
     if all_bytes is not None:
         return all_bytes
     else:

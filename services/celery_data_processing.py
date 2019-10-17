@@ -29,7 +29,7 @@ try:
     )
 
 except IOError:
-    print "could not load the manager ip file, defaulting to 127.0.0.1 in guest mode."
+    print("could not load the manager ip file, defaulting to 127.0.0.1 in guest mode.")
     celery_app = Celery(
             "data_processing_tasks",
             broker='pyamqp://guest@127.0.0.1//',
@@ -170,7 +170,7 @@ class LogList(list):
         print(p_object)
         
     def extend(self, iterable):
-        print (str(i) for i in iterable)
+        print([str(i) for i in iterable])
         super(LogList, self).extend(iterable)
         
         

@@ -70,7 +70,26 @@ class UploadTracking(AbstractModel):
     timestamp = models.DateTimeField()
 
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='upload_trackers')
-    
+
+    @classmethod
+    def re_add_files_to_process(cls, number=100):
+        uploads = cls.objects.order_by("-id")[:number]
+        # file_path, study_object_id, ** kwarg
+        from database.data_access_models import FileToProcess
+        for i, up in enumerate(uploads):
+            if i % 10 == 0:
+                print(i, sep="... ")
+
+            if FileToProcess.objects.filter(s3_file_path__icontains=up.file_path):
+                print(f"skipping {up.file_path}, appears to already be present")
+
+            FileToProcess.append_file_for_processing(
+                up.file_path,
+                up.participant.study.object_id,
+                participant=up.participant,
+            )
+
+
     @classmethod
     def get_trailing_count(cls, time_delta):
         cls.objects.filter(timestamp__gte=timezone.now() - time_delta).count()

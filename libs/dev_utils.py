@@ -2,6 +2,7 @@ import functools
 from collections import defaultdict
 from inspect import getframeinfo, stack
 from os.path import relpath
+from pprint import pprint
 from time import perf_counter
 
 PROJECT_PATH = __file__.rsplit("/", 2)[0]
@@ -16,11 +17,27 @@ def print_type(display_value=True, **kwargs):
             print(f"TYPE INFO -- {k}: {type(v)}")
 
 
-def print_return_types(some_function):
+already_processed = set()
+
+
+def print_entry_and_return_types(some_function):
     """ Decorator for functions (pages) that require a login, redirect to login page on failure. """
     @functools.wraps(some_function)
     def wrapper(*args, **kwargs):
         name = getframeinfo(stack()[1][0]).filename.strip(PROJECT_PATH) + ": " + some_function.__name__
+
+        # don't print multiple times...
+        if name in already_processed:
+            return some_function(*args, **kwargs)
+
+        already_processed.add(name)
+
+        print(f"args in {name}:")
+        pprint({i: type(v) for i, v in enumerate(args) })
+
+        print(f"kwargs in {name}:")
+        pprint({k: type(v) for k, v in kwargs.items()})
+
         rets = some_function(*args, **kwargs)
         if isinstance(rets, tuple):
             types = ", ".join(str(type(t)) for t in rets)

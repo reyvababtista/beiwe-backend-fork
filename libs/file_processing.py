@@ -602,9 +602,7 @@ def batch_upload(upload):
         chunk, chunk_path, new_contents, study_object_id = upload
         del upload
 
-        new_contents = codecs.decode(new_contents, "zip")
-        raise Exception('ohi it worked')
-        s3_upload(chunk_path, new_contents, study_object_id, raw_path=True)
+        s3_upload(chunk_path, codecs.decode(new_contents, "zip"), study_object_id, raw_path=True)
         print("data uploaded!", chunk_path)
 
         if isinstance(chunk, ChunkRegistry):

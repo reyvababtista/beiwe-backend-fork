@@ -82,6 +82,7 @@ class UploadTracking(AbstractModel):
 
             if FileToProcess.objects.filter(s3_file_path__icontains=up.file_path):
                 print(f"skipping {up.file_path}, appears to already be present")
+                continue
 
             FileToProcess.append_file_for_processing(
                 up.file_path,

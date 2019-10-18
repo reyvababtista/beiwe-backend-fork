@@ -26,19 +26,37 @@ def print_entry_and_return_types(some_function):
     def wrapper(*args, **kwargs):
         name = getframeinfo(stack()[1][0]).filename.strip(PROJECT_PATH) + ": " + some_function.__name__
 
+
+        # args and kwargs COULD mutate
+        args_dict = {i: type(v) for i, v in enumerate(args)}
+        kwargs_dict = {k: type(v) for k, v in kwargs.items()}
         # don't print multiple times...
+
+        # place before adding to processed
         if name in already_processed:
-            return some_function(*args, **kwargs)
+            try:
+                return some_function(*args, **kwargs)
+            except Exception:
+                if args_dict:
+                    print(f"args in {name} (IT ERRORED!):")
+                    pprint(args_dict)
+                if kwargs_dict:
+                    print(f"kwargs in {name} (IT ERRORED!):")
+                    pprint(kwargs_dict)
+                raise
 
         already_processed.add(name)
 
-        print(f"args in {name}:")
-        pprint({i: type(v) for i, v in enumerate(args) })
-
-        print(f"kwargs in {name}:")
-        pprint({k: type(v) for k, v in kwargs.items()})
-
         rets = some_function(*args, **kwargs)
+
+        if args_dict:
+            print(f"args in {name}:")
+            pprint(args_dict)
+
+        if kwargs_dict:
+            print(f"kwargs in {name}:")
+            pprint(kwargs_dict)
+
         if isinstance(rets, tuple):
             types = ", ".join(str(type(t)) for t in rets)
             print(f"return types - {name} -> ({types})")

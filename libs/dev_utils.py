@@ -26,7 +26,6 @@ def print_entry_and_return_types(some_function):
     def wrapper(*args, **kwargs):
         name = getframeinfo(stack()[1][0]).filename.strip(PROJECT_PATH) + ": " + some_function.__name__
 
-
         # args and kwargs COULD mutate
         args_dict = {i: type(v) for i, v in enumerate(args)}
         kwargs_dict = {k: type(v) for k, v in kwargs.items()}

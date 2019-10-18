@@ -5,7 +5,7 @@ import traceback
 from collections import defaultdict, deque
 from datetime import datetime
 from multiprocessing.pool import ThreadPool
-from typing import DefaultDict, Generator, List
+from typing import DefaultDict, Generator, List, Tuple
 
 from cronutils import null_error_handler
 from cronutils.error_handler import ErrorHandler
@@ -19,7 +19,6 @@ from config.constants import (ACCELEROMETER, ANDROID_LOG_FILE, API_TIME_FORMAT, 
 from database.data_access_models import ChunkRegistry, FileProcessLock, FileToProcess
 from database.study_models import Survey
 from database.user_models import Participant
-from libs.dev_utils import print_entry_and_return_types
 from libs.s3 import s3_retrieve, s3_upload
 
 
@@ -170,7 +169,7 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
     gc.collect()
     return number_bad_files
 
-@print_entry_and_return_types
+
 def upload_binified_data(binified_data, error_handler, survey_id_dict):
     """ Takes in binified csv data and handles uploading/downloading+updating
         older data to/from S3 for each chunk.
@@ -275,7 +274,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
 
 """################################ S3 Stuff ################################"""
 
-@print_entry_and_return_types
+
 def construct_s3_chunk_path(study_id, user_id, data_type, time_bin) -> str:
     """ S3 file paths for chunks are of this form:
         CHUNKED_DATA/study_id/user_id/data_type/time_bin.csv """
@@ -435,8 +434,8 @@ def fix_survey_timings(header: bytes, rows_list: List[bytes], file_path: str) ->
     header_list.insert(2, b"survey id")
     return b",".join(header_list)
 
-@print_entry_and_return_types
-def fix_call_log_csv(header, rows_list):
+
+def fix_call_log_csv(header: bytes, rows_list: list) -> bytes:
     """ The call log has poorly ordered columns, the first column should always be
         the timestamp, it has it in column 3.
         Note: older versions of the app name the timestamp column "date". """
@@ -452,17 +451,23 @@ def fix_identifier_csv(header: bytes, rows_list: list, file_name: str) -> bytes:
     time_stamp = file_name.rsplit("_", 1)[-1][:-4].encode() + b"000"
     return insert_timestamp_single_row_csv(header, rows_list, time_stamp)
 
-@print_entry_and_return_types
-def fix_wifi_csv(header, rows_list, file_name):
+
+def fix_wifi_csv(header: bytes, rows_list: list, file_name: str):
     """ Fixing wifi requires inserting the same timestamp on EVERY ROW.
     The wifi file has its timestamp in the filename. """
     time_stamp = file_name.rsplit("/", 1)[-1][:-4]
-    for row in rows_list[:-1]: #uhg, the last row is a new line.
+
+    # the last row is a new line, have to slice.
+    for row in rows_list[:-1]:
         row = row.insert(0, time_stamp)
-    if rows_list:rows_list.pop(-1)  #remove last row (encountered an empty wifi log on sunday may 8 2016)
+
+    if rows_list:
+        # remove last row (encountered an empty wifi log on sunday may 8 2016)
+        rows_list.pop(-1)
+
     return b"timestamp," + header
 
-@print_entry_and_return_types
+
 def fix_app_log_file(file_contents, file_path):
     """ The log file is less of a csv than it is a time enumerated list of
         events, with the time code preceding each row.
@@ -562,7 +567,7 @@ def unix_time_to_string(unix_time: int) -> bytes:
 
 """ Batch Operations """
 
-@print_entry_and_return_types
+
 def batch_retrieve_for_processing(ftp_as_object: FileToProcess) -> bytes:
     """ Used for mapping an s3_retrieve function. """
     # Convert the ftp object to a dict so we can use __getattr__
@@ -576,14 +581,14 @@ def batch_retrieve_for_processing(ftp_as_object: FileToProcess) -> bytes:
         "data_type": data_type,
         'exception': None,
         "file_contents": "",
-        # "traceback": None,
+        "traceback": None,
         'chunkable': data_type in CHUNKABLE_FILES,
     }
 
     # Try to retrieve the file contents. If any errors are raised, store them to be raised by the
     # parent function
     try:
-        print(ftp['s3_file_path'] + "\ngetting data...")
+        print(ftp['s3_file_path'] + ", getting data...")
         ret['file_contents'] = s3_retrieve(ftp['s3_file_path'], ftp["study"].object_id.encode(), raw_path=True)
     except Exception as e:
         traceback.print_exc()
@@ -591,9 +596,9 @@ def batch_retrieve_for_processing(ftp_as_object: FileToProcess) -> bytes:
         ret['exception'] = e
     return ret
 
-@print_entry_and_return_types
-def batch_upload(upload):
-    """ Used for mapping an s3_upload function. """
+
+def batch_upload(upload: Tuple[dict, str, bytes, str]):
+    """ Used for mapping an s3_upload function.  the tuple is unpacked, can only have one parameter. """
     ret = {'exception': None, 'traceback': None}
     try:
         if len(upload) != 4:

@@ -73,21 +73,36 @@ class UploadTracking(AbstractModel):
 
     @classmethod
     def re_add_files_to_process(cls, number=100):
-        uploads = cls.objects.order_by("-id")[:number]
-        # file_path, study_object_id, ** kwarg
+        """ Re-adds the most recent [number] files that have been uploaded recently to FiletToProcess.
+            (this is fairly optimized because it is part of debugging file processing) """
+        uploads = cls.objects.order_by("-created_on").values_list(
+            "file_path", "participant__study__object_id", "participant_id"
+        )[:number]
+
         from database.data_access_models import FileToProcess
-        for i, up in enumerate(uploads):
+
+        # uhg need to cache participants...
+        participant_cache = {}
+
+        for i, (file_path, participant__study__object_id, participant_id) in enumerate(uploads):
+            if participant_id in participant_cache:
+                participant = participant_cache[participant_id]
+            else:
+                participant = Participant.objects.get(id=participant_id)
+                participant_cache[participant_id] = participant
+
             if i % 10 == 0:
                 print(i, sep="... ")
 
-            if FileToProcess.objects.filter(s3_file_path__icontains=up.file_path):
-                print(f"skipping {up.file_path}, appears to already be present")
+            if FileToProcess.objects.filter(s3_file_path__icontains=file_path).exists():
+                print(f"skipping {file_path}, appears to already be present")
                 continue
 
             FileToProcess.append_file_for_processing(
-                up.file_path,
-                up.participant.study.object_id,
-                participant=up.participant,
+                # file_path, study_object_id, **kwargs
+                file_path,
+                participant__study__object_id,
+                participant=participant,
             )
 
 

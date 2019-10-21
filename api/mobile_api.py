@@ -38,6 +38,7 @@ mobile_api = Blueprint('mobile_api', __name__)
 
 
 @mobile_api.route('/upload', methods=['POST'])
+@mobile_api.route('/upload/', methods=['POST'])
 @mobile_api.route('/upload/ios/', methods=['GET', 'POST'])
 @determine_os_api
 @minimal_validation

@@ -126,36 +126,9 @@ def setup_python(using_pyenv=False):
     via REMOTE_HOME_DIR/.pyenv/shims/python.
     """
     # using pyenv is deprecated, this section will be deleted.
-    if using_pyenv:
-        # Copy the installation script from the local repository onto the remote server,
-        # make it executable and execute it.
-        put(LOCAL_PYENV_INSTALLER_FILE, REMOTE_PYENV_INSTALLER_FILE)
-        run('chmod +x {file}'.format(file=REMOTE_PYENV_INSTALLER_FILE))
-        run(REMOTE_PYENV_INSTALLER_FILE)
-
-        # Install the latest python 2 version and set pyenv to default to that version.
-        # Note that this installation is slow, taking approximately a minute.
-        # -f: Install even if the version appears to be installed already
-        pyenv_exec = path_join(REMOTE_HOME_DIR, '.pyenv/bin/pyenv')
-        run('{pyenv} install -f 2.7.14'.format(pyenv=pyenv_exec))
-        run('{pyenv} global 2.7.14'.format(pyenv=pyenv_exec))
-
-        # Display the version of python used by pyenv; this should print "Python 2.7.14".
-        pyenv_shims_dir = path_join(REMOTE_HOME_DIR, '.pyenv/shims')
-        run('{shims}/python --version'.format(shims=pyenv_shims_dir))
-
-        # Upgrade pip, because we don't know what version the server came with.
-        run('{shims}/pip install --upgrade pip >> {log}'.format(log=LOG_FILE, shims=pyenv_shims_dir))
-
-        # Install the python requirements for running the server code. Note that we are using the
-        # pyenv pip to ensure that the python requirements are installed into pyenv, rather than into
-        #  the system python.
-        run('{shims}/pip install -r {home}/beiwe-backend/Requirements.txt >> {log}'
-            .format(home=REMOTE_HOME_DIR, log=LOG_FILE, shims=pyenv_shims_dir))
-    else:
-        sudo("pip install --upgrade pip")
-        sudo('pip install -r {home}/beiwe-backend/Requirements.txt >> {log}'
-            .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
+    sudo("pip install --upgrade pip")
+    sudo('pip install -r {home}/beiwe-backend/requirements.txt >> {log}'
+        .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
 
 
 def setup_celery_worker():

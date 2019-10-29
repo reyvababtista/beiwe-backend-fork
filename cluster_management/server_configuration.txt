@@ -32,7 +32,7 @@ pyenv:	ALL DONE
     pyenv global 2.7.14  #set all python to default to that version
     python --version  #to check that it worked; should read "2.7.14"
     pip install --upgrade pip
-    pip install -r Requirements.txt
+    pip install -r requirements.txt
 
 AJK: not relevant yet
 construct and push:

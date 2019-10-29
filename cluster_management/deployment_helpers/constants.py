@@ -1,13 +1,17 @@
-## Ignore line length limits in this file.
+## Ignore line length limits in this file, recommend viewing it with line wrapping enabled.
 import json
-from os.path import join as path_join, abspath
+from copy import copy
+from os import environ
+from os.path import abspath, join as path_join
+
 
 ####################################################################################################
 ##################################### General Constants ############################################
 ####################################################################################################
-from copy import copy
 
 REMOTE_USERNAME = 'ubuntu'
+
+
 # Note: port 50,001 is used for supervisord
 RABBIT_MQ_PORT = 50000
 
@@ -52,6 +56,7 @@ FILES_TO_PUSH = [
     ('known_hosts', '.ssh/known_hosts'),  # allows git clone without further prompting
 ]
 
+
 ## Errors
 class DBInstanceNotFound(Exception): pass
 
@@ -68,10 +73,12 @@ GLOBAL_CONFIGURATION_FILE_KEYS = [
     "DEPLOYMENT_KEY_FILE_PATH",
     "VPC_ID",
     "AWS_REGION",
-    "SYSTEM_ADMINISTRATOR_EMAIL"
+    "SYSTEM_ADMINISTRATOR_EMAIL",
 ]
 
 AWS_CREDENTIALS_FILE_KEYS = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
+
+
 ####################################################################################################
 ######################################## Static Files ##############################################
 ####################################################################################################
@@ -120,17 +127,21 @@ def get_elasticbeanstalk_assume_role_policy_document():
     with open(ELASTICBEANSTALK_ASSUME_ROLE_POLICY_DOCUMENT_PATH) as document:
         return document.read()
 
+
 def get_instance_assume_role_policy_document():
     with open(INSTANCE_ASSUME_ROLE_POLICY_DOCUMENT_PATH) as document:
         return document.read()
+
 
 def get_automation_policy():
     with open(AUTOMATION_POLICY_PATH, "r") as document:
             return document.read()
 
+
 def get_aws_access_policy():
     with open(BEIWE_SERVER_AWS_ACCESS_PATH, "r") as document:
         return document.read()
+
 
 ## Worker and Processor server files
 # (files with the prefix LOCAL are on this machine, REMOTE files are file paths on the remote server)
@@ -148,66 +159,106 @@ REMOTE_APACHE_CONFIG_FILE_PATH = path_join(REMOTE_HOME_DIR, 'ami_apache.conf')
 LOCAL_RABBIT_MQ_CONFIG_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'rabbitmq_configuration.txt')
 REMOTE_RABBIT_MQ_CONFIG_FILE_PATH = path_join(REMOTE_HOME_DIR, 'rabbitmq_configuration.txt')
 REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH = path_join('/etc/rabbitmq/rabbitmq-env.conf')
+
+# Well... this should have been CLUSTER_MANAGEMENT_FOLDER + 'rabbit_mq_password.txt', but this has
+# already been deployed for months.  TODO: insert some code here to safely fix this.
 RABBIT_MQ_PASSWORD_FILE = CLUSTER_MANAGEMENT_FOLDER + 'rabbit_mq_password.txt'
 
 ####################################################################################################
 ####################################### Dynamic Files ##############################################
 ####################################################################################################
 
+
 ## EC2 Instance Configuration Files
 def get_pushed_full_processing_server_env_file_path(eb_environment_name):
     """ This is the python file that contains the environment details for an ubuntu install. """
     return path_join(USER_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_remote_db_env.py')
 
+
 def get_finalized_credentials_file_path(eb_environment_name):
     return path_join(USER_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_finalized_settings.json')
+
 
 def get_finalized_environment_variables(eb_environment_name):
     with open(get_finalized_credentials_file_path(eb_environment_name), 'r') as f:
         return json.load(f)
+
 
 ## Database configuration
 def get_db_credentials_file_path(eb_environment_name):
     """ Use the get_full_db_credentials function in rds to get database credentials. """
     return path_join(USER_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_database_credentials.json")
 
+
 ## Beiwe Environment Files
 def get_beiwe_python_environment_variables_file_path(eb_environment_name):
     return path_join(USER_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_beiwe_environment_variables.json")
+
 
 def get_beiwe_environment_variables(eb_environment_name):
     with open(get_beiwe_python_environment_variables_file_path(eb_environment_name), 'r') as f:
         return json.load(f)
 
+
 ## Processing worker and management servers
 def get_server_configuration_file_path(eb_environment_name):
     return path_join(USER_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_server_settings.json')
+
 
 def get_server_configuration_file(eb_environment_name):
     with open(get_server_configuration_file_path(eb_environment_name), 'r') as f:
         return json.load(f)
     
+
 ####################################################################################################
-########################################## Strings #################################################
+####################################### AWS Strings ################################################
 ####################################################################################################
+
+# Using this helper method the names of the various AWS strings check for environment variables of
+# the same name. This lets custom names be easily applied, and extends support to beiwe cluster
+# deployments that were set up manually.
+def get_env(param_name, default):
+    """ Tiny helper function, gets environment variable if present, otherwise returns default. """
+    return environ.get(param_name, default)
+
 
 # IAM names
-BEIWE_AUTOMATION_POLICY_NAME = "beiwe_automation_policy"
-EB_SERVICE_ROLE = "beiwetest-elasticbeanstalk-service-role"
-EB_INSTANCE_PROFILE_ROLE = "beiwetest-elasticbeanstalk-instance-profile-role"
-EB_INSTANCE_PROFILE_NAME = "beiwetest-elasticbeanstalk-instance-profile"
+BEIWE_AUTOMATION_POLICY_NAME = get_env(
+    "BEIWE_AUTOMATION_POLICY_NAME", "beiwe_automation_policy"
+)
+EB_SERVICE_ROLE = get_env(
+    "EB_SERVICE_ROLE", "beiwetest-elasticbeanstalk-service-role"
+)
+EB_INSTANCE_PROFILE_ROLE = get_env(
+    "EB_INSTANCE_PROFILE_ROLE", "beiwetest-elasticbeanstalk-instance-profile-role"
+)
+EB_INSTANCE_PROFILE_NAME = get_env(
+    "EB_INSTANCE_PROFILE_NAME", "beiwetest-elasticbeanstalk-instance-profile"
+)
 
 # Elastic Beanstalk strings
-BEIWE_APPLICATION_NAME = "beiwe-application"
+BEIWE_APPLICATION_NAME = get_env(
+    "BEIWE_APPLICATION_NAME", "beiwe-application"
+)
 
 # EB service role arns
-AWS_EB_SERVICE = "arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkService"
-AWS_EB_ENHANCED_HEALTH = "arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkEnhancedHealth"
+AWS_EB_SERVICE = get_env(
+    "AWS_EB_SERVICE", "arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkService"
+)
+AWS_EB_ENHANCED_HEALTH = get_env(
+    "AWS_EB_ENHANCED_HEALTH", "arn:aws:iam::aws:policy/service-role/AWSElasticBeanstalkEnhancedHealth"
+)
 
 # EB instance profile arns
-AWS_EB_MULTICONTAINER_DOCKER = "arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker"
-AWS_EB_WEB_TIER = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier"
-AWS_EB_WORKER_TIER = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier"
+AWS_EB_MULTICONTAINER_DOCKER = get_env(
+    "AWS_EB_MULTICONTAINER_DOCKER", "arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker"
+)
+AWS_EB_WEB_TIER = get_env(
+    "AWS_EB_WEB_TIER", "arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier"
+)
+AWS_EB_WORKER_TIER = get_env(
+    "AWS_EB_WORKER_TIER", "arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier"
+)
 
 
 ####################################################################################################

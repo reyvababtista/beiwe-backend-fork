@@ -1,9 +1,7 @@
 # TODO:
+# determine how to integrate with existing aws creds
 # import settings in an intelligent manner from some json config files
 # code that validates and prints all parameters in the json files for review?
-# write up a readme on how to use this script
-# make a requirements file for the launch script
-# python version? make it 2 because pycharm only lets you pick one.
 
 # uh-oh - SSL settings - I guess we need to validate route53 DNS settings.
 
@@ -21,38 +19,38 @@ import json
 import os
 import re
 import sys
-from os.path import relpath, join as path_join
+from os.path import join as path_join, relpath
 from time import sleep
 
-from fabric.api import put, run, sudo, env as fabric_env
+from fabric.api import env as fabric_env, put, run, sudo
 
-from deployment_helpers.aws.elastic_beanstalk import (create_eb_environment,
-    check_if_eb_environment_exists, fix_deploy)
-from deployment_helpers.aws.elastic_compute_cloud import\
-    (get_manager_instance_by_eb_environment_name, create_processing_control_server,
-    create_processing_server, get_manager_public_ip, get_manager_private_ip)
+from deployment_helpers.aws.elastic_beanstalk import (check_if_eb_environment_exists,
+    create_eb_environment, fix_deploy)
+from deployment_helpers.aws.elastic_compute_cloud import (create_processing_control_server,
+    create_processing_server, get_manager_instance_by_eb_environment_name, get_manager_private_ip,
+    get_manager_public_ip)
 from deployment_helpers.aws.iam import iam_purge_instance_profiles
 from deployment_helpers.aws.rds import create_new_rds_instance
-from deployment_helpers.configuration_utils import (
-    are_aws_credentials_present, is_global_configuration_valid,
-    reference_environment_configuration_file, reference_data_processing_server_configuration,
-    validate_beiwe_environment_config, create_finalized_configuration,
-    create_processing_server_configuration_file, create_rabbit_mq_password, get_rabbit_mq_password)
-from deployment_helpers.constants import (
-    APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS, APT_WORKER_INSTALLS,
-    DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH, DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN,
-    ENVIRONMENT_NAME_RESTRICTIONS, EXTANT_ENVIRONMENT_PROMPT, FILES_TO_PUSH,
-    get_beiwe_python_environment_variables_file_path, get_finalized_environment_variables,
-    get_global_config, get_pushed_full_processing_server_env_file_path,
-    get_server_configuration_file, get_server_configuration_file_path, HELP_SETUP_NEW_ENVIRONMENT,
-    LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
+from deployment_helpers.configuration_utils import (are_aws_credentials_present,
+    create_finalized_configuration, create_processing_server_configuration_file,
+    create_rabbit_mq_password, get_rabbit_mq_password, is_global_configuration_valid,
+    reference_data_processing_server_configuration, reference_environment_configuration_file,
+    validate_beiwe_environment_config)
+from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS,
+    APT_WORKER_INSTALLS, DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH, DO_CREATE_ENVIRONMENT,
+    DO_SETUP_EB_UPDATE_OPEN, ENVIRONMENT_NAME_RESTRICTIONS, EXTANT_ENVIRONMENT_PROMPT,
+    FILES_TO_PUSH, get_beiwe_python_environment_variables_file_path,
+    get_finalized_environment_variables, get_global_config,
+    get_pushed_full_processing_server_env_file_path, get_server_configuration_file,
+    get_server_configuration_file_path, HELP_SETUP_NEW_ENVIRONMENT, LOCAL_AMI_ENV_CONFIG_FILE_PATH,
+    LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
     LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH,
-    LOCAL_INSTALL_CELERY_WORKER, LOCAL_PYENV_INSTALLER_FILE, LOG_FILE, PUSHED_FILES_FOLDER,
-    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_HOME_DIR,
-    REMOTE_INSTALL_CELERY_WORKER, REMOTE_PYENV_INSTALLER_FILE, REMOTE_USERNAME, STAGED_FILES,
-    USER_SPECIFIC_CONFIG_FOLDER, RABBIT_MQ_PORT, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH,
-    REMOTE_RABBIT_MQ_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH)
-from deployment_helpers.general_utils import log, EXIT, current_time_string, do_zip_reduction, retry
+    LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, LOG_FILE, PURGE_COMMAND_BLURB,
+    PUSHED_FILES_FOLDER, RABBIT_MQ_PORT, REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH,
+    REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
+    REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH, REMOTE_USERNAME, STAGED_FILES,
+    USER_SPECIFIC_CONFIG_FOLDER)
+from deployment_helpers.general_utils import current_time_string, do_zip_reduction, EXIT, log, retry
 
 
 # Fabric configuration
@@ -120,15 +118,10 @@ def load_git_repo():
         .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
 
 
-def setup_python(using_pyenv=False):
-    """
-    Install pyenv as well as the latest version of Python 2, accessible
-    via REMOTE_HOME_DIR/.pyenv/shims/python.
-    """
-    # using pyenv is deprecated, this section will be deleted.
-    sudo("pip install --upgrade pip")
-    sudo('pip install -r {home}/beiwe-backend/requirements.txt >> {log}'
-        .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
+def setup_python():
+    """ Installs requirements. """
+    sudo('pip3 install -r {home}/beiwe-backend/requirements.txt >> {log}'.
+         format(home=REMOTE_HOME_DIR, log=LOG_FILE))
 
 
 def setup_celery_worker():
@@ -152,7 +145,7 @@ def setup_manager_cron():
 
 
 def setup_rabbitmq():
-    # push the conviguration file so that it listens on the configured port
+    # push the configuration file so that it listens on the configured port
     put(LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH)
     sudo("cp {source} {dest}".format(
             source=REMOTE_RABBIT_MQ_CONFIG_FILE_PATH, dest=REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH
@@ -202,8 +195,9 @@ def apt_installs(manager=False, single_server_ami=False):
     if installs_failed:
         raise Exception("Could not install software on remote machine.")
 
+
 def push_beiwe_configuration(eb_environment_name, single_server_ami=False):
-    # single server ami gets the demmy environment file, cluster gets the customized one.
+    # single server ami gets the dummy environment file, cluster gets the customized one.
     if single_server_ami:
         put(LOCAL_AMI_ENV_CONFIG_FILE_PATH,
             DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH)
@@ -224,6 +218,7 @@ def configure_local_postgres():
     run('psql -U ubuntu -c "CREATE DATABASE beiweproject"')
     run('psql -U ubuntu -c "CREATE USER beiweuser WITH PASSWORD \'password\'"')
     run('psql -U ubuntu -c "GRANT ALL PRIVILEGES ON DATABASE beiweproject TO beiweuser"')
+
 
 ####################################################################################################
 #################################### CLI Utility ###################################################
@@ -434,15 +429,11 @@ def do_create_single_server_ami(ip_address, key_filename):
     push_files()
     apt_installs(single_server_ami=True)
     load_git_repo()
-    """ Don't install .pyenv, because the single-server AMI uses mod_wsgi, which doesn't work
-    with .pyenv.  Just use the system version of Python. As of Dec 3, 2017, the system version
-    of Python is 2.7.12, which is good enough to run Beiwe). """
-    setup_python(using_pyenv=False)
+    setup_python()
     push_beiwe_configuration(None, single_server_ami=True)
     configure_local_postgres()
     manage_script_filepath = path_join(REMOTE_HOME_DIR, "beiwe-backend/manage.py")
-    run('python {filename} migrate'.format(filename=manage_script_filepath))
-    run('python {filename} create_default_login'.format(filename=manage_script_filepath))
+    run('python3 {filename} migrate'.format(filename=manage_script_filepath))
     setup_single_server_ami_cron()
     configure_apache()
     remove_unneeded_ssh_keys()
@@ -463,15 +454,7 @@ def do_fix_health_checks():
 ####################################################################################################
 ####################################### Validation #################################################
 ####################################################################################################
-purge_command_blurb = """
-DO NOT RUN THIS COMMAND ON A FUNCTIONAL ELASTIC BEANSTALK DEPLOYMENT.
-Only run this if you are having first-run deployment issues and only if you want to start over.
 
-This command exists because Instance Profiles are not fully-exposed on the AWS Console website and you will not be able to appropriately clear out all of the IAM entities for the
-
-Note 1: Run this command repeatedly until it tells you it cannot delete anything.
-Note 2: You may have to go and manually delete a Service Role if you are intent on totally resetting your Elastic Beanstalk cluster.
-"""
 
 def cli_args_validation():
     # Warning: any change to format here requires you re-check all parameter validation
@@ -481,32 +464,32 @@ def cli_args_validation():
     parser.add_argument(
             '-create-environment',
             action="count",
-            help="creates new environment with the provided environment name"
+            help="creates new environment with the provided environment name",
     )
     parser.add_argument(
             '-create-manager',
             action="count",
-            help="creates a data processing manager for the provided environment"
+            help="creates a data processing manager for the provided environment",
     )
     parser.add_argument(
             '-create-worker',
             action="count",
-            help="creates a data processing worker for the provided environment"
+            help="creates a data processing worker for the provided environment",
     )
     parser.add_argument(
             "-help-setup-new-environment",
             action="count",
-            help= "assists in creation of configuration files for a beiwe environment deployment"
+            help= "assists in creation of configuration files for a beiwe environment deployment",
     )
     parser.add_argument(
             "-fix-health-checks-blocking-deployment",
             action="count",
-            help="sometimes deployment operations fail stating that health checks do not have sufficient permissions, run this command to fix that."
+            help="sometimes deployment operations fail stating that health checks do not have sufficient permissions, run this command to fix that.",
     )
     parser.add_argument(
             "-purge-instance-profiles",
             action="count",
-            help=purge_command_blurb
+            help=PURGE_COMMAND_BLURB,
     )
     
     
@@ -556,6 +539,6 @@ if __name__ == "__main__":
         EXIT(0)
     
     if arguments.purge_instance_profiles:
-        print(purge_command_blurb, "\n\n\n")
+        print(PURGE_COMMAND_BLURB, "\n\n\n")
         iam_purge_instance_profiles()
         EXIT(0)

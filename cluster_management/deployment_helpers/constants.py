@@ -16,35 +16,48 @@ REMOTE_USERNAME = 'ubuntu'
 RABBIT_MQ_PORT = 50000
 
 
-## EC2 Instance Deployment Variables
-APT_WORKER_INSTALLS = [
-    'ack-grep',  # Search within files
+PYTHON_COMPILE_REQUIREMENTS = [
+    # Compile python installs - this may be out of date for building python 3.6
     'build-essential',  # Includes a C compiler for compiling python
-    'htop',
     'libbz2-dev',
     'libreadline-gplv2-dev',
     'libsqlite3-dev',
     'libssl-dev',
-    'mailutils',  # Necessary for cronutils
-    'moreutils',  # Necessary for cronutils
-    'nload',
-    'sendmail',  # Necessary for cronutils
-    'silversearcher-ag',  # Search within files
-    'python',
-    'python-pip',
 ]
+
+## EC2 Instance Deployment Variables
+BASE_INSTALLS = [
+    # Search within files
+    'ack-grep',
+    'silversearcher-ag',
+
+    # Necessary for cronutils
+    'mailutils',
+    'moreutils',
+    'sendmail',
+
+    # utils
+    'nload',
+    'htop',
+
+    # python pip as pip3
+    'python3-pip'
+]
+
+APT_WORKER_INSTALLS = copy(BASE_INSTALLS)
 
 APT_MANAGER_INSTALLS = copy(APT_WORKER_INSTALLS)
 APT_MANAGER_INSTALLS.append('rabbitmq-server')  # Queue tasks to run using celery
 
 APT_SINGLE_SERVER_AMI_INSTALLS = copy(APT_WORKER_INSTALLS)
+APT_SINGLE_SERVER_AMI_INSTALLS.extend(copy(PYTHON_COMPILE_REQUIREMENTS))
 APT_SINGLE_SERVER_AMI_INSTALLS.extend([
     'apache2',
     'haveged',  # For generating Flask secret key random string
     'libapache2-mod-wsgi',
     'postgresql',
     'postgresql-contrib',
-    'sysv-rc-conf',
+    'sysv-rc-conf',  # util for checking boot processes
 ])
 
 # Files to push from the local server before the rest of launch
@@ -149,8 +162,6 @@ LOCAL_CRONJOB_WORKER_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'cron_worker.txt
 LOCAL_CRONJOB_MANAGER_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'cron_manager.txt')
 LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'cron_ami.txt')
 REMOTE_CRONJOB_FILE_PATH = path_join(REMOTE_HOME_DIR, 'cronjob.txt')
-LOCAL_PYENV_INSTALLER_FILE = path_join(PUSHED_FILES_FOLDER, 'install_pyenv.sh')
-REMOTE_PYENV_INSTALLER_FILE = path_join(REMOTE_HOME_DIR, 'install_pyenv.sh')
 LOCAL_INSTALL_CELERY_WORKER = path_join(PUSHED_FILES_FOLDER, 'install_celery_worker.sh')
 REMOTE_INSTALL_CELERY_WORKER = path_join(REMOTE_HOME_DIR, 'install_celery_worker.sh')
 LOCAL_AMI_ENV_CONFIG_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'ami_env_config.py')
@@ -275,3 +286,13 @@ EXTANT_ENVIRONMENT_PROMPT = "Enter the name of the Elastic Beanstalk Environment
 DO_CREATE_ENVIRONMENT ="Please enter the name of the environment for which you have filled out the required settings:"
 
 HELP_SETUP_NEW_ENVIRONMENT = "Enter the name of the environment you want to create:"
+
+PURGE_COMMAND_BLURB = """
+DO NOT RUN THIS COMMAND ON A FUNCTIONAL ELASTIC BEANSTALK DEPLOYMENT.
+Only run this if you are having first-run deployment issues and only if you want to start over.
+
+This command exists because Instance Profiles are not fully-exposed on the AWS Console website and you will not be able to appropriately clear out all of the IAM entities for the
+
+Note 1: Run this command repeatedly until it tells you it cannot delete anything.
+Note 2: You may have to go and manually delete a Service Role if you are intent on totally resetting your Elastic Beanstalk cluster.
+"""

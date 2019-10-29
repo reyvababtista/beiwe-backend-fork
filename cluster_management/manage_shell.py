@@ -1,3 +1,6 @@
+# run ipython -i manage_shell.py for an interactive shell session with most of the useful functions
+# imported.
+
 from deployment_helpers.configuration_utils import *
 from deployment_helpers.general_utils import *
 from deployment_helpers.aws.boto_helpers import *

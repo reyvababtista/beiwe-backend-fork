@@ -88,17 +88,16 @@ def get_most_recent_ubuntu():
     """ Unfortunately the different fundamental ec2 server types require a specific image type.
     All the ubuntu xenial prefixe matches are defined below, the currently selected is known to
     function for T2, M4, and C4 server classes.  Other server types may require testing the
-    different classes
+    different classes,  (seems to work with t3, c5, m5)
     """
     ec2_client = create_ec2_client()
     images = ec2_client.describe_images(
             Filters=[
                 {"Name": 'state', "Values": ['available']},
-                {"Name": 'name',
-                 # "Values": ["ubuntu/images/ebs-ssd/ubuntu-xenial-16.04-amd64-server*"]}
-                 # "Values": ["ubuntu/images/ubuntu-xenial-16.04-amd64-server*"]}
-                 # "Values": ["ubuntu/images/hvm-instance/ubuntu-xenial-16.04-amd64-server*"]}
-                "Values": ["ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server*"]}
+                {
+                    "Name": 'name',
+                    "Values": ["ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server*"]
+                },
             ]
     )['Images']
     # The names are time-sortable, we want the most recent one, it is at the bottom of a sorted list

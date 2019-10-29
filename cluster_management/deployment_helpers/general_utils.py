@@ -36,7 +36,7 @@ def EXIT(n=None):
     try:
         exit(n)
     except NameError:
-        log.warn("ipython forcible exit...")
+        log.warning("ipython forcible exit...")
         sleep(0.05)
         import os
         os._exit(1)

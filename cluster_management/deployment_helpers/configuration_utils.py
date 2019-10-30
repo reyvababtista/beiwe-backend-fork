@@ -54,7 +54,7 @@ def _simple_validate_required(getter_func, file_path, appropriate_keys, display_
         sleep(0.1)
         return False  # could not load, did not pass
     
-    # check for invalid values and keyserrors
+    # check for invalid values and keys errors
     error_free = True
     for k, v in json_config.items():
         if k not in appropriate_keys:
@@ -101,7 +101,7 @@ def ensure_nonempty_string(value, value_name, errors_list, subject):
     :param errors_list: The pass-by-reference list of error strings which we append to
     :return: Whether or not the value is in fact a nonempty string
     """
-    if not isinstance(value, (str, unicode)):
+    if not isinstance(value, str):
         # log.error(value_name + " encountered an error")
         errors_list.append('({}) {} must be a string'.format(subject, value))
         return False

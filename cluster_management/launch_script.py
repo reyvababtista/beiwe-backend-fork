@@ -261,7 +261,7 @@ def prompt_for_extant_eb_environment_name():
     name = input()
     environment_exists = check_if_eb_environment_exists(name)
     if not environment_exists:
-        log.error("There is no environment with the name %s" % environment_exists)
+        log.error("There is no environment with the name %s" % name)
         EXIT(1)
     validate_beiwe_environment_config(name)
     return name

@@ -11,8 +11,10 @@ from deployment_helpers.general_utils import log
 
 GLOBAL_CONFIGURATION = get_global_config()
 
+
 class InvalidSecurityGroupIdException(Exception): pass
 class InvalidSecurityGroupNameException(Exception): pass
+
 
 def get_security_group_by_id(sec_grp_id):
     try:

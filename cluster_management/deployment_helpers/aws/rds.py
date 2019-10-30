@@ -7,7 +7,8 @@ from deployment_helpers.aws.security_groups import (
     create_sec_grp_rule_parameters_allowing_traffic_from_another_security_group,
     create_security_group, get_security_group_by_name)
 from deployment_helpers.constants import (DBInstanceNotFound, get_db_credentials_file_path,
-    get_server_configuration_file)
+    get_server_configuration_file, RDS_NAME_OVERRIDE, RDS_INSTANCE_SEC_GROUP_NAME_OVERRIDE,
+    RDS_DATABASE_SEC_GROUP_NAME_OVERRIDE)
 from deployment_helpers.general_utils import (EXIT, current_time_string, log,
     random_alphanumeric_starting_with_letter, random_alphanumeric_string)
 
@@ -77,12 +78,20 @@ def write_rds_credentials(eb_environment_name, credentials, test_for_existing_fi
 ####################################################################################################
 
 def construct_db_name(eb_environment_name):
+    if RDS_NAME_OVERRIDE:
+        return RDS_NAME_OVERRIDE
     return eb_environment_name + '-database'
 
 
 def get_rds_security_group_names(db_identifier):
     instance_sec_group_name = db_identifier + "_database_access"
     database_sec_group_name = db_identifier + "_allow_database_connections"
+
+    if RDS_INSTANCE_SEC_GROUP_NAME_OVERRIDE:
+        instance_sec_group_name = RDS_INSTANCE_SEC_GROUP_NAME_OVERRIDE
+    if RDS_DATABASE_SEC_GROUP_NAME_OVERRIDE:
+        database_sec_group_name = RDS_DATABASE_SEC_GROUP_NAME_OVERRIDE
+    print(instance_sec_group_name, database_sec_group_name)
     return instance_sec_group_name, database_sec_group_name
 
 

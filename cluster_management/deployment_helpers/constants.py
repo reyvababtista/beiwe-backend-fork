@@ -41,7 +41,8 @@ BASE_INSTALLS = [
     'htop',
 
     # python pip as pip3
-    'python3-pip'
+    'python3-pip',
+    'libpq-dev',
 ]
 
 APT_WORKER_INSTALLS = copy(BASE_INSTALLS)
@@ -270,6 +271,15 @@ AWS_EB_WEB_TIER = get_env(
 AWS_EB_WORKER_TIER = get_env(
     "AWS_EB_WORKER_TIER", "arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier"
 )
+
+
+####################################################################################################
+###################################### UI Strings ##################################################
+####################################################################################################
+
+RDS_NAME_OVERRIDE = get_env("RDS_NAME_OVERRIDE", None)
+RDS_INSTANCE_SEC_GROUP_NAME_OVERRIDE = get_env("RDS_INSTANCE_SEC_GROUP_NAME_OVERRIDE", None)
+RDS_DATABASE_SEC_GROUP_NAME_OVERRIDE = get_env("RDS_DATABASE_SEC_GROUP_NAME_OVERRIDE", None)
 
 
 ####################################################################################################

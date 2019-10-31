@@ -40,9 +40,13 @@ BASE_INSTALLS = [
     'nload',
     'htop',
 
-    # python pip as pip3
+    # python pip as pip3, celery
     'python3-pip',
     'libpq-dev',
+    "python3-celery",
+
+    # only worker needs supervisor
+    "supervisor",
 ]
 
 APT_WORKER_INSTALLS = copy(BASE_INSTALLS)

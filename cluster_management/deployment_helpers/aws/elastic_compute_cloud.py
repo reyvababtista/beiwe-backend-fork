@@ -260,7 +260,7 @@ def create_processing_control_server(eb_environment_name, aws_server_type):
                                   security_groups=[rabbit_mq_sec_grp_id, instance_sec_grp_id])
     instance_resource = create_ec2_resource().Instance(instance_info["InstanceId"])
     instance_resource.create_tags(Tags=[
-        {"Key": "Name", "Value":PROCESSING_MANAGER_NAME  % eb_environment_name},
+        {"Key": "Name", "Value": PROCESSING_MANAGER_NAME % eb_environment_name},
         {"Key": "is_processing_manager", "Value":"1"}
     ])
     return instance_info

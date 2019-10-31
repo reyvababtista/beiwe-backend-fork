@@ -18,9 +18,9 @@ def iam_attach_role_policy(iam_client, role_name, arn):
     # This call appears to be idempotent; it returns None.
     iam_client.attach_role_policy(RoleName=role_name, PolicyArn=arn)
 
+
 def iam_add_role_to_instance_profile(iam_client, instance_profile_name, role_name):
-    x = iam_client.add_role_to_instance_profile(InstanceProfileName=instance_profile_name, RoleName=role_name)
-    pprint(x)
+    iam_client.add_role_to_instance_profile(InstanceProfileName=instance_profile_name, RoleName=role_name)
 
 
 def iam_create_role(iam_client, role_name, trust_document_json):

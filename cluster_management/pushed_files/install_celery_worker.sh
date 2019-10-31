@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #you may need to run this from inside the repository folder and/or change the directory setting under program:celery
 # (looks like almost all logging happens in celeryd.err)
 
@@ -45,7 +47,7 @@ serverurl = http://127.0.0.1:50001
 
 [program:celery]
 directory = /home/ubuntu/beiwe-backend/
-command = celery -A services.celery_data_processing worker --loglevel=info
+command = python3 -m celery -A services.celery_data_processing worker --loglevel=info
 stdout_logfile = /var/log/celery/celeryd.log
 stderr_logfile = /var/log/celery/celeryd.err
 autostart = true

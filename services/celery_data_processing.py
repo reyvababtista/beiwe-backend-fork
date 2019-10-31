@@ -1,9 +1,7 @@
-# We need to execute this file directly, so we always run the import hack
-import imp as _imp
-from os.path import abspath as _abspath
-
-_current_folder_init = _abspath(__file__).rsplit('/', 1)[0] + "/__init__.py"
-_imp.load_source("__init__", _current_folder_init)
+# add the root of the project into the path to allow cd-ing into this folder and running the script.
+from sys import path
+from os.path import abspath
+path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
 from config import load_django
 

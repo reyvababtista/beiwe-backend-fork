@@ -91,7 +91,6 @@ def get_rds_security_group_names(db_identifier):
         instance_sec_group_name = RDS_INSTANCE_SEC_GROUP_NAME_OVERRIDE
     if RDS_DATABASE_SEC_GROUP_NAME_OVERRIDE:
         database_sec_group_name = RDS_DATABASE_SEC_GROUP_NAME_OVERRIDE
-    print(instance_sec_group_name, database_sec_group_name)
     return instance_sec_group_name, database_sec_group_name
 
 

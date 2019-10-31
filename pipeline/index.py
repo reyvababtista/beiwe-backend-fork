@@ -147,17 +147,21 @@ def create_one_job(freq, study, patient_id, client=None, webserver=False):
 #             create_one_job(freq, object_id)
 
 
-# def hourly():
-#     create_all_jobs('hourly')
-#
-#
-# def daily():
-#     create_all_jobs('daily')
-#
-#
-# def weekly():
-#     create_all_jobs('weekly')
-#
-#
-# def monthly():
-#     create_all_jobs('monthly')
+def hourly():
+    pass
+    # create_all_jobs('hourly')
+
+
+def daily():
+    pass
+    # create_all_jobs('daily')
+
+
+def weekly():
+    pass
+    # create_all_jobs('weekly')
+
+
+def monthly():
+    pass
+    # create_all_jobs('monthly

@@ -176,7 +176,7 @@ def apt_installs(manager=False, single_server_ami=False):
     # Sometimes (usually on slower servers) the remote server isn't done with initial setup when
     # we get to this step, so it has a bunch of retry logic.
     installs_failed = True
-    warning_printed = False
+
     for i in range(10):
         try:
             sudo('apt-get -y update >> {log}'.format(log=LOG_FILE))
@@ -184,12 +184,11 @@ def apt_installs(manager=False, single_server_ami=False):
             installs_failed = False
             break
         except FabricExecutionError:
-            if not warning_printed:
-                log.warning(
-                        "WARNING: encountered problems when trying to run apt installs.\n"
-                        "Usually this means the server is running a software upgrade in the background.\n"
-                        "Will try 10 times, waiting 5 seconds each time."
-                )
+            log.warning(
+                "WARNING: encountered problems when trying to run apt installs.\n"
+                "Usually this means the server is running a software upgrade in the background.\n"
+                "Will try 10 times, waiting 5 seconds each time."
+            )
             sleep(5)
     
     if installs_failed:
@@ -377,6 +376,7 @@ def do_create_manager():
     setup_python()
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
+    setup_celery_worker()
     setup_manager_cron()
 
 

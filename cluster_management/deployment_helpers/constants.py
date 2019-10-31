@@ -40,18 +40,16 @@ BASE_INSTALLS = [
     'nload',
     'htop',
 
-    # python pip as pip3, celery
+    # python pip as pip3, celery, supervisor.
     'python3-pip',
     'libpq-dev',
     "python3-celery",
-
-    # only worker needs supervisor
     "supervisor",
 ]
 
 APT_WORKER_INSTALLS = copy(BASE_INSTALLS)
 
-APT_MANAGER_INSTALLS = copy(APT_WORKER_INSTALLS)
+APT_MANAGER_INSTALLS = copy(BASE_INSTALLS)
 APT_MANAGER_INSTALLS.append('rabbitmq-server')  # Queue tasks to run using celery
 
 APT_SINGLE_SERVER_AMI_INSTALLS = copy(APT_WORKER_INSTALLS)

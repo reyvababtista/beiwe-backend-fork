@@ -7,7 +7,6 @@ from datetime import datetime
 from multiprocessing.pool import ThreadPool
 from typing import DefaultDict, Generator, List, Tuple
 
-from cronutils import null_error_handler
 from cronutils.error_handler import ErrorHandler
 
 # noinspection PyUnresolvedReferences
@@ -120,7 +119,7 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
     for data in pool.map(batch_retrieve_for_processing,
                          files_to_process[skip_count:count+skip_count],
                          chunksize=1):
-        with null_error_handler:
+        with error_handler:
             # If we encountered any errors in retrieving the files for processing, they have been
             # lumped together into data['exception']. Raise them here to the error handler and
             # move to the next file.
@@ -180,7 +179,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
     ftps_to_retire = set([])
     upload_these = []
     for data_bin, (data_rows_deque, ftp_deque) in binified_data.items():
-        with null_error_handler:
+        with error_handler:
             try:
                 study_id, user_id, data_type, time_bin, original_header = data_bin
                 # data_rows_deque may be a generator; here it is evaluated

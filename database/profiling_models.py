@@ -105,11 +105,20 @@ class UploadTracking(AbstractModel):
                 participant=participant,
             )
 
-
     @classmethod
     def get_trailing_count(cls, time_delta):
-        cls.objects.filter(timestamp__gte=timezone.now() - time_delta).count()
-    
+        return cls.objects.filter(timestamp__gte=timezone.now() - time_delta).count()
+
+    @classmethod
+    def watch_upload(cls):
+        while True:
+            start = timezone.now()
+            data = list(UploadTracking.objects.filter(
+                timestamp__gte=(start - timedelta(minutes=1))).values_list("file_size", flat=True))
+            end = timezone.now()
+            print("seconds delta: %s, %s files, %.4fMB in the past minute" % (
+            (end - start).total_seconds(), len(data), (sum(data) / 1024.0 / 1024.0)))
+
     @classmethod
     def weekly_stats(cls, days=7, get_usernames=False):
         ALL_FILETYPES = UPLOAD_FILE_TYPE_MAPPING.values()

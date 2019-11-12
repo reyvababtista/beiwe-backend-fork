@@ -21,15 +21,14 @@
 #
 # m h  dom mon dow   command
 
-PATH=/home/ubuntu/.pyenv/shims:/usr/bin:/bin
 PROJECT_PATH="/home/ubuntu/beiwe-backend/services"
 
 # Note: we actually run the"five_minutes" cron job every 15 minutes.
 
 # m h  dom mon dow   command
-*/15 * * * * : five_minutes; cd $PROJECT_PATH; chronic python cron.py five_minutes
-0 */1 * * * : hourly; cd $PROJECT_PATH; chronic python cron.py hourly
-30 */4 * * * : four_hourly; cd $PROJECT_PATH; chronic python cron.py four_hourly
-@daily : daily; cd $PROJECT_PATH; chronic python cron.py daily
-0 2 * * 0 : weekly; cd $PROJECT_PATH; chronic python cron.py weekly
+*/15 * * * * : five_minutes; cd $PROJECT_PATH; chronic python3 cron.py five_minutes
+0 */1 * * * : hourly; cd $PROJECT_PATH; chronic python3 cron.py hourly
+30 */4 * * * : four_hourly; cd $PROJECT_PATH; chronic python3 cron.py four_hourly
+@daily : daily; cd $PROJECT_PATH; chronic python3 cron.py daily
+0 2 * * 0 : weekly; cd $PROJECT_PATH; chronic python3 cron.py weekly
 29 4 * * *: pkill -HUP supervisord

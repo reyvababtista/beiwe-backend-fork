@@ -219,6 +219,16 @@ def configure_local_postgres():
     run('psql -U ubuntu -c "GRANT ALL PRIVILEGES ON DATABASE beiweproject TO beiweuser"')
 
 
+def create_swap():
+    """
+    Allows the use of tiny T series servers and in general is nice to have.
+    fallocate -l 5G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && swapon -s
+    """
+    sudo("fallocate -l 5G /swapfile")
+    sudo("chmod 600 /swapfile")
+    sudo("mkswap /swapfile")
+    sudo("swapon /swapfile")
+    sudo("swapon -s")
 ####################################################################################################
 #################################### CLI Utility ###################################################
 ####################################################################################################
@@ -378,6 +388,7 @@ def do_create_manager():
     push_manager_private_ip_and_password(name)
     setup_celery_worker()
     setup_manager_cron()
+    create_swap()
 
 
 def do_create_worker():
@@ -417,6 +428,7 @@ def do_create_worker():
     push_manager_private_ip_and_password(name)
     setup_celery_worker()
     setup_worker_cron()
+    create_swap()
 
 
 def do_create_single_server_ami(ip_address, key_filename):

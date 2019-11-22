@@ -15,7 +15,7 @@ def add_admin_user_if_not_exists(apps, schema_editor):
         access_key_id = access_key
         access_key_secret = secret_hash
         access_key_secret_salt = secret_salt
-        password, salt = generate_hash_and_salt("abc123")
+        password, salt = generate_hash_and_salt(b"abc123")
 
         r = Researcher(username="default_admin",
                        password=password,

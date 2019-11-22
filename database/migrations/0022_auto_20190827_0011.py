@@ -22,20 +22,22 @@ WHERE "database_researcher_studies"."researcher_id" = {researcher_id}
 
 def researcher_paradigm_shift(apps, schema_editor):
     # create a StudyRelation object for every researcher on their studies.
-    for researcher in Researcher.objects.all():
+    for researcher_id, is_site_admin in Researcher.objects.values_list("pk", "site_admin"):
         # admin field -> site_admin.  This is a field name change, no value needs to be determined.
-        admin_status = ResearcherRole.study_admin if researcher.site_admin else ResearcherRole.researcher
+        admin_status = ResearcherRole.study_admin if is_site_admin else ResearcherRole.researcher
+
+        populated_sql = SQL_GET_STUDY_ID.format(researcher_id=researcher_id)
 
         # for study in researcher.studies.all():
-        for study in Study.objects.raw(SQL_GET_STUDY_ID.format(researcher_id=researcher.id)):
+        for study in Study.objects.raw(populated_sql):
             StudyRelation.objects.create(
                 study=study,
-                researcher=researcher,
+                researcher_id=researcher_id,
                 relationship=admin_status,
             )
 
-class Migration(migrations.Migration):
 
+class Migration(migrations.Migration):
     dependencies = [
         ('database', '0021_auto_20190716_0057'),
     ]

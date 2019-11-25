@@ -3,6 +3,7 @@ from sys import path
 from os.path import abspath
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
+# Load Django
 from config import load_django
 
 from kombu.exceptions import OperationalError
@@ -36,7 +37,6 @@ except IOError:
             task_track_started=True
     )
 
-# Load Django
 
 ################################################################################
 ############################# Data Processing ##################################
@@ -210,3 +210,7 @@ def celery_process_file_chunks(participant_id):
                 
     with make_error_sentry('data', tags=tags):
         error_sentry.raise_errors()
+
+
+if __name__ == "__main__":
+    create_file_processing_tasks()

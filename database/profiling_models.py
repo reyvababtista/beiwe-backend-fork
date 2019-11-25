@@ -1,4 +1,5 @@
 from datetime import timedelta
+from time import sleep
 
 from django.db import models
 from django.utils import timezone
@@ -116,8 +117,15 @@ class UploadTracking(AbstractModel):
             data = list(UploadTracking.objects.filter(
                 timestamp__gte=(start - timedelta(minutes=1))).values_list("file_size", flat=True))
             end = timezone.now()
-            print("seconds delta: %s, %s files, %.4fMB in the past minute" % (
-            (end - start).total_seconds(), len(data), (sum(data) / 1024.0 / 1024.0)))
+            total = abs((start - end).total_seconds())
+
+            # we will set a minimum time between prints at 2 seconds, database call can be slow.
+            wait = 2 - total if 0 < (2 - total) < 2 else 0
+
+            print("time delta: %ss, %s files, %.4fMB in the past minute" % (
+            total + wait, len(data), (sum(data) / 1024.0 / 1024.0)))
+            sleep(wait)
+
 
     @classmethod
     def weekly_stats(cls, days=7, get_usernames=False):

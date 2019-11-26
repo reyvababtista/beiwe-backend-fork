@@ -10,13 +10,10 @@
 # for ssh logins, install and configure the libpam-umask package.
 #umask 022
 
-# Mounting the database drive
-alias mount-db-drive="mount /dev/xvdb /mnt"
 
 #Alias aliases
-alias a="alias"
 alias p="nano ~/.profile; source ~/.profile"
-alias pup="cp $HOME/beiwe-backend/miscellaneous/bash_profile.sh ~/.profile; source ~/.profile"
+alias up="source ~/.profile"
 
 #File Sizes
 alias duu="sudo adu -d 1 -ha | sort -h"
@@ -39,6 +36,7 @@ alias lll="du -ah --max-depth=0 --block-size=MB --time * | sort -nr"
 alias slll="sudo du -ah --max-depth=0 --block-size=MB --time * | sort -nr"
 alias h="cd ~; clear; ls -X; echo"
 alias grep='grep --color=auto'
+alias g='grep -i'
 alias u="cd .."
 alias uu="cd ../.."
 alias uuu="cd ../../.."
@@ -56,18 +54,20 @@ alias gd='git diff'
 alias pull="git pull"
 alias master="git checkout master"
 alias prod="git checkout production"
+alias dev='git checkout development'
 
 #File locations
-alias www='cd $HOME/beiwe-backend'
+alias beiwe='cd $HOME/beiwe-backend'
 alias apache="cd /etc/apache2"
 
 #Apache restart functionality
 alias apacherestart='sudo /etc/init.d/apache2 restart'
 alias are='apacherestart'
 alias restart='sudo service apache2 restart'
-alias pyc='find . -type f -name "*.pyc" -delete -print'
 alias up='update'
 alias update='cd $HOME/beiwe-backend; pyc; git pull; touch $HOME/beiwe-backend/wsgi.py'
+
+alias pyc='find . -type f -name "*.pyc" -delete -print'
 
 #supervisord (data processing)
 alias processing-start="supervisord"
@@ -75,7 +75,7 @@ alias processing-stop="killall supervisord"
 alias processing-restart="processing-stop; processing-start"
 
 #Logs
-alias log='nano +1000000000 /var/log/apache2/error.log' #open log, go to end
+alias loga='nano +1000000000 /var/log/apache2/error.log' #open log, go to end
 alias logt='tail -f /var/log/apache2/error.log | cut -d " " -f 4,10-' #tail follow apache log
 alias logc='nano +1000000000 /var/log/celery/celeryd.err'
 alias logct='tail -f /var/log/celery/celeryd.err'
@@ -90,12 +90,12 @@ alias conf='sudo nano $HOME/beiwe-backend/config/settings.py'
 alias boot="sudo sysv-rc-conf"
 
 #Developer tools
-alias db="cd $HOME/beiwe-backend/; ipython -i db_shell.py"
-alias sdb="cd $HOME/beiwe-backend/; sudo ipython -i db_shell.py"
-alias py="python"
+alias db="cd $HOME/beiwe-backend/; python3 manage.y shell_plus"
+alias sdb="cd $HOME/beiwe-backend/; sudo python3 manage.y shell_plus"
+alias py="python3"
 alias ipy="ipython"
-alias manage="python manage.py"
-alias shell="python manage.py shell_plus"
+alias manage="python3 manage.py"
+alias shell="python3 manage.py shell_plus"
 alias ag="clear; printf '_%.0s' {1..100}; echo ''; echo 'Silver results begin here:'; ag --column"
 
 function run {
@@ -146,6 +146,3 @@ NO_COLOUR="\[\033[0m\]"
 PS1="$GREEN\u$NO_COLOUR:\w$YELLOW\$(parse_git_branch)$NO_COLOUR\$ "
 
 
-#add pyenv folders to PATH to enable using pyenv
-#export PATH="/home/ubuntu/.pyenv/bin:$PATH"
-#eval "$(pyenv init -)"

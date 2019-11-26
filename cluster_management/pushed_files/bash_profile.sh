@@ -90,7 +90,7 @@ alias conf='sudo nano $HOME/beiwe-backend/config/settings.py'
 alias boot="sudo sysv-rc-conf"
 
 #Developer tools
-alias db="cd $HOME/beiwe-backend/; python3 manage.y shell_plus"
+alias db="cd $HOME/beiwe-backend/; python3 manage.py shell_plus"
 alias sdb="cd $HOME/beiwe-backend/; sudo python3 manage.y shell_plus"
 alias py="python3"
 alias ipy="ipython"

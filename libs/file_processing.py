@@ -5,6 +5,7 @@ import traceback
 from collections import defaultdict, deque
 from datetime import datetime
 from multiprocessing.pool import ThreadPool
+from pprint import pprint
 from typing import DefaultDict, Generator, List, Tuple
 
 from cronutils.error_handler import ErrorHandler
@@ -249,7 +250,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                 # exception was raised gets added to the set of failed FTPs.
                 failed_ftps.update(ftp_deque)
                 print(e)
-                print("failed to update: study_id:%s, user_id:%s, data_type:%s, time_bin:%s, header:%s "
+                print("FAILED TO UPDATE: study_id:%s, user_id:%s, data_type:%s, time_bin:%s, header:%s "
                       % (study_id, user_id, data_type, time_bin, updated_header))
                 raise
             else:
@@ -274,12 +275,20 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
 """################################ S3 Stuff ################################"""
 
 
-def construct_s3_chunk_path(study_id, user_id, data_type, time_bin) -> str:
+def construct_s3_chunk_path(study_id, user_id, data_type, time_bin: int) -> str:
     """ S3 file paths for chunks are of this form:
         CHUNKED_DATA/study_id/user_id/data_type/time_bin.csv """
+
+    study_id = study_id.decode() if isinstance(study_id, bytes) else study_id
+    user_id = user_id.decode() if isinstance(user_id, bytes) else user_id
+    data_type = data_type.decode() if isinstance(data_type, bytes) else data_type
+
     return "%s/%s/%s/%s/%s.csv" % (
-        CHUNKS_FOLDER, study_id, user_id, data_type,
-        unix_time_to_string(time_bin*CHUNK_TIMESLICE_QUANTUM)
+        CHUNKS_FOLDER,
+        study_id,
+        user_id,
+        data_type,
+        unix_time_to_string(time_bin*CHUNK_TIMESLICE_QUANTUM).decode()
     )
 
 
@@ -334,7 +343,7 @@ def binify_from_timecode(unix_ish_time_code_string: bytes) -> int:
     return actually_a_timecode // CHUNK_TIMESLICE_QUANTUM #separate into nice, clean hourly chunks!
 
 
-def resolve_survey_id_from_file_name(name:str) -> str:
+def resolve_survey_id_from_file_name(name: str) -> str:
     return name.rsplit("/", 2)[1]
 
 
@@ -454,7 +463,7 @@ def fix_identifier_csv(header: bytes, rows_list: list, file_name: str) -> bytes:
 def fix_wifi_csv(header: bytes, rows_list: list, file_name: str):
     """ Fixing wifi requires inserting the same timestamp on EVERY ROW.
     The wifi file has its timestamp in the filename. """
-    time_stamp = file_name.rsplit("/", 1)[-1][:-4]
+    time_stamp = file_name.rsplit("/", 1)[-1][:-4].encode()
 
     # the last row is a new line, have to slice.
     for row in rows_list[:-1]:
@@ -472,29 +481,32 @@ def fix_app_log_file(file_contents, file_path):
         events, with the time code preceding each row.
         We insert a base value, a new row stating that a new log file was created,
         which allows us to guarantee at least one timestamp in the file."""
-    time_stamp = file_path.rsplit("/", 1)[-1][:-4]
+    time_stamp = file_path.rsplit("/", 1)[-1][:-4].encode()
     rows_list = file_contents.splitlines()
-    rows_list[0] = time_stamp + " New app log file created"
+    rows_list[0] = time_stamp + b" New app log file created"
     new_rows = []
     for row in rows_list:
-        row_elements = row.split(" ", 1) #split first whitespace, element 0 is a java timecode
+        row_elements = row.split(b" ", 1)  # split first whitespace, element 0 is a java timecode
         try:
-            int(row_elements[0]) #grab first element, check if it is a valid int
+            int(row_elements[0])  # grab first element, check if it is a valid int
             new_rows.append(row_elements)
         except ValueError as e:
-            if ("bluetooth Failure" == row[:17] or
-                "our not-quite-race-condition" == row[:28] or
-                "accelSensorManager" in row[:18] or  # this actually covers 2 cases
-                "a sessionactivity tried to clear the" == row[:36]
+            if (b"bluetooth Failure" == row[:17] or
+                b"our not-quite-race-condition" == row[:28] or
+                b"accelSensorManager" in row[:18] or  # this actually covers 2 cases
+                b"a sessionactivity tried to clear the" == row[:36]
             ):
-                #Just drop matches to the above lines
+                # Just drop matches to the above lines
                 continue
             else:
-                # previously this was a whitelist:
-                # if "Device does not" == row[:15] or "Trying to start Accelerometer" == row[:29]
-                new_rows.append(new_rows[-1][0] + row)
+                # Previously this was a whitelist of broken lines to explicitly insert a timecode
+                # on, but now it is generalized:
+                # 'new_rows[-1][0]' is the timecode of the previous line in the log.
+                new_rows.append((new_rows[-1][0], row))
                 continue
+
     return b"timestamp, event\n" + b"\n".join(b",".join(row) for row in new_rows)
+
 
 """###################################### CSV Utils ##################################"""
 
@@ -538,11 +550,13 @@ def construct_csv_string(header: bytes, rows_list: List[bytes]) -> bytes:
 
     rows = []
     for row_items in rows_list:
+
         try:
             rows.append(b",".join(row_items))
         except TypeError:
-            from pprint import pprint
+            print("######################################################################3")
             pprint(row_items)
+            print("######################################################################3")
             raise
 
     del rows_list, row_items
@@ -567,7 +581,7 @@ def unix_time_to_string(unix_time: int) -> bytes:
 """ Batch Operations """
 
 
-def batch_retrieve_for_processing(ftp_as_object: FileToProcess) -> bytes:
+def batch_retrieve_for_processing(ftp_as_object: FileToProcess) -> dict:
     """ Used for mapping an s3_retrieve function. """
     # Convert the ftp object to a dict so we can use __getattr__
     ftp = ftp_as_object.as_dict()
@@ -605,6 +619,9 @@ def batch_upload(upload: Tuple[dict, str, bytes, str]):
             print(upload)
         chunk, chunk_path, new_contents, study_object_id = upload
         del upload
+
+        if "b'" in chunk_path:
+            raise Exception(chunk_path)
 
         s3_upload(chunk_path, codecs.decode(new_contents, "zip"), study_object_id, raw_path=True)
         print("data uploaded!", chunk_path)

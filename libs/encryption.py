@@ -244,7 +244,8 @@ def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, us
             file_name=request.values['file_name'],
             total_lines=len(file_data),
             number_errors=error_count,
-            error_lines=json.dumps(bad_lines),
+            # generator comprehension:
+            error_lines=json.dumps( (str(line for line in bad_lines)) ),
             error_types=json.dumps(error_types),
             participant=user,
         )

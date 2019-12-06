@@ -86,7 +86,6 @@ def upload(OS_API=""):
     # iOS sends the file as a multipart upload (so ends up in request.files)
     # if neither is found, consider the "body" of the post the file
     # ("body" post is not currently used by any client, only here for completeness)
-    # TODO: the asserts below are for runtime testing that assumptions are correct.  They can be removed after all upload modes have definitely been tested
     if "file" in request.files:
         uploaded_file = request.files['file']
     elif "file" in request.values:
@@ -115,8 +114,6 @@ def upload(OS_API=""):
         # We do not want emails on these types of errors, so we use log_error explicitly.
         print("the following error was handled:")
         log_error(e, "%s; %s; %s" % (patient_id, file_name, e))
-        # TODO: remove raise statement after testing
-        raise
         return render_template('blank.html'), 200
 
     except DecryptionKeyInvalidError:
@@ -129,8 +126,6 @@ def upload(OS_API=""):
             "file_name": file_name,
         }
         make_sentry_client('eb', tags).captureMessage("DecryptionKeyInvalidError")
-        # TODO: remove raise statement after testing
-        raise
         return render_template('blank.html'), 200
 
     # print "decryption success:", file_name

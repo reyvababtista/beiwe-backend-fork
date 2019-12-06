@@ -37,7 +37,6 @@ mobile_api = Blueprint('mobile_api', __name__)
 
 
 @mobile_api.route('/upload', methods=['POST'])
-@mobile_api.route('/upload/', methods=['POST'])
 @mobile_api.route('/upload/ios/', methods=['GET', 'POST'])
 @determine_os_api
 @minimal_validation
@@ -90,17 +89,20 @@ def upload(OS_API=""):
     # TODO: the asserts below are for runtime testing that assumptions are correct.  They can be removed after all upload modes have definitely been tested
     if "file" in request.files:
         uploaded_file = request.files['file']
-        assert isinstance(uploaded_file, FileStorage), ('if "file" in request.files', type(uploaded_file))
     elif "file" in request.values:
         uploaded_file = request.values['file']
-        assert isinstance(uploaded_file, bytes), ('elif "file" in request.values', type(uploaded_file))
     else:
         uploaded_file = request.data
-        assert isinstance(uploaded_file, bytes), ('else', type(uploaded_file))
-    
+
     if isinstance(uploaded_file, FileStorage):
         uploaded_file = uploaded_file.read()
-        assert isinstance(uploaded_file, bytes), ("filestorage.read()", type(uploaded_file))
+    elif isinstance(uploaded_file, str):
+        uploaded_file = uploaded_file.encode()
+    elif isinstance(uploaded_file, bytes):
+        # not current behavior on any app
+        pass
+    else:
+        raise TypeError("uploaded_file was a %s" % type(uploaded_file))
 
     # print("uploaded file name:", file_name, len(uploaded_file))
     

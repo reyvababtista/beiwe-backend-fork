@@ -89,7 +89,7 @@ def decrypt_server(data: bytes, study_object_id: str) -> bytes:
 ########################### User/Device Decryption #############################
 
 
-def decrypt_device_file(patient_id, original_data, private_key_cipher, user) -> bytes:
+def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, user) -> bytes:
     """ Runs the line-by-line decryption of a file encrypted by a device.
     This function is a special handler for iOS file uploads. """
 

@@ -4,6 +4,7 @@ from zipfile import ZipFile, ZIP_STORED
 from datetime import datetime
 from flask import Blueprint, request, abort, json, Response
 
+# noinspection PyUnresolvedReferences
 from config import load_django
 
 from config.constants import (API_TIME_FORMAT, VOICE_RECORDING, ALL_DATA_STREAMS,
@@ -24,6 +25,8 @@ from database.data_access_models import PipelineUpload, InvalidUploadParameterEr
 # The debug log has many lines without timestamps.
 
 data_access_api = Blueprint('data_access_api', __name__)
+
+class DummyError(Exception): pass
 
 #########################################################################################
 
@@ -254,7 +257,7 @@ def zip_generator(files_list, construct_registry=False):
         zip_input.close()
         yield zip_output.getvalue()
 
-    except None:
+    except DummyError:
         # The try-except-finally block is here to guarantee the Threadpool is closed and terminated.
         # we don't handle any errors, we just re-raise any error that shows up.
         # (with statement does not work.)
@@ -587,7 +590,7 @@ def zip_generator_for_pipeline(files_list):
         zip_input.close()
         yield zip_output.getvalue()
     
-    except None:
+    except DummyError:
         # The try-except-finally block is here to guarantee the Threadpool is closed and terminated.
         # we don't handle any errors, we just re-raise any error that shows up.
         # (with statement does not work.)

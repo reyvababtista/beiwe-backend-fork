@@ -5,7 +5,7 @@ from flask import Blueprint, flash, redirect, request, Response
 
 from libs.admin_authentication import authenticate_researcher_study_access
 from libs.s3 import s3_upload, create_client_key_pair
-from libs.streaming_bytes_io import StreamingBytesIO
+from libs.streaming_bytes_io import StreamingBytesIO, StreamingStringsIO
 from database.study_models import Study
 from database.user_models import Participant
 
@@ -92,7 +92,7 @@ def create_many_patients(study_id=None):
 
 
 def csv_generator(study_id, number_of_new_patients):
-    si = StreamingBytesIO()
+    si = StreamingStringsIO()
     filewriter = writer(si)
     filewriter.writerow(['Patient ID', "Registration password"])
     study_object_id = Study.objects.filter(pk=study_id).values_list('object_id', flat=True).get()

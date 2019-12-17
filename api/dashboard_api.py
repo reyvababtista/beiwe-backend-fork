@@ -503,9 +503,9 @@ def get_bytes_data_stream_match(chunks, date, stream):
     for chunk in chunks:
         if (chunk["time_bin"]).date() == date and chunk["data_stream"] == stream:
             if all_bytes is None:
-                all_bytes = chunk["bytes"]
+                all_bytes = chunk.get("bytes", 0)
             else:
-                all_bytes += chunk["bytes"]
+                all_bytes += chunk.get("bytes", 0)
     if all_bytes is not None:
         return all_bytes
     else:

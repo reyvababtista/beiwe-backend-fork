@@ -7,15 +7,18 @@ fi
 
 # User specific aliases and functions
 
-
 # load the current environment variables for the ssh session
-alias load='`cat /opt/python/current/env`'
+source /opt/python/current/env
+cd /opt/python/current/app
 
-alias code='cd /opt/python/current/env'
+alias db='cd /opt/python/current/app; python /opt/python/current/app/manage.py shell_plus'
 
-alias logs="alias | grep -i log"
 alias log_commands="tail -f  /var/log/cfn-init-cmd.log"
-alias loge="tail -f /var/log/httpd/error_log"
+alias logo='nano +1000000000 /var/log/httpd/error_log' #open log, go to end
+alias log='tail -f /var/log/httpd/error_log' #tail follow apache log
+alias logc='tail -f /var/log/eb-*'
+alias loge='logc'
+alias logeb='logc'
 
 alias sudo="sudo "
 alias n="nano "
@@ -35,3 +38,5 @@ alias lh='ls -lhX --color=auto'
 
 alias py="python"
 alias ipy="ipython"
+
+alias ls='ls --color=auto -h'

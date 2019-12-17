@@ -2,6 +2,7 @@ import json
 import random
 import string
 from datetime import datetime
+from time import sleep
 
 from django.db import models
 from django.utils import timezone
@@ -80,7 +81,7 @@ class ChunkRegistry(AbstractModel):
         # On the server, but not necessarily in development environments, datetime.fromtimestamp(0)
         # provides the same date and time as datetime.utcfromtimestamp(0).
         # timezone.make_aware(datetime.utcfromtimestamp(0), timezone.utc) creates a time zone
-        # aware datetime that is unambiguous in the UTC timezone and generally identecal timestamps.
+        # aware datetime that is unambiguous in the UTC timezone and generally identical timestamps.
         # Django's behavior (at least on this project, but this project is set to the New York
         # timezone so it should be generalizable) is to add UTC as a timezone when storing a naive
         # datetime in the database.
@@ -282,3 +283,27 @@ class PipelineUpload(AbstractModel):
 class PipelineUploadTags(AbstractModel):
     pipeline_upload = models.ForeignKey(PipelineUpload, related_name="tags")
     tag = models.TextField()
+
+
+def summary():
+    prior_users = []
+    for i in range(2**64):
+        now_dt = timezone.now()
+        now = now_dt.isoformat()
+        count = FileToProcess.objects.count()
+        user_count = FileToProcess.objects.values_list("participant__patient_id",
+                                                       flat=True).distinct().count()
+        if prior_users != user_count:
+            print(f"{now:} Number of participants with files to process: {user_count}")
+
+        print(f"{now}: {count} files to process")
+
+        if i % 8 == 0:
+            first = FileProcessLock.objects.first()
+            if first:
+                duration = (now_dt - first.lock_time).total_seconds() / 3600
+                print(f"{now}: processing has been running for {duration} hours.")
+            else:
+                print("processing does not appear to be active. (naive check)")
+        sleep(4)
+        prior_users = user_count

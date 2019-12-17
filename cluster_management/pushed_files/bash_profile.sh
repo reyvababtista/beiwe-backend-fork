@@ -75,10 +75,10 @@ alias processing-stop="killall supervisord"
 alias processing-restart="processing-stop; processing-start"
 
 #Logs
-alias loga='nano +1000000000 /var/log/apache2/error.log' #open log, go to end
-alias logt='tail -f /var/log/apache2/error.log | cut -d " " -f 4,10-' #tail follow apache log
-alias logc='nano +1000000000 /var/log/celery/celeryd.err'
-alias logct='tail -f /var/log/celery/celeryd.err'
+alias logo='nano +1000000000 /var/log/apache2/error.log' #open log, go to end
+alias log='tail -f /var/log/apache2/error.log | cut -d " " -f 4,10-' #tail follow apache log
+alias logco='nano +1000000000 /var/log/celery/celeryd.err'
+alias logc='tail -f /var/log/celery/celeryd.err'
 
 alias relog='restart; logt'
 alias uplog='up;logt'
@@ -113,9 +113,7 @@ force_color_prompt=yes
 # enable color support of ls and also add handy aliases
 if [ -x /usr/bin/dircolors ]; then
     test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
-    alias ls='ls --color=auto'
-    #alias dir='dir --color=auto'
-    #alias vdir='vdir --color=auto'
+    alias ls='ls --color=auto -h'
     alias grep='grep --color=auto'
     alias fgrep='fgrep --color=auto'
     alias egrep='egrep --color=auto'

@@ -63,7 +63,8 @@ SHELL_PLUS_POST_IMPORTS = [
     ["datetime", ("date", "datetime", "timedelta")],
     ["collections", ("Counter", "defaultdict")],
     ["django.utils.timezone", ("localtime", "make_aware", "make_naive")],
-    ["time", ("sleep",)]
+    ["time", ("sleep",)],
+    ["database.data_access_models", ("summary",)]
 ]
 
 # Using the default test runner

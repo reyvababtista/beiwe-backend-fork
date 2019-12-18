@@ -132,6 +132,7 @@ class Participant(AbstractPasswordUser):
         self.device_id = ''
         self.save()
 
+
     def __str__(self):
         return '{} {} of Study {}'.format(self.__class__.__name__, self.patient_id, self.study.name)
 

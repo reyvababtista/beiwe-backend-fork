@@ -58,13 +58,13 @@ SHELL_PLUS = "ipython"
 
 SHELL_PLUS_PRE_IMPORTS = []
 SHELL_PLUS_POST_IMPORTS = [
-    ["libs.s3", ("s3_list_files")],
-    ["pprint", ("pprint")],
+    ["libs.s3", ("s3_list_files",)],
+    ["pprint", ("pprint",)],
     ["datetime", ("date", "datetime", "timedelta")],
     ["collections", ("Counter", "defaultdict")],
     ["django.utils.timezone", ("localtime", "make_aware", "make_naive")],
     ["time", ("sleep",)],
-    ["database.data_access_models", ("summary",)]
+    ["database.models", ("watch_uploads", "watch_files_to_process", "get_and_summarize")]
 ]
 
 # Using the default test runner

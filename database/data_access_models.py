@@ -22,7 +22,6 @@ class UnchunkableDataTypeError(Exception): pass
 class ChunkableDataTypeError(Exception): pass
 
 
-
 class PipelineRegistry(AbstractModel):
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True)
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True)
@@ -156,7 +155,6 @@ class ChunkRegistry(AbstractModel):
 class FileToProcess(AbstractModel):
 
     s3_file_path = models.CharField(max_length=256, blank=False)
-
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='files_to_process')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='files_to_process')
 
@@ -193,6 +191,7 @@ class FileProcessLock(AbstractModel):
     @classmethod
     def get_time_since_locked(cls):
         return timezone.now() - FileProcessLock.objects.last().lock_time
+
 
 
 class InvalidUploadParameterError(Exception): pass
@@ -285,25 +284,3 @@ class PipelineUploadTags(AbstractModel):
     tag = models.TextField()
 
 
-def summary():
-    prior_users = []
-    for i in range(2**64):
-        now_dt = timezone.now()
-        now = now_dt.isoformat()
-        count = FileToProcess.objects.count()
-        user_count = FileToProcess.objects.values_list("participant__patient_id",
-                                                       flat=True).distinct().count()
-        if prior_users != user_count:
-            print(f"{now:} Number of participants with files to process: {user_count}")
-
-        print(f"{now}: {count} files to process")
-
-        if i % 8 == 0:
-            first = FileProcessLock.objects.first()
-            if first:
-                duration = (now_dt - first.lock_time).total_seconds() / 3600
-                print(f"{now}: processing has been running for {duration} hours.")
-            else:
-                print("processing does not appear to be active. (naive check)")
-        sleep(4)
-        prior_users = user_count

@@ -230,8 +230,11 @@ UPLOAD_FILE_TYPE_MAPPING = {
     "wifiLog": WIFI,
     "proximity": PROXIMITY,
     "ios_log": IOS_LOG_FILE,
-    "imageSurvey":IMAGE_FILE,
+    "imageSurvey": IMAGE_FILE,
 }
+
+# this is mostly used for debugging and scripting
+REVERSE_UPLOAD_FILE_TYPE_MAPPING = {v: k for k, v in UPLOAD_FILE_TYPE_MAPPING.items()}
 
 
 def data_stream_to_s3_file_name_string(data_type):

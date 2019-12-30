@@ -10,12 +10,12 @@ from config.settings import DOMAIN_NAME
 # Note that this file is _not_ in the gitignore.
 
 ## Networking
-#This value is used in libs.s3, does what it says.
+# This value is used in libs.s3, does what it says.
 DEFAULT_S3_RETRIES = getenv("DEFAULT_S3_RETRIES") or 3
 
 ## File processing directives
-#NOTE: these numbers were determined through trial and error on a C4 Large AWS instance.
-#Used in data download and data processing, base this on CPU core count.
+# NOTE: these numbers were determined through trial and error on a C4 Large AWS instance.
+# Used in data download and data processing, base this on CPU core count.
 CONCURRENT_NETWORK_OPS = getenv("CONCURRENT_NETWORK_OPS") or 10
 #Used in file processing, number of files to be pulled in and processed simultaneously.
 # Higher values reduce s3 usage, reduce processing time, but increase ram requirements.
@@ -23,11 +23,6 @@ FILE_PROCESS_PAGE_SIZE = getenv("FILE_PROCESS_PAGE_SIZE") or 250
 
 #This string will be printed into non-error hourly reports to improve error filtering.
 DATA_PROCESSING_NO_ERROR_STRING = getenv("DATA_PROCESSING_NO_ERROR_STRING") or "2HEnBwlawY"
-
-# The number of minutes after which a queued celery task will be invalidated.
-# (this is not a timeout, it only invalidates tasks that have not yet run.)
-CELERY_EXPIRY_MINUTES = getenv("CELERY_EXPIRY_MINUTES") or 14
-CELERY_ERROR_REPORT_TIMEOUT_SECONDS = getenv("CELERY_ERROR_REPORT_TIMEOUT_SECONDS") or 60*15
 
 
 ## Data streams and survey types ##

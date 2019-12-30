@@ -17,16 +17,6 @@ WEEKLY = "weekly"
 MONTHLY = "monthly"
 VALID_ARGS = [FIVE_MINUTES, HOURLY, FOUR_HOURLY, DAILY, WEEKLY, MONTHLY]
 
-# Crontab used for the current:
-# # m h dom mon dow   command
-# note that for the cluster the five_minutes task actually runs every 15 minutes
-# */5 * * * * : five_minutes; cd $PROJECT_PATH; chronic python cron.py five_minutes
-# 19 * * * * : hourly; cd $PROJECT_PATH; chronic python cron.py hourly
-# 30 */4 * * * : four_hourly; cd $PROJECT_PATH; chronic python cron.py four_hourly
-# @daily : daily; cd $PROJECT_PATH; chronic python cron.py daily
-# 0 2 * * 0 : weekly; cd $PROJECT_PATH; chronic python cron.py weekly
-# 48 4 1 * * : monthly; cd $PROJECT_PATH; chronic python cron.py monthly
-
 TASKS = {
     FIVE_MINUTES: [create_file_processing_tasks],
     HOURLY: [index.hourly],
@@ -36,16 +26,12 @@ TASKS = {
     MONTHLY: [index.monthly],
 }
 
-# We run the hourly task... hourly.  When multiples of this job overlap we disallow it and get
-# the error report notification. So, we set the time limit very high to avoid the extra
-# notification.
-# we never want to kill or cap runtime of our cron jobs.
 TIME_LIMITS = {
-    FIVE_MINUTES: 10*60*60*24*365,    # 10 years (never kill)
-    HOURLY: 10*60*60*24*365,          # 10 years (never kill)
-    FOUR_HOURLY: 10*60*60*24*365,     # 10 years (never kill)
-    DAILY: 10*60*60*24*365,           # 10 years (never kill)
-    WEEKLY: 10*60*60*24*365,          # 10 years (never kill)
+    FIVE_MINUTES: 50,              # we only enqueue celery tasks.  if this takes more than a minute something is wrong.
+    HOURLY: 10*60*60*24*365,       # 10 years (never kill)
+    FOUR_HOURLY: 10*60*60*24*365,  # 10 years (never kill)
+    DAILY: 10*60*60*24*365,        # 10 years (never kill)
+    WEEKLY: 10*60*60*24*365,       # 10 years (never kill)
 }
 
 KILL_TIMES = TIME_LIMITS

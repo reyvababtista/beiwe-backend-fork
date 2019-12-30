@@ -78,10 +78,7 @@ alias processing-restart="processing-stop; processing-start"
 alias logo='nano +1000000000 /var/log/apache2/error.log' #open log, go to end
 alias log='tail -f /var/log/apache2/error.log | cut -d " " -f 4,10-' #tail follow apache log
 alias logco='nano +1000000000 /var/log/celery/celeryd.err'
-alias logc='tail -f /var/log/celery/celeryd.err'
-
-alias relog='restart; logt'
-alias uplog='up;logt'
+alias logc='tail -f /var/log/celery/celeryd.err /var/log/celery/celeryd.log'
 
 #Configuration files
 alias conf='sudo nano $HOME/beiwe-backend/config/settings.py'

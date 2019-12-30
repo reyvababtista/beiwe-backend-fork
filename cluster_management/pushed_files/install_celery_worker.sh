@@ -26,7 +26,7 @@ sudo chmod 666 /var/log/supervisor/supervisord.log
 sudo tee /etc/supervisord.conf >/dev/null <<EOL
 [supervisord]
 logfile = /var/log/supervisor/supervisord.log
-logfile_maxbytes = 50MB
+logfile_maxbytes = 10MB
 logfile_backups=10
 loglevel = info
 pidfile = /tmp/supervisord.pid
@@ -47,7 +47,7 @@ serverurl = http://127.0.0.1:50001
 
 [program:celery]
 directory = /home/ubuntu/beiwe-backend/
-command = python3 -m celery -A services.celery_data_processing worker --loglevel=info
+command = python3 -m celery -A services.celery_data_processing worker --loglevel=info -Ofair
 stdout_logfile = /var/log/celery/celeryd.log
 stderr_logfile = /var/log/celery/celeryd.err
 autostart = true

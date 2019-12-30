@@ -53,7 +53,6 @@ for mandatory_var in MANDATORY_VARS:
 constants.DEFAULT_S3_RETRIES = int(constants.DEFAULT_S3_RETRIES)
 constants.CONCURRENT_NETWORK_OPS = int(constants.CONCURRENT_NETWORK_OPS)
 constants.FILE_PROCESS_PAGE_SIZE = int(constants.FILE_PROCESS_PAGE_SIZE)
-constants.CELERY_EXPIRY_MINUTES = int(constants.CELERY_EXPIRY_MINUTES)
 
 # email addresses are parsed from a comma separated list
 # whitespace before and after addresses are stripped

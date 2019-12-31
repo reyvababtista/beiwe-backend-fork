@@ -72,7 +72,7 @@ alias pyc='find . -type f -name "*.pyc" -delete -print'
 #supervisord (data processing)
 alias processing-start="supervisord"
 alias processing-stop="killall supervisord"
-alias processing-restart="processing-stop; processing-start"
+alias processing-restart="pkill -HUP supervisord"
 
 #Logs
 alias logo='nano +1000000000 /var/log/apache2/error.log' #open log, go to end

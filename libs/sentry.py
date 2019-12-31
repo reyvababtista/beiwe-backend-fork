@@ -26,10 +26,16 @@ def make_sentry_client(sentry_type, tags=None):
     
 
 def make_error_sentry(sentry_type, tags=None):
+    """ Creates an ErrorSentry, defaults to error limit 10. """
+
     dsn = get_dsn_from_string(sentry_type)
     tags = tags or {}
     try:
-        return ErrorSentry(dsn, sentry_client_kwargs={'tags': tags, 'transport': HTTPTransport})
+        return ErrorSentry(
+            dsn,
+            sentry_client_kwargs={'tags': tags, 'transport': HTTPTransport},
+            sentry_report_limit=10
+        )
     except InvalidDsn as e:
         log_error(e)
         return ErrorHandler()

@@ -9,6 +9,7 @@ from config import load_django
 
 from kombu.exceptions import OperationalError
 from celery import Celery, states
+from celery.states import SUCCESS
 
 STARTED_OR_WAITING = [states.PENDING, states.RECEIVED, states.STARTED]
 FAILED = [states.REVOKED, states.RETRY, states.FAILURE]
@@ -18,7 +19,7 @@ try:
         manager_info = f.read()
     manager_ip, password = manager_info.splitlines()
     celery_app = Celery(
-            "data_processing_tasks",
+            "services.celery_data_processing",
             # note that the 2nd trailing slash here is actually required and
             broker='pyamqp://beiwe:%s@%s//' % (password, manager_ip),
             backend='rpc://',
@@ -28,7 +29,7 @@ try:
     print("connected to celery with discovered credentials.")
 except IOError:
     celery_app = Celery(
-            "data_processing_tasks",
+            "services.celery_data_processing",
             broker='pyamqp://guest@127.0.0.1//',
             backend='rpc://',
             task_publish_retry=False,
@@ -49,6 +50,12 @@ from config.constants import FILE_PROCESS_PAGE_SIZE
 from database.user_models import Participant
 from libs.file_processing import do_process_user_file_chunks
 from libs.sentry import make_error_sentry
+
+
+@celery_app.task
+def queue_user(participant):
+    return celery_process_file_chunks(participant)
+queue_user.max_retries = 0  # may not be necessary
 
 
 def safe_queue_user(*args, **kwargs):
@@ -92,7 +99,7 @@ def create_file_processing_tasks():
         )
         active_set = set(get_active_job_ids())
         participants_to_process = participant_set - active_set
-        print("Queueing these participants:", ",".join(participants_to_process))
+        print("Queueing these participants:", ",".join(str(p) for p in participants_to_process))
 
         for participant_id in participants_to_process:
             # Queue all users' file processing, and generate a list of currently running jobs
@@ -143,11 +150,6 @@ def celery_process_file_chunks(participant_id):
         # put maximum time limit per user
         if (time_start - datetime.now()).total_seconds() > 60*60*3:
                 break
-
-@celery_app.task
-def queue_user(participant):
-    return celery_process_file_chunks(participant)
-queue_user.max_retries = 0  # may not be necessary
 
 
 # Useful for debugging, we use get_active_job_ids to ensure that there are no multiple concurrent
@@ -203,9 +205,9 @@ def _get_job_ids(celery_query_dict):
          'worker_pid': 27292}]}
     """
 
-    # for when celery isn't running
-    if celery_query_dict is None:
-        return None
+    # # for when celery isn't running
+    # if celery_query_dict is None:
+    #     return []
 
     # below could be substantially improved. itertools chain....
     all_jobs = []

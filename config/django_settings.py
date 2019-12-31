@@ -64,7 +64,7 @@ SHELL_PLUS_POST_IMPORTS = [
     ["collections", ("Counter", "defaultdict")],
     ["django.utils.timezone", ("localtime", "make_aware", "make_naive")],
     ["time", ("sleep",)],
-    ["database.models", ("watch_uploads", "watch_files_to_process", "get_and_summarize")]
+    ["libs.shell_utils", "*"]
 ]
 
 # Using the default test runner

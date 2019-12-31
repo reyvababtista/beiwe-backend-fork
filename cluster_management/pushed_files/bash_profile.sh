@@ -10,13 +10,14 @@
 # for ssh logins, install and configure the libpam-umask package.
 #umask 022
 
+alias update-commandline='cp ~/beiwe-backend/cluster_management/pushed_files/bash_profile.sh ~/.profile; cp ~/beiwe-backend/cluster_management/pushed_files/.inputrc ~/.inputrc'
 
 #Alias aliases
 alias p="nano ~/.profile; source ~/.profile"
 alias up="source ~/.profile"
 
 #File Sizes
-alias duu="sudo adu -d 1 -ha | sort -h"
+alias duu="sudo du -d 1 -h | sort -h"
 
 #Swap
 alias createswap="sudo fallocate -l 4G /swapfile; sudo chmod 600 /swapfile; sudo mkswap /swapfile; sudo swapon /swapfile; swapon -s"
@@ -49,8 +50,8 @@ alias df="df -h"
 
 #Git
 alias s='git status'
-alias gs='git status'
 alias gd='git diff'
+alias gs='git diff --stat'
 alias pull="git pull"
 alias master="git checkout master"
 alias prod="git checkout production"
@@ -75,10 +76,12 @@ alias processing-stop="killall supervisord"
 alias processing-restart="pkill -HUP supervisord"
 
 #Logs
-alias logo='nano +1000000000 /var/log/apache2/error.log' #open log, go to end
-alias log='tail -f /var/log/apache2/error.log | cut -d " " -f 4,10-' #tail follow apache log
+alias loga='tail -f /var/log/apache2/error.log | cut -d " " -f 4,10-' #tail follow apache log
+alias logao='nano +1000000000 /var/log/apache2/error.log' #open log, go to end
+alias logc='tail -f /var/log/celery/*'
 alias logco='nano +1000000000 /var/log/celery/celeryd.err'
-alias logc='tail -f /var/log/celery/celeryd.err /var/log/celery/celeryd.log'
+alias logd='tail -f /var/log/supervisor/*'
+alias logdo='nano +1000000000 /var/log/supervisor/*'
 
 #Configuration files
 alias conf='sudo nano $HOME/beiwe-backend/config/settings.py'
@@ -88,7 +91,6 @@ alias boot="sudo sysv-rc-conf"
 
 #Developer tools
 alias db="cd $HOME/beiwe-backend/; python3 manage.py shell_plus"
-alias sdb="cd $HOME/beiwe-backend/; sudo python3 manage.y shell_plus"
 alias py="python3"
 alias ipy="ipython"
 alias manage="python3 manage.py"
@@ -97,6 +99,14 @@ alias ag="clear; printf '_%.0s' {1..100}; echo ''; echo 'Silver results begin he
 
 function run {
     nohup python -u $1 > ~/$1_log.out &
+}
+
+function runloop ()
+{
+    while true; do
+        $*;
+        sleep 1;
+    done
 }
 
 
@@ -134,6 +144,7 @@ fi
 function parse_git_branch () {
        git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'
 }
+
 RED="\[\033[0;31m\]"
 YELLOW="\[\033[0;33m\]"
 GREEN="\[\033[0;32m\]"

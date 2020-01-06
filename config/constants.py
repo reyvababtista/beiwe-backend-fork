@@ -226,6 +226,7 @@ UPLOAD_FILE_TYPE_MAPPING = {
     "proximity": PROXIMITY,
     "ios_log": IOS_LOG_FILE,
     "imageSurvey": IMAGE_FILE,
+    "identifiers": IDENTIFIERS,  # not processed through data upload.
 }
 
 # this is mostly used for debugging and scripting

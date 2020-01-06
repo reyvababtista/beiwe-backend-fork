@@ -198,7 +198,7 @@ def get_data():
     else:
         return Response(
                 zip_generator(get_these_files, construct_registry=True),
-                mimetype="zip"
+                mimetype="zip",
         )
 
 
@@ -252,6 +252,8 @@ def zip_generator(files_list, construct_registry=False):
 
         if construct_registry:
             zip_input.writestr("registry", json.dumps(file_registry))
+            yield zip_output.getvalue()
+            zip_output.empty()
 
         # close, then yield all remaining data in the zip.
         zip_input.close()
@@ -267,9 +269,10 @@ def zip_generator(files_list, construct_registry=False):
         # and also to print an error to the log if we need to.
         pool.close()
         pool.terminate()
-        if duplicate_files:
-            duplcate_file_message = "encountered duplicate files: %s" % ",".join(
-                    str(name_path) for name_path in duplicate_files)
+        # if duplicate_files:
+        #     duplcate_file_message = "encountered duplicate files: %s" % ",".join(
+        #             str(name_path) for name_path in duplicate_files)
+
 
 
 #########################################################################################
@@ -281,8 +284,10 @@ def parse_registry(reg_dat):
     try:
         ret = json.loads(reg_dat)
     except ValueError:
+        print("invalid registry 1")
         return abort(400)
     if not isinstance(ret, dict):
+        print("invalid registry 2")
         return abort(400)
     return ret
 
@@ -302,8 +307,8 @@ def determine_file_name(chunk):
         return "%s/%s/%s/%s/%s" % (
             chunk["participant__patient_id"],
             chunk["data_type"],
-            chunk["chunk_path"].rsplit("/", 3)[1], # this is the survey id
-            chunk["chunk_path"].rsplit("/", 2)[1], # this is the instance of the user taking a survey
+            chunk["chunk_path"].rsplit("/", 3)[1],  # this is the survey id
+            chunk["chunk_path"].rsplit("/", 2)[1],  # this is the instance of the user taking a survey
             chunk["chunk_path"].rsplit("/", 1)[1]
         )
 
@@ -333,7 +338,7 @@ def str_to_datetime(time_string):
     try:
         return datetime.strptime(time_string, API_TIME_FORMAT)
     except ValueError as e:
-        if "does not match format" in e.message:
+        if "does not match format" in str(e):
             return abort(400)
 
 
@@ -437,7 +442,7 @@ VALID_PIPELINE_POST_PARAMS.append("secret_key")
 
 # before reenabling, audio filenames on s3 were incorrectly enforced to have millisecond
 # precision, remove trailing zeros this does not affect data downloading because those file times
-    #  are generated from the chunk registry
+#  are generated from the chunk registry
 @data_access_api.route("/pipeline-upload/v1", methods=['POST', 'GET'])
 def data_pipeline_upload():
     #Cases: invalid access creds
@@ -445,7 +450,7 @@ def data_pipeline_upload():
     access_secret = request.values["secret_key"]
 
     if not Researcher.objects.filter(access_key_id=access_key).exists():
-        return abort(403) # access key DNE
+        return abort(403)  # access key DNE
     researcher = Researcher.objects.get(access_key_id=access_key)
     if not researcher.validate_access_credentials(access_secret):
         return abort(403)  # incorrect secret key

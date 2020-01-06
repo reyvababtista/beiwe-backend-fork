@@ -253,6 +253,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                 print("FAILED TO UPDATE: study_id:%s, user_id:%s, data_type:%s, time_bin:%s, header:%s "
                       % (study_id, user_id, data_type, time_bin, updated_header))
                 raise
+
             else:
                 # If no exception was raised, the FTP has completed processing. Add it to the set of
                 # retireable (i.e. completed) FTPs.
@@ -616,7 +617,7 @@ def batch_upload(upload: Tuple[dict, str, bytes, str]):
     try:
         if len(upload) != 4:
             # upload should have length 4; this is for debugging if it doesn't
-            print(upload)
+            print("upload length not equal to 4: ",upload)
         chunk, chunk_path, new_contents, study_object_id = upload
         del upload
 
@@ -667,7 +668,7 @@ class ChunkFailedToExist(Exception): pass
 # This is useful for performance testing, replace the real threadpool with this one and everything
 # will suddenly be single-threaded, making it much easier to profile.
 # class ThreadPool():
-#     def map(self, *args, **kwargs): #the existance of that self variable is key
+#     def map(self, *args, **kwargs): # the existence of that self variable is key
 #         # we actually want to cut off any threadpool args, which is conveniently easy because map does not use kwargs!
 #         return map(*args)
 #     def terminate(self): pass

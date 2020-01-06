@@ -108,8 +108,8 @@ def validate_logic_tree(logic_entry, questions_dict, questions_validated):
 
 
 def validate_logic_entry(logic_entry, questions_dict, questions_validated):
-    comparator = logic_entry.keys()[0]
-    uuid, comparator_value = logic_entry.values()[0]
+    comparator = list(logic_entry.keys())[0]
+    uuid, comparator_value = list(logic_entry.values())[0]
     
     # case: uuid does not exist anywhere.
     if uuid not in questions_dict:
@@ -179,8 +179,8 @@ def validate_logic_entry(logic_entry, questions_dict, questions_validated):
 #
 # def do_logic(logic_entry):
 #
-#     comparator = logic_entry.keys()[0]
-#     a, b = logic_entry.values()[0]
+#     comparator = list(logic_entry.keys())[0]
+#     a, b = list(logic_entry.values())[0]
 #     # print operator, a, b
 #     #code no longer functional, a is always a uuid value.
 #     if comparator in NUMERIC_COMPARATORS:

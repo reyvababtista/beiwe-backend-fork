@@ -8,7 +8,7 @@ pycrypto
 # error reporting
 raven[flask]>=6.8.0
 #cronutils>=0.2.2
-git+https://github.com/zagaran/cronutils@7e6d9510d77ea4550c90adffa1201d29459adba7
+git+https://github.com/zagaran/cronutils@fd15b46adc4c6bbc26a1487f7fba239bb29cdbc4
 
 # server requirement
 psycopg2==2.8.3

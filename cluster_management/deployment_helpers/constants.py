@@ -119,6 +119,7 @@ AWS_CREDENTIALS_FILE = path_join(GENERAL_CONFIG_FOLDER, 'aws_credentials.json')
 GLOBAL_CONFIGURATION_FILE = path_join(GENERAL_CONFIG_FOLDER, 'global_configuration.json')
 AWS_PEM_FILE = path_join(USER_SPECIFIC_CONFIG_FOLDER, 'aws_deployment_key.pem')
 
+
 ## Management Tool Configuration Loaders
 def get_global_config():
     with open(GLOBAL_CONFIGURATION_FILE, 'r') as f:
@@ -151,7 +152,7 @@ def get_instance_assume_role_policy_document():
 
 def get_automation_policy():
     with open(AUTOMATION_POLICY_PATH, "r") as document:
-            return document.read()
+        return document.read()
 
 
 def get_aws_access_policy():
@@ -176,7 +177,7 @@ REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH = path_join('/etc/rabbitmq/rabbitmq-env.
 
 # Well... this should have been CLUSTER_MANAGEMENT_FOLDER + 'rabbit_mq_password.txt', but this has
 # already been deployed for months.  TODO: insert some code here to safely fix this.
-RABBIT_MQ_PASSWORD_FILE = CLUSTER_MANAGEMENT_FOLDER + 'rabbit_mq_password.txt'
+RABBIT_MQ_PASSWORD_FILE = path_join(CLUSTER_MANAGEMENT_FOLDER, 'rabbit_mq_password.txt')
 
 ####################################################################################################
 ####################################### Dynamic Files ##############################################
@@ -276,7 +277,7 @@ AWS_EB_WORKER_TIER = get_env(
 
 
 ####################################################################################################
-###################################### UI Strings ##################################################
+###################################### RDS Strings #################################################
 ####################################################################################################
 
 RDS_NAME_OVERRIDE = get_env("RDS_NAME_OVERRIDE", None)
@@ -308,3 +309,12 @@ This command exists because Instance Profiles are not fully-exposed on the AWS C
 Note 1: Run this command repeatedly until it tells you it cannot delete anything.
 Note 2: You may have to go and manually delete a Service Role if you are intent on totally resetting your Elastic Beanstalk cluster.
 """
+
+####################################################################################################
+########################################## Other ###################################################
+####################################################################################################
+
+MANAGER_SERVER_INSTANCE_TYPE = "MANAGER_SERVER_INSTANCE_TYPE"
+WORKER_SERVER_INSTANCE_TYPE = "WORKER_SERVER_INSTANCE_TYPE"
+ELASTIC_BEANSTALK_INSTANCE_TYPE = "ELASTIC_BEANSTALK_INSTANCE_TYPE"
+DB_SERVER_TYPE = "DB_SERVER_TYPE"

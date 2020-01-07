@@ -1,20 +1,21 @@
 import json
 import os
 import re
-from os.path import relpath, exists as file_exists
+from os.path import exists as file_exists, relpath
 from time import sleep
 
 from deployment_helpers.aws.iam import create_server_access_credentials
 from deployment_helpers.aws.rds import get_full_db_credentials
 from deployment_helpers.aws.s3 import create_data_bucket
-from deployment_helpers.constants import (AWS_CREDENTIALS_FILE, get_global_config,
-    GLOBAL_CONFIGURATION_FILE, get_aws_credentials,
-    VALIDATE_GLOBAL_CONFIGURATION_MESSAGE, VALIDATE_AWS_CREDENTIALS_MESSAGE,
-    get_pushed_full_processing_server_env_file_path, get_beiwe_environment_variables,
-    get_beiwe_python_environment_variables_file_path, get_finalized_credentials_file_path,
-    get_finalized_environment_variables, GLOBAL_CONFIGURATION_FILE_KEYS, AWS_CREDENTIALS_FILE_KEYS,
-    get_server_configuration_file, get_server_configuration_file_path, RABBIT_MQ_PASSWORD_FILE)
-from deployment_helpers.general_utils import log, random_alphanumeric_string, EXIT
+from deployment_helpers.constants import (AWS_CREDENTIALS_FILE, AWS_CREDENTIALS_FILE_KEYS,
+    DB_SERVER_TYPE, ELASTIC_BEANSTALK_INSTANCE_TYPE, get_aws_credentials,
+    get_beiwe_environment_variables, get_beiwe_python_environment_variables_file_path,
+    get_finalized_credentials_file_path, get_finalized_environment_variables, get_global_config,
+    get_pushed_full_processing_server_env_file_path, get_server_configuration_file_path,
+    GLOBAL_CONFIGURATION_FILE, GLOBAL_CONFIGURATION_FILE_KEYS, MANAGER_SERVER_INSTANCE_TYPE,
+    RABBIT_MQ_PASSWORD_FILE, VALIDATE_AWS_CREDENTIALS_MESSAGE,
+    VALIDATE_GLOBAL_CONFIGURATION_MESSAGE, WORKER_SERVER_INSTANCE_TYPE)
+from deployment_helpers.general_utils import EXIT, log, random_alphanumeric_string
 
 # Sentry changed their default DSN formatting in early 2018, we test for the old and the new.
 DSN_REGEX = re.compile('^(https://[\S]+:[\S]+@sentry\.io/[\S]+$|^https://[\S]+@sentry\.io/[\S]+$)')
@@ -34,10 +35,10 @@ def reference_environment_configuration_file():
 
 def reference_data_processing_server_configuration():
     return {
-        "WORKER_SERVER_INSTANCE_TYPE": "m4.large",
-        "MANAGER_SERVER_INSTANCE_TYPE": "t2.medium",
-        "ELASTIC_BEANSTALK_INSTANCE_TYPE": "t2.medium",
-        "DB_SERVER_TYPE": "m4.large"
+        WORKER_SERVER_INSTANCE_TYPE: "m5.large",
+        MANAGER_SERVER_INSTANCE_TYPE: "t3.medium",
+        ELASTIC_BEANSTALK_INSTANCE_TYPE: "t3.medium",
+        DB_SERVER_TYPE: "m5.large"
     }
 
 ####################################################################################################
@@ -128,6 +129,7 @@ def validate_beiwe_environment_config(eb_environment_name):
     except Exception as e:
         log.error("encountered an error while trying to read configuration files.")
         log.error(e)
+        beiwe_variables, global_config = None, None  # ide warnings
         EXIT(1)
     
     beiwe_variables_name = os.path.basename(get_beiwe_python_environment_variables_file_path(eb_environment_name))

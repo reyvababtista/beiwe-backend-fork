@@ -45,11 +45,12 @@ from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVE
     get_server_configuration_file_path, HELP_SETUP_NEW_ENVIRONMENT, LOCAL_AMI_ENV_CONFIG_FILE_PATH,
     LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
     LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH,
-    LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, LOG_FILE, PURGE_COMMAND_BLURB,
-    PUSHED_FILES_FOLDER, RABBIT_MQ_PORT, REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH,
-    REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
+    LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, LOG_FILE,
+    MANAGER_SERVER_INSTANCE_TYPE, PURGE_COMMAND_BLURB, PUSHED_FILES_FOLDER, RABBIT_MQ_PORT,
+    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_HOME_DIR,
+    REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
     REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH, REMOTE_USERNAME, STAGED_FILES,
-    USER_SPECIFIC_CONFIG_FOLDER)
+    USER_SPECIFIC_CONFIG_FOLDER, WORKER_SERVER_INSTANCE_TYPE)
 from deployment_helpers.general_utils import current_time_string, do_zip_reduction, EXIT, log, retry
 
 
@@ -147,13 +148,11 @@ def setup_manager_cron():
 def setup_rabbitmq():
     # push the configuration file so that it listens on the configured port
     put(LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH)
-    sudo("cp {source} {dest}".format(
-            source=REMOTE_RABBIT_MQ_CONFIG_FILE_PATH, dest=REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH
-    ))
+    sudo(f"cp {REMOTE_RABBIT_MQ_CONFIG_FILE_PATH} {REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH}")
     
     # setup a new password
     create_rabbit_mq_password()
-    sudo("rabbitmqctl add_user beiwe {password}".format(password=get_rabbit_mq_password()))
+    sudo(f"rabbitmqctl add_user beiwe {get_rabbit_mq_password()}")
     sudo('rabbitmqctl set_permissions -p / beiwe ".*" ".*" ".*"')
     sudo("service rabbitmq-server restart")
     
@@ -296,6 +295,7 @@ def do_setup_eb_update():
         index = int(input("$ "))
     except Exception:
         log.error("Could not parse input.")
+        index = None  # ide warnings
         EXIT(1)
     
     if index < 1 or index > len(files):
@@ -368,13 +368,15 @@ def do_create_manager():
     except Exception as e:
         log.error("could not read settings file")
         log.error(e)
+        settings = None  # ide warnings...
         EXIT(1)
         
     log.info("creating manager server for %s..." % name)
     try:
-        instance = create_processing_control_server(name, settings["MANAGER_SERVER_INSTANCE_TYPE"])
+        instance = create_processing_control_server(name, settings[MANAGER_SERVER_INSTANCE_TYPE])
     except Exception as e:
         log.error(e)
+        instance = None  # ide warnings...
         EXIT(1)
     public_ip = instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
     
@@ -408,13 +410,15 @@ def do_create_worker():
     except Exception as e:
         log.error("could not read settings file")
         log.error(e)
+        settings = None  # ide warnings...
         EXIT(1)
     
     log.info("creating worker server for %s..." % name)
     try:
-        instance = create_processing_server(name, settings["MANAGER_SERVER_INSTANCE_TYPE"])
+        instance = create_processing_server(name, settings[WORKER_SERVER_INSTANCE_TYPE])
     except Exception as e:
         log.error(e)
+        instance = None  # ide warnings...
         EXIT(1)
     instance_ip = instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
     # TODO: fabric up the worker with the celery/supervisord and ensure it can connect to manager.
@@ -491,7 +495,7 @@ def cli_args_validation():
     parser.add_argument(
             "-help-setup-new-environment",
             action="count",
-            help= "assists in creation of configuration files for a beiwe environment deployment",
+            help="assists in creation of configuration files for a beiwe environment deployment",
     )
     parser.add_argument(
             "-fix-health-checks-blocking-deployment",
@@ -503,7 +507,6 @@ def cli_args_validation():
             action="count",
             help=PURGE_COMMAND_BLURB,
     )
-    
     
     # Note: this arguments variable is not iterable.
     # access entities as arguments.long_name_of_argument, like arguments.update_manager

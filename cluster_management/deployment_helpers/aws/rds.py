@@ -8,7 +8,7 @@ from deployment_helpers.aws.security_groups import (
     create_security_group, get_security_group_by_name)
 from deployment_helpers.constants import (DBInstanceNotFound, get_db_credentials_file_path,
     get_server_configuration_file, RDS_NAME_OVERRIDE, RDS_INSTANCE_SEC_GROUP_NAME_OVERRIDE,
-    RDS_DATABASE_SEC_GROUP_NAME_OVERRIDE)
+    RDS_DATABASE_SEC_GROUP_NAME_OVERRIDE, DB_SERVER_TYPE)
 from deployment_helpers.general_utils import (EXIT, current_time_string, log,
     random_alphanumeric_starting_with_letter, random_alphanumeric_string)
 
@@ -22,7 +22,7 @@ database_sec_group_description = \
 instance_database_sec_group_description = \
     "provides postgres access to the postgres database %s"
 
-MAINTAINANCE_WINDOW = "sat:08:00-sat:09:00"  # utc
+MAINTENANCE_WINDOW = "sat:08:00-sat:09:00"  # utc
 BACKUP_WINDOW = "04:34-05:04"
 BACKUP_RETENTION_PERIOD_DAYS = 35  # 35 is the maximum backup period from the AWS console.
 POSTGRES_PORT = 5432  # this is the default postgres port.
@@ -65,8 +65,8 @@ def write_rds_credentials(eb_environment_name, credentials, test_for_existing_fi
     """ Writes to the database credentials file for the environment. """
     db_credentials_path = get_db_credentials_file_path(eb_environment_name)
     if test_for_existing_files and os.path.exists(db_credentials_path):
-        msg = "Encountered a file at %s, abortiing." % db_credentials_path
-        log.error("Encountered a file at %s, abortiing.")
+        msg = "Encountered a file at %s, aborting." % db_credentials_path
+        log.error("Encountered a file at %s, aborting.")
         raise Exception(msg)
 
     with open(db_credentials_path, 'w') as f:
@@ -125,7 +125,7 @@ def create_rds_security_groups(db_identifier):
 
 
 def add_eb_environment_to_rds_database_security_group(eb_environment_name, eb_sec_grp_id):
-    """ We need to add the elastic beansalk environment to the security group that we assign to the RDS insnant"""
+    """ We need to add the elastic beanstalk environment to the security group that we assign to the RDS instance"""
     ingress_params = create_sec_grp_rule_parameters_allowing_traffic_from_another_security_group(
             tcp_port=POSTGRES_PORT, sec_grp_id=eb_sec_grp_id
     )
@@ -168,7 +168,7 @@ def get_most_recent_postgres_engine():
 def get_db_info(eb_environment_name):
     db_identifier = construct_db_name(eb_environment_name)
     rds_client = create_rds_client()
-    # documentaation says this should only return the one result when using DBInstanceIdentifier.
+    # documentation says this should only return the one result when using DBInstanceIdentifier.
     try:
         return rds_client.describe_db_instances(DBInstanceIdentifier=db_identifier)['DBInstances'][0]
     except Exception as e:
@@ -188,7 +188,7 @@ def create_new_rds_instance(eb_environment_name):
     except DBInstanceNotFound:
         pass
 
-    database_server_type = get_server_configuration_file(eb_environment_name)['DB_SERVER_TYPE']
+    database_server_type = get_server_configuration_file(eb_environment_name)[DB_SERVER_TYPE]
     engine = get_most_recent_postgres_engine()
 
     credentials = generate_valid_postgres_credentials()
@@ -244,7 +244,7 @@ def create_new_rds_instance(eb_environment_name):
 
             Engine=engine['Engine'],  # will be "postgres"
             EngineVersion=engine['EngineVersion'],  # most recent postgres version in this region.
-            PreferredMaintenanceWindow=MAINTAINANCE_WINDOW,
+            PreferredMaintenanceWindow=MAINTENANCE_WINDOW,
             PreferredBackupWindow=BACKUP_WINDOW,
             AutoMinorVersionUpgrade=True,  # auto-upgrades are fantastic
             BackupRetentionPeriod=BACKUP_RETENTION_PERIOD_DAYS,
@@ -256,7 +256,7 @@ def create_new_rds_instance(eb_environment_name):
             # MonitoringInterval=5,  # in seconds, Valid Values: 0, 1, 5, 10, 15, 30, 60
             # MonitoringRoleArn='string',  # required for monitoring interval other than 0
 
-            # near as I can tell this is the "insert postgres paratmeters here" section.
+            # near as I can tell this is the "insert postgres parameters here" section.
             # DBParameterGroupName='string',
 
             # AvailabilityZone='string',  # leave as default (random)

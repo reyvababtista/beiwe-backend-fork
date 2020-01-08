@@ -487,29 +487,29 @@ def do_fix_health_checks():
 def cli_args_validation():
     # Use '"count"' as the type, don't try and be fancy, argparse is a pain.
     parser.add_argument(
-            '-create-environment',
-            action="count",
-            help="creates new environment with the provided environment name",
+        '-create-environment',
+        action="count",
+        help="creates new environment with the provided environment name",
     )
     parser.add_argument(
-            '-create-manager',
-            action="count",
-            help="creates a data processing manager for the provided environment",
+        '-create-manager',
+        action="count",
+        help="creates a data processing manager for the provided environment",
     )
     parser.add_argument(
-            '-create-worker',
-            action="count",
-            help="creates a data processing worker for the provided environment",
+        '-create-worker',
+        action="count",
+        help="creates a data processing worker for the provided environment",
     )
     parser.add_argument(
-            "-help-setup-new-environment",
-            action="count",
-            help="assists in creation of configuration files for a beiwe environment deployment",
+        "-help-setup-new-environment",
+        action="count",
+        help="assists in creation of configuration files for a beiwe environment deployment",
     )
     parser.add_argument(
-            "-fix-health-checks-blocking-deployment",
-            action="count",
-            help="sometimes deployment operations fail stating that health checks do not have sufficient permissions, run this command to fix that.",
+        "-fix-health-checks-blocking-deployment",
+        action="count",
+        help="sometimes deployment operations fail stating that health checks do not have sufficient permissions, run this command to fix that.",
     )
     parser.add_argument(
         "-dev",
@@ -517,9 +517,9 @@ def cli_args_validation():
         help="Worker and Manager deploy operations will swap the server over to the development branch instead of master.",
     )
     parser.add_argument(
-            "-purge-instance-profiles",
-            action="count",
-            help=PURGE_COMMAND_BLURB,
+        "-purge-instance-profiles",
+        action="count",
+        help=PURGE_COMMAND_BLURB,
     )
 
     

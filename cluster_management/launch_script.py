@@ -33,24 +33,24 @@ from deployment_helpers.aws.iam import iam_purge_instance_profiles
 from deployment_helpers.aws.rds import create_new_rds_instance
 from deployment_helpers.configuration_utils import (are_aws_credentials_present,
     create_finalized_configuration, create_processing_server_configuration_file,
-    create_rabbit_mq_password, get_rabbit_mq_password, is_global_configuration_valid,
+    create_rabbit_mq_password_file, get_rabbit_mq_password, is_global_configuration_valid,
     reference_data_processing_server_configuration, reference_environment_configuration_file,
     validate_beiwe_environment_config)
 from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS,
-    APT_WORKER_INSTALLS, DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH, DO_CREATE_ENVIRONMENT,
-    DO_SETUP_EB_UPDATE_OPEN, ENVIRONMENT_NAME_RESTRICTIONS, EXTANT_ENVIRONMENT_PROMPT,
-    FILES_TO_PUSH, get_beiwe_python_environment_variables_file_path,
-    get_finalized_environment_variables, get_global_config,
-    get_pushed_full_processing_server_env_file_path, get_server_configuration_file,
-    get_server_configuration_file_path, HELP_SETUP_NEW_ENVIRONMENT, LOCAL_AMI_ENV_CONFIG_FILE_PATH,
-    LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
+    APT_WORKER_INSTALLS, DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH,
+    DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN,
+    ENVIRONMENT_NAME_RESTRICTIONS, EXTANT_ENVIRONMENT_PROMPT, FILES_TO_PUSH,
+    get_beiwe_python_environment_variables_file_path, get_finalized_environment_variables,
+    get_global_config, get_pushed_full_processing_server_env_file_path,
+    get_server_configuration_file, get_server_configuration_file_path, HELP_SETUP_NEW_ENVIRONMENT,
+    LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
     LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH,
     LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, LOG_FILE,
     MANAGER_SERVER_INSTANCE_TYPE, PURGE_COMMAND_BLURB, PUSHED_FILES_FOLDER, RABBIT_MQ_PORT,
     REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_HOME_DIR,
     REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
-    REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH, REMOTE_USERNAME, STAGED_FILES,
-    USER_SPECIFIC_CONFIG_FOLDER, WORKER_SERVER_INSTANCE_TYPE)
+    REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH, REMOTE_USERNAME,
+    STAGED_FILES, WORKER_SERVER_INSTANCE_TYPE)
 from deployment_helpers.general_utils import current_time_string, do_zip_reduction, EXIT, log, retry
 
 
@@ -58,6 +58,9 @@ from deployment_helpers.general_utils import current_time_string, do_zip_reducti
 class FabricExecutionError(Exception): pass
 fabric_env.abort_exception = FabricExecutionError
 fabric_env.abort_on_prompts = True
+
+parser = argparse.ArgumentParser(description="interactive set of commands for deploying a Beiwe Cluster")
+DEV_MODE = False
 
 ####################################################################################################
 ################################### Fabric Operations ##############################################
@@ -87,18 +90,18 @@ def remove_unneeded_ssh_keys():
 
 def push_manager_private_ip_and_password(eb_environment_name):
     ip = get_manager_private_ip(eb_environment_name) + ":" + str(RABBIT_MQ_PORT)
-    password = get_rabbit_mq_password()
-    filename = path_join(REMOTE_HOME_DIR, "manager_ip")
+    password = get_rabbit_mq_password(eb_environment_name)
+
     # echo puts a new line at the end of the output
-    run("echo {text} > {filename}".format(text=ip, filename=filename))
-    run("printf {text} >> {filename}".format(text=password, filename=filename))
+    run(f"echo {ip} > {REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH}")
+    run(f"printf {password} >> {REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH}")
     # command = "printf {text} > {filename}".format(
     #         text=ip + "\n" + password,
     #         filename=path_join(REMOTE_HOME_DIR, "manager_ip"))
     # run(command)
     
     
-def push_files():
+def push_home_directory_files():
     for local_relative_file, remote_relative_file in FILES_TO_PUSH:
         local_file = path_join(PUSHED_FILES_FOLDER, local_relative_file)
         remote_file = path_join(REMOTE_HOME_DIR, remote_relative_file)
@@ -115,8 +118,13 @@ def load_git_repo():
     
     # Make sure the code is on the right branch
     # git checkout prints to both stderr *and* stdout, so redirect them both to the log file
-    run('cd {home}/beiwe-backend; git checkout master 1>> {log} 2>> {log}'
-        .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
+
+    if DEV_MODE:
+        run('cd {home}/beiwe-backend; git checkout development 1>> {log} 2>> {log}'
+            .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
+    else:
+        run('cd {home}/beiwe-backend; git checkout master 1>> {log} 2>> {log}'
+            .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
 
 
 def setup_python():
@@ -145,15 +153,17 @@ def setup_manager_cron():
     run('crontab -u {user} {file}'.format(file=REMOTE_CRONJOB_FILE_PATH, user=REMOTE_USERNAME))
 
 
-def setup_rabbitmq():
+def setup_rabbitmq(eb_environment_name):
+    create_rabbit_mq_password_file(eb_environment_name)
+
     # push the configuration file so that it listens on the configured port
     put(LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH)
     sudo(f"cp {REMOTE_RABBIT_MQ_CONFIG_FILE_PATH} {REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH}")
     
     # setup a new password
-    create_rabbit_mq_password()
-    sudo(f"rabbitmqctl add_user beiwe {get_rabbit_mq_password()}")
+    sudo(f"rabbitmqctl add_user beiwe {get_rabbit_mq_password(eb_environment_name)}")
     sudo('rabbitmqctl set_permissions -p / beiwe ".*" ".*" ".*"')
+    log.warning("This next command can take quite a while to run.")
     sudo("service rabbitmq-server restart")
     
 
@@ -228,6 +238,7 @@ def create_swap():
     sudo("mkswap /swapfile")
     sudo("swapon /swapfile")
     sudo("swapon -s")
+
 ####################################################################################################
 #################################### CLI Utility ###################################################
 ####################################################################################################
@@ -277,6 +288,7 @@ def prompt_for_extant_eb_environment_name():
 ####################################################################################################
 ##################################### AWS Operations ###############################################
 ####################################################################################################
+
 
 def do_setup_eb_update():
     print("\n", DO_SETUP_EB_UPDATE_OPEN)
@@ -334,7 +346,7 @@ def do_help_setup_new_environment():
 
     beiwe_environment_fp = get_beiwe_python_environment_variables_file_path(name)
     processing_server_settings_fp = get_server_configuration_file_path(name)
-    extant_files = os.listdir(USER_SPECIFIC_CONFIG_FOLDER)
+    extant_files = os.listdir(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER)
     
     for fp in (beiwe_environment_fp, processing_server_settings_fp):
         if os.path.basename(fp) in extant_files:
@@ -381,9 +393,9 @@ def do_create_manager():
     public_ip = instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
     
     configure_fabric(name, public_ip)
-    push_files()
+    push_home_directory_files()
     apt_installs(manager=True)
-    setup_rabbitmq()
+    setup_rabbitmq(name)
     load_git_repo()
     setup_python()
     push_beiwe_configuration(name)
@@ -424,7 +436,7 @@ def do_create_worker():
     # TODO: fabric up the worker with the celery/supervisord and ensure it can connect to manager.
     
     configure_fabric(name, instance_ip)
-    push_files()
+    push_home_directory_files()
     apt_installs()
     load_git_repo()
     setup_python()
@@ -442,7 +454,7 @@ def do_create_single_server_ami(ip_address, key_filename):
     :param key_filename: Full filepath of the key that lets you SSH into that server
     """
     configure_fabric(None, ip_address, key_filename=key_filename)
-    push_files()
+    push_home_directory_files()
     apt_installs(single_server_ami=True)
     load_git_repo()
     setup_python()
@@ -473,9 +485,6 @@ def do_fix_health_checks():
 
 
 def cli_args_validation():
-    # Warning: any change to format here requires you re-check all parameter validation
-    parser = argparse.ArgumentParser(
-             description="interactive set of commands for deploying a Beiwe Cluster")
     # Use '"count"' as the type, don't try and be fancy, argparse is a pain.
     parser.add_argument(
             '-create-environment',
@@ -503,10 +512,16 @@ def cli_args_validation():
             help="sometimes deployment operations fail stating that health checks do not have sufficient permissions, run this command to fix that.",
     )
     parser.add_argument(
+        "-dev",
+        action="count",
+        help="Worker and Manager deploy operations will swap the server over to the development branch instead of master.",
+    )
+    parser.add_argument(
             "-purge-instance-profiles",
             action="count",
             help=PURGE_COMMAND_BLURB,
     )
+
     
     # Note: this arguments variable is not iterable.
     # access entities as arguments.long_name_of_argument, like arguments.update_manager
@@ -532,7 +547,11 @@ if __name__ == "__main__":
     # get CLI arguments, see function for details
     arguments = cli_args_validation()
     # pprint (vars(arguments))
-    
+
+    if arguments.dev:
+        DEV_MODE = True
+        print("RUNNING IN DEV MODE")
+
     if arguments.help_setup_new_environment:
         do_help_setup_new_environment()
         EXIT(0)
@@ -557,3 +576,7 @@ if __name__ == "__main__":
         print(PURGE_COMMAND_BLURB, "\n\n\n")
         iam_purge_instance_profiles()
         EXIT(0)
+
+    # print help if nothing else did (make just supplying -dev print the help screen)
+    parser.print_help()
+    EXIT(0)

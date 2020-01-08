@@ -11,9 +11,9 @@ from deployment_helpers.constants import (AWS_CREDENTIALS_FILE, AWS_CREDENTIALS_
     DB_SERVER_TYPE, ELASTIC_BEANSTALK_INSTANCE_TYPE, get_aws_credentials,
     get_beiwe_environment_variables, get_beiwe_python_environment_variables_file_path,
     get_finalized_credentials_file_path, get_finalized_environment_variables, get_global_config,
-    get_pushed_full_processing_server_env_file_path, get_server_configuration_file_path,
-    GLOBAL_CONFIGURATION_FILE, GLOBAL_CONFIGURATION_FILE_KEYS, MANAGER_SERVER_INSTANCE_TYPE,
-    RABBIT_MQ_PASSWORD_FILE, VALIDATE_AWS_CREDENTIALS_MESSAGE,
+    get_pushed_full_processing_server_env_file_path, get_rabbit_mq_manager_ip_file_path,
+    get_server_configuration_file_path, GLOBAL_CONFIGURATION_FILE, GLOBAL_CONFIGURATION_FILE_KEYS,
+    MANAGER_SERVER_INSTANCE_TYPE, VALIDATE_AWS_CREDENTIALS_MESSAGE,
     VALIDATE_GLOBAL_CONFIGURATION_MESSAGE, WORKER_SERVER_INSTANCE_TYPE)
 from deployment_helpers.general_utils import EXIT, log, random_alphanumeric_string
 
@@ -229,10 +229,11 @@ def create_processing_server_configuration_file(eb_environment_name):
         fn.write(string_to_write)
 
 
-def create_rabbit_mq_password():
-    with open(RABBIT_MQ_PASSWORD_FILE, 'w') as f:
+def create_rabbit_mq_password_file(eb_environment_name):
+    with open(get_rabbit_mq_manager_ip_file_path(eb_environment_name), 'w') as f:
         f.write(random_alphanumeric_string(20))
 
-def get_rabbit_mq_password():
-    with open(RABBIT_MQ_PASSWORD_FILE, 'r') as f:
+
+def get_rabbit_mq_password(eb_environment_name):
+    with open(get_rabbit_mq_manager_ip_file_path(eb_environment_name), 'r') as f:
         return f.read()

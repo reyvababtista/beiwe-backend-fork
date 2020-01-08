@@ -102,9 +102,10 @@ AWS_CREDENTIALS_FILE_KEYS = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
 # Local folder paths
 CLUSTER_MANAGEMENT_FOLDER = abspath(__file__).rsplit('/', 2)[0]
 PUSHED_FILES_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'pushed_files')
-USER_SPECIFIC_CONFIG_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'environment_configuration')
+DEPLOYMENT_SPECIFIC_CONFIG_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'environment_configuration')
 GENERAL_CONFIG_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'general_configuration')
 STAGED_FILES = path_join(CLUSTER_MANAGEMENT_FOLDER, 'staged_files')
+RABBIT_MQ_PASSWORD_FILE_NAME = "rabbit_mq_password.txt"
 
 ## Global EC2 Instance __remote__ folder paths
 REMOTE_HOME_DIR = path_join('/home', REMOTE_USERNAME)
@@ -113,11 +114,10 @@ REMOTE_HOME_DIR = path_join('/home', REMOTE_USERNAME)
 DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH = path_join(REMOTE_HOME_DIR, 'beiwe-backend/config/remote_db_env.py')
 LOG_FILE = path_join(REMOTE_HOME_DIR, 'server_setup.log')
 
-
 ## Management Tool Configuration Files
 AWS_CREDENTIALS_FILE = path_join(GENERAL_CONFIG_FOLDER, 'aws_credentials.json')
 GLOBAL_CONFIGURATION_FILE = path_join(GENERAL_CONFIG_FOLDER, 'global_configuration.json')
-AWS_PEM_FILE = path_join(USER_SPECIFIC_CONFIG_FOLDER, 'aws_deployment_key.pem')
+AWS_PEM_FILE = path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, 'aws_deployment_key.pem')
 
 
 ## Management Tool Configuration Loaders
@@ -174,24 +174,20 @@ REMOTE_APACHE_CONFIG_FILE_PATH = path_join(REMOTE_HOME_DIR, 'ami_apache.conf')
 LOCAL_RABBIT_MQ_CONFIG_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'rabbitmq_configuration.txt')
 REMOTE_RABBIT_MQ_CONFIG_FILE_PATH = path_join(REMOTE_HOME_DIR, 'rabbitmq_configuration.txt')
 REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH = path_join('/etc/rabbitmq/rabbitmq-env.conf')
-
-# Well... this should have been CLUSTER_MANAGEMENT_FOLDER + 'rabbit_mq_password.txt', but this has
-# already been deployed for months.  TODO: insert some code here to safely fix this.
-RABBIT_MQ_PASSWORD_FILE = path_join(CLUSTER_MANAGEMENT_FOLDER, 'rabbit_mq_password.txt')
+REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH = path_join(REMOTE_HOME_DIR, "manager_ip")
 
 ####################################################################################################
 ####################################### Dynamic Files ##############################################
 ####################################################################################################
 
-
 ## EC2 Instance Configuration Files
 def get_pushed_full_processing_server_env_file_path(eb_environment_name):
     """ This is the python file that contains the environment details for an ubuntu install. """
-    return path_join(USER_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_remote_db_env.py')
+    return path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_remote_db_env.py')
 
 
 def get_finalized_credentials_file_path(eb_environment_name):
-    return path_join(USER_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_finalized_settings.json')
+    return path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_finalized_settings.json')
 
 
 def get_finalized_environment_variables(eb_environment_name):
@@ -202,12 +198,18 @@ def get_finalized_environment_variables(eb_environment_name):
 ## Database configuration
 def get_db_credentials_file_path(eb_environment_name):
     """ Use the get_full_db_credentials function in rds to get database credentials. """
-    return path_join(USER_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_database_credentials.json")
+    return path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_database_credentials.json")
 
 
 ## Beiwe Environment Files
 def get_beiwe_python_environment_variables_file_path(eb_environment_name):
-    return path_join(USER_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_beiwe_environment_variables.json")
+    return path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_beiwe_environment_variables.json")
+
+
+def get_rabbit_mq_manager_ip_file_path(eb_environment_name):
+    return path_join(
+        DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_" + RABBIT_MQ_PASSWORD_FILE_NAME
+    )
 
 
 def get_beiwe_environment_variables(eb_environment_name):
@@ -217,13 +219,14 @@ def get_beiwe_environment_variables(eb_environment_name):
 
 ## Processing worker and management servers
 def get_server_configuration_file_path(eb_environment_name):
-    return path_join(USER_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_server_settings.json')
+    return path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_server_settings.json')
 
 
 def get_server_configuration_file(eb_environment_name):
     with open(get_server_configuration_file_path(eb_environment_name), 'r') as f:
         return json.load(f)
-    
+
+
 
 ####################################################################################################
 ####################################### AWS Strings ################################################

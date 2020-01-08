@@ -1,8 +1,8 @@
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import timedelta
 from time import sleep
 
-from django.utils import timezone
+from django.utils.timezone import localtime
 
 from database.data_access_models import FileToProcess
 from database.profiling_models import UploadTracking
@@ -15,7 +15,7 @@ from services.celery_data_processing import (get_active_job_ids, get_reserved_jo
 
 def watch_processing():
     periodicity = 5
-    orig_start = datetime.now()
+    orig_start = localtime()
     a_now = orig_start
     s_now = orig_start
     r_now = orig_start
@@ -26,7 +26,7 @@ def watch_processing():
 
     for i in range(2**64):
         errors = 0
-        start = timezone.now()
+        start = localtime()
 
         count = FileToProcess.objects.count()
         user_count = FileToProcess.objects.values_list("participant__patient_id",
@@ -38,15 +38,15 @@ def watch_processing():
         print(f"{start}: {count} files to process")
 
         try:
-            a_now, active = datetime.now(), get_active_job_ids()
+            a_now, active = localtime(), get_active_job_ids()
         except CeleryNotRunningException:
             errors += 1
         try:
-            s_now, scheduled = datetime.now(), get_scheduled_job_ids()
+            s_now, scheduled = localtime(), get_scheduled_job_ids()
         except CeleryNotRunningException:
             errors += 1
         try:
-            r_now, registered = datetime.now(), get_reserved_job_ids()
+            r_now, registered = localtime(), get_reserved_job_ids()
         except CeleryNotRunningException:
             errors += 1
 
@@ -60,7 +60,7 @@ def watch_processing():
         prior_users = user_count
 
         # we will set a minimum time between info updates, database call can be slow.
-        end = timezone.now()
+        end = localtime()
         total = abs((start - end).total_seconds())
         wait = periodicity - total if periodicity - total > 0 else 0
 
@@ -70,10 +70,10 @@ def watch_processing():
 
 def watch_uploads():
     while True:
-        start = timezone.now()
+        start = localtime()
         data = list(UploadTracking.objects.filter(
             timestamp__gte=(start - timedelta(minutes=1))).values_list("file_size", flat=True))
-        end = timezone.now()
+        end = localtime()
         total = abs((start - end).total_seconds())
 
         # we will set a minimum time between prints at 2 seconds, database call can be slow.

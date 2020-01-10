@@ -522,7 +522,6 @@ def cli_args_validation():
         help=PURGE_COMMAND_BLURB,
     )
 
-    
     # Note: this arguments variable is not iterable.
     # access entities as arguments.long_name_of_argument, like arguments.update_manager
     arguments = parser.parse_args()
@@ -546,7 +545,6 @@ if __name__ == "__main__":
     
     # get CLI arguments, see function for details
     arguments = cli_args_validation()
-    # pprint (vars(arguments))
 
     if arguments.dev:
         DEV_MODE = True

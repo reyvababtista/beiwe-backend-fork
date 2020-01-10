@@ -478,7 +478,7 @@ def data_pipeline_upload():
     try:
         creation_args, tags = PipelineUpload.get_creation_arguments(request.values, request.files['file'])
     except InvalidUploadParameterError as e:
-        return Response(e.message, 400)
+        return Response(str(e), 400)
     s3_upload(
             creation_args['s3_path'],
             request.files['file'].read(),

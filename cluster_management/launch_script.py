@@ -61,6 +61,7 @@ fabric_env.abort_on_prompts = True
 
 parser = argparse.ArgumentParser(description="interactive set of commands for deploying a Beiwe Cluster")
 DEV_MODE = False
+PROD_MODE = False
 
 ####################################################################################################
 ################################### Fabric Operations ##############################################
@@ -95,10 +96,6 @@ def push_manager_private_ip_and_password(eb_environment_name):
     # echo puts a new line at the end of the output
     run(f"echo {ip} > {REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH}")
     run(f"printf {password} >> {REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH}")
-    # command = "printf {text} > {filename}".format(
-    #         text=ip + "\n" + password,
-    #         filename=path_join(REMOTE_HOME_DIR, "manager_ip"))
-    # run(command)
     
     
 def push_home_directory_files():
@@ -164,6 +161,7 @@ def setup_rabbitmq(eb_environment_name):
     sudo(f"rabbitmqctl add_user beiwe {get_rabbit_mq_password(eb_environment_name)}")
     sudo('rabbitmqctl set_permissions -p / beiwe ".*" ".*" ".*"')
     log.warning("This next command can take quite a while to run.")
+    # I tried backgrounding it, doing so breaks celery.  o_O
     sudo("service rabbitmq-server restart")
     
 
@@ -173,7 +171,7 @@ def setup_single_server_ami_cron():
 
 
 def apt_installs(manager=False, single_server_ami=False):
-    
+
     if manager:
         apt_install_list = APT_MANAGER_INSTALLS
     elif single_server_ami:
@@ -185,7 +183,6 @@ def apt_installs(manager=False, single_server_ami=False):
     # Sometimes (usually on slower servers) the remote server isn't done with initial setup when
     # we get to this step, so it has a bunch of retry logic.
     installs_failed = True
-
     for i in range(10):
         try:
             sudo('apt-get -y update >> {log}'.format(log=LOG_FILE))
@@ -231,9 +228,9 @@ def configure_local_postgres():
 def create_swap():
     """
     Allows the use of tiny T series servers and in general is nice to have.
-    fallocate -l 5G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && swapon -s
+    fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && swapon -s
     """
-    sudo("fallocate -l 5G /swapfile")
+    sudo("fallocate -l 4G /swapfile")
     sudo("chmod 600 /swapfile")
     sudo("mkswap /swapfile")
     sudo("swapon /swapfile")
@@ -517,6 +514,11 @@ def cli_args_validation():
         help="Worker and Manager deploy operations will swap the server over to the development branch instead of master.",
     )
     parser.add_argument(
+        "-prod",
+        action="count",
+        help="Worker and Manager deploy operations will swap the server over to the production branch instead of master.",
+    )
+    parser.add_argument(
         "-purge-instance-profiles",
         action="count",
         help=PURGE_COMMAND_BLURB,
@@ -546,9 +548,16 @@ if __name__ == "__main__":
     # get CLI arguments, see function for details
     arguments = cli_args_validation()
 
+    if arguments.prod:
+        log.info("RUNNING IN PROD MODE")
+        PROD_MODE = True
+
     if arguments.dev:
+        if PROD_MODE:
+            log.error("You cannot provide -prod and -dev at the same time.")
+            EXIT(1)
         DEV_MODE = True
-        print("RUNNING IN DEV MODE")
+        log.info("RUNNING IN DEV MODE")
 
     if arguments.help_setup_new_environment:
         do_help_setup_new_environment()

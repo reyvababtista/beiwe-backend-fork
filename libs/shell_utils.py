@@ -7,13 +7,13 @@ from django.utils.timezone import localtime
 from database.data_access_models import FileToProcess
 from database.profiling_models import UploadTracking
 from database.user_models import Participant
-from services.celery_data_processing import (get_active_job_ids, get_reserved_job_ids,
-    get_scheduled_job_ids, CeleryNotRunningException)
-
-# from celery.task.control import inspect
 
 
 def watch_processing():
+    # cannot be imported on EB servers
+    from services.celery_data_processing import (get_active_job_ids, get_reserved_job_ids,
+        get_scheduled_job_ids, CeleryNotRunningException)
+
     periodicity = 5
     orig_start = localtime()
     a_now = orig_start

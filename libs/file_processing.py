@@ -9,6 +9,7 @@ from pprint import pprint
 from typing import DefaultDict, Generator, List, Tuple
 
 from cronutils.error_handler import ErrorHandler
+from django.core.exceptions import ValidationError
 
 # noinspection PyUnresolvedReferences
 from config import load_django
@@ -134,6 +135,7 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
                 raise data['exception']
 
             if data['chunkable']:
+                # case: chunkable data files
                 newly_binified_data, survey_id_hash = process_csv_data(data)
                 if data['data_type'] in SURVEY_DATA_FILES:
                     survey_id_dict[survey_id_hash] = resolve_survey_id_from_file_name(data['ftp']["s3_file_path"])
@@ -143,21 +145,39 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
                 else:  # delete empty files from FilesToProcess
                     ftps_to_remove.add(data['ftp']['id'])
                 continue
-
-            # if not data['chunkable']
             else:
+                # case: unchunkable data file
                 timestamp = clean_java_timecode(data['ftp']["s3_file_path"].rsplit("/", 1)[-1][:-4])
                 # Since we aren't binning the data by hour, just create a ChunkRegistry that
                 # points to the already existing S3 file.
-                ChunkRegistry.register_unchunked_data(
-                    data['data_type'],
-                    timestamp,
-                    data['ftp']['s3_file_path'],
-                    data['ftp']['study'].pk,
-                    data['ftp']['participant'].pk,
-                    data['file_contents'],
-                )
-                ftps_to_remove.add(data['ftp']['id'])
+                try:
+                    ChunkRegistry.register_unchunked_data(
+                        data['data_type'],
+                        timestamp,
+                        data['ftp']['s3_file_path'],
+                        data['ftp']['study'].pk,
+                        data['ftp']['participant'].pk,
+                        data['file_contents'],
+                    )
+                    ftps_to_remove.add(data['ftp']['id'])
+                except ValidationError as ve:
+                    if len(ve.messages) != 1:
+                        # case: the error case (below) is very specific, we only want that singular error.
+                        raise
+
+                    # case: an unchunkable file was re-uploaded, causing a duplicate file path collision
+                    # we detect this specific case and update the registry with the new file size
+                    # (hopefully it doesn't actually change)
+                    if 'Chunk registry with this Chunk path already exists.' in ve.messages:
+                        ChunkRegistry.update_registered_unchunked_data(
+                            data['data_type'],
+                            data['ftp']['s3_file_path'],
+                            data['file_contents'],
+                        )
+                        ftps_to_remove.add(data['ftp']['id'])
+                    else:
+                        # any other errors, add
+                        raise
 
     pool.close()
     pool.terminate()

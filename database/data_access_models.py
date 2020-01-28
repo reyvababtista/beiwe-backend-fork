@@ -119,6 +119,17 @@ class ChunkRegistry(AbstractModel):
         )
 
     @classmethod
+    def update_registered_unchunked_data(cls, data_type, chunk_path, file_contents):
+        """ Updates the data in case a user uploads an unchunkable file more than once,
+        and updates the file size just in case it changed. """
+        if data_type in CHUNKABLE_FILES:
+            raise ChunkableDataTypeError
+        chunk = cls.objects.get(chunk_path_=chunk_path)
+        chunk.file_size = len(file_contents)
+        chunk.save()
+
+
+    @classmethod
     def get_chunks_time_range(cls, study_id, user_ids=None, data_types=None, start=None, end=None):
         """
         This function uses Django query syntax to provide datetimes and have Django do the

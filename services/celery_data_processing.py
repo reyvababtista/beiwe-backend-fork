@@ -107,7 +107,7 @@ def create_file_processing_tasks():
         )
         
         # sometimes celery just fails to exist.
-        active_set = set(celery_try_10_times(get_active_job_ids))
+        active_set = set(celery_try_20_times(get_active_job_ids))
         
         participants_to_process = participant_set - active_set
         print("Queueing these participants:", ",".join(str(p) for p in participants_to_process))
@@ -126,15 +126,15 @@ def create_file_processing_tasks():
         print(f"{len(participants_to_process)} users queued for processing")
 
 
-def celery_try_10_times(func, *args, **kwargs):
+def celery_try_20_times(func, *args, **kwargs):
     """ single purpose helper, for some reason celery can fail to ... exist? unclear."""
-    for i in range(1, 11):
+    for i in range(1, 21):
         try:
             return func(*args, **kwargs)
         except CeleryNotRunningException as e:
             print(f"encountered error running {func.__name__}, retrying")
             sleep(0.5)
-            if i > 9:
+            if i > 19:
                 raise
 
 
@@ -180,6 +180,7 @@ def celery_process_file_chunks(participant_id):
                     break
 
     finally:
+        print("ignore 'ConnectionResetError: [Errno 104] Connection reset by peer' error.  We exit the process in order to fix a memory leak that so far defies analysis, celery complains.")
         exit(0)
 
 

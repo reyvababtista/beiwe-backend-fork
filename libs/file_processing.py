@@ -8,6 +8,7 @@ from multiprocessing.pool import ThreadPool
 from pprint import pprint
 from typing import DefaultDict, Generator, List, Tuple
 
+from botocore.exceptions import ReadTimeoutError
 from cronutils.error_handler import ErrorHandler
 from django.core.exceptions import ValidationError
 
@@ -23,7 +24,6 @@ from database.user_models import Participant
 from libs.s3 import s3_retrieve, s3_upload
 
 
-class OldBotoImportThatNeedsFixingError(Exception): pass
 class EverythingWentFine(Exception): pass
 class ProcessingOverlapError(Exception): pass
 
@@ -212,15 +212,15 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                     chunk = ChunkRegistry.objects.get(chunk_path=chunk_path)
                     try:
                         s3_file_data = s3_retrieve(chunk_path, study_id, raw_path=True)
-                    except OldBotoImportThatNeedsFixingError as e:
-                        # The following check is correct for boto version 2.38.0
-                        if "The specified key does not exist." == e.message:
+                    except ReadTimeoutError as e:
+                        # The following check was correct for boto 2, still need to hit with boto3 test.
+                        if "The specified key does not exist." == str(e):
                             # This error can only occur if the processing gets actually interrupted and
                             # data files fail to upload after DB entries are created.
                             # Encountered this condition 11pm feb 7 2016, cause unknown, there was
                             # no python stacktrace.  Best guess is mongo blew up.
                             # If this happened, delete the ChunkRegistry and push this file upload to the next cycle
-                            chunk.remove()
+                            chunk.remove()  # this line of code is ancient and almost definitely wrong.
                             raise ChunkFailedToExist("chunk %s does not actually point to a file, deleting DB entry, should run correctly on next index." % chunk_path)
                         raise  # Raise original error if not 404 s3 error
 
@@ -454,7 +454,7 @@ def process_csv_data(data: dict):
 """############################ CSV Fixes #####################################"""
 
 
-def fix_survey_timings(header: bytes, rows_list: List[bytes], file_path: str) -> bytes:
+def fix_survey_timings(header: bytes, rows_list: List[List[bytes]], file_path: str) -> bytes:
     """ Survey timings need to have a column inserted stating the survey id they come from."""
     survey_id = file_path.rsplit("/", 2)[1].encode()
     for row in rows_list:

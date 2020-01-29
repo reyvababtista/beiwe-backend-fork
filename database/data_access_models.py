@@ -124,7 +124,7 @@ class ChunkRegistry(AbstractModel):
         and updates the file size just in case it changed. """
         if data_type in CHUNKABLE_FILES:
             raise ChunkableDataTypeError
-        chunk = cls.objects.get(chunk_path_=chunk_path)
+        chunk = cls.objects.get(chunk_path=chunk_path)
         chunk.file_size = len(file_contents)
         chunk.save()
 

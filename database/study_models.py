@@ -26,6 +26,7 @@ class Study(AbstractModel):
                                  help_text='ID used for naming S3 files')
 
     is_test = models.BooleanField(default=True)
+    timezone = models.CharField(max_length=64, blank=True, help_text='Timezone of the study')
 
     @classmethod
     def create_with_object_id(cls, **kwargs):

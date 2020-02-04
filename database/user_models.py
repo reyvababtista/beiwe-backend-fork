@@ -84,6 +84,8 @@ class Participant(AbstractPasswordUser):
                                help_text='The type of device the participant is using, if any.')
 
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='participants', null=False)
+    fcm_instance_id = models.CharField(max_length=256, blank=True,
+                                       help_text='The id used to send push notifications to the device.')
 
     @classmethod
     def create_with_password(cls, **kwargs):

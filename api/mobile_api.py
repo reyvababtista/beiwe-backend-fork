@@ -5,6 +5,9 @@ from django.utils import timezone
 from flask import abort, Blueprint, json, render_template, request
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import BadRequestKeyError
+from firebase_admin import messaging
+import firebase_admin
+from firebase_admin import credentials
 
 from config.constants import ALLOWED_EXTENSIONS, DEVICE_IDENTIFIERS_HEADER
 from database.data_access_models import FileToProcess
@@ -16,12 +19,13 @@ from libs.logging import log_error
 from libs.s3 import get_client_private_key, get_client_public_key_string, s3_upload
 from libs.sentry import make_sentry_client
 from libs.user_authentication import (authenticate_user, authenticate_user_registration,
-    minimal_validation)
+                                      minimal_validation)
 
 ################################################################################
 ############################# GLOBALS... #######################################
 ################################################################################
 mobile_api = Blueprint('mobile_api', __name__)
+
 
 ################################################################################
 ################################ UPLOADS #######################################
@@ -104,7 +108,7 @@ def upload(OS_API=""):
         raise TypeError("uploaded_file was a %s" % type(uploaded_file))
 
     # print("uploaded file name:", file_name, len(uploaded_file))
-    
+
     client_private_key = get_client_private_key(patient_id, user.study.object_id)
     try:
         uploaded_file = decrypt_device_file(patient_id, uploaded_file, client_private_key, user)
@@ -132,7 +136,8 @@ def upload(OS_API=""):
     # if uploaded data a) actually exists, B) is validly named and typed...
     if uploaded_file and file_name and contains_valid_extension(file_name):
         s3_upload(file_name.replace("_", "/"), uploaded_file, user.study.object_id)
-        FileToProcess.append_file_for_processing(file_name.replace("_", "/"), user.study.object_id, participant=user)
+        FileToProcess.append_file_for_processing(file_name.replace("_", "/"), user.study.object_id,
+                                                 participant=user)
         UploadTracking.objects.create(
             file_path=file_name.replace("_", "/"),
             file_size=len(uploaded_file),
@@ -142,17 +147,17 @@ def upload(OS_API=""):
         return render_template('blank.html'), 200
 
     else:
-        error_message ="an upload has failed " + patient_id + ", " + file_name + ", "
+        error_message = "an upload has failed " + patient_id + ", " + file_name + ", "
         if not uploaded_file:
             # it appears that occasionally the app creates some spurious files
             # with a name like "rList-org.beiwe.app.LoadingActivity"
             error_message += "there was no/an empty file, returning 200 OK so device deletes bad file."
             log_error(Exception("upload error"), error_message)
             return render_template('blank.html'), 200
-        
+
         elif not file_name:
             error_message += "there was no provided file name, this is an app error."
-        elif file_name and not contains_valid_extension( file_name ):
+        elif file_name and not contains_valid_extension(file_name):
             error_message += "contains an invalid extension, it was interpretted as "
             error_message += grab_file_extension(file_name)
         else:
@@ -161,7 +166,7 @@ def upload(OS_API=""):
         tags = {"upload_error": "upload error", "user_id": patient_id}
         sentry_client = make_sentry_client('eb', tags)
         sentry_client.captureMessage(error_message)
-        
+
         return abort(400)
 
 
@@ -180,32 +185,50 @@ def register_user(OS_API=""):
     Check the documentation in user_authentication to ensure you have provided the proper credentials.
     Returns the encryption key for this patient/user. """
 
-    #CASE: If the id and password combination do not match, the decorator returns a 403 error.
-    #the following parameter values are required.
+    # CASE: If the id and password combination do not match, the decorator returns a 403 error.
+    # the following parameter values are required.
     patient_id = request.values['patient_id']
     phone_number = request.values['phone_number']
     device_id = request.values['device_id']
 
     # These values may not be returned by earlier versions of the beiwe app
-    try: device_os = request.values['device_os']
-    except BadRequestKeyError: device_os = "none"
-    try: os_version = request.values['os_version']
-    except BadRequestKeyError: os_version = "none"
-    try: product = request.values["product"]
-    except BadRequestKeyError: product = "none"
-    try: brand = request.values["brand"]
-    except BadRequestKeyError: brand = "none"
-    try: hardware_id = request.values["hardware_id"]
-    except BadRequestKeyError: hardware_id = "none"
-    try: manufacturer = request.values["manufacturer"]
-    except BadRequestKeyError: manufacturer = "none"
-    try: model = request.values["model"]
-    except BadRequestKeyError: model = "none"
-    try: beiwe_version = request.values["beiwe_version"]
-    except BadRequestKeyError: beiwe_version = "none"
+    try:
+        device_os = request.values['device_os']
+    except BadRequestKeyError:
+        device_os = "none"
+    try:
+        os_version = request.values['os_version']
+    except BadRequestKeyError:
+        os_version = "none"
+    try:
+        product = request.values["product"]
+    except BadRequestKeyError:
+        product = "none"
+    try:
+        brand = request.values["brand"]
+    except BadRequestKeyError:
+        brand = "none"
+    try:
+        hardware_id = request.values["hardware_id"]
+    except BadRequestKeyError:
+        hardware_id = "none"
+    try:
+        manufacturer = request.values["manufacturer"]
+    except BadRequestKeyError:
+        manufacturer = "none"
+    try:
+        model = request.values["model"]
+    except BadRequestKeyError:
+        model = "none"
+    try:
+        beiwe_version = request.values["beiwe_version"]
+    except BadRequestKeyError:
+        beiwe_version = "none"
     # This value may not be returned by later versions of the beiwe app.
-    try: mac_address = request.values['bluetooth_id']
-    except BadRequestKeyError: mac_address = "none"
+    try:
+        mac_address = request.values['bluetooth_id']
+    except BadRequestKeyError:
+        mac_address = "none"
 
     user = Participant.objects.get(patient_id=patient_id)
     study_id = user.study.object_id
@@ -219,21 +242,21 @@ def register_user(OS_API=""):
         # need to enter to at registration is their old password.
         # KG: 405 is good for IOS and Android, no need to check OS_API
         return abort(405)
-    
+
     if user.os_type and user.os_type != OS_API:
         # CASE: this patient has registered, but the user was previously registered with a
         # different device type. To keep the CSV munging code sane and data consistent (don't
         # cross the iOS and Android data streams!) we disallow it.
         return abort(400)
-    
+
     # At this point the device has been checked for validity and will be registered successfully.
     # Any errors after this point will be server errors and return 500 codes. the final return
     # will be the encryption key associated with this user.
-    
+
     # Upload the user's various identifiers.
     unix_time = str(calendar.timegm(time.gmtime()))
     file_name = patient_id + '/identifiers_' + unix_time + ".csv"
-    
+
     # Construct a manual csv of the device attributes
     file_contents = (DEVICE_IDENTIFIERS_HEADER + "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" %
                      (patient_id, mac_address, phone_number, device_id, device_os,
@@ -255,6 +278,43 @@ def register_user(OS_API=""):
 
 
 ################################################################################
+########################### NOTIFICATION FUNCTIONS #############################
+################################################################################
+@mobile_api.route('/set_fcm_token', methods=['POST'])
+@authenticate_user
+def set_fcm_token():
+    patient_id = request.values['patient_id']
+    participant = Participant.objects.get(patient_id=patient_id)
+    participant.fcm_instance_id = request.values['fcm_token']
+    participant.save()
+    print("Patient", patient_id, "token: ", request.values['fcm_token'])
+    return '', 204
+
+
+cred = credentials.Certificate("private/serviceAccountKey.json")
+firebase_admin.initialize_app(cred)
+
+
+@mobile_api.route('/send_notification', methods=['POST'])
+@authenticate_user
+def send_notification():
+    participant = Participant.objects.get(patient_id=request.values['patient_id'])
+    token = participant.fcm_instance_id
+    notification = messaging.Notification(
+        title="Check me out",
+        body="Top o the mornin",
+    )
+    data = messaging.Message(
+        data={'text': 'hello good sir'},
+        notification=notification,
+        token=token,
+    )
+    response = messaging.send(data)
+    print('Successfully sent message:', response)
+    return '', 204
+
+
+################################################################################
 ############################### USER FUNCTIONS #################################
 ################################################################################
 
@@ -269,6 +329,7 @@ def set_password(OS_API=""):
     participant.set_password(request.values["new_password"])
     return render_template('blank.html'), 200
 
+
 ################################################################################
 ########################## FILE NAME FUNCTIONALITY #############################
 ################################################################################
@@ -282,6 +343,7 @@ def grab_file_extension(file_name):
 def contains_valid_extension(file_name):
     """ Checks if string has a recognized file extension, this is not necessarily limited to 4 characters. """
     return '.' in file_name and grab_file_extension(file_name) in ALLOWED_EXTENSIONS
+
 
 ################################################################################
 ################################# Download #####################################

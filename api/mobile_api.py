@@ -327,6 +327,18 @@ def send_survey_notification():
     )
     response = messaging.send(message)
     print('Successfully sent survey message:', response)
+
+    notification = messaging.Notification(
+        title="Check me out",
+        body="Top o the mornin",
+    )
+    data = messaging.Message(
+        data={'text': 'hello good sir'},
+        notification=notification,
+        token=token,
+    )
+    response = messaging.send(data)
+    print('Successfully sent message:', response)
     return '', 204
 
 

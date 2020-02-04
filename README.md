@@ -5,6 +5,9 @@ Because Beiwe often deals with sensitive data covered under HIPAA, it's importan
 
 The setup script [uses AWS Certificate Manager to generate an SSL certificate](http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request.html).  AWS Certificate Manager [will check that you control the domain by sending verification emails](http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-validate.html) to the email addresses in the domain's WHOIS listing.
 
+## Configuring Firebase
+To initialize the Firebase SDK, [generate a private key file](https://firebase.google.com/docs/admin/setup#initialize-sdk).
+Rename the file serviceAccountKey.json and place it in /private.
 
 ***
 

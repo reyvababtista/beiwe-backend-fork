@@ -300,17 +300,33 @@ firebase_admin.initialize_app(cred)
 def send_notification():
     participant = Participant.objects.get(patient_id=request.values['patient_id'])
     token = participant.fcm_instance_id
-    notification = messaging.Notification(
-        title="Check me out",
-        body="Top o the mornin",
-    )
-    data = messaging.Message(
-        data={'text': 'hello good sir'},
-        notification=notification,
+    message = messaging.Message(
+        data={
+            'type': 'fake',
+            'content': 'hello good sir',
+        },
         token=token,
     )
-    response = messaging.send(data)
-    print('Successfully sent message:', response)
+    response = messaging.send(message)
+    print('Successfully sent notification message:', response)
+    return '', 204
+
+
+@mobile_api.route('/send_survey_notification', methods=['Post'])
+@authenticate_user
+def send_survey_notification():
+    participant = Participant.objects.get(patient_id=request.values['patient_id'])
+    token = participant.fcm_instance_id
+    survey_id = participant.study.surveys.first().object_id
+    message = messaging.Message(
+        data={
+            'type': 'survey',
+            'survey_id': survey_id,
+        },
+        token=token,
+    )
+    response = messaging.send(message)
+    print('Successfully sent survey message:', response)
     return '', 204
 
 
@@ -358,3 +374,10 @@ def get_latest_surveys(OS_API=""):
     participant = Participant.objects.get(patient_id=request.values['patient_id'])
     study = participant.study
     return json.dumps(study.get_surveys_for_study(requesting_os=OS_API))
+
+
+@mobile_api.route('/download_survey', methods=['GET', 'POST'])
+def get_single_survey():
+    study = Participant.objects.get(patient_id=request.values['patient_id']).study
+    survey = study.surveys.get(object_id=request.values["survey_id"])
+    return json.dumps(survey.format_survey_for_study())

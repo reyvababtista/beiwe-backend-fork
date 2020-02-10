@@ -189,6 +189,15 @@ class Survey(AbstractSurvey):
         return survey
 
 
+    def format_survey_for_study(self):
+        survey_dict = self.as_native_python()
+        # Make the dict look like the old Mongolia-style dict that the frontend is expecting
+        survey_dict.pop('id')
+        survey_dict.pop('deleted')
+        survey_dict['_id'] = survey_dict.pop('object_id')
+        return survey_dict
+
+
 class SurveyArchive(AbstractSurvey):
     """ All felds declared in abstract survey are copied whenever a change is made to a survey """
     archive_start = models.DateTimeField()

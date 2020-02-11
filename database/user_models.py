@@ -291,6 +291,7 @@ class Researcher(AbstractPasswordUser):
             study_id=study_id,
         ).exists()
 
+
 class StudyRelation(AbstractModel):
     """
     This is the through-model for defining the relationship between a researcher and a study.

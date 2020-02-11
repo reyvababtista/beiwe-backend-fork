@@ -64,6 +64,8 @@ def get_data_for_dashboard_datastream_display(study_id, data_stream):
     if DashboardColorSetting.objects.filter(data_type=data_stream, study=study).exists():
         settings = DashboardColorSetting.objects.get(data_type=data_stream, study=study)
         default_filters = DashboardColorSetting.get_dashboard_color_settings(settings)
+    else:
+        settings = None
 
     # -------------------------------- dealing with color settings -------------------------------------------------
     # test if there are default settings saved,
@@ -196,7 +198,8 @@ def get_data_for_dashboard_patient_display(study_id, patient_id):
         first_day, last_day = dashboard_chunkregistry_date_query(study_id)
         _, first_date_data_entry, last_date_data_entry = \
             get_unique_dates(start, end, first_day, last_day, chunks)
-
+    else:
+        last_date_data_entry = first_date_data_entry = None
     # --------------- dates for  processed data streams -------------------
     # all_data is a list of dicts [{"time_bin": , "stream": , "processed_data": }...]
     processed_first_date_data_entry, processed_last_date_data_entry, all_data = parse_patient_processed_data(study_id, participant)
@@ -216,6 +219,8 @@ def get_data_for_dashboard_patient_display(study_id, patient_id):
     if chunks or all_data:
         next_url, past_url = create_next_past_urls(first_date_data_entry, last_date_data_entry, start=start, end=end)
         unique_dates, _, _ = get_unique_dates(start, end, first_date_data_entry, last_date_data_entry)
+    else:
+        next_url = past_url = unique_dates = None
 
     # --------------------- get all the data using the correct unique dates from both data sets ----------------------
         # get the byte data for the dates that have data collected in that week
@@ -225,12 +230,19 @@ def get_data_for_dashboard_patient_display(study_id, patient_id):
                 get_bytes_patient_processed_match(all_data, date, stream) for date in unique_dates
             ]) for stream in processed_data_stream_dict
         )
+    else:
+        processed_byte_streams = None
+
+
     if chunks:
         byte_streams = OrderedDict(
             (stream, [
                 get_bytes_data_stream_match(chunks, date, stream) for date in unique_dates
             ]) for stream in ALL_DATA_STREAMS
         )
+    else:
+        byte_streams = None
+
     if chunks and all_data:
         byte_streams.update(processed_byte_streams)
     elif all_data and not chunks:

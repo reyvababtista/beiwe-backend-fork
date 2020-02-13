@@ -337,4 +337,30 @@ class ResearcherRole(object):
     study_admin = "study_admin"
     researcher = "study_researcher"
 
+
 ALL_RESEARCHER_TYPES = (ResearcherRole.study_admin, ResearcherRole.researcher)
+
+WEEKDAY_CHOICES = (
+    ("monday", "Monday"),
+    ("tuesday", "Tuesday"),
+    ("wednesday", "Wednesday"),
+    ("thursday", "Thursday"),
+    ("friday", "Friday"),
+    ("saturday", "Saturday"),
+    ("sunday", "Sunday")
+)
+
+
+class ScheduleTypes(object):
+    absolute = "absolute"
+    relative = "relative"
+    weekly = "weekly"
+
+    @classmethod
+    def choices(cls):
+        return (
+            (cls.absolute, "Absolute"),
+            (cls.relative, "Relative"),
+            (cls.weekly, "Weekly")
+        )
+

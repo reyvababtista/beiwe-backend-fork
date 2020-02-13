@@ -1,5 +1,5 @@
 from django.db import models
-from django.db.models import F, Func
+from django.db.models import F, Func, datetime
 
 from config.constants import ResearcherRole
 from database.models import AbstractModel
@@ -86,6 +86,7 @@ class Participant(AbstractPasswordUser):
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='participants', null=False)
     fcm_instance_id = models.CharField(max_length=256, blank=True,
                                        help_text='The id used to send push notifications to the device.')
+    intervention_date = models.DateField(default=datetime.date.today)
 
     @classmethod
     def create_with_password(cls, **kwargs):

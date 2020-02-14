@@ -340,16 +340,6 @@ class ResearcherRole(object):
 
 ALL_RESEARCHER_TYPES = (ResearcherRole.study_admin, ResearcherRole.researcher)
 
-WEEKDAY_CHOICES = (
-    ("monday", "Monday"),
-    ("tuesday", "Tuesday"),
-    ("wednesday", "Wednesday"),
-    ("thursday", "Thursday"),
-    ("friday", "Friday"),
-    ("saturday", "Saturday"),
-    ("sunday", "Sunday")
-)
-
 
 class ScheduleTypes(object):
     absolute = "absolute"

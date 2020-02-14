@@ -143,7 +143,6 @@ def safe_queue_user(*args, **kwargs):
                 raise
 
 
-
 # for debugging.  running this file will enqueue users
 if __name__ == "__main__":
     create_file_processing_tasks()

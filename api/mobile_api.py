@@ -6,8 +6,6 @@ from flask import abort, Blueprint, json, render_template, request
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import BadRequestKeyError
 from firebase_admin import messaging
-import firebase_admin
-from firebase_admin import credentials
 
 from config.constants import ALLOWED_EXTENSIONS, DEVICE_IDENTIFIERS_HEADER
 from database.data_access_models import FileToProcess
@@ -30,14 +28,6 @@ mobile_api = Blueprint('mobile_api', __name__)
 ################################################################################
 ################################ UPLOADS #######################################
 ################################################################################
-
-# @mobile_api.route('/loaderio-8ed6e63e16e9e4d07d60a051c4ca6ecb/')
-# def temp():
-#     from io import StringIO
-#     from flask import Response
-#     return Response(StringIO(u"loaderio-8ed6e63e16e9e4d07d60a051c4ca6ecb"),
-#                     mimetype="txt",
-#                     headers={'Content-Disposition':'attachment; filename="loaderio-8ed6e63e16e9e4d07d60a051c4ca6ecb.txt"'})
 
 
 @mobile_api.route('/upload', methods=['POST'])
@@ -224,6 +214,7 @@ def register_user(OS_API=""):
         beiwe_version = request.values["beiwe_version"]
     except BadRequestKeyError:
         beiwe_version = "none"
+
     # This value may not be returned by later versions of the beiwe app.
     try:
         mac_address = request.values['bluetooth_id']
@@ -280,6 +271,8 @@ def register_user(OS_API=""):
 ################################################################################
 ########################### NOTIFICATION FUNCTIONS #############################
 ################################################################################
+
+
 @mobile_api.route('/set_fcm_token', methods=['POST'])
 @authenticate_user
 def set_fcm_token():
@@ -289,10 +282,6 @@ def set_fcm_token():
     participant.save()
     print("Patient", patient_id, "token: ", request.values['fcm_token'])
     return '', 204
-
-
-cred = credentials.Certificate("private/serviceAccountKey.json")
-firebase_admin.initialize_app(cred)
 
 
 @mobile_api.route('/send_notification', methods=['POST'])
@@ -334,6 +323,7 @@ def send_survey_notification():
 ############################### USER FUNCTIONS #################################
 ################################################################################
 
+
 @mobile_api.route('/set_password', methods=['GET', 'POST'])
 @mobile_api.route('/set_password/ios/', methods=['GET', 'POST'])
 @determine_os_api
@@ -362,7 +352,7 @@ def contains_valid_extension(file_name):
 
 
 ################################################################################
-################################# Download #####################################
+################################# DOWNLOAD #####################################
 ################################################################################
 
 

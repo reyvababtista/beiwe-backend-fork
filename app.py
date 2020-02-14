@@ -1,12 +1,14 @@
 import os
 from datetime import datetime
+from os.path import exists
+
+from config import load_django
 
 import jinja2
+from firebase_admin import credentials, initialize_app as initialize_firebase_app
 from flask import Flask, redirect, render_template
 from raven.contrib.flask import Sentry
 from werkzeug.middleware.proxy_fix import ProxyFix
-
-from config import load_django
 
 from api import (admin_api, copy_study_api, dashboard_api, data_access_api, data_pipeline_api,
     mobile_api, participant_administration, survey_api)
@@ -47,6 +49,10 @@ app.register_blueprint(dashboard_api.dashboard_api)
 # Don't set up Sentry for local development
 if os.environ['DJANGO_DB_ENV'] != 'local':
     sentry = Sentry(app, dsn=SENTRY_ELASTIC_BEANSTALK_DSN)
+
+# setup firebase
+if exists("private/serviceAccountKey.json"):
+    initialize_firebase_app(credentials.Certificate("private/serviceAccountKey.json"))
 
 
 @app.route("/<page>.html")

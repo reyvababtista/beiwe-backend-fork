@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from os.path import exists
 
-from config import load_django
+from config.load_django import django_loaded; assert django_loaded
 
 import jinja2
 from firebase_admin import credentials, initialize_app as initialize_firebase_app

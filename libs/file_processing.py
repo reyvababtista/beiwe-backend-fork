@@ -8,12 +8,12 @@ from multiprocessing.pool import ThreadPool
 from pprint import pprint
 from typing import DefaultDict, Generator, List, Tuple
 
+from config.load_django import django_loaded; assert django_loaded
+
 from botocore.exceptions import ReadTimeoutError
 from cronutils.error_handler import ErrorHandler
 from django.core.exceptions import ValidationError
 
-# noinspection PyUnresolvedReferences
-from config import load_django
 from config.constants import (ACCELEROMETER, ANDROID_LOG_FILE, API_TIME_FORMAT, CALL_LOG,
     CHUNK_TIMESLICE_QUANTUM, CHUNKABLE_FILES, CHUNKS_FOLDER, CONCURRENT_NETWORK_OPS,
     DATA_PROCESSING_NO_ERROR_STRING, FILE_PROCESS_PAGE_SIZE, IDENTIFIERS, IOS_LOG_FILE,

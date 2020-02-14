@@ -7,21 +7,19 @@ except NameError:
 import imp as _imp
 import json
 from datetime import datetime
-from sys import argv
 from os.path import abspath as _abspath
-from pprint import pprint
+from sys import argv
 
 # modify python path so that this script can be targeted directly but still import everything.
 _current_folder_init = _abspath(__file__).rsplit('/', 1)[0]+ "/__init__.py"
 _imp.load_source("__init__", _current_folder_init)
 
-# noinspection PyUnresolvedReferences
-from config import load_django
+
+from config.load_django import django_loaded; assert django_loaded
 from config.settings import S3_BUCKET
 from config.constants import CHUNKS_FOLDER, API_TIME_FORMAT
 from database.user_models import Participant
 from database.data_access_models import ChunkRegistry
-from libs.file_processing import unix_time_to_string
 from libs.s3 import s3_list_files, s3_list_versions, conn as s3_conn
 
 

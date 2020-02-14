@@ -5,7 +5,7 @@ from sys import path
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
 # Load Django
-from config import load_django
+from config.load_django import django_loaded; assert django_loaded
 
 from datetime import datetime, timedelta
 from config.constants import FILE_PROCESS_PAGE_SIZE

@@ -2,10 +2,10 @@ import calendar
 import time
 
 from django.utils import timezone
+from firebase_admin import messaging
 from flask import abort, Blueprint, json, render_template, request
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import BadRequestKeyError
-from firebase_admin import messaging
 
 from config.constants import ALLOWED_EXTENSIONS, DEVICE_IDENTIFIERS_HEADER
 from database.data_access_models import FileToProcess
@@ -17,7 +17,7 @@ from libs.logging import log_error
 from libs.s3 import get_client_private_key, get_client_public_key_string, s3_upload
 from libs.sentry import make_sentry_client
 from libs.user_authentication import (authenticate_user, authenticate_user_registration,
-                                      minimal_validation)
+    minimal_validation)
 
 ################################################################################
 ############################# GLOBALS... #######################################

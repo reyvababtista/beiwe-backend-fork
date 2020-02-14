@@ -1,23 +1,18 @@
-from multiprocessing.pool import ThreadPool
-from zipfile import ZipFile, ZIP_STORED
-
 from datetime import datetime
-from flask import Blueprint, request, abort, json, Response
+from multiprocessing.pool import ThreadPool
+from zipfile import ZIP_STORED, ZipFile
 
-# noinspection PyUnresolvedReferences
-from config import load_django
+from flask import abort, Blueprint, json, request, Response
 
-from config.constants import (API_TIME_FORMAT, VOICE_RECORDING, ALL_DATA_STREAMS,
-    SURVEY_ANSWERS, SURVEY_TIMINGS, IMAGE_FILE)
+from config.constants import (ALL_DATA_STREAMS, API_TIME_FORMAT, IMAGE_FILE, SURVEY_ANSWERS,
+    SURVEY_TIMINGS, VOICE_RECORDING)
+from database.data_access_models import (ChunkRegistry, InvalidUploadParameterError,
+    PipelineRegistry, PipelineUpload, PipelineUploadTags)
 from database.models import is_object_id
-from database.data_access_models import ChunkRegistry, PipelineRegistry
 from database.study_models import Study
 from database.user_models import Participant, Researcher, StudyRelation
 from libs.s3 import s3_retrieve, s3_upload
 from libs.streaming_bytes_io import StreamingBytesIO
-
-from database.data_access_models import PipelineUpload, InvalidUploadParameterError, \
-    PipelineUploadTags
 
 # Data Notes
 # The call log has the timestamp column as the 3rd column instead of the first.

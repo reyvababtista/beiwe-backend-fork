@@ -1,17 +1,16 @@
 # add the root of the project into the path to allow cd-ing into this folder and running the script.
-from sys import path
 from os.path import abspath
+from sys import path
+
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 from typing import List
 
-from config import load_django
+from config.load_django import django_loaded; assert django_loaded
 
 from collections import Counter
-from datetime import datetime, timedelta
 
-from config.constants import API_TIME_FORMAT, CHUNKABLE_FILES, REVERSE_UPLOAD_FILE_TYPE_MAPPING
+from config.constants import CHUNKABLE_FILES
 from database.data_access_models import ChunkRegistry, FileToProcess
-from libs.s3 import s3_list_files
 
 print("""
 This script can take quite a while to run, it depends on the size of the ChunkRegistry database table.

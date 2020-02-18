@@ -26,7 +26,7 @@ class AbsoluteSchedule(AbstractModel):
 class RelativeSchedule(AbstractModel):
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='relative_schedules')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='relative_schedules')
-    days_after = models.PositiveIntegerField(default=0)
+    days_after = models.IntegerField(default=0)
     hour = models.PositiveIntegerField(validators=MaxValueValidator(23))
     minute = models.PositiveIntegerField(validators=MaxValueValidator(59))
 
@@ -51,7 +51,7 @@ class WeeklySchedule(AbstractModel):
     hour = models.PositiveIntegerField(validators=MaxValueValidator(23))
     minute = models.PositiveIntegerField(validators=MaxValueValidator(59))
 
-    def get_prior_and_next_event_times(self, now:datetime=None) -> (datetime, datetime):
+    def get_prior_and_next_event_times(self, now: datetime=None) -> (datetime, datetime):
         """ Identify the start of the week relative to the current time, use that to determine this
         week's (past or present) push notification event time, and the same event for next week.
 
@@ -59,7 +59,7 @@ class WeeklySchedule(AbstractModel):
 
         if now is None:
             # handle case of utc date not matching date of local time.
-            today = make_aware(datetime.utcnow(), timezone=pytz.utc).date
+            today = make_aware(datetime.utcnow(), timezone=pytz.utc).date()
         elif not isinstance(now, datetime) or is_naive(now) or now.tzinfo.zone != "UTC":
             raise TypeError(f"(1) Datetime must be UTC and timezone aware, received {str(now)}")
         else:

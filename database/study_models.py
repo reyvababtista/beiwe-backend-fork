@@ -188,7 +188,6 @@ class Survey(AbstractSurvey):
         survey = cls.create_with_object_id(survey_type=survey_type, **kwargs)
         return survey
 
-
     def format_survey_for_study(self):
         survey_dict = self.as_native_python()
         # Make the dict look like the old Mongolia-style dict that the frontend is expecting

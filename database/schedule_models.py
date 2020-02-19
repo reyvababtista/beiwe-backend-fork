@@ -7,6 +7,7 @@ from django.utils.timezone import is_naive, make_aware
 
 from config import constants
 from database.common_models import AbstractModel
+from database.study_models import SurveyArchive
 
 
 class AbsoluteSchedule(AbstractModel):
@@ -27,8 +28,8 @@ class RelativeSchedule(AbstractModel):
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='relative_schedules')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='relative_schedules')
     days_after = models.IntegerField(default=0)
-    hour = models.PositiveIntegerField(validators=MaxValueValidator(23))
-    minute = models.PositiveIntegerField(validators=MaxValueValidator(59))
+    hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
+    minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
 
     def create_event(self):
         scheduled_time = datetime.combine(
@@ -47,9 +48,9 @@ class WeeklySchedule(AbstractModel):
         day_of_week is an integer, day 0 is Sunday. """
 
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='weekly_schedules')
-    day_of_week = models.PositiveIntegerField(validators=MaxValueValidator(6))
-    hour = models.PositiveIntegerField(validators=MaxValueValidator(23))
-    minute = models.PositiveIntegerField(validators=MaxValueValidator(59))
+    day_of_week = models.PositiveIntegerField(validators=[MaxValueValidator(6)])
+    hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
+    minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
 
     def get_prior_and_next_event_times(self, now: datetime=None) -> (datetime, datetime):
         """ Identify the start of the week relative to the current time, use that to determine this
@@ -88,15 +89,27 @@ class WeeklySchedule(AbstractModel):
 class ScheduledEvent(AbstractModel):
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='scheduled_events')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='scheduled_events')
-    schedule_type = models.CharField(choice=constants.ScheduleTypes.choices())
+    schedule_type = models.CharField(max_length=32)
     scheduled_time = models.DateTimeField()
-    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('survey', 'participant', 'scheduled_time',)
+
+    def archive(self, sent_time=None, response_time=None):
+        ArchivedEvent.objects.create(
+            survey_archive=SurveyArchive.objects.filter(survey=self.survey).order_by('created_on').first(),
+            participant=self.participant,
+            schedule_type=self.schedule_type,
+            scheduled_time=self.scheduled_time,
+            sent_time=sent_time,
+            response_time=response_time
+        ).save()
 
 
 class ArchivedEvent(AbstractModel):
-    survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='archived_events')
+    survey_archive = models.ForeignKey('SurveyArchive', on_delete=models.PROTECT, related_name='archived_events')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='archived_events')
-    schedule_type = models.CharField(choice=constants.ScheduleTypes.choices())
+    schedule_type = models.CharField(max_length=32)
     scheduled_time = models.DateTimeField()
     sent_time = models.DateTimeField(null=True)
     response_time = models.DateTimeField(null=True)

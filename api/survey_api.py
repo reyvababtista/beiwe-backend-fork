@@ -1,5 +1,6 @@
 from flask import abort, Blueprint, make_response, request, redirect, json
 
+from database.schedule_models import WeeklySchedule
 from libs.admin_authentication import authenticate_researcher_study_access
 from libs.json_logic import do_validate_survey
 from database.study_models import Survey
@@ -69,10 +70,24 @@ def update_survey(survey_id=None):
     # These three all stay JSON when added to survey
     content = json.dumps(content)
     timings = request.values['timings']
+    survey.create_schedules_from_timings()
     settings = request.values['settings']
     survey.update(content=content, timings=timings, settings=settings)
     
     return make_response("", 201)
+
+
+def create_schedules_from_timings(survey):
+    timings_list = json.loads(survey.timings)
+    existing_schedules = WeeklySchedule.objects.filter(survey=survey)
+    for day in range(7):
+        for survey in timings_list[day]:
+            print("Survey on day: ", day, "at time: ", survey)
+            hour = survey // 3600
+            minute = survey % 3600 // 60
+            WeeklySchedule.objects.get_or_create(
+                survey=survey, day_of_week=day, hour=hour, minute=minute
+            ).save()
 
 
 def recursive_survey_content_json_decode(json_entity):

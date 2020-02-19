@@ -7,3 +7,4 @@ from .study_models import *
 from .user_models import *
 from .profiling_models import *
 from .data_access_models import *
+from .schedule_models import *

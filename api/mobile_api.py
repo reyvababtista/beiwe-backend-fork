@@ -2,7 +2,6 @@ import calendar
 import time
 
 from django.utils import timezone
-from firebase_admin import messaging
 from flask import abort, Blueprint, json, render_template, request
 from werkzeug.datastructures import FileStorage
 from werkzeug.exceptions import BadRequestKeyError
@@ -17,7 +16,7 @@ from libs.logging import log_error
 from libs.s3 import get_client_private_key, get_client_public_key_string, s3_upload
 from libs.sentry import make_sentry_client
 from libs.user_authentication import (authenticate_user, authenticate_user_registration,
-    minimal_validation)
+                                      minimal_validation)
 
 ################################################################################
 ############################# GLOBALS... #######################################
@@ -269,57 +268,6 @@ def register_user(OS_API=""):
 
 
 ################################################################################
-########################### NOTIFICATION FUNCTIONS #############################
-################################################################################
-
-
-@mobile_api.route('/set_fcm_token', methods=['POST'])
-@authenticate_user
-def set_fcm_token():
-    patient_id = request.values['patient_id']
-    participant = Participant.objects.get(patient_id=patient_id)
-    participant.fcm_instance_id = request.values['fcm_token']
-    participant.save()
-    print("Patient", patient_id, "token: ", request.values['fcm_token'])
-    return '', 204
-
-
-@mobile_api.route('/send_notification', methods=['POST'])
-@authenticate_user
-def send_notification():
-    participant = Participant.objects.get(patient_id=request.values['patient_id'])
-    token = participant.fcm_instance_id
-    message = messaging.Message(
-        data={
-            'type': 'fake',
-            'content': 'hello good sir',
-        },
-        token=token,
-    )
-    response = messaging.send(message)
-    print('Successfully sent notification message:', response)
-    return '', 204
-
-
-@mobile_api.route('/send_survey_notification', methods=['Post'])
-@authenticate_user
-def send_survey_notification():
-    participant = Participant.objects.get(patient_id=request.values['patient_id'])
-    token = participant.fcm_instance_id
-    survey_id = participant.study.surveys.first().object_id
-    message = messaging.Message(
-        data={
-            'type': 'survey',
-            'survey_id': survey_id,
-        },
-        token=token,
-    )
-    response = messaging.send(message)
-    print('Successfully sent survey message:', response)
-    return '', 204
-
-
-################################################################################
 ############################### USER FUNCTIONS #################################
 ################################################################################
 
@@ -364,10 +312,3 @@ def get_latest_surveys(OS_API=""):
     participant = Participant.objects.get(patient_id=request.values['patient_id'])
     study = participant.study
     return json.dumps(study.get_surveys_for_study(requesting_os=OS_API))
-
-
-@mobile_api.route('/download_survey', methods=['GET', 'POST'])
-def get_single_survey():
-    study = Participant.objects.get(patient_id=request.values['patient_id']).study
-    survey = study.surveys.get(object_id=request.values["survey_id"])
-    return json.dumps(survey.format_survey_for_study())

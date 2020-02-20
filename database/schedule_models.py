@@ -45,7 +45,10 @@ class RelativeSchedule(AbstractModel):
 
 class WeeklySchedule(AbstractModel):
     """ Represents an instance of a time of day within a week for the weekly survey schedule.
-        day_of_week is an integer, day 0 is Sunday. """
+        day_of_week is an integer, day 0 is Sunday.
+
+        The timings schema mimics the Java.util.Calendar.DayOfWeek specification: it is zero-indexed
+         with day 0 as Sunday."""
 
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='weekly_schedules')
     day_of_week = models.PositiveIntegerField(validators=[MaxValueValidator(6)])
@@ -61,13 +64,14 @@ class WeeklySchedule(AbstractModel):
         if now is None:
             # handle case of utc date not matching date of local time.
             today = make_aware(datetime.utcnow(), timezone=pytz.utc).date()
-        elif not isinstance(now, datetime) or is_naive(now) or now.tzinfo.zone != "UTC":
-            raise TypeError(f"(1) Datetime must be UTC and timezone aware, received {str(now)}")
+        elif isinstance(now, datetime) and not is_naive() and now.tzinfo.zone == "UTC":
+            # now must be a datetime with a timezone of UTC
+            today = now.date()
         else:
-            # shouldn't be reachable, fixes IDE complaints.
-            raise TypeError(f"(2) Datetime must be UTC and timezone aware, received {str(now)}")
+            raise TypeError(f"Datetime must be UTC and timezone aware, received {str(now)}")
 
-        start_of_this_week = today - timedelta(days=today.weekday())
+        # today.weekday defines Monday=0, in our schema Sunday=0 so we add 1
+        start_of_this_week = today - timedelta(days=((today.weekday()+1) % 7))
 
         event_this_week = make_aware(
                 datetime(

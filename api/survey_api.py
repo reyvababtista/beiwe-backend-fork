@@ -1,6 +1,10 @@
+from datetime import datetime
+
+import pytz
+from django.utils.timezone import make_aware
 from flask import abort, Blueprint, make_response, request, redirect, json
 
-from database.schedule_models import WeeklySchedule
+from database.schedule_models import WeeklySchedule, ScheduledEvent
 from libs.admin_authentication import authenticate_researcher_study_access
 from libs.json_logic import do_validate_survey
 from database.study_models import Survey
@@ -70,24 +74,51 @@ def update_survey(survey_id=None):
     # These three all stay JSON when added to survey
     content = json.dumps(content)
     timings = request.values['timings']
-    survey.create_schedules_from_timings()
     settings = request.values['settings']
     survey.update(content=content, timings=timings, settings=settings)
-    
+    create_schedules_from_timings(survey)
+    create_next_scheduled_event(survey)
     return make_response("", 201)
 
 
 def create_schedules_from_timings(survey):
     timings_list = json.loads(survey.timings)
-    existing_schedules = WeeklySchedule.objects.filter(survey=survey)
+    print("Timings list: ", timings_list)
+    print("Old Schedules: ",  WeeklySchedule.objects.filter(survey=survey))
+    WeeklySchedule.objects.filter(survey=survey).delete()
     for day in range(7):
-        for survey in timings_list[day]:
-            print("Survey on day: ", day, "at time: ", survey)
-            hour = survey // 3600
-            minute = survey % 3600 // 60
-            WeeklySchedule.objects.get_or_create(
+        for time in timings_list[day]:
+            print("Survey on day: ", day, "at time: ", time)
+            hour = time // 3600
+            minute = time % 3600 // 60
+            WeeklySchedule.objects.create(
                 survey=survey, day_of_week=day, hour=hour, minute=minute
-            ).save()
+            )
+    print("New Schedules: ",  WeeklySchedule.objects.filter(survey=survey))
+
+
+def create_next_scheduled_event(survey):
+    now = make_aware(datetime.utcnow(), timezone=pytz.utc)
+    timing_list =[]
+    for schedule in survey.weekly_schedules.all():
+        this_week, next_week = schedule.get_prior_and_next_event_times(now)
+        if now < this_week:
+            relevant_date = this_week
+        else:
+            relevant_date = next_week
+        timing_list.append((relevant_date, schedule))
+
+    timing_list.sort(key=lambda date_and_schedule: date_and_schedule[0])
+    schedule_date, schedule = timing_list[0]
+    for participant in survey.study.participants.all():
+        ScheduledEvent.objects.create(
+            survey=survey,
+            participant=participant,
+            weekly_schedule=schedule_date,
+            relative_schedule=None,
+            absolute_schedule=None,
+            scheduled_time=schedule,
+        )
 
 
 def recursive_survey_content_json_decode(json_entity):

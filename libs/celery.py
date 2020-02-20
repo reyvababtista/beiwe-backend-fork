@@ -2,33 +2,60 @@ import json
 from time import sleep
 
 from celery import Celery
+from django.core.exceptions import ImproperlyConfigured
+from kombu.exceptions import OperationalError
+
 
 class CeleryNotRunningException(Exception): pass
 
+DATA_PROCESSING_CELERY_SERVICE = "services.celery_data_processing"
+PUSH_NOTIFICATION_MANAGE_SERVICE = "services.push_notification_manage"
+PUSH_NOTIFICATION_SEND_SERVICE = "services.push_notification_send"
 
-try:
-    with open("/home/ubuntu/manager_ip", 'r') as f:
-        manager_info = f.read()
+def get_celery_app(service_name: str):
+    try:
+        with open("/home/ubuntu/manager_ip", 'r') as f:
+            manager_info = f.read()
+    except IOError:
+        raise ImproperlyConfigured("No celery configuration present")
+
     manager_ip, password = manager_info.splitlines()
-    celery_app = Celery(
-            "services.celery_data_processing",
-            # note that the 2nd trailing slash here is actually required and
-            broker='pyamqp://beiwe:%s@%s//' % (password, manager_ip),
-            backend='rpc://',
-            task_publish_retry=False,
-            task_track_started=True
-    )
-    print("connected to celery with discovered credentials.")
-except IOError:
-    celery_app = Celery(
-            "services.celery_data_processing",
-            broker='pyamqp://guest@127.0.0.1//',
-            backend='rpc://',
-            task_publish_retry=False,
-            task_track_started=True
-    )
-    print("connected to celery without credentials.")
 
+    # note that the 2nd trailing slash here is actually required and
+    pyamqp_endpoint = f'pyamqp://beiwe:{password}@{manager_ip}//'
+
+    return Celery(
+        service_name,
+        broker=pyamqp_endpoint,
+        backend='rpc://',
+        task_publish_retry=False,
+        task_track_started=True
+    )
+
+    # try:
+    #     celery_app = Celery(
+    #             "services.celery_data_processing",
+    #             # note that the 2nd trailing slash here is actually required and
+    #             broker=
+    #             backend='rpc://',
+    #             task_publish_retry=False,
+    #             task_track_started=True
+    #     )
+    #     print("connected to celery with discovered credentials.")
+    # except IOError:
+    #     celery_app = Celery(
+    #             "services.celery_data_processing",
+    #             broker='pyamqp://guest@127.0.0.1//',
+    #             backend='rpc://',
+    #             task_publish_retry=False,
+    #             task_track_started=True
+    #     )
+    #     print("connected to celery without credentials.")
+
+
+processing_celery_app = get_celery_app(DATA_PROCESSING_CELERY_SERVICE)
+# push_manage_celery_app = get_celery_app(PUSH_NOTIFICATION_MANAGE_SERVICE)
+push_send_celery_app = get_celery_app(PUSH_NOTIFICATION_SEND_SERVICE)
 
 
 # this import appears to need to come after the celery app is loaded
@@ -45,6 +72,22 @@ def celery_try_20_times(func, *args, **kwargs):
             sleep(0.5)
             if i > 19:
                 raise
+
+
+def safe_apply_async(task_func: callable, *args, **kwargs):
+    """"""
+    for i in range(10):
+        try:
+            return task_func.apply_async(*args, **kwargs)
+        except OperationalError:
+            # Enqueuing can fail deep inside amqp/transport.py with an OperationalError. We
+            # wrap it in some retry logic when this occurs.
+            # Dec. 2019 - this code was written in early 2017, it has never failed.
+            if i < 3:
+                pass
+            else:
+                raise
+
 
 
 def get_revoked_job_ids():

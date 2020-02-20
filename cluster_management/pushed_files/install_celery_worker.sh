@@ -45,13 +45,29 @@ port = 127.0.0.1:50001
 [supervisorctl]
 serverurl = http://127.0.0.1:50001
 
-[program:celery]
+[program:celery_processing]
 directory = /home/ubuntu/beiwe-backend/
 command = python3 -m celery -A services.celery_data_processing worker --loglevel=info -Ofair
-stdout_logfile = /var/log/celery/celeryd.log
-stderr_logfile = /var/log/celery/celeryd.err
+stdout_logfile = /var/log/celery/celeryd_processing.log
+stderr_logfile = /var/log/celery/celeryd_processing.err
+autostart = true
+
+[program:celery_push_send]
+directory = /home/ubuntu/beiwe-backend/
+command = python3 -m celery -A services.push_notification_send worker --loglevel=info -Ofair
+stdout_logfile = /var/log/celery/celeryd_push_send.log
+stderr_logfile = /var/log/celery/celeryd_push_send.err
 autostart = true
 EOL
+
+#[program:celery_push_manage]
+#directory = /home/ubuntu/beiwe-backend/
+#command = python3 -m celery -A services.push_notification_manage worker --loglevel=info -Ofair
+#stdout_logfile = /var/log/celery/celeryd_push_manage.log
+#stderr_logfile = /var/log/celery/celeryd_push_manage.err
+#autostart = true
+EOL
+
 
 # start data processing
 supervisord

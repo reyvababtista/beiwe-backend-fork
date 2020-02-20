@@ -14,13 +14,13 @@ from libs.file_processing import do_process_user_file_chunks
 from libs.sentry import make_error_sentry
 
 from kombu.exceptions import OperationalError
-from libs.celery import celery_try_20_times, celery_app, get_active_job_ids
+from libs.celery import celery_try_20_times, processing_celery_app, get_active_job_ids
 
 ################################################################################
 ############################## Task Endpoints ##################################
 ################################################################################
 
-@celery_app.task
+@processing_celery_app.task
 def queue_user(participant):
     return celery_process_file_chunks(participant)
 queue_user.max_retries = 0  # may not be necessary

@@ -89,7 +89,9 @@ class WeeklySchedule(AbstractModel):
 class ScheduledEvent(AbstractModel):
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='scheduled_events')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='scheduled_events')
-    schedule_type = models.CharField(max_length=32)
+    weekly_schedule = models.ForeignKey('WeeklySchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True)
+    relative_schedule = models.ForeignKey('RelativeSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True)
+    absolute_schedule = models.ForeignKey('AbsoluteSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True)
     scheduled_time = models.DateTimeField()
 
     class Meta:

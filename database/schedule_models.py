@@ -8,6 +8,7 @@ from django.utils.timezone import is_naive, make_aware
 from config import constants
 from database.common_models import AbstractModel
 from database.study_models import SurveyArchive
+from libs.push_notifications import REVERSE_SCHEDULE_CLASS_LOOKUP
 
 
 class AbsoluteSchedule(AbstractModel):
@@ -101,15 +102,24 @@ class ScheduledEvent(AbstractModel):
     class Meta:
         unique_together = ('survey', 'participant', 'scheduled_time',)
 
-    def archive(self, sent_time=None, response_time=None):
+    def get_schedule(self):
+        if self.weekly_schedule:
+            return self.weekly_schedule
+        elif self.relative_schedule:
+            return self.relative_schedule
+        elif self.absolute_schedule:
+            return self.absolute_schedule
+        else:
+            raise Exception("ScheduledEvent had no associated schedule")
+
+    def archive(self):
         ArchivedEvent.objects.create(
             survey_archive=SurveyArchive.objects.filter(survey=self.survey).order_by('created_on').first(),
             participant=self.participant,
-            schedule_type=self.schedule_type,
+            schedule_type=REVERSE_SCHEDULE_CLASS_LOOKUP(self.get_schedule().__class__),
             scheduled_time=self.scheduled_time,
-            sent_time=sent_time,
-            response_time=response_time
         ).save()
+        self.delete()
 
 
 class ArchivedEvent(AbstractModel):
@@ -117,5 +127,4 @@ class ArchivedEvent(AbstractModel):
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='archived_events')
     schedule_type = models.CharField(max_length=32)
     scheduled_time = models.DateTimeField()
-    sent_time = models.DateTimeField(null=True)
     response_time = models.DateTimeField(null=True)

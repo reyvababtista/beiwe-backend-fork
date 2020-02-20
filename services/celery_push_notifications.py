@@ -1,23 +1,24 @@
-from os.path import abspath
-from sys import path
+from datetime import datetime, timedelta
 
-# add the root of the project into the path to allow cd-ing into this folder and running the script.
-path.insert(0, abspath(__file__).rsplit('/', 2)[0])
+import pytz
 
+from config.constants import API_TIME_FORMAT
 from config.load_django import django_loaded; assert django_loaded
 
-from datetime import datetime, timedelta
-from libs.sentry import make_error_sentry
-
+from django.utils.timezone import make_aware
+from firebase_admin.messaging import Message, send
 from kombu.exceptions import OperationalError
-from libs.celery import celery_app
+
+from database.schedule_models import ScheduledEvent
+from libs.celery import push_send_celery_app
+from libs.sentry import make_error_sentry
 
 
 ################################################################################
 ############################## Task Endpoints ##################################
 ################################################################################
 
-@celery_app.task
+@push_send_celery_app.task
 def queue_push_notification(participant):
     return celery_send_push_notification(participant)
 queue_push_notification.max_retries = 0  # may not be necessary
@@ -28,18 +29,53 @@ queue_push_notification.max_retries = 0  # may not be necessary
 
 
 def create_push_notification_tasks():
-    # set the tasks to expire at the 5 minutes and thirty seconds mark after the most recent
-    # 5 minutely cron task. This way all tasks will be revoked at the same, and well-known, instant.
-    # 30 seconds grace period is 30 seconds out of
-    expiry = (datetime.now() + timedelta(minutes=4)).replace(second=30, microsecond=0)
+    expiry = (datetime.now() + timedelta(minutes=5)).replace(second=30, microsecond=0)
+    now = make_aware(datetime.utcnow(), timezone=pytz.utc)
+
+    event_query = ScheduledEvent.objects.filter(scheduled_time__lte=now).values_list(
+        "survey__object_id", "participant__fcm_instance_id", "pk"
+    )
 
     with make_error_sentry('data'):
-        pass
+        for survey_obj_id, fcm_token, sched_pk in event_query:
+            args = [
+                survey_obj_id,
+                fcm_token,
+                sched_pk,
+            ]
+            safe_queue_push(
+                args=args,
+                max_retries=0,
+                expires=expiry,
+                task_track_started=True,
+                task_publish_retry=False,
+                retry=False,
+            )
 
 
+def celery_send_push_notification(survey_obj_id: str, fcm_token: str, sched_pk: int):
+    schedule = ScheduledEvent.objects.get(pk=sched_pk)
 
-def celery_send_push_notification(participant_id):
-    pass
+    # do not remove this assignment (yet), its presence in the namespace may have meaning.
+    response = send(Message(
+        data={
+            'type': 'survey',
+            'survey_id': survey_obj_id,
+            'sent_time': schedule.schedule_time.strptime(API_TIME_FORMAT),
+        },
+        token=fcm_token,
+    ))
+
+    schedule.archive()
+
+    # if err_sentry.errors:
+    #     err_sentry.raise_errors()
+    #
+    # if "response" in vars():
+    #     print(response)
+    #     from pprint import pprint
+    #     pprint(vars(response))
+
 
 def safe_queue_push(*args, **kwargs):
     for i in range(10):

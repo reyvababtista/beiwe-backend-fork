@@ -108,6 +108,10 @@ def create_next_scheduled_event(survey):
             relevant_date = next_week
         timing_list.append((relevant_date, schedule))
 
+    # handle case where there are no scheduled events
+    if not timing_list:
+        return
+
     timing_list.sort(key=lambda date_and_schedule: date_and_schedule[0])
     schedule_date, schedule = timing_list[0]
     for participant in survey.study.participants.all():

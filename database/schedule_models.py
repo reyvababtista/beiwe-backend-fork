@@ -20,7 +20,9 @@ class AbsoluteSchedule(AbstractModel):
             ScheduledEvent.objects.create(
                 survey=self.survey,
                 participant=participant,
-                schedule_type=constants.ScheduleTypes.absolute,
+                weekly_schedule=None,
+                relative_schedule=None,
+                absolute_schedule=self,
                 scheduled_time=self.scheduled_date,
             ).save()
 
@@ -39,7 +41,9 @@ class RelativeSchedule(AbstractModel):
         ScheduledEvent.objects.create(
             survey=self.survey,
             participant=self.participant,
-            schedule_type=constants.ScheduleTypes.relative,
+            weekly_schedule=None,
+            relative_schedule=self,
+            absolute_schedule=None,
             scheduled_time=scheduled_time,
         ).save()
 

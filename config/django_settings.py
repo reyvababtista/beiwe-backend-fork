@@ -1,3 +1,5 @@
+# names in this file's scope are passed in to the django settings.configure command in load_django.
+
 import os
 import sys
 from os.path import dirname, join
@@ -10,6 +12,7 @@ TEST_DATABASE_PATH = join(dirname(dirname(__file__)), 'private/tests_db.sqlite')
 # SECRET KEY is required by the django management commands, using the flask key is fine because
 # we are not actually using it in any server runtime capacity.
 SECRET_KEY = FLASK_SECRET_KEY
+
 if 'test' in sys.argv:
     WEBDRIVER_LOC = os.environ.get('WEBDRIVER_LOC', '')
     DATABASES = {

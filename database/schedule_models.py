@@ -6,9 +6,9 @@ from django.db import models
 from django.utils.timezone import is_naive, make_aware
 
 from config import constants
+from config.constants import ScheduleTypes
 from database.common_models import AbstractModel
 from database.study_models import SurveyArchive
-from libs.push_notifications import REVERSE_SCHEDULE_CLASS_LOOKUP
 
 
 class AbsoluteSchedule(AbstractModel):
@@ -99,10 +99,31 @@ class ScheduledEvent(AbstractModel):
     absolute_schedule = models.ForeignKey('AbsoluteSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True)
     scheduled_time = models.DateTimeField()
 
+    # due to import complexity right here this is the best place to stick this
+    SCHEDULE_CLASS_LOOKUP = {
+        ScheduleTypes.absolute: AbsoluteSchedule,
+        ScheduleTypes.relative: RelativeSchedule,
+        ScheduleTypes.weekly: WeeklySchedule,
+        AbsoluteSchedule: ScheduleTypes.absolute,
+        RelativeSchedule: ScheduleTypes.relative,
+        WeeklySchedule: ScheduleTypes.weekly,
+    }
+
     class Meta:
         unique_together = ('survey', 'participant', 'scheduled_time',)
 
+    def get_schedule_class(self):
+        return self.SCHEDULE_CLASS_LOOKUP[self.get_schedule()]
+
     def get_schedule(self):
+        number_schedules = sum((
+            self.weekly_schedule is not None, self.relative_schedule is not None,
+            self.absolute_schedule is not None
+        ))
+
+        if number_schedules > 1:
+            raise Exception(f"ScheduledEvent had {number_schedules} associated schedules.")
+
         if self.weekly_schedule:
             return self.weekly_schedule
         elif self.relative_schedule:
@@ -116,7 +137,7 @@ class ScheduledEvent(AbstractModel):
         ArchivedEvent.objects.create(
             survey_archive=SurveyArchive.objects.filter(survey=self.survey).order_by('created_on').first(),
             participant=self.participant,
-            schedule_type=REVERSE_SCHEDULE_CLASS_LOOKUP(self.get_schedule().__class__),
+            schedule_type=self.get_schedule_class(),
             scheduled_time=self.scheduled_time,
         ).save()
         self.delete()

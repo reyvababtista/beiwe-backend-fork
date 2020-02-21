@@ -114,10 +114,10 @@ def create_next_scheduled_event(survey):
         ScheduledEvent.objects.create(
             survey=survey,
             participant=participant,
-            weekly_schedule=schedule_date,
+            weekly_schedule=schedule,
             relative_schedule=None,
             absolute_schedule=None,
-            scheduled_time=schedule,
+            scheduled_time=schedule_date,
         )
 
 

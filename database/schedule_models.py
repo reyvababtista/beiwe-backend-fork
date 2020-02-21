@@ -64,7 +64,7 @@ class WeeklySchedule(AbstractModel):
         if now is None:
             # handle case of utc date not matching date of local time.
             today = make_aware(datetime.utcnow(), timezone=pytz.utc).date()
-        elif isinstance(now, datetime) and not is_naive() and now.tzinfo.zone == "UTC":
+        elif isinstance(now, datetime) and not is_naive(now) and now.tzinfo.zone == "UTC":
             # now must be a datetime with a timezone of UTC
             today = now.date()
         else:

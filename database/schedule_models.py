@@ -118,8 +118,9 @@ class ScheduledEvent(AbstractModel):
     class Meta:
         unique_together = ('survey', 'participant', 'scheduled_time',)
 
-    def get_schedule_class(self):
+    def get_schedule_type(self):
         return self.SCHEDULE_CLASS_LOOKUP[self.get_schedule()]
+
 
     def get_schedule(self):
         number_schedules = sum((
@@ -143,7 +144,7 @@ class ScheduledEvent(AbstractModel):
         ArchivedEvent.objects.create(
             survey_archive=SurveyArchive.objects.filter(survey=self.survey).order_by('created_on').first(),
             participant=self.participant,
-            schedule_type=self.get_schedule_class(),
+            schedule_type=self.get_schedule_type(),
             scheduled_time=self.scheduled_time,
         ).save()
         self.delete()

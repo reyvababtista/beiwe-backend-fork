@@ -1,13 +1,14 @@
+from datetime import datetime, timedelta
 from os.path import abspath
 from sys import path
 
-from datetime import datetime, timedelta
-
 import pytz
+
+from libs.push_notifications import create_next_weekly_event, firebase_app, FirebaseNotCredentialed
 
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
-from config.constants import API_TIME_FORMAT
+from config.constants import API_TIME_FORMAT, ScheduleTypes
 from config.load_django import django_loaded; assert django_loaded
 
 from django.utils.timezone import make_aware
@@ -36,20 +37,17 @@ queue_push_notification.max_retries = 0  # may not be necessary
 def create_push_notification_tasks():
     expiry = (datetime.now() + timedelta(minutes=5)).replace(second=30, microsecond=0)
     now = make_aware(datetime.utcnow(), timezone=pytz.utc)
-
     event_query = ScheduledEvent.objects.filter(scheduled_time__lte=now).values_list(
         "survey__object_id", "participant__fcm_instance_id", "pk"
     )
 
     with make_error_sentry('data'):
+        if not firebase_app:
+            raise FirebaseNotCredentialed("Firebase is not configured, cannot queue notifications.")
+
         for survey_obj_id, fcm_token, sched_pk in event_query:
-            args = [
-                survey_obj_id,
-                fcm_token,
-                sched_pk,
-            ]
             safe_queue_push(
-                args=args,
+                args=[survey_obj_id, fcm_token, sched_pk],
                 max_retries=0,
                 expires=expiry,
                 task_track_started=True,
@@ -59,27 +57,40 @@ def create_push_notification_tasks():
 
 
 def celery_send_push_notification(survey_obj_id: str, fcm_token: str, sched_pk: int):
-    schedule = ScheduledEvent.objects.get(pk=sched_pk)
+    ''' Celery task that sends push notifications.  '''
+    with make_error_sentry("data"):
 
-    # do not remove this assignment (yet), its presence in the namespace may have meaning.
-    response = send(Message(
-        data={
-            'type': 'survey',
-            'survey_id': survey_obj_id,
-            'sent_time': schedule.schedule_time.strptime(API_TIME_FORMAT),
-        },
-        token=fcm_token,
-    ))
+        if not firebase_app:
+            raise FirebaseNotCredentialed(
+                "You have not provided credentials for Firebase, notifications cannot be sent"
+            )
 
-    schedule.archive()
+        # This if the schedule object doesn't exist, error.  This indicates a broken
+        schedule = ScheduledEvent.objects.get(pk=sched_pk)
+        is_weekly = schedule.get_schedule_type() == ScheduleTypes.weekly
 
-    # if err_sentry.errors:
-    #     err_sentry.raise_errors()
-    #
-    # if "response" in vars():
-    #     print(response)
-    #     from pprint import pprint
-    #     pprint(vars(response))
+        # do not remove this assignment (yet), its presence in the namespace may have meaning.
+        response = send(Message(
+            data={
+                'type': 'survey',
+                'survey_id': survey_obj_id,
+                'sent_time': schedule.schedule_time.strptime(API_TIME_FORMAT),
+            },
+            token=fcm_token,
+        ))
+
+        # if err_sentry.errors:
+        #     err_sentry.raise_errors()
+        #
+        # if "response" in vars():
+        #     print(response)
+        #     from pprint import pprint
+        #     pprint(vars(response))
+
+        schedule.archive()
+
+        if is_weekly:
+            create_next_weekly_event()
 
 
 def safe_queue_push(*args, **kwargs):

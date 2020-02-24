@@ -1,14 +1,11 @@
-from datetime import datetime
-
-import pytz
-from django.utils.timezone import make_aware
-from flask import abort, Blueprint, make_response, request, redirect, json
+from flask import abort, Blueprint, json, make_response, redirect, request
 
 from config.constants import ScheduleTypes
-from database.schedule_models import WeeklySchedule, ScheduledEvent, AbsoluteSchedule
+from database.schedule_models import WeeklySchedule
+from database.study_models import Survey
 from libs.admin_authentication import authenticate_researcher_study_access
 from libs.json_logic import do_validate_survey
-from database.study_models import Survey
+from libs.push_notifications import create_next_weekly_event
 
 survey_api = Blueprint('survey_api', __name__)
 
@@ -79,7 +76,7 @@ def update_survey(survey_id=None):
     survey.update(content=content, timings=timings, settings=settings)
     if settings['schedule_type'] == ScheduleTypes.weekly:
         create_weekly_schedules(survey)
-        create_next_scheduled_event(survey)
+        create_next_weekly_event(survey)
     elif settings['schedule_type'] == ScheduleTypes.relative:
         pass
     elif settings['schedule_type'] == ScheduleTypes.absolute:
@@ -103,56 +100,6 @@ def create_weekly_schedules(survey):
                 survey=survey, day_of_week=day, hour=hour, minute=minute
             )
     print("New Schedules: ",  WeeklySchedule.objects.filter(survey=survey))
-
-
-def create_next_scheduled_event(survey):
-    now = make_aware(datetime.utcnow(), timezone=pytz.utc)
-    timing_list =[]
-    for schedule in survey.weekly_schedules.all():
-        this_week, next_week = schedule.get_prior_and_next_event_times(now)
-        if now < this_week:
-            relevant_date = this_week
-        else:
-            relevant_date = next_week
-        timing_list.append((relevant_date, schedule))
-
-    # handle case where there are no scheduled events
-    if not timing_list:
-        return
-
-    timing_list.sort(key=lambda date_and_schedule: date_and_schedule[0])
-    schedule_date, schedule = timing_list[0]
-    for participant in survey.study.participants.all():
-        ScheduledEvent.objects.create(
-            survey=survey,
-            participant=participant,
-            weekly_schedule=schedule,
-            relative_schedule=None,
-            absolute_schedule=None,
-            scheduled_time=schedule_date,
-        )
-
-
-def create_absolute_schedules_and_events(survey):
-    # TODO rename schedules variable
-    schedules = survey.timings["schedule"]
-    for schedule in schedules:
-        hour = schedule[3] // 3600
-        minute = schedule[3] % 3600 // 60
-        schedule_date = datetime.datetime(schedule[0], schedule[1], schedule[2], hour, minute)
-        absolute_schedule = AbsoluteSchedule.objects.create(
-            survey=survey,
-            scheduled_date=schedule_date,
-        )
-        for participant in survey.study.participants.all():
-            ScheduledEvent.objects.create(
-                survey=survey,
-                participant=participant,
-                weekly_schedule=None,
-                relative_schedule=None,
-                absolute_schedule=absolute_schedule,
-                scheduled_time=schedule_date,
-            )
 
 
 def recursive_survey_content_json_decode(json_entity):

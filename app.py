@@ -1,11 +1,9 @@
 import os
 from datetime import datetime
-from os.path import exists
 
 from config.load_django import django_loaded; assert django_loaded
 
 import jinja2
-from firebase_admin import credentials, initialize_app as initialize_firebase_app
 from flask import Flask, redirect, render_template
 from raven.contrib.flask import Sentry
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -15,6 +13,7 @@ from api import (admin_api, copy_study_api, dashboard_api, data_access_api, data
 from config.settings import SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN
 from libs.admin_authentication import is_logged_in
 from libs.security import set_secret_key
+from libs.push_notifications import firebase_app
 from pages import (admin_pages, data_access_web_form, mobile_pages, survey_designer,
     system_admin_pages)
 
@@ -47,13 +46,13 @@ app.register_blueprint(dashboard_api.dashboard_api)
 app.register_blueprint(push_notifications_api.push_notifications_api)
 
 
+if not firebase_app:
+    print("Running with Android Push notifications disabled.")
+
+
 # Don't set up Sentry for local development
 if os.environ['DJANGO_DB_ENV'] != 'local':
     sentry = Sentry(app, dsn=SENTRY_ELASTIC_BEANSTALK_DSN)
-
-# setup firebase
-if exists("private/serviceAccountKey.json"):
-    initialize_firebase_app(credentials.Certificate("private/serviceAccountKey.json"))
 
 
 @app.route("/<page>.html")
@@ -73,6 +72,7 @@ if not __name__ == '__main__':
     @app.errorhandler(404)
     def e404(e):
         return render_template("404.html", is_logged_in=is_logged_in()), 404
+
 
 # Extra Debugging settings
 if __name__ == '__main__':

@@ -30,7 +30,7 @@ class AbsoluteSchedule(AbstractModel):
 class RelativeSchedule(AbstractModel):
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='relative_schedules')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='relative_schedules')
-    intervention = models.ForeignKey('Intervention', on_delete=models.PROTECT, related_name='relative_schedules')
+    intervention = models.ForeignKey('Intervention', on_delete=models.PROTECT, related_name='relative_schedules', null=True)
     days_after = models.IntegerField(default=0)
     hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])

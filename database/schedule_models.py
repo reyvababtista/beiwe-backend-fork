@@ -37,7 +37,8 @@ class RelativeSchedule(AbstractModel):
 
     def create_event(self):
         scheduled_time = datetime.combine(
-            self.participant.intervention_date, time(self.hour, self.minute)
+            self.intervention.intervention_dates.get(participant=self.participant).date,
+            time(self.hour, self.minute)
         )
         ScheduledEvent.objects.create(
             survey=self.survey,
@@ -156,12 +157,12 @@ class ArchivedEvent(AbstractModel):
     response_time = models.DateTimeField(null=True)
 
 
+class Intervention(models.Model):
+    name = models.TextField()
+    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='interventions')
+
+
 class InterventionDate(models.Model):
     date = models.DateTimeField()
     participant = models.ForeignKey('Participant', on_delete=models.CASCADE, related_name='intervention_dates')
     intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='intervention_dates')
-
-
-class Intervention(models.Model):
-    name = models.TextField()
-    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='interventions')

@@ -11,8 +11,8 @@ from database.user_models import Participant
 
 def watch_processing():
     # cannot be imported on EB servers
-    from libs.celery import (get_active_job_ids, CeleryNotRunningException, get_scheduled_job_ids,
-        get_reserved_job_ids)
+    from libs.celery import (CeleryNotRunningException, get_processing_active_job_ids,
+        get_processing_reserved_job_ids, get_processing_scheduled_job_ids)
 
     periodicity = 5
     orig_start = localtime()
@@ -38,15 +38,15 @@ def watch_processing():
         print(f"{start}: {count} files to process")
 
         try:
-            a_now, active = localtime(), get_active_job_ids()
+            a_now, active = localtime(), get_processing_active_job_ids()
         except CeleryNotRunningException:
             errors += 1
         try:
-            s_now, scheduled = localtime(), get_scheduled_job_ids()
+            s_now, scheduled = localtime(), get_processing_scheduled_job_ids()
         except CeleryNotRunningException:
             errors += 1
         try:
-            r_now, registered = localtime(), get_reserved_job_ids()
+            r_now, registered = localtime(), get_processing_reserved_job_ids()
         except CeleryNotRunningException:
             errors += 1
 

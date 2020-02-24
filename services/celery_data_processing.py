@@ -14,7 +14,7 @@ from libs.file_processing import do_process_user_file_chunks
 from libs.sentry import make_error_sentry
 
 from kombu.exceptions import OperationalError
-from libs.celery import processing_celery_app, get_active_job_ids
+from libs.celery import processing_celery_app, get_processing_active_job_ids
 
 ################################################################################
 ############################## Task Endpoints ##################################
@@ -55,7 +55,7 @@ def create_file_processing_tasks():
         )
         
         # sometimes celery just fails to exist, set should be redundant.
-        active_set = set(get_active_job_ids())
+        active_set = set(get_processing_active_job_ids())
         
         participants_to_process = participant_set - active_set
         print("Queueing these participants:", ",".join(str(p) for p in participants_to_process))

@@ -2,22 +2,23 @@ import json
 from datetime import datetime, timedelta
 
 from celery import Celery
-from django.core.exceptions import ImproperlyConfigured
 from kombu.exceptions import OperationalError
+
+from config.constants import (DATA_PROCESSING_CELERY_SERVICE, PROJECT_PARENT_FOLDER,
+    PUSH_NOTIFICATION_SEND_SERVICE)
 
 
 class CeleryNotRunningException(Exception): pass
 
-DATA_PROCESSING_CELERY_SERVICE = "services.celery_data_processing"
-PUSH_NOTIFICATION_MANAGE_SERVICE = "services.push_notification_manage"
-PUSH_NOTIFICATION_SEND_SERVICE = "services.push_notification_send"
 
-def get_celery_app(service_name: str, threads=2):
+def get_celery_app(service_name: str):
+    # the location of the celery configuration file is in the folder above the project folder.
     try:
-        with open("/home/ubuntu/manager_ip", 'r') as f:
+        with open(PROJECT_PARENT_FOLDER, 'r') as f:
             manager_info = f.read()
     except IOError:
-        raise ImproperlyConfigured("No celery configuration present")
+        print("No celery configuration present...")
+        return None
 
     manager_ip, password = manager_info.splitlines()
 
@@ -30,40 +31,22 @@ def get_celery_app(service_name: str, threads=2):
         backend='rpc://',
         task_publish_retry=False,
         task_track_started=True,
-        # concurrency=threads,
     )
 
-    # try:
-    #     celery_app = Celery(
-    #             "services.celery_data_processing",
-    #             # note that the 2nd trailing slash here is actually required and
-    #             broker=
-    #             backend='rpc://',
-    #             task_publish_retry=False,
-    #             task_track_started=True
-    #     )
-    #     print("connected to celery with discovered credentials.")
-    # except IOError:
-    #     celery_app = Celery(
-    #             "services.celery_data_processing",
-    #             broker='pyamqp://guest@127.0.0.1//',
-    #             backend='rpc://',
-    #             task_publish_retry=False,
-    #             task_track_started=True
-    #     )
-    #     print("connected to celery without credentials.")
 
-
+# if None then there is no celery app.
 processing_celery_app = get_celery_app(DATA_PROCESSING_CELERY_SERVICE)
-# push_manage_celery_app = get_celery_app(PUSH_NOTIFICATION_MANAGE_SERVICE)
-push_send_celery_app = get_celery_app(PUSH_NOTIFICATION_SEND_SERVICE,  threads=10)
+push_send_celery_app = get_celery_app(PUSH_NOTIFICATION_SEND_SERVICE)
 
-
-# this import appears to need to come after the celery app is loaded, and it is dynamically defined.
-from celery.task.control import inspect as celery_inspect
 
 def inspect():
     """ Inspect is annoyingly unreliable and has a default 1 second timeout. """
+    # this import appears to need to come after the celery app is loaded, class is dynamic.
+
+    if processing_celery_app is None or push_send_celery_app is None:
+        raise CeleryNotRunningException("")
+
+    from celery.task.control import inspect as celery_inspect
     now = datetime.now()
     fail_time = now + timedelta(seconds=20)
 
@@ -71,12 +54,13 @@ def inspect():
         try:
             return celery_inspect(timeout=0.1)
         except CeleryNotRunningException:
+            now = datetime.now()
             continue
 
     raise CeleryNotRunningException()
 
+
 def safe_apply_async(task_func: callable, *args, **kwargs):
-    """"""
     for i in range(10):
         try:
             return task_func.apply_async(*args, **kwargs)
@@ -90,27 +74,43 @@ def safe_apply_async(task_func: callable, *args, **kwargs):
                 raise
 
 
-
 def get_revoked_job_ids():
     return inspect().revoked().values()
 
 
-def get_scheduled_job_ids():
+# Notifications...
+def get_notification_scheduled_job_ids():
     """ Returns list of ids (can be empty), or None if celery isn't currently running. """
-    return _get_job_ids(inspect().scheduled())
+    return _get_job_ids(inspect().scheduled(), "notifications")
 
 
-def get_reserved_job_ids():
+def get_notification_reserved_job_ids():
     """ Returns list of ids (can be empty), or None if celery isn't currently running. """
-    return _get_job_ids(inspect().reserved())
+    return _get_job_ids(inspect().reserved(), "notifications")
 
 
-def get_active_job_ids():
+def get_notification_active_job_ids():
     """ Returns list of ids (can be empty), or None if celery isn't currently running. """
-    return _get_job_ids(inspect().active())
+    return _get_job_ids(inspect().active(), "notifications")
 
 
-def _get_job_ids(celery_query_dict):
+# Processing
+def get_processing_scheduled_job_ids():
+    """ Returns list of ids (can be empty), or None if celery isn't currently running. """
+    return _get_job_ids(inspect().scheduled(), "processing")
+
+
+def get_processing_reserved_job_ids():
+    """ Returns list of ids (can be empty), or None if celery isn't currently running. """
+    return _get_job_ids(inspect().reserved(), "processing")
+
+
+def get_processing_active_job_ids():
+    """ Returns list of ids (can be empty), or None if celery isn't currently running. """
+    return _get_job_ids(inspect().active(), "processing")
+
+
+def _get_job_ids(celery_query_dict, celery_app_suffix):
     """ Data structure looks like this, we just want that args component.
         Returns list of ids (can be empty), or None if celery isn't currently running.
 
@@ -147,12 +147,13 @@ def _get_job_ids(celery_query_dict):
         raise CeleryNotRunningException()
 
     # below could be substantially improved. itertools chain....
-    all_jobs = []
-    for list_of_jobs in celery_query_dict.values():
-        all_jobs.extend(list_of_jobs)
+    all_processing_jobs = []
+    for worker_name, list_of_jobs in celery_query_dict.items():
+        if worker_name.endswith(celery_app_suffix):
+            all_processing_jobs.extend(list_of_jobs)
 
     all_args = []
-    for job_arg in [job['args'] for job in all_jobs]:
+    for job_arg in [job['args'] for job in all_processing_jobs]:
         args = json.loads(job_arg)
         # safety/sanity check, assert that there is only 1 integer id in a list and that it is a list.
         assert isinstance(args, list)

@@ -26,30 +26,55 @@
   <div class="row form-horizontal">
     <table class="table">
       <thead>
-        <tr>
-          <th>Interventions</th>
-          {% if not readonly %}
-            <th>Remove Interventions</th>
-          {% endif %}
-        </tr>
+      <tr>
+        <th>Interventions</th>
+        {% if not readonly %}
+          <th>Edit Interventions</th>
+          <th>Remove Interventions</th>
+        {% endif %}
+      </tr>
       </thead>
       <tbody>
-        {% for intervention in interventions | sort(attribute='name', case_sensitive=False) %}
-          <tr>
+      {% for intervention in interventions | sort(attribute='name', case_sensitive=False) %}
+        <tr>
+          <td>
+            {{ intervention.name }}
+          </td>
+          {% if not readonly %}
             <td>
-              {{ intervention.name }}
+              <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#editModal">
+                Edit Intervention
+              </button>
+              <div class="modal fade" id="editModal" tabindex="-1" role="dialog">
+                <div class="modal-dialog" role="document">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                      <h4 class="modal-title">Edit Intervention</h4>
+                    </div>
+                    <div class="modal-body">
+                      <form action="/edit_intervention/{{ study.id }}" method="POST">
+                        <input type="text" class="form-control" name="edit_intervention" value="{{ intervention.name }}"/>
+                        <input type="hidden" name="intervention_id" value="{{ intervention.id }}"/>
+                        <br>
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Save changes</button>
+                      </form>
+                    </div>
+                  </div><!-- /.modal-content -->
+                </div><!-- /.modal-dialog -->
+              </div><!-- /.modal -->
             </td>
-            {% if not readonly %}
-              <td>
-                <form>
-                  <input type="hidden" name="study_id" value="{{ study.id }}">
-                  <input type="hidden" name="name" value="{{ intervention.name }}">
-                  <button onclick="confirm_delete_intervention('{{ intervention.name|replace("'", "")|replace('"', "") }}', '{{ intervention.id }}', '{{ study.id }}')" class="btn btn-danger"><span class="glyphicon glyphicon-trash"></span> Remove Intervention</button>
-                </form>
-              </td>
-            {% endif %}
-          </tr>
-        {% endfor %}
+            <td>
+              <form>
+                <input type="hidden" name="study_id" value="{{ study.id }}">
+                <input type="hidden" name="name" value="{{ intervention.name }}">
+                <button onclick="confirm_delete_intervention('{{ intervention.name|replace("'", "")|replace('"', "") }}', '{{ intervention.id }}', '{{ study.id }}')" class="btn btn-danger"><span class="glyphicon glyphicon-trash"></span> Remove Intervention</button>
+              </form>
+            </td>
+          {% endif %}
+        </tr>
+      {% endfor %}
       </tbody>
     </table>
 

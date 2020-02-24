@@ -298,6 +298,31 @@ def delete_intervention(study_id=None):
     return redirect('/interventions/{:d}'.format(study.id))
 
 
+@system_admin_pages.route('/edit_intervention/<string:study_id>', methods=['POST'])
+@authenticate_researcher_study_access
+def edit_intervention(study_id=None):
+    study = Study.objects.get(pk=study_id)
+    researcher = get_session_researcher()
+    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
+    if readonly:
+        abort(403)
+
+    intervention_id = request.values.get('intervention_id', None)
+    new_name = request.values.get('edit_intervention', None)
+    if intervention_id:
+        try:
+            intervention = Intervention.objects.get(id=intervention_id)
+        except Intervention.DoesNotExist:
+            intervention = None
+        if intervention and new_name:
+            intervention.name = new_name
+            intervention.save()
+
+    return redirect('/interventions/{:d}'.format(study.id))
+
+
+
+
 @system_admin_pages.route('/study_fields/<string:study_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def study_fields(study_id=None):

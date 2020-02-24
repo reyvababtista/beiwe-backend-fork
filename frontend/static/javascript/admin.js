@@ -62,3 +62,26 @@ function confirm_delete_custom_field(field_name, field_id, study_id) {
         });
     };
 }
+
+function confirm_delete_intervention(intervention_name, intervention_id, study_id) {
+    var required_matching_text = "Yes, I want to delete " + intervention_name;
+    var prompt_message = ("Are you ABSOLUTELY SURE that you want to delete the custom field " +
+                          intervention_name +" from this study?\nThis will also delete all data " +
+                          "in that custom field on this study.\nIf you're DEAD CERTAIN, type '" +
+                          required_matching_text + "' in the box here:");
+    var confirmation_prompt = prompt(prompt_message);
+    if (confirmation_prompt == required_matching_text) {
+        $.ajax({
+            type: 'POST',
+            url: '/delete_intervention/' + study_id,
+            data: {
+                intervention: intervention_id,
+                confirmation: "true"
+            }
+        }).done(function() {
+            location.href = "/interventions/" + study_id;
+        }).fail(function() {
+            alert("There was a problem with deleting the intervention")
+        });
+    };
+}

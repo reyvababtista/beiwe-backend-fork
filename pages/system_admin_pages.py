@@ -6,6 +6,7 @@ from django.db.models.deletion import ProtectedError
 from flask import (abort, Blueprint, flash, redirect, render_template, request)
 
 from config.constants import CHECKBOX_TOGGLES, ResearcherRole, TIMER_VALUES
+from database.schedule_models import Intervention
 from database.study_models import Study, StudyField
 from database.user_models import Researcher, StudyRelation
 from libs.admin_authentication import (assert_admin, assert_researcher_under_admin,
@@ -245,6 +246,56 @@ def edit_study(study_id=None):
         redirect_url='/edit_study/{:s}'.format(study_id),
         session_researcher=get_session_researcher(),
     )
+
+
+@system_admin_pages.route('/interventions/<string:study_id>', methods=['GET', 'POST'])
+@authenticate_researcher_study_access
+def interventions(study_id=None):
+    study = Study.objects.get(pk=study_id)
+    researcher = get_session_researcher()
+    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
+
+    if request.method == 'GET':
+        print('interventions: ', study.interventions.all())
+        return render_template(
+            'study_interventions.html',
+            study=study,
+            interventions=study.interventions.all(),
+            readonly=readonly,
+        )
+
+    if readonly:
+        abort(403)
+
+    new_intervention = request.values.get('new_intervention', None)
+    if new_intervention:
+        Intervention.objects.get_or_create(study=study, name=new_intervention)
+
+    return redirect('/interventions/{:d}'.format(study.id))
+
+
+@system_admin_pages.route('/delete_intervention/<string:study_id>', methods=['POST'])
+@authenticate_researcher_study_access
+def delete_intervention(study_id=None):
+    study = Study.objects.get(pk=study_id)
+    researcher = get_session_researcher()
+    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
+    if readonly:
+        abort(403)
+
+    intervention_id = request.values.get('intervention')
+    if intervention_id:
+        try:
+            intervention = Intervention.objects.get(id=intervention_id)
+        except Intervention.DoesNotExist:
+            intervention = None
+        try:
+            if intervention:
+                intervention.delete()
+        except ProtectedError:
+            flash("This Intervention can not be removed because it is already in use", 'danger')
+
+    return redirect('/interventions/{:d}'.format(study.id))
 
 
 @system_admin_pages.route('/study_fields/<string:study_id>', methods=['GET', 'POST'])

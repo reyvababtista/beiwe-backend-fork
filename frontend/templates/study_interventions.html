@@ -1,10 +1,67 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block content %}
+
+  <ol class="breadcrumb">
+    <li>
+      <a href="/view_study/{{ study.id }}">{{ study.name }}</a>
+    </li>
+    <li class="active">
+      {% if readonly %}
+        View which Interventions are on this study
+      {% else %}
+        Edit which Interventions are on this study
+      {% endif %}
+    </li>
+  </ol>
+
+  <div class="row">
+    {% if readonly %}
+      <h2>View which Interventions are on this study</h2>
+    {% else %}
+      <h2>Edit which Interventions are on this study</h2>
+    {% endif %}
+  </div>
+
+  <div class="row form-horizontal">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Interventions</th>
+          {% if not readonly %}
+            <th>Remove Interventions</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for intervention in interventions | sort(attribute='name', case_sensitive=False) %}
+          <tr>
+            <td>
+              {{ intervention.name }}
+            </td>
+            {% if not readonly %}
+              <td>
+                <form>
+                  <input type="hidden" name="study_id" value="{{ study.id }}">
+                  <input type="hidden" name="name" value="{{ intervention.name }}">
+                  <button onclick="confirm_delete_intervention('{{ intervention.name|replace("'", "")|replace('"', "") }}', '{{ intervention.id }}', '{{ study.id }}')" class="btn btn-danger"><span class="glyphicon glyphicon-trash"></span> Remove Intervention</button>
+                </form>
+              </td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if not readonly %}
+      <br>
+      <form action="/interventions/{{ study.id }}" method="POST">
+        <input type="hidden" name="study_id" value="{{ study.id }}">
+        <label>Add new Intervention</label>
+        <input type="text" class="form-control" name="new_intervention" />
+        <button type="submit" class="btn btn-success"><span class="glyphicon glyphicon-plus"></span> Add New Intervention</button>
+      </form>
+    {% endif %}
+  </div>
+
+{% endblock %}

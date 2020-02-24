@@ -40,6 +40,7 @@ def view_study(study_id=None):
     audio_survey_ids = study.get_survey_ids_and_object_ids_for_study('audio_survey')
     image_survey_ids = study.get_survey_ids_and_object_ids_for_study('image_survey')
     participants = study.participants.all()
+    intervention_names = list(study.interventions.values_list('name', flat=True))
 
     study_fields = list(study.fields.all().values_list('field_name', flat=True))
     for p in participants:
@@ -57,6 +58,7 @@ def view_study(study_id=None):
         study_fields=study_fields,
         page_location='study_landing',
         study_id=study_id,
+        intervention_names=intervention_names,
     )
 
 

@@ -89,7 +89,6 @@ class Participant(AbstractPasswordUser):
 
     fcm_instance_id = models.CharField(max_length=256, blank=True,
                                        help_text='The id used to send push notifications to the device.')
-    intervention_date = models.DateField(default=date.today)
 
     @classmethod
     def create_with_password(cls, **kwargs):

@@ -30,6 +30,7 @@ class AbsoluteSchedule(AbstractModel):
 class RelativeSchedule(AbstractModel):
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='relative_schedules')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='relative_schedules')
+    intervention = models.ForeignKey('Intervention', on_delete=models.PROTECT, related_name='relative_schedules')
     days_after = models.IntegerField(default=0)
     hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
@@ -153,3 +154,14 @@ class ArchivedEvent(AbstractModel):
     schedule_type = models.CharField(max_length=32)
     scheduled_time = models.DateTimeField()
     response_time = models.DateTimeField(null=True)
+
+
+class InterventionDate(models.Model):
+    date = models.DateTimeField()
+    participant = models.ForeignKey('Participant', on_delete=models.CASCADE, related_name='intervention_dates')
+    intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='intervention_dates')
+
+
+class Intervention(models.Model):
+    name = models.TextField()
+    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='interventions')

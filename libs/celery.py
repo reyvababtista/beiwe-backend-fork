@@ -1,5 +1,5 @@
 import json
-from time import sleep
+from datetime import datetime, timedelta
 
 from celery import Celery
 from django.core.exceptions import ImproperlyConfigured
@@ -12,7 +12,7 @@ DATA_PROCESSING_CELERY_SERVICE = "services.celery_data_processing"
 PUSH_NOTIFICATION_MANAGE_SERVICE = "services.push_notification_manage"
 PUSH_NOTIFICATION_SEND_SERVICE = "services.push_notification_send"
 
-def get_celery_app(service_name: str):
+def get_celery_app(service_name: str, threads=2):
     try:
         with open("/home/ubuntu/manager_ip", 'r') as f:
             manager_info = f.read()
@@ -29,7 +29,8 @@ def get_celery_app(service_name: str):
         broker=pyamqp_endpoint,
         backend='rpc://',
         task_publish_retry=False,
-        task_track_started=True
+        task_track_started=True,
+        # concurrency=threads,
     )
 
     # try:
@@ -55,24 +56,24 @@ def get_celery_app(service_name: str):
 
 processing_celery_app = get_celery_app(DATA_PROCESSING_CELERY_SERVICE)
 # push_manage_celery_app = get_celery_app(PUSH_NOTIFICATION_MANAGE_SERVICE)
-push_send_celery_app = get_celery_app(PUSH_NOTIFICATION_SEND_SERVICE)
+push_send_celery_app = get_celery_app(PUSH_NOTIFICATION_SEND_SERVICE,  threads=10)
 
 
-# this import appears to need to come after the celery app is loaded
-from celery.task.control import inspect  # this import appears to need to come after the celery app is loaded
+# this import appears to need to come after the celery app is loaded, and it is dynamically defined.
+from celery.task.control import inspect as celery_inspect
 
+def inspect():
+    """ Inspect is annoyingly unreliable and has a default 1 second timeout. """
+    now = datetime.now()
+    fail_time = now + timedelta(seconds=20)
 
-def celery_try_20_times(func, *args, **kwargs):
-    """ single purpose helper, for some reason celery can fail to ... exist? unclear."""
-    for i in range(1, 21):
+    while now < fail_time:
         try:
-            return func(*args, **kwargs)
-        except CeleryNotRunningException as e:
-            print(f"encountered error running {func.__name__}, retrying")
-            sleep(0.5)
-            if i > 19:
-                raise
+            return celery_inspect(timeout=0.1)
+        except CeleryNotRunningException:
+            continue
 
+    raise CeleryNotRunningException()
 
 def safe_apply_async(task_func: callable, *args, **kwargs):
     """"""

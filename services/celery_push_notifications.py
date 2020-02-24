@@ -1,6 +1,11 @@
+from os.path import abspath
+from sys import path
+
 from datetime import datetime, timedelta
 
 import pytz
+
+path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
 from config.constants import API_TIME_FORMAT
 from config.load_django import django_loaded; assert django_loaded

@@ -164,7 +164,7 @@ class Intervention(models.Model):
 
 
 class InterventionDate(models.Model):
-    date = models.DateTimeField(null=True)
+    date = models.DateField(null=True)
     participant = models.ForeignKey('Participant', on_delete=models.CASCADE, related_name='intervention_dates')
     intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='intervention_dates')
 

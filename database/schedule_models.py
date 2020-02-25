@@ -5,7 +5,6 @@ from django.core.validators import MaxValueValidator
 from django.db import models
 from django.utils.timezone import is_naive, make_aware
 
-from config import constants
 from config.constants import ScheduleTypes
 from database.common_models import AbstractModel
 from database.study_models import SurveyArchive
@@ -16,15 +15,17 @@ class AbsoluteSchedule(AbstractModel):
     scheduled_date = models.DateTimeField()
 
     def create_events(self):
+        new_events = []
         for participant in self.survey.study.participants.all():
-            ScheduledEvent.objects.create(
+            new_events.append(ScheduledEvent(
                 survey=self.survey,
                 participant=participant,
                 weekly_schedule=None,
                 relative_schedule=None,
                 absolute_schedule=self,
                 scheduled_time=self.scheduled_date,
-            ).save()
+            ))
+        ScheduledEvent.objects.bulk_create(new_events)
 
 
 class RelativeSchedule(AbstractModel):
@@ -47,7 +48,7 @@ class RelativeSchedule(AbstractModel):
             relative_schedule=self,
             absolute_schedule=None,
             scheduled_time=scheduled_time,
-        ).save()
+        )
 
 
 class WeeklySchedule(AbstractModel):
@@ -120,7 +121,6 @@ class ScheduledEvent(AbstractModel):
 
     def get_schedule_type(self):
         return self.SCHEDULE_CLASS_LOOKUP[self.get_schedule()]
-
 
     def get_schedule(self):
         number_schedules = sum((

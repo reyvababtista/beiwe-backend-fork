@@ -71,6 +71,8 @@ def update_survey(survey_id=None):
     
     # These three all stay JSON when added to survey
     content = json.dumps(content)
+
+    # fixme: this was definitely broken for Eli before adding the json operations, but on dev it was not?
     timings = json.loads(request.values['timings'])
     settings = json.loads(request.values['settings'])
     survey.update(content=content, timings=timings, settings=settings)

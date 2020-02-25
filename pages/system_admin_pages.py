@@ -321,8 +321,6 @@ def edit_intervention(study_id=None):
     return redirect('/interventions/{:d}'.format(study.id))
 
 
-
-
 @system_admin_pages.route('/study_fields/<string:study_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def study_fields(study_id=None):

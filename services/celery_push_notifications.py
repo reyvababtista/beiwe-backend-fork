@@ -4,7 +4,9 @@ from sys import path
 
 import pytz
 
-from libs.push_notifications import create_next_weekly_event, firebase_app, FirebaseNotCredentialed
+from database.study_models import Survey
+from database.user_models import Participant
+from libs.push_notifications import firebase_app, FirebaseNotCredentialed, set_next_weekly
 
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
@@ -57,7 +59,7 @@ def create_push_notification_tasks():
 
 
 def celery_send_push_notification(survey_obj_id: str, fcm_token: str, sched_pk: int):
-    ''' Celery task that sends push notifications.  '''
+    ''' Celery task that sends push notifications. '''
     with make_error_sentry("data"):
 
         if not firebase_app:
@@ -90,7 +92,10 @@ def celery_send_push_notification(survey_obj_id: str, fcm_token: str, sched_pk: 
         schedule.archive()
 
         if is_weekly:
-            create_next_weekly_event()
+            set_next_weekly(
+                Participant.objects.get(fcm_instance_id=fcm_token),
+                Survey.objects.get(object_id=survey_obj_id),
+            )
 
 
 def safe_queue_push(*args, **kwargs):

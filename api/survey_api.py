@@ -5,7 +5,7 @@ from database.schedule_models import WeeklySchedule
 from database.study_models import Survey
 from libs.admin_authentication import authenticate_researcher_study_access
 from libs.json_logic import do_validate_survey
-from libs.push_notifications import create_next_weekly_event
+from libs.push_notifications import repopulate_weekly_survey_schedule_events
 
 survey_api = Blueprint('survey_api', __name__)
 
@@ -71,12 +71,13 @@ def update_survey(survey_id=None):
     
     # These three all stay JSON when added to survey
     content = json.dumps(content)
-    timings = request.values['timings']
-    settings = request.values['settings']
+    timings = json.loads(request.values['timings'])
+    settings = json.loads(request.values['settings'])
     survey.update(content=content, timings=timings, settings=settings)
+
     if settings['schedule_type'] == ScheduleTypes.weekly:
         create_weekly_schedules(survey)
-        create_next_weekly_event(survey)
+        repopulate_weekly_survey_schedule_events(survey)
     elif settings['schedule_type'] == ScheduleTypes.relative:
         pass
     elif settings['schedule_type'] == ScheduleTypes.absolute:
@@ -86,20 +87,21 @@ def update_survey(survey_id=None):
     return make_response("", 201)
 
 
-def create_weekly_schedules(survey):
+def create_weekly_schedules(survey: Survey):
+    # grr imports mean this cannot be a Survey instance method...
     timings_list = json.loads(survey.timings)
-    print("Timings list: ", timings_list)
-    print("Old Schedules: ",  WeeklySchedule.objects.filter(survey=survey))
-    WeeklySchedule.objects.filter(survey=survey).delete()
+    survey.weekly_schedules.delete()
+
+    new_schedules = []
     for day in range(7):
         for time in timings_list[day]:
             print("Survey on day: ", day, "at time: ", time)
             hour = time // 3600
             minute = time % 3600 // 60
-            WeeklySchedule.objects.create(
-                survey=survey, day_of_week=day, hour=hour, minute=minute
-            )
-    print("New Schedules: ",  WeeklySchedule.objects.filter(survey=survey))
+            WeeklySchedule(survey=survey, day_of_week=day, hour=hour, minute=minute)
+
+    WeeklySchedule.objects.bulk_create(new_schedules)
+    print("New Schedules: ", WeeklySchedule.objects.filter(survey=survey))
 
 
 def recursive_survey_content_json_decode(json_entity):

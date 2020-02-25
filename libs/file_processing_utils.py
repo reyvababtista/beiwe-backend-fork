@@ -1,15 +1,13 @@
 from datetime import datetime
 from multiprocessing.pool import ThreadPool
 
-from config.constants import (
-    CONCURRENT_NETWORK_OPS, CHUNKS_FOLDER, CHUNKABLE_FILES,
-    PROCESSABLE_FILE_EXTENSIONS, data_stream_to_s3_file_name_string,
-)
-from libs.file_processing import process_file_chunks
-from libs.s3 import s3_list_files, s3_delete, s3_upload
+from config.constants import (CHUNKABLE_FILES, CHUNKS_FOLDER, CONCURRENT_NETWORK_OPS,
+    DATA_STREAM_TO_S3_FILE_NAME_STRING, PROCESSABLE_FILE_EXTENSIONS)
 from database.data_access_models import ChunkRegistry, FileProcessLock, FileToProcess
 from database.study_models import Study
 from database.user_models import Participant
+from libs.file_processing import process_file_chunks
+from libs.s3 import s3_delete, s3_list_files, s3_upload
 
 
 def reindex_all_files_to_process():
@@ -64,7 +62,7 @@ def reindex_specific_data_type(data_type):
     FileProcessLock.lock()
     print("starting...")
     # Convert the data type; raise an error if something is wrong with it
-    file_name_key = data_stream_to_s3_file_name_string(data_type)
+    file_name_key = DATA_STREAM_TO_S3_FILE_NAME_STRING[data_type]
 
     # Get all chunk paths of the given data type
     relevant_chunks = ChunkRegistry.objects.filter(data_type=data_type)

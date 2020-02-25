@@ -4,8 +4,8 @@ from datetime import date, datetime, timedelta
 
 from flask import abort, Blueprint, render_template, request
 
-from config.constants import (ALL_DATA_STREAMS, complete_data_stream_dict,
-    processed_data_stream_dict, REDUCED_API_TIME_FORMAT)
+from config.constants import (ALL_DATA_STREAMS, COMPLETE_DATA_STREAM_DICT,
+    PROCESSED_DATA_STREAM_DICT, REDUCED_API_TIME_FORMAT)
 from database.data_access_models import ChunkRegistry, PipelineRegistry
 from database.study_models import (DashboardColorSetting, DashboardGradient, DashboardInflection,
     Study)
@@ -37,7 +37,7 @@ def dashboard_page(study_id):
         study=study,
         participants=participants,
         study_id=study_id,
-        data_stream_dict=complete_data_stream_dict,
+        data_stream_dict=COMPLETE_DATA_STREAM_DICT,
         allowed_studies=get_researcher_allowed_studies(),
         is_admin=researcher_is_an_admin(),
         page_location='dashboard_landing',
@@ -160,13 +160,13 @@ def get_data_for_dashboard_datastream_display(study_id, data_stream):
     return render_template(
         'dashboard/data_stream_dashboard.html',
         study=study,
-        data_stream=complete_data_stream_dict.get(data_stream),
+        data_stream=COMPLETE_DATA_STREAM_DICT.get(data_stream),
         times=unique_dates,
         byte_streams=byte_streams,
         base_next_url=next_url,
         base_past_url=past_url,
         study_id=study_id,
-        data_stream_dict=complete_data_stream_dict,
+        data_stream_dict=COMPLETE_DATA_STREAM_DICT,
         color_low_range=color_low_range,
         color_high_range=color_high_range,
         first_day=first_day,
@@ -228,7 +228,7 @@ def get_data_for_dashboard_patient_display(study_id, patient_id):
         processed_byte_streams = OrderedDict(
             (stream, [
                 get_bytes_patient_processed_match(all_data, date, stream) for date in unique_dates
-            ]) for stream in processed_data_stream_dict
+            ]) for stream in PROCESSED_DATA_STREAM_DICT
         )
     else:
         processed_byte_streams = None
@@ -256,7 +256,7 @@ def get_data_for_dashboard_patient_display(study_id, patient_id):
         processed_byte_streams = OrderedDict(
             (stream, [
                 None for date in unique_dates
-            ]) for stream in processed_data_stream_dict
+            ]) for stream in PROCESSED_DATA_STREAM_DICT
         )
         byte_streams.update(processed_byte_streams)
     # -------------------------  edge case if no data has been entered -----------------------------------
@@ -281,7 +281,7 @@ def get_data_for_dashboard_patient_display(study_id, patient_id):
         study_id=study_id,
         first_date_data=first_date_data_entry,
         last_date_data=last_date_data_entry,
-        data_stream_dict=complete_data_stream_dict,
+        data_stream_dict=COMPLETE_DATA_STREAM_DICT,
         allowed_studies=get_researcher_allowed_studies(),
         is_admin=researcher_is_an_admin(),
         page_location='dashboard_patient',
@@ -354,7 +354,7 @@ def parse_patient_processed_data(study_id, participant):
                     elif (time_bin - last_day).days > 0:
                         last_day = time_bin
                 for stream_key in chunk:
-                    if stream_key in processed_data_stream_dict and chunk[stream_key] != "NA":
+                    if stream_key in PROCESSED_DATA_STREAM_DICT and chunk[stream_key] != "NA":
                         if chunk[stream_key].find(".") == -1:
                             processed_data = int(chunk[stream_key])
                         else:

@@ -50,7 +50,6 @@ for mandatory_var in MANDATORY_VARS:
         errors.append(mandatory_var + " was not provided in your settings.")
 
 # Environment variables might be unpredictable, so we sanitize the numerical ones as ints.
-constants.DEFAULT_S3_RETRIES = int(constants.DEFAULT_S3_RETRIES)
 constants.CONCURRENT_NETWORK_OPS = int(constants.CONCURRENT_NETWORK_OPS)
 constants.FILE_PROCESS_PAGE_SIZE = int(constants.FILE_PROCESS_PAGE_SIZE)
 

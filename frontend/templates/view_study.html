@@ -42,7 +42,7 @@
             {% for patient in patients %}
               <tr>
                 <td>
-                  <b>{{ patient.patient_id }}</b>
+                  <b><a href="/view_study/{{ study.id }}/edit_participant/{{ patient.id }}" class="list-group-item">{{ patient.patient_id }}</a></b>
                 </td>
                 <td>
                   {% if patient.device_id %}

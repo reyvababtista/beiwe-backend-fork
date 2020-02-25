@@ -6,9 +6,9 @@ from django.db.models.deletion import ProtectedError
 from flask import (abort, Blueprint, flash, redirect, render_template, request)
 
 from config.constants import CHECKBOX_TOGGLES, ResearcherRole, TIMER_VALUES
-from database.schedule_models import Intervention
+from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
-from database.user_models import Researcher, StudyRelation
+from database.user_models import Researcher, StudyRelation, ParticipantFieldValue
 from libs.admin_authentication import (assert_admin, assert_researcher_under_admin,
     authenticate_admin, authenticate_researcher_study_access, get_researcher_allowed_studies,
     get_session_researcher, researcher_is_an_admin)
@@ -269,7 +269,9 @@ def interventions(study_id=None):
 
     new_intervention = request.values.get('new_intervention', None)
     if new_intervention:
-        Intervention.objects.get_or_create(study=study, name=new_intervention)
+        intervention, _ = Intervention.objects.get_or_create(study=study, name=new_intervention)
+        for participant in study.participants.all():
+            InterventionDate.objects.get_or_create(participant=participant, intervention=intervention)
 
     return redirect('/interventions/{:d}'.format(study.id))
 
@@ -343,7 +345,9 @@ def study_fields(study_id=None):
 
     new_field = request.values.get('new_field', None)
     if new_field:
-        StudyField.objects.get_or_create(study=study, field_name=new_field)
+        study_field, _ = StudyField.objects.get_or_create(study=study, field_name=new_field)
+        for participant in study.participants.all():
+            ParticipantFieldValue.objects.create(participant=participant, field=study_field)
 
     return redirect('/study_fields/{:d}'.format(study.id))
 

@@ -1,5 +1,6 @@
 from flask import abort, Blueprint, flash, Markup, redirect, render_template, request, session
 
+from config import constants
 from database.study_models import Study, StudyField
 from database.user_models import Participant, ParticipantFieldValue, Researcher
 from libs import admin_authentication
@@ -104,6 +105,23 @@ def patient_fields(study_id, patient_id=None):
 
     return redirect('/view_study/{:d}'.format(study.id))
 
+
+@admin_pages.route('/view_study/<string:study_id>/edit_participant/<string:participant_id>', methods=['GET'])
+@authenticate_researcher_study_access
+def edit_participant(study_id, participant_id):
+    try:
+        participant = Participant.objects.get(pk=participant_id)
+    except Participant.DoesNotExist:
+        return abort(404)
+
+    study = participant.study
+
+    return render_template(
+        'edit_participant.html',
+        participant=participant,
+        study=study,
+        date_format=constants.REDUCED_API_TIME_FORMAT,
+    )
 
 """########################## Login/Logoff ##################################"""
 

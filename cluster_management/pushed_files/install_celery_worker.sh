@@ -76,14 +76,6 @@ stderr_logfile = /var/log/celery/celeryd_push_send.err
 autostart = true
 EOL
 
-#[program:celery_push_manage]
-#directory = /home/ubuntu/beiwe-backend/
-#command = python3 -m celery -A services.push_notification_manage worker --loglevel=info -Ofair
-#stdout_logfile = /var/log/celery/celeryd_push_manage.log
-#stderr_logfile = /var/log/celery/celeryd_push_manage.err
-#autostart = true
-EOL
-
 # start data processing
 supervisord
 

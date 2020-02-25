@@ -1,5 +1,5 @@
 from os import getenv
-
+from os.path import join as path_join
 from config.settings import DOMAIN_NAME
 
 ### Environment settings ###
@@ -173,7 +173,6 @@ COMPLETE_DATA_STREAM_DICT = {
     WIFI: "Wifi (bytes)",
 }
 
-
 ALL_DATA_STREAMS = [
     ACCELEROMETER,
     ANDROID_LOG_FILE,
@@ -343,12 +342,12 @@ class ResearcherRole(object):
 ALL_RESEARCHER_TYPES = (ResearcherRole.study_admin, ResearcherRole.researcher)
 
 
-# Celery Constants
 PROJECT_ROOT = __file__.rsplit("/", 2)[0] + "/"
 PROJECT_PARENT_FOLDER = PROJECT_ROOT.rsplit("/", 2)[0] + "/"
+
+# Celery Constants
 DATA_PROCESSING_CELERY_SERVICE = "services.celery_data_processing"
 PUSH_NOTIFICATION_SEND_SERVICE = "services.push_notification_send"
-
 
 class ScheduleTypes(object):
     absolute = "absolute"
@@ -362,3 +361,8 @@ class ScheduleTypes(object):
             (cls.relative, "Relative"),
             (cls.weekly, "Weekly")
         )
+
+
+# Push notification constants
+FIREBASE_CREDENTIAL_LOCATION = path_join(PROJECT_ROOT, "firebase_cloud_messaging_credentials.json")
+CELERY_CONFIG_LOCATION = path_join(PROJECT_ROOT, "manager_ip")

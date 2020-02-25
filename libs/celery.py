@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from celery import Celery
 from kombu.exceptions import OperationalError
 
-from config.constants import (DATA_PROCESSING_CELERY_SERVICE, PROJECT_PARENT_FOLDER,
+from config.constants import (CELERY_CONFIG_LOCATION, DATA_PROCESSING_CELERY_SERVICE,
     PUSH_NOTIFICATION_SEND_SERVICE)
 
 
@@ -14,7 +14,7 @@ class CeleryNotRunningException(Exception): pass
 def get_celery_app(service_name: str):
     # the location of the celery configuration file is in the folder above the project folder.
     try:
-        with open(PROJECT_PARENT_FOLDER, 'r') as f:
+        with open(CELERY_CONFIG_LOCATION, 'r') as f:
             manager_info = f.read()
     except IOError:
         print("No celery configuration present...")
@@ -44,7 +44,7 @@ def inspect():
     # this import appears to need to come after the celery app is loaded, class is dynamic.
 
     if processing_celery_app is None or push_send_celery_app is None:
-        raise CeleryNotRunningException("")
+        raise CeleryNotRunningException()
 
     from celery.task.control import inspect as celery_inspect
     now = datetime.now()

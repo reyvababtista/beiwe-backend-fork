@@ -5,14 +5,9 @@
 
 # uh-oh - SSL settings - I guess we need to validate route53 DNS settings.
 
-# major script components
-# deploy new cluster
-# update frontend?
 # update data processing?
 # stop data processing?
 # deploy N data processing servers
-# modify EB scaling settings?
-# update rabbitmq/celery server
 
 import argparse
 import json
@@ -27,15 +22,14 @@ from fabric.api import env as fabric_env, put, run, sudo
 from deployment_helpers.aws.elastic_beanstalk import (check_if_eb_environment_exists,
     create_eb_environment, fix_deploy)
 from deployment_helpers.aws.elastic_compute_cloud import (create_processing_control_server,
-    create_processing_server, get_manager_instance_by_eb_environment_name, get_manager_private_ip,
-    get_manager_public_ip)
+    create_processing_server, get_manager_instance_by_eb_environment_name, get_manager_private_ip)
 from deployment_helpers.aws.iam import iam_purge_instance_profiles
 from deployment_helpers.aws.rds import create_new_rds_instance
 from deployment_helpers.configuration_utils import (are_aws_credentials_present,
     create_finalized_configuration, create_processing_server_configuration_file,
-    create_rabbit_mq_password_file, get_rabbit_mq_password, is_global_configuration_valid,
-    reference_data_processing_server_configuration, reference_environment_configuration_file,
-    validate_beiwe_environment_config)
+    create_rabbit_mq_password_file, get_firebase_credentials_path, get_rabbit_mq_password,
+    is_global_configuration_valid, reference_data_processing_server_configuration,
+    reference_environment_configuration_file, validate_beiwe_environment_config)
 from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS,
     APT_WORKER_INSTALLS, DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH,
     DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN,
@@ -47,8 +41,8 @@ from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVE
     LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH,
     LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, LOG_FILE,
     MANAGER_SERVER_INSTANCE_TYPE, PURGE_COMMAND_BLURB, PUSHED_FILES_FOLDER, RABBIT_MQ_PORT,
-    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_HOME_DIR,
-    REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
+    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH,
+    REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
     REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH, REMOTE_USERNAME,
     STAGED_FILES, WORKER_SERVER_INSTANCE_TYPE)
 from deployment_helpers.general_utils import current_time_string, do_zip_reduction, EXIT, log, retry
@@ -163,11 +157,12 @@ def setup_rabbitmq(eb_environment_name):
     log.warning("This next command can take quite a while to run.")
     # I tried backgrounding it, doing so breaks celery.  o_O
     sudo("service rabbitmq-server restart")
-    
 
-def setup_single_server_ami_cron():
-    put(LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, REMOTE_CRONJOB_FILE_PATH)
-    run('crontab -u {user} {file}'.format(file=REMOTE_CRONJOB_FILE_PATH, user=REMOTE_USERNAME))
+
+def push_firebase_credentials(eb_environment_name):
+    firebase_creds_path = get_firebase_credentials_path(eb_environment_name)
+    if firebase_creds_path is not None:
+        put(firebase_creds_path, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH)
 
 
 def apt_installs(manager=False, single_server_ami=False):
@@ -179,7 +174,7 @@ def apt_installs(manager=False, single_server_ami=False):
     else:
         apt_install_list = APT_WORKER_INSTALLS
     installs_string = " ".join(apt_install_list)
-    
+
     # Sometimes (usually on slower servers) the remote server isn't done with initial setup when
     # we get to this step, so it has a bunch of retry logic.
     installs_failed = True
@@ -196,9 +191,14 @@ def apt_installs(manager=False, single_server_ami=False):
                 "Will try 10 times, waiting 5 seconds each time."
             )
             sleep(5)
-    
+
     if installs_failed:
         raise Exception("Could not install software on remote machine.")
+
+
+def setup_single_server_ami_cron():
+    put(LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, REMOTE_CRONJOB_FILE_PATH)
+    run('crontab -u {user} {file}'.format(file=REMOTE_CRONJOB_FILE_PATH, user=REMOTE_USERNAME))
 
 
 def push_beiwe_configuration(eb_environment_name, single_server_ami=False):
@@ -397,6 +397,7 @@ def do_create_manager():
     setup_python()
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
+    push_firebase_credentials()
     setup_celery_worker()
     setup_manager_cron()
     create_swap()
@@ -410,9 +411,6 @@ def do_create_worker():
         log.error(
             "There is no manager server for the %s cluster, cannot deploy a worker until there is." % name)
         EXIT(1)
-    
-    manager_public_ip = get_manager_public_ip(name)
-    manager_private_ip = get_manager_private_ip(name)
     
     try:
         settings = get_server_configuration_file(name)
@@ -439,6 +437,7 @@ def do_create_worker():
     setup_python()
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
+    push_firebase_credentials()
     setup_celery_worker()
     setup_worker_cron()
     create_swap()

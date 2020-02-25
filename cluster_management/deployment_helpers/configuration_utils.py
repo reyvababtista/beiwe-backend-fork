@@ -155,11 +155,6 @@ def validate_beiwe_environment_config(eb_environment_name):
         if ensure_nonempty_string(dsn, name, errors, beiwe_variables_name):
             if not DSN_REGEX.match(dsn):
                 errors.append('({}) Invalid DSN: {}'.format(beiwe_variables_name, dsn))
-            # if name == "SENTRY_JAVASCRIPT_DSN":
-            #     if not PUBLIC_DSN_REGEX.match(dsn):
-            #         errors.append('({}) Invalid DSN: {}'.format(beiwe_variables_name, dsn))
-            # elif not PRIVATE_DSN_REGEX.match(dsn):
-            #     errors.append('({}) Invalid DSN: {}'.format(beiwe_variables_name, dsn))
                 
     domain_name = beiwe_variables.get('DOMAIN', None)
     ensure_nonempty_string(domain_name, 'Domain name', errors, beiwe_variables_name)
@@ -237,3 +232,8 @@ def create_rabbit_mq_password_file(eb_environment_name):
 def get_rabbit_mq_password(eb_environment_name):
     with open(get_rabbit_mq_manager_ip_file_path(eb_environment_name), 'r') as f:
         return f.read()
+
+
+def get_firebase_credentials_path(eb_environment_name):
+    firebase_creds_path = get_rabbit_mq_manager_ip_file_path(eb_environment_name)
+    return firebase_creds_path if file_exists(firebase_creds_path) else None

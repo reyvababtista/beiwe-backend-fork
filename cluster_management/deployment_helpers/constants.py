@@ -106,12 +106,14 @@ DEPLOYMENT_SPECIFIC_CONFIG_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'enviro
 GENERAL_CONFIG_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'general_configuration')
 STAGED_FILES = path_join(CLUSTER_MANAGEMENT_FOLDER, 'staged_files')
 RABBIT_MQ_PASSWORD_FILE_NAME = "rabbit_mq_password.txt"
+FIREBASE_CREDENTIALS_FILE_NAME = "firebase_credentials.json"
 
 ## Global EC2 Instance __remote__ folder paths
 REMOTE_HOME_DIR = path_join('/home', REMOTE_USERNAME)
+REMOTE_PROJECT_DIR = path_join(REMOTE_HOME_DIR, "beiwe-backend")
 
 ## Global EC2 Instance remote file paths
-DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH = path_join(REMOTE_HOME_DIR, 'beiwe-backend/config/remote_db_env.py')
+DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH = path_join(REMOTE_PROJECT_DIR, 'config/remote_db_env.py')
 LOG_FILE = path_join(REMOTE_HOME_DIR, 'server_setup.log')
 
 ## Management Tool Configuration Files
@@ -174,7 +176,8 @@ REMOTE_APACHE_CONFIG_FILE_PATH = path_join(REMOTE_HOME_DIR, 'ami_apache.conf')
 LOCAL_RABBIT_MQ_CONFIG_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'rabbitmq_configuration.txt')
 REMOTE_RABBIT_MQ_CONFIG_FILE_PATH = path_join(REMOTE_HOME_DIR, 'rabbitmq_configuration.txt')
 REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH = path_join('/etc/rabbitmq/rabbitmq-env.conf')
-REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH = path_join(REMOTE_HOME_DIR, "manager_ip")
+REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH = path_join(REMOTE_PROJECT_DIR, "manager_ip")
+REMOTE_FIREBASE_CREDENTIALS_FILE_PATH = path_join(REMOTE_PROJECT_DIR, "firebase_cloud_messaging_credentials.json")
 
 ####################################################################################################
 ####################################### Dynamic Files ##############################################
@@ -209,6 +212,12 @@ def get_beiwe_python_environment_variables_file_path(eb_environment_name):
 def get_rabbit_mq_manager_ip_file_path(eb_environment_name):
     return path_join(
         DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_" + RABBIT_MQ_PASSWORD_FILE_NAME
+    )
+
+
+def get_firebase_credentials_file_path(eb_environment_name):
+    return path_join(
+        DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_" + FIREBASE_CREDENTIALS_FILE_NAME
     )
 
 

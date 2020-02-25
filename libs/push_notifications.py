@@ -1,19 +1,20 @@
+from config.load_django import django_loaded; assert django_loaded
+
 from datetime import datetime
 from os.path import exists
-
-from config.load_django import django_loaded; assert django_loaded
 
 import pytz
 from django.utils.timezone import make_aware
 from firebase_admin import credentials, initialize_app as initialize_firebase_app
 
+from config.constants import FIREBASE_CREDENTIAL_LOCATION
 from database.schedule_models import AbsoluteSchedule, ScheduledEvent, WeeklySchedule
 from database.study_models import Survey
 from database.user_models import Participant
 
 # setup firebase
-if exists("private/serviceAccountKey.json"):
-    firebase_app = initialize_firebase_app(credentials.Certificate("private/serviceAccountKey.json"))
+if exists(FIREBASE_CREDENTIAL_LOCATION):
+    firebase_app = initialize_firebase_app(credentials.Certificate(FIREBASE_CREDENTIAL_LOCATION))
 else:
     firebase_app = None
 

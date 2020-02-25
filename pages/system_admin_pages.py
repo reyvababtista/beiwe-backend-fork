@@ -375,6 +375,30 @@ def delete_field(study_id=None):
     return redirect('/study_fields/{:d}'.format(study.id))
 
 
+@system_admin_pages.route('/edit_custom_field/<string:study_id>', methods=['POST'])
+@authenticate_researcher_study_access
+def edit_custom_field(study_id=None):
+    study = Study.objects.get(pk=study_id)
+    researcher = get_session_researcher()
+    readonly = True if not researcher.check_study_admin(
+        study_id) and not researcher.site_admin else False
+    if readonly:
+        abort(403)
+
+    field_id = request.values.get("field_id")
+    new_field_name = request.values.get("edit_custom_field")
+    if field_id:
+        try:
+            field = StudyField.objects.get(id=field_id)
+        except StudyField.DoesNotExist:
+            field = None
+        if field and new_field_name:
+            field.field_name = new_field_name
+            field.save()
+
+    return redirect('/study_fields/{:d}'.format(study.id))
+
+
 @system_admin_pages.route('/create_study', methods=['GET', 'POST'])
 @authenticate_admin
 def create_study():

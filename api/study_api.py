@@ -16,9 +16,6 @@ study_api = Blueprint('study_api', __name__)
 @study_api.route('/view_study/<string:study_id>/edit_participant/<string:participant_id>', methods=['GET', 'POST'])
 # @authenticate_researcher_study_access
 def edit_participant(study_id, participant_id):
-    print("Study id: ", study_id)
-    print("Participant id: ", participant_id)
-    print("in function")
     try:
         participant = Participant.objects.get(pk=participant_id)
     except Participant.DoesNotExist:
@@ -48,7 +45,6 @@ def edit_participant(study_id, participant_id):
         field_value.save()
 
     flash('Successfully editted participant {}.'.format(participant.patient_id), 'success')
-    print("about to return")
     return redirect('/view_study/{:d}/edit_participant/{:d}'.format(study.id, participant.id))
 
 
@@ -60,7 +56,6 @@ def interventions(study_id=None):
     readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
 
     if request.method == 'GET':
-        print('interventions: ', study.interventions.all())
         return render_template(
             'study_interventions.html',
             study=study,

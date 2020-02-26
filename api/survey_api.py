@@ -97,13 +97,11 @@ def create_weekly_schedules(survey: Survey):
     new_schedules = []
     for day in range(7):
         for time in timings_list[day]:
-            print("Survey on day: ", day, "at time: ", time)
             hour = time // 3600
             minute = time % 3600 // 60
             WeeklySchedule(survey=survey, day_of_week=day, hour=hour, minute=minute)
 
     WeeklySchedule.objects.bulk_create(new_schedules)
-    print("New Schedules: ", WeeklySchedule.objects.filter(survey=survey))
 
 
 def recursive_survey_content_json_decode(json_entity):

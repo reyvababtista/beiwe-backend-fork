@@ -6,7 +6,17 @@
     <h1> {{ participant }}</h1>
   </div>
 
-  Participant{{ participant.patient_id }}
+  <button class="btn btn-info" onclick="window.location.href='/dashboard/{{ study.id }}/patient/{{ participant.patient_id }}'">Go to Participant Dashboard</button>
+  <div class="participant_button">
+    <form action="/reset_participant_password" method="post">
+      <div class="form-inline">
+        <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
+        <input type="hidden" name="study_id" value="{{ study.id }}">
+        <button type="submit" class="btn btn-warning reset_password_button">Reset password</button>
+      </div>
+    </form>
+  </div>
+
 
   <div class="form-group">
     {% if participant.device_id %}
@@ -30,40 +40,46 @@
     {% endif %}
   </div>
 
-  <div class="form-group">
-    <form action="/reset_participant_password" method="post">
-      <div class="form-inline">
-        <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
-        <input type="hidden" name="study_id" value="{{ study.id }}">
-        <button type="submit" class="btn btn-warning btn-sm reset_password_button">Reset password</button>
-      </div>
-    </form>
-  </div>
+  <form action="/view_study/{{ study.id }}/edit_participant/{{ participant.id }}" method="POST">
 
-  {% for intervention in study.interventions.all() %}
-    <div class="form-group">
-      <label class="col-xs-8 control-label">
-        {{ intervention.name }}
-        {% if participant.intervention_dates.filter(intervention=intervention).first().date %}
-          <input name="intervention{{ intervention.id }}" class="form-control" type="date" value="{{ participant.intervention_dates.get(intervention=intervention).date.strftime(date_format) }}">
-        {% else %}
-          <input name="intervention{{ intervention.id }}" class="form-control" type="date">
-        {% endif %}
-      </label>
-    </div>
-  {%  endfor %}
-
-  {% for field in study.fields.all() %}
-    <div class="form-group">
-      <label class="col-xs-8 control-label">
-        {{ field.field_name }}
-        <input name="field{{ field.id }}" class="form-control" type="text" value="{{ participant.field_values.get(field=field).value }}"
-      </label>
-    </div>
-  {% endfor %}
-
-  {% if not readonly %}
-        <button class="btn btn-primary btn-block" type="submit">Submit</button>
+    <h3>Interventions</h3>
+    {% if study.interventions.count() > 0 %}
+      {% for intervention in study.interventions.all() %}
+        <div class="form-group">
+          <label class="col-xs-12 control-label">
+            {{ intervention.name }}
+            {% if participant.intervention_dates.filter(intervention=intervention).first().date %}
+              <input name="intervention{{ intervention.id }}" class="form-control" type="date" value="{{ participant.intervention_dates.get(intervention=intervention).date.strftime(date_format) }}">
+            {% else %}
+              <input name="intervention{{ intervention.id }}" class="form-control" type="date">
+            {% endif %}
+          </label>
+        </div>
+      {%  endfor %}
+    {% else %}
+      <p><b>This study does not have any Interventions.</b></p>
     {% endif %}
+
+
+    <h3>Custom Fields</h3>
+    {% if study.fields.count() > 0 %}
+      {% for field in study.fields.all() %}
+        <div class="form-group">
+          <label class="col-xs-12 control-label">
+            {{ field.field_name }}
+            <input name="field{{ field.id }}" class="form-control" type="text" value="{{ participant.field_values.get(field=field).value }}">
+          </label>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p><b>This study does not have any Custom Fields.</b></p>
+    {% endif %}
+
+
+
+    {% if not readonly %}
+      <button class="btn btn-primary btn-block" type="submit">Submit</button>
+    {% endif %}
+  </form>
 {%  endblock %}
 

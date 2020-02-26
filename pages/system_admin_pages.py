@@ -262,6 +262,7 @@ def interventions(study_id=None):
             study=study,
             interventions=study.interventions.all(),
             readonly=readonly,
+            allowed_studies=get_researcher_allowed_studies(),
         )
 
     if readonly:

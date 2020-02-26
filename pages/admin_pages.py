@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import abort, Blueprint, flash, Markup, redirect, render_template, request, session
 
 from config import constants
@@ -106,9 +108,12 @@ def patient_fields(study_id, patient_id=None):
     return redirect('/view_study/{:d}'.format(study.id))
 
 
-@admin_pages.route('/view_study/<string:study_id>/edit_participant/<string:participant_id>', methods=['GET'])
-@authenticate_researcher_study_access
+@admin_pages.route('/view_study/<string:study_id>/edit_participant/<string:participant_id>', methods=['GET', 'POST'])
+# @authenticate_researcher_study_access
 def edit_participant(study_id, participant_id):
+    print("Study id: ", study_id)
+    print("Participant id: ", participant_id)
+    print("in function")
     try:
         participant = Participant.objects.get(pk=participant_id)
     except Participant.DoesNotExist:
@@ -116,12 +121,31 @@ def edit_participant(study_id, participant_id):
 
     study = participant.study
 
-    return render_template(
-        'edit_participant.html',
-        participant=participant,
-        study=study,
-        date_format=constants.REDUCED_API_TIME_FORMAT,
-    )
+    if request.method == 'GET':
+        return render_template(
+            'edit_participant.html',
+            participant=participant,
+            study=study,
+            date_format=constants.REDUCED_API_TIME_FORMAT,
+            allowed_studies=get_researcher_allowed_studies(),
+        )
+
+    for intervention in study.interventions.all():
+        input_id = f"intervention{intervention.id}"
+        intervention_date = participant.intervention_dates.get(intervention=intervention)
+        intervention_date.date = datetime.strptime(request.values.get(input_id, None), constants.REDUCED_API_TIME_FORMAT).date()
+        intervention_date.save()
+
+    for field in study.fields.all():
+        input_id = f"field{field.id}"
+        field_value = participant.field_values.get(field=field)
+        field_value.value = request.values.get(input_id, None)
+        field_value.save()
+
+    flash('Successfully editted participant {}.'.format(participant.patient_id), 'success')
+    print("about to return")
+    return redirect('/view_study/{:d}/edit_participant/{:d}'.format(study.id, participant.id))
+
 
 """########################## Login/Logoff ##################################"""
 

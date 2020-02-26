@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+from os import environ
 from os.path import join as path_join, relpath
 from time import sleep
 
@@ -22,7 +23,8 @@ from fabric.api import env as fabric_env, put, run, sudo
 from deployment_helpers.aws.elastic_beanstalk import (check_if_eb_environment_exists,
     create_eb_environment, fix_deploy)
 from deployment_helpers.aws.elastic_compute_cloud import (create_processing_control_server,
-    create_processing_server, get_manager_instance_by_eb_environment_name, get_manager_private_ip)
+    create_processing_server, get_manager_instance_by_eb_environment_name, get_manager_private_ip,
+    get_manager_public_ip, terminate_all_processing_servers)
 from deployment_helpers.aws.iam import iam_purge_instance_profiles
 from deployment_helpers.aws.rds import create_new_rds_instance
 from deployment_helpers.configuration_utils import (are_aws_credentials_present,
@@ -31,20 +33,22 @@ from deployment_helpers.configuration_utils import (are_aws_credentials_present,
     is_global_configuration_valid, reference_data_processing_server_configuration,
     reference_environment_configuration_file, validate_beiwe_environment_config)
 from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS,
-    APT_WORKER_INSTALLS, DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH,
-    DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN,
-    ENVIRONMENT_NAME_RESTRICTIONS, EXTANT_ENVIRONMENT_PROMPT, FILES_TO_PUSH,
+    APT_WORKER_INSTALLS, CREATE_ENVIRONMENT_HELP, CREATE_MANAGER_HELP, CREATE_WORKER_HELP,
+    DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH, DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, DEV_HELP,
+    DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN, ENVIRONMENT_NAME_RESTRICTIONS,
+    EXTANT_ENVIRONMENT_PROMPT, FILES_TO_PUSH, FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP,
     get_beiwe_python_environment_variables_file_path, get_finalized_environment_variables,
-    get_global_config, get_pushed_full_processing_server_env_file_path,
+    get_global_config, GET_MANAGER_IP_ADDRESS_HELP, get_pushed_full_processing_server_env_file_path,
     get_server_configuration_file, get_server_configuration_file_path, HELP_SETUP_NEW_ENVIRONMENT,
-    LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
-    LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH,
-    LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, LOG_FILE,
-    MANAGER_SERVER_INSTANCE_TYPE, PURGE_COMMAND_BLURB, PUSHED_FILES_FOLDER, RABBIT_MQ_PORT,
+    HELP_SETUP_NEW_ENVIRONMENT_HELP, LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH,
+    LOCAL_CRONJOB_MANAGER_FILE_PATH, LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH,
+    LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH,
+    LOG_FILE, MANAGER_SERVER_INSTANCE_TYPE, PROD_HELP, PURGE_COMMAND_BLURB,
+    PURGE_INSTANCE_PROFILES_HELP, PUSHED_FILES_FOLDER, RABBIT_MQ_PORT,
     REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH,
     REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
     REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH, REMOTE_USERNAME,
-    STAGED_FILES, WORKER_SERVER_INSTANCE_TYPE)
+    STAGED_FILES, TERMINATE_PROCESSING_SERVERS_HELP, WORKER_SERVER_INSTANCE_TYPE)
 from deployment_helpers.general_utils import current_time_string, do_zip_reduction, EXIT, log, retry
 
 
@@ -102,20 +106,17 @@ def push_home_directory_files():
 def load_git_repo():
     """ Get a local copy of the git repository """
     # Git clone the repository into the remote beiwe-backend folder
-    # Note that here stderr is redirected to the log file, because git clone prints
-    # to stderr rather than stdout.
-    run('cd {home}; git clone https://github.com/onnela-lab/beiwe-backend.git 2>> {log}'
-        .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
-    
-    # Make sure the code is on the right branch
-    # git checkout prints to both stderr *and* stdout, so redirect them both to the log file
+    # git operations print to both stderr *and* stdout, so redirect them both to the log file
+    run(f'cd {REMOTE_HOME_DIR}; git clone https://github.com/onnela-lab/beiwe-backend.git 2>> {LOG_FILE}')
 
     if DEV_MODE:
-        run('cd {home}/beiwe-backend; git checkout development 1>> {log} 2>> {log}'
-            .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
+        branch = environ.get("DEV_BRANCH", "development")
+    elif PROD_MODE:
+        branch = "production"
     else:
-        run('cd {home}/beiwe-backend; git checkout master 1>> {log} 2>> {log}'
-            .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
+        branch = "master"
+
+    run(f'cd {REMOTE_HOME_DIR}/beiwe-backend; git checkout {branch} 1>> {LOG_FILE} 2>> {LOG_FILE}')
 
 
 def setup_python():
@@ -154,8 +155,8 @@ def setup_rabbitmq(eb_environment_name):
     # setup a new password
     sudo(f"rabbitmqctl add_user beiwe {get_rabbit_mq_password(eb_environment_name)}")
     sudo('rabbitmqctl set_permissions -p / beiwe ".*" ".*" ".*"')
-    log.warning("This next command can take quite a while to run.")
     # I tried backgrounding it, doing so breaks celery.  o_O
+    log.warning("This next command can take quite a while to run. (We tried backgrounding this. It just breaks.)")
     sudo("service rabbitmq-server restart")
 
 
@@ -397,7 +398,7 @@ def do_create_manager():
     setup_python()
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
-    push_firebase_credentials()
+    push_firebase_credentials(name)
     setup_celery_worker()
     setup_manager_cron()
     create_swap()
@@ -437,7 +438,7 @@ def do_create_worker():
     setup_python()
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
-    push_firebase_credentials()
+    push_firebase_credentials(name)
     setup_celery_worker()
     setup_worker_cron()
     create_swap()
@@ -475,6 +476,18 @@ def do_fix_health_checks():
     print("Success.")
     
 
+def do_terminate_all_processing_servers():
+    name = prompt_for_extant_eb_environment_name()
+    do_fail_if_environment_does_not_exist(name)
+    terminate_all_processing_servers(name)
+
+
+def do_get_manager_ip_address():
+    name = prompt_for_extant_eb_environment_name()
+    do_fail_if_environment_does_not_exist(name)
+    log.info(f"The IP address of the manager server for {name} is {get_manager_public_ip(name)}")
+
+
 ####################################################################################################
 ####################################### Validation #################################################
 ####################################################################################################
@@ -482,46 +495,16 @@ def do_fix_health_checks():
 
 def cli_args_validation():
     # Use '"count"' as the type, don't try and be fancy, argparse is a pain.
-    parser.add_argument(
-        '-create-environment',
-        action="count",
-        help="creates new environment with the provided environment name",
-    )
-    parser.add_argument(
-        '-create-manager',
-        action="count",
-        help="creates a data processing manager for the provided environment",
-    )
-    parser.add_argument(
-        '-create-worker',
-        action="count",
-        help="creates a data processing worker for the provided environment",
-    )
-    parser.add_argument(
-        "-help-setup-new-environment",
-        action="count",
-        help="assists in creation of configuration files for a beiwe environment deployment",
-    )
-    parser.add_argument(
-        "-fix-health-checks-blocking-deployment",
-        action="count",
-        help="sometimes deployment operations fail stating that health checks do not have sufficient permissions, run this command to fix that.",
-    )
-    parser.add_argument(
-        "-dev",
-        action="count",
-        help="Worker and Manager deploy operations will swap the server over to the development branch instead of master.",
-    )
-    parser.add_argument(
-        "-prod",
-        action="count",
-        help="Worker and Manager deploy operations will swap the server over to the production branch instead of master.",
-    )
-    parser.add_argument(
-        "-purge-instance-profiles",
-        action="count",
-        help=PURGE_COMMAND_BLURB,
-    )
+    parser.add_argument('-create-environment', action="count", help=CREATE_ENVIRONMENT_HELP)
+    parser.add_argument('-create-manager', action="count", help=CREATE_MANAGER_HELP)
+    parser.add_argument('-create-worker', action="count", help=CREATE_WORKER_HELP)
+    parser.add_argument("-help-setup-new-environment", action="count", help=HELP_SETUP_NEW_ENVIRONMENT_HELP)
+    parser.add_argument("-fix-health-checks-blocking-deployment", action="count", help=FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP)
+    parser.add_argument("-dev", action="count", help=DEV_HELP)
+    parser.add_argument("-prod", action="count", help=PROD_HELP)
+    parser.add_argument("-purge-instance-profiles", action="count", help=PURGE_INSTANCE_PROFILES_HELP)
+    parser.add_argument("-terminate-processing-servers", action="count", help=TERMINATE_PROCESSING_SERVERS_HELP)
+    parser.add_argument('-get-manager-ip', action="count", help=GET_MANAGER_IP_ADDRESS_HELP)
 
     # Note: this arguments variable is not iterable.
     # access entities as arguments.long_name_of_argument, like arguments.update_manager
@@ -543,7 +526,7 @@ if __name__ == "__main__":
     # validate the global configuration file
     if not all((are_aws_credentials_present(), is_global_configuration_valid())):
         EXIT(1)
-    
+
     # get CLI arguments, see function for details
     arguments = cli_args_validation()
 
@@ -582,6 +565,15 @@ if __name__ == "__main__":
         print(PURGE_COMMAND_BLURB, "\n\n\n")
         iam_purge_instance_profiles()
         EXIT(0)
+
+    if arguments.terminate_processing_servers:
+        do_terminate_all_processing_servers()
+        EXIT(0)
+
+    if arguments.get_manager_ip:
+        do_get_manager_ip_address()
+        EXIT(0)
+
 
     # print help if nothing else did (make just supplying -dev print the help screen)
     parser.print_help()

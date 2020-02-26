@@ -1,24 +1,23 @@
+from config.load_django import django_loaded; assert django_loaded
+
 from datetime import datetime, timedelta
 from os.path import abspath
 from sys import path
 
-import pytz
-
-from database.study_models import Survey
-from database.user_models import Participant
-from libs.push_notifications import firebase_app, FirebaseNotCredentialed, set_next_weekly
-
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
-from config.constants import API_TIME_FORMAT, ScheduleTypes
-from config.load_django import django_loaded; assert django_loaded
+import pytz
 
 from django.utils.timezone import make_aware
 from firebase_admin.messaging import Message, send
 from kombu.exceptions import OperationalError
 
+from config.constants import API_TIME_FORMAT, ScheduleTypes
 from database.schedule_models import ScheduledEvent
+from database.study_models import Survey
+from database.user_models import Participant
 from libs.celery import push_send_celery_app
+from libs.push_notifications import firebase_app, FirebaseNotCredentialed, set_next_weekly
 from libs.sentry import make_error_sentry
 
 

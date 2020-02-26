@@ -25,13 +25,7 @@ def _get_resource(client_type):
     )
 
 def create_s3_resource():
-    return boto3.resource(
-            "s3",
-            aws_access_key_id=AWS_CREDENTIALS["AWS_ACCESS_KEY_ID"],
-            aws_secret_access_key=AWS_CREDENTIALS["AWS_SECRET_ACCESS_KEY"],
-            region_name=GLOBAL_CONFIGURATION["AWS_REGION"],
-    )
-
+    return _get_resource("s3")
 
 
 def create_ec2_client():

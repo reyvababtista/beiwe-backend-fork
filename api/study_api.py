@@ -14,7 +14,7 @@ study_api = Blueprint('study_api', __name__)
 
 
 @study_api.route('/view_study/<string:study_id>/edit_participant/<string:participant_id>', methods=['GET', 'POST'])
-# @authenticate_researcher_study_access
+@authenticate_researcher_study_access
 def edit_participant(study_id, participant_id):
     try:
         participant = Participant.objects.get(pk=participant_id)

@@ -14,7 +14,7 @@ from libs.file_processing import do_process_user_file_chunks
 from libs.sentry import make_error_sentry
 
 from kombu.exceptions import OperationalError
-from libs.celery import processing_celery_app, get_processing_active_job_ids
+from libs.celery_control import processing_celery_app, get_processing_active_job_ids
 
 ################################################################################
 ############################## Task Endpoints ##################################

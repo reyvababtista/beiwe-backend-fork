@@ -9,6 +9,9 @@
 # This looks like overkill, but resetting logs and permissions is super helpful
 sudo mkdir -p /etc/supervisor/conf.d/
 
+# Files need to have permissions 777 in order for the supervisor and celery
+# processes to have full permissions to write regardless of the runtime user
+# they occur under (supervisord may run as a root service, causing problems).
 sudo mkdir -p /var/log/supervisor/
 sudo chmod 777 /var/log/supervisor/
 sudo chgrp adm /var/log/supervisor/
@@ -77,7 +80,7 @@ autostart = true
 EOL
 
 # start data processing
-supervisord
+# supervisord
 
 #echo "Use 'supervisord' or 'processing-start' to start the celery data processing service,"
 #echo "use 'killall supervisord' or 'processing-stop' to stop it."

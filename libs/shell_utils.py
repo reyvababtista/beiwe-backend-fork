@@ -11,7 +11,7 @@ from database.user_models import Participant
 
 def watch_processing():
     # cannot be imported on EB servers
-    from libs.celery import (CeleryNotRunningException, get_processing_active_job_ids,
+    from libs.celery_control import (CeleryNotRunningException, get_processing_active_job_ids,
         get_processing_reserved_job_ids, get_processing_scheduled_job_ids)
 
     periodicity = 5

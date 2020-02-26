@@ -2,13 +2,11 @@ import json
 from collections import defaultdict
 
 from django.core.exceptions import ValidationError
-from django.db.models.deletion import ProtectedError
 from flask import (abort, Blueprint, flash, redirect, render_template, request)
 
 from config.constants import CHECKBOX_TOGGLES, ResearcherRole, TIMER_VALUES
-from database.schedule_models import Intervention, InterventionDate
-from database.study_models import Study, StudyField
-from database.user_models import Researcher, StudyRelation, ParticipantFieldValue
+from database.study_models import Study
+from database.user_models import Researcher, StudyRelation
 from libs.admin_authentication import (assert_admin, assert_researcher_under_admin,
     authenticate_admin, authenticate_researcher_study_access, get_researcher_allowed_studies,
     get_session_researcher, researcher_is_an_admin)
@@ -246,160 +244,6 @@ def edit_study(study_id=None):
         redirect_url='/edit_study/{:s}'.format(study_id),
         session_researcher=get_session_researcher(),
     )
-
-
-@system_admin_pages.route('/interventions/<string:study_id>', methods=['GET', 'POST'])
-@authenticate_researcher_study_access
-def interventions(study_id=None):
-    study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
-
-    if request.method == 'GET':
-        print('interventions: ', study.interventions.all())
-        return render_template(
-            'study_interventions.html',
-            study=study,
-            interventions=study.interventions.all(),
-            readonly=readonly,
-            allowed_studies=get_researcher_allowed_studies(),
-        )
-
-    if readonly:
-        abort(403)
-
-    new_intervention = request.values.get('new_intervention', None)
-    if new_intervention:
-        intervention, _ = Intervention.objects.get_or_create(study=study, name=new_intervention)
-        for participant in study.participants.all():
-            InterventionDate.objects.get_or_create(participant=participant, intervention=intervention)
-
-    return redirect('/interventions/{:d}'.format(study.id))
-
-
-@system_admin_pages.route('/delete_intervention/<string:study_id>', methods=['POST'])
-@authenticate_researcher_study_access
-def delete_intervention(study_id=None):
-    study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
-    if readonly:
-        abort(403)
-
-    intervention_id = request.values.get('intervention')
-    if intervention_id:
-        try:
-            intervention = Intervention.objects.get(id=intervention_id)
-        except Intervention.DoesNotExist:
-            intervention = None
-        try:
-            if intervention:
-                intervention.delete()
-        except ProtectedError:
-            flash("This Intervention can not be removed because it is already in use", 'danger')
-
-    return redirect('/interventions/{:d}'.format(study.id))
-
-
-@system_admin_pages.route('/edit_intervention/<string:study_id>', methods=['POST'])
-@authenticate_researcher_study_access
-def edit_intervention(study_id=None):
-    study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
-    if readonly:
-        abort(403)
-
-    intervention_id = request.values.get('intervention_id', None)
-    new_name = request.values.get('edit_intervention', None)
-    if intervention_id:
-        try:
-            intervention = Intervention.objects.get(id=intervention_id)
-        except Intervention.DoesNotExist:
-            intervention = None
-        if intervention and new_name:
-            intervention.name = new_name
-            intervention.save()
-
-    return redirect('/interventions/{:d}'.format(study.id))
-
-
-@system_admin_pages.route('/study_fields/<string:study_id>', methods=['GET', 'POST'])
-@authenticate_researcher_study_access
-def study_fields(study_id=None):
-    study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
-
-    if request.method == 'GET':
-        return render_template(
-            'study_custom_fields.html',
-            study=study,
-            fields=study.fields.all(),
-            readonly=readonly,
-            allowed_studies=get_researcher_allowed_studies(),
-            is_admin=researcher_is_an_admin(),
-        )
-
-    if readonly:
-        abort(403)
-
-    new_field = request.values.get('new_field', None)
-    if new_field:
-        study_field, _ = StudyField.objects.get_or_create(study=study, field_name=new_field)
-        for participant in study.participants.all():
-            ParticipantFieldValue.objects.create(participant=participant, field=study_field)
-
-    return redirect('/study_fields/{:d}'.format(study.id))
-
-
-@system_admin_pages.route('/delete_field/<string:study_id>', methods=['POST'])
-@authenticate_researcher_study_access
-def delete_field(study_id=None):
-    study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
-    if readonly:
-        abort(403)
-
-    field = request.values.get('field', None)
-    if field:
-        try:
-            study_field = StudyField.objects.get(study=study, id=field)
-        except StudyField.DoesNotExist:
-            study_field = None
-
-        try:
-            if study_field:
-                study_field.delete()
-        except ProtectedError:
-            flash("This field can not be removed because it is already in use", 'danger')
-
-    return redirect('/study_fields/{:d}'.format(study.id))
-
-
-@system_admin_pages.route('/edit_custom_field/<string:study_id>', methods=['POST'])
-@authenticate_researcher_study_access
-def edit_custom_field(study_id=None):
-    study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(
-        study_id) and not researcher.site_admin else False
-    if readonly:
-        abort(403)
-
-    field_id = request.values.get("field_id")
-    new_field_name = request.values.get("edit_custom_field")
-    if field_id:
-        try:
-            field = StudyField.objects.get(id=field_id)
-        except StudyField.DoesNotExist:
-            field = None
-        if field and new_field_name:
-            field.field_name = new_field_name
-            field.save()
-
-    return redirect('/study_fields/{:d}'.format(study.id))
 
 
 @system_admin_pages.route('/create_study', methods=['GET', 'POST'])

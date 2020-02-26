@@ -148,7 +148,7 @@ class ParticipantFieldValue(models.Model):
     """
     participant = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='field_values')
     field = models.ForeignKey('StudyField', on_delete=models.CASCADE, related_name='field_values')
-    value = models.TextField(null=True)
+    value = models.TextField(null=False, blank=True, default="")
 
     class Meta:
         unique_together = (("participant", "field"),)

@@ -342,6 +342,7 @@ PURGE_INSTANCE_PROFILES_HELP = PURGE_COMMAND_BLURB
 TERMINATE_PROCESSING_SERVERS_HELP = "Terminates all manager and data processing servers (does not touch frontend servers).  You will need to do this from time to time as architectural details change."
 
 GET_MANAGER_IP_ADDRESS_HELP = "Prints the public IP address of the manager server for the cluster."
+GET_WORKER_IP_ADDRESS_HELP = "Prints the public IP addresses of the worker servers for the cluster."
 
 ####################################################################################################
 ########################################## Other ###################################################

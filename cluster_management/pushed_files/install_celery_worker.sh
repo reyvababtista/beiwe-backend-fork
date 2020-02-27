@@ -70,6 +70,9 @@ command = python3 -m celery -A services.celery_data_processing worker --loglevel
 stdout_logfile = /var/log/celery/celeryd_processing.log
 stderr_logfile = /var/log/celery/celeryd_processing.err
 autostart = true
+#stopwaitsecs = 30
+stopasgroup = true
+startsecs = 5
 
 [program:celery_push_send]
 directory = /home/ubuntu/beiwe-backend/
@@ -77,6 +80,9 @@ command = python3 -m celery -A services.celery_push_notifications worker --logle
 stdout_logfile = /var/log/celery/celeryd_push_send.log
 stderr_logfile = /var/log/celery/celeryd_push_send.err
 autostart = true
+#stopwaitsecs = 30
+stopasgroup = true
+startsecs = 5
 EOL
 
 # start data processing

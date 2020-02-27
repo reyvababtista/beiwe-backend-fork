@@ -24,7 +24,7 @@ from deployment_helpers.aws.elastic_beanstalk import (check_if_eb_environment_ex
     create_eb_environment, fix_deploy)
 from deployment_helpers.aws.elastic_compute_cloud import (create_processing_control_server,
     create_processing_server, get_manager_instance_by_eb_environment_name, get_manager_private_ip,
-    get_manager_public_ip, terminate_all_processing_servers)
+    get_manager_public_ip, get_worker_public_ips, terminate_all_processing_servers)
 from deployment_helpers.aws.iam import iam_purge_instance_profiles
 from deployment_helpers.aws.rds import create_new_rds_instance
 from deployment_helpers.configuration_utils import (are_aws_credentials_present,
@@ -48,7 +48,8 @@ from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVE
     REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH,
     REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
     REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH, REMOTE_USERNAME,
-    STAGED_FILES, TERMINATE_PROCESSING_SERVERS_HELP, WORKER_SERVER_INSTANCE_TYPE)
+    STAGED_FILES, TERMINATE_PROCESSING_SERVERS_HELP, WORKER_SERVER_INSTANCE_TYPE,
+    GET_WORKER_IP_ADDRESS_HELP)
 from deployment_helpers.general_utils import current_time_string, do_zip_reduction, EXIT, log, retry
 
 
@@ -77,6 +78,24 @@ def configure_fabric(eb_environment_name, ip_address, key_filename=None):
     retry(run, "# waiting for ssh to be connectable...")
     run("echo >> {log}".format(log=LOG_FILE))
     sudo("chmod 666 {log}".format(log=LOG_FILE))
+
+
+def try_run(*args, **kwargs):
+    try:
+        run(*args, *kwargs)
+    except FabricExecutionError:
+        pass
+
+def try_sudo(*args, **kwargs):
+    try:
+        sudo(*args, *kwargs)
+    except FabricExecutionError:
+        pass
+
+
+####################################################################################################
+##################################### Server Config ################################################
+####################################################################################################
 
 
 def remove_unneeded_ssh_keys():
@@ -121,7 +140,10 @@ def load_git_repo():
 
 def setup_python():
     """ Installs requirements. """
+    # sudo required because we are using the
     sudo('pip3 install -r {home}/beiwe-backend/requirements.txt >> {log}'.
+         format(home=REMOTE_HOME_DIR, log=LOG_FILE))
+    sudo('pip3 install -r {home}/beiwe-backend/requirements_data_processing.txt >> {log}'.
          format(home=REMOTE_HOME_DIR, log=LOG_FILE))
 
 
@@ -131,6 +153,19 @@ def setup_celery_worker():
     put(LOCAL_INSTALL_CELERY_WORKER, REMOTE_INSTALL_CELERY_WORKER)
     run('chmod +x {file}'.format(file=REMOTE_INSTALL_CELERY_WORKER))
     run('{file} >> {log}'.format(file=REMOTE_INSTALL_CELERY_WORKER, log=LOG_FILE))
+
+def manager_fix():
+    # at this point we need to reboot the server, otherwise we get zombie notification
+    # celery tasks.
+    try_sudo("shutdown -r now")
+    log.warning("rebooting server...")
+    sleep(5)
+    retry(run, "# waiting server to reboot, this will take a while (blame rabbitmq).")
+
+    # we need to reenable the swap after the reboot, then we can finally start supervisor without
+    # creating zombie celery threads.
+    sudo("swapon /swapfile")
+    sudo("swapon -s")
 
 
 def setup_worker_cron():
@@ -155,9 +190,6 @@ def setup_rabbitmq(eb_environment_name):
     # setup a new password
     sudo(f"rabbitmqctl add_user beiwe {get_rabbit_mq_password(eb_environment_name)}")
     sudo('rabbitmqctl set_permissions -p / beiwe ".*" ".*" ".*"')
-    # I tried backgrounding it, doing so breaks celery.  o_O
-    log.warning("This next command can take quite a while to run. (We tried backgrounding this. It just breaks.)")
-    sudo("service rabbitmq-server restart")
 
 
 def push_firebase_credentials(eb_environment_name):
@@ -193,6 +225,8 @@ def apt_installs(manager=False, single_server_ami=False):
             )
             sleep(5)
 
+    # we run supervisor manually at the end
+    sudo("service supervisor stop")
     if installs_failed:
         raise Exception("Could not install software on remote machine.")
 
@@ -391,6 +425,7 @@ def do_create_manager():
     public_ip = instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
     
     configure_fabric(name, public_ip)
+    create_swap()
     push_home_directory_files()
     apt_installs(manager=True)
     setup_rabbitmq(name)
@@ -399,9 +434,10 @@ def do_create_manager():
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
     push_firebase_credentials(name)
-    setup_celery_worker()
     setup_manager_cron()
-    create_swap()
+    setup_celery_worker()  # run setup worker last, it will reboot the server at the end.
+    manager_fix()
+    run("supervisord")
 
 
 def do_create_worker():
@@ -429,9 +465,9 @@ def do_create_worker():
         instance = None  # ide warnings...
         EXIT(1)
     instance_ip = instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
-    # TODO: fabric up the worker with the celery/supervisord and ensure it can connect to manager.
     
     configure_fabric(name, instance_ip)
+    create_swap()
     push_home_directory_files()
     apt_installs()
     load_git_repo()
@@ -439,9 +475,12 @@ def do_create_worker():
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
     push_firebase_credentials(name)
-    setup_celery_worker()
     setup_worker_cron()
-    create_swap()
+    setup_celery_worker()  # run setup worker last, it will reboot the server at the end.
+
+    log.warning("Server is almost up.  Waiting 20 seconds to avoid a race condition...")
+    sleep(20)
+    run("supervisord")
 
 
 def do_create_single_server_ami(ip_address, key_filename):
@@ -488,6 +527,14 @@ def do_get_manager_ip_address():
     log.info(f"The IP address of the manager server for {name} is {get_manager_public_ip(name)}")
 
 
+def do_get_worker_ip_addresses():
+    name = prompt_for_extant_eb_environment_name()
+    do_fail_if_environment_does_not_exist(name)
+    ips = ', '.join(get_worker_public_ips(name))
+    if ips:
+        log.info(f"The IP address of the worker servers for {name} are {ips}")
+
+
 ####################################################################################################
 ####################################### Validation #################################################
 ####################################################################################################
@@ -505,6 +552,7 @@ def cli_args_validation():
     parser.add_argument("-purge-instance-profiles", action="count", help=PURGE_INSTANCE_PROFILES_HELP)
     parser.add_argument("-terminate-processing-servers", action="count", help=TERMINATE_PROCESSING_SERVERS_HELP)
     parser.add_argument('-get-manager-ip', action="count", help=GET_MANAGER_IP_ADDRESS_HELP)
+    parser.add_argument('-get-worker-ips', action="count", help=GET_WORKER_IP_ADDRESS_HELP)
 
     # Note: this arguments variable is not iterable.
     # access entities as arguments.long_name_of_argument, like arguments.update_manager
@@ -574,6 +622,9 @@ if __name__ == "__main__":
         do_get_manager_ip_address()
         EXIT(0)
 
+    if arguments.get_worker_ips:
+        do_get_worker_ip_addresses()
+        EXIT(0)
 
     # print help if nothing else did (make just supplying -dev print the help screen)
     parser.print_help()

@@ -41,6 +41,14 @@ def get_manager_public_ip(eb_environment_name):
     return instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
 
 
+def get_worker_public_ips(eb_environment_name):
+    """ Returns a list of ip addresses, one for every worker. """
+    return [
+        instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
+        for instance in get_worker_instances(eb_environment_name)
+    ]
+
+
 def get_manager_instance_by_eb_environment_name(eb_environment_name):
     """ Get a manager dictionary of the currently running manager server. """
     managers = get_instances_by_name(PROCESSING_MANAGER_NAME % eb_environment_name)

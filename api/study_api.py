@@ -44,7 +44,7 @@ def edit_participant(study_id, participant_id):
         field_value.value = request.values.get(input_id, None)
         field_value.save()
 
-    flash('Successfully editted participant {}.'.format(participant.patient_id), 'success')
+    flash('Successfully edited participant {}.'.format(participant.patient_id), 'success')
     return redirect('/view_study/{:d}/edit_participant/{:d}'.format(study.id, participant.id))
 
 

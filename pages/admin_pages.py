@@ -5,8 +5,10 @@ from database.study_models import Study, StudyField
 from database.user_models import Participant, ParticipantFieldValue, Researcher
 from libs import admin_authentication
 from libs.admin_authentication import (authenticate_researcher_login,
-    authenticate_researcher_study_access, get_researcher_allowed_studies,
-    get_researcher_allowed_studies_as_query_set, researcher_is_an_admin, SESSION_NAME)
+                                       authenticate_researcher_study_access,
+                                       get_researcher_allowed_studies,
+                                       get_researcher_allowed_studies_as_query_set,
+                                       researcher_is_an_admin, SESSION_NAME, get_session_researcher)
 from libs.security import check_password_requirements
 
 admin_pages = Blueprint('admin_pages', __name__)
@@ -41,10 +43,14 @@ def view_study(study_id=None):
     audio_survey_ids = study.get_survey_ids_and_object_ids_for_study('audio_survey')
     image_survey_ids = study.get_survey_ids_and_object_ids_for_study('image_survey')
     participants = study.participants.all()
+    researcher = get_session_researcher()
+    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
 
     study_fields = list(study.fields.all().values_list('field_name', flat=True))
+    interventions = list(study.interventions.all().values_list("name", flat=True))
     for p in participants:
-        p.values_dict = {tag.field.field_name: tag.value for tag in p.field_values.all()}
+        p.field_dict = {tag.field.field_name: tag.value for tag in p.field_values.all()}
+        p.intervention_dict = {tag.intervention.name: tag.date for tag in p.intervention_dates.all()}
 
     return render_template(
         'view_study.html',
@@ -56,8 +62,10 @@ def view_study(study_id=None):
         allowed_studies=get_researcher_allowed_studies(),
         is_admin=researcher_is_an_admin(),
         study_fields=study_fields,
+        interventions=interventions,
         page_location='study_landing',
         study_id=study_id,
+        readonly=readonly,
     )
 
 

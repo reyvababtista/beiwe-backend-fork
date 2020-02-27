@@ -43,10 +43,10 @@
           </td>
           {% if not readonly %}
             <td>
-              <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#customFieldModal">
+              <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#customFieldModal{{ field.id }}">
                 Edit Intervention
               </button>
-              <div class="modal fade" id="customFieldModal" tabindex="-1" role="dialog">
+              <div class="modal fade" id="customFieldModal{{ field.id }}" tabindex="-1" role="dialog">
                 <div class="modal-dialog" role="document">
                   <div class="modal-content">
                     <div class="modal-header">

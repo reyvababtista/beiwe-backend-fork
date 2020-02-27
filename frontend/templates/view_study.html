@@ -31,8 +31,8 @@
           <th>Patient ID</th>
           <th>Phone registered</th>
           <th>Phone OS</th>
-          {% for intervention in study.interventions.all() | sort(case_sensitive=Flase) %}
-            <th>{{ intervention.name }}</th>
+          {% for intervention in interventions | sort(case_sensitive=Flase) %}
+            <th>{{ intervention }}</th>
           {% endfor %}
           {% for field in study_fields | sort(case_sensitive=False) %}
             <th>{{ field }}</th>
@@ -44,7 +44,11 @@
         {% for patient in patients %}
           <tr>
             <td>
-              <b><a href="/view_study/{{ study.id }}/edit_participant/{{ patient.id }}" class="list-group-item">{{ patient.patient_id }}</a></b>
+              {% if readonly %}
+                {{ patient.patient_id }}
+              {% else %}
+                <b><a href="/view_study/{{ study.id }}/edit_participant/{{ patient.id }}" class="list-group-item">{{ patient.patient_id }}</a></b>
+              {% endif %}
             </td>
             <td>
               {% if patient.device_id %}
@@ -62,11 +66,11 @@
                 <i>unknown</i>
               {% endif %}
             </td>
-            {% for intervention in study.interventions.all() | sort(case_sensitive=Flase) %}
-              <th>{{ patient.intervention_dates.get(intervention=intervention).date }}</th>
+            {% for intervention in interventions | sort(case_sensitive=Flase) %}
+              <th>{{ patient.intervention_dict[intervention] }}</th>
             {% endfor %}
             {% for field in study_fields | sort(case_sensitive=False) %}
-              <td>{{ patient.values_dict[field] }}</td>
+              <td>{{ patient.field_dict[field] }}</td>
             {% endfor %}
           </tr>
         {% endfor %}

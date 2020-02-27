@@ -33,10 +33,11 @@ def edit_participant(study_id, participant_id):
         )
 
     for intervention in study.interventions.all():
-        input_id = f"intervention{intervention.id}"
+        input_date = request.values.get(f"intervention{intervention.id}", None)
         intervention_date = participant.intervention_dates.get(intervention=intervention)
-        intervention_date.date = datetime.strptime(request.values.get(input_id, None), constants.REDUCED_API_TIME_FORMAT).date()
-        intervention_date.save()
+        if input_date:
+            intervention_date.date = datetime.strptime(input_date, constants.REDUCED_API_TIME_FORMAT).date()
+            intervention_date.save()
 
     for field in study.fields.all():
         input_id = f"field{field.id}"

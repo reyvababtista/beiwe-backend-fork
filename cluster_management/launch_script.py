@@ -151,26 +151,27 @@ def setup_celery_worker():
     run('chmod +x {file}'.format(file=REMOTE_INSTALL_CELERY_WORKER))
     run('{file} >> {log}'.format(file=REMOTE_INSTALL_CELERY_WORKER, log=LOG_FILE))
 
+
+def manager_fix():
     # It is unclear what causes this.  The notifications task create zombie processes that on at
     # least one occasion did not respond to kill -9 commands even when run as the superuser. This
     # occurs on both workers and managers, a 20 second sleep operation fixes it, 10 seconds does not.
     # Tested on the slowest server, t3a.nano' with swap that is required to run the celery tasks.)
-    log.warning("Server is almost up.  Waiting 20 seconds to avoid a race condition...")
-    sleep(20)
 
-
-def manager_fix():
-    # at this point we need to reboot the server, otherwise we get zombie notification
-    # celery tasks.
+    # Update: it turns out there is an alternate failure mode if you try to do the 20 second
+    # wait (which works for workers), which is that all calls to the celery Inspect object
+    # block for exceptionally long periods, even when a timeout value is provided. (This behavior
+    # has other triggers too, this is just a reliable way to trigger it.)
     try_sudo("shutdown -r now")
-    log.warning("rebooting server...")
+    log.warning("rebooting server to avoid a race condition...")
     sleep(5)
-    retry(run, "# waiting server to reboot, this will take a while (blame rabbitmq).")
+    retry(run, "# waiting server to reboot, this will take a while.")
 
     # we need to re-enable the swap after the reboot, then we can finally start supervisor without
     # creating zombie celery threads.
     sudo("swapon /swapfile")
     sudo("swapon -s")
+
 
 
 def setup_worker_cron():
@@ -443,6 +444,7 @@ def do_create_manager():
     push_firebase_credentials(name)
     setup_manager_cron()
     setup_celery_worker()  # run setup worker last.
+    manager_fix()
     run("supervisord")
 
 
@@ -483,6 +485,8 @@ def do_create_worker():
     push_firebase_credentials(name)
     setup_worker_cron()
     setup_celery_worker()  # run setup worker last.
+    log.warning("Server is almost up.  Waiting 20 seconds to avoid a race condition...")
+    sleep(20)
     run("supervisord")
 
 

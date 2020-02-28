@@ -49,7 +49,6 @@ def update_survey(survey_id=None):
     # BUG: There is an unknown situation where the frontend sends a string requiring an extra
     # deserialization operation, causing 'content' to be a string containing a json string
     # containing a json list, instead of just a string containing a json list.
-    # print(request.values.get('content', ''))
     json_content = request.values.get('content')
     content = None
 

@@ -571,14 +571,7 @@ def construct_csv_string(header: bytes, rows_list: List[bytes]) -> bytes:
 
     rows = []
     for row_items in rows_list:
-
-        try:
-            rows.append(b",".join(row_items))
-        except TypeError:
-            print("######################################################################3")
-            pprint(row_items)
-            print("######################################################################3")
-            raise
+        rows.append(b",".join(row_items))
 
     del rows_list, row_items
 
@@ -622,7 +615,6 @@ def batch_retrieve_for_processing(ftp_as_object: FileToProcess) -> dict:
     # Try to retrieve the file contents. If any errors are raised, store them to be raised by the
     # parent function
     try:
-        # print(ftp['s3_file_path'] + ", getting data...")
         ret['file_contents'] = s3_retrieve(ftp['s3_file_path'], ftp["study"].object_id.encode(), raw_path=True)
     except Exception as e:
         traceback.print_exc()
@@ -645,7 +637,6 @@ def batch_upload(upload: Tuple[dict, str, bytes, str]):
             raise Exception(chunk_path)
 
         s3_upload(chunk_path, codecs.decode(new_contents, "zip"), study_object_id, raw_path=True)
-        # print("data uploaded!", chunk_path)
 
         if isinstance(chunk, ChunkRegistry):
             # If the contents are being appended to an existing ChunkRegistry object

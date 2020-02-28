@@ -39,9 +39,11 @@ You can also supply an argument "-y" to skip the confirmation if you intend to r
 
 print()  # just a blank line
 
+
 def humanize_date(date_string):
     """ returns dates as in this form: 'August 24 2019' """
     return convert_date(date_string).strftime("%B %d %Y")
+
 
 def convert_date(date_string):
     """ transforms the canonical date strings into dates """
@@ -76,8 +78,7 @@ def setup():
             print()
             exit(1)
 
-
-    # sort deletees by date.
+    # sort deletes by date.
     sorted_data = sorted(file_json.items(), key=lambda x: x[1])
 
     # test thata all the participants exist, exit if they don't
@@ -88,7 +89,6 @@ def setup():
             print("Participant '%s' does not exist." % patient_id)
     if not all_patients_exist:
         exit(1)
-
 
     # print out info for confirmation
     for participant_name, date in sorted_data:
@@ -106,6 +106,7 @@ def setup():
             exit(0)
 
     return sorted_data
+
 
 # delete chunk registries
 def delete_chunk_registries(sorted_data):

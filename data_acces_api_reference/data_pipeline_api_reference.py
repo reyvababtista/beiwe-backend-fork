@@ -46,7 +46,7 @@ def make_pipeline_request(study_id, access_key=ACCESS_KEY, secret_key=SECRET_KEY
         values['tags'] = json.dumps(tags)
     
     print("sending request, this could take some time.")
-    # print values
+
     try:
         req = urllib.request.Request(url, urllib.parse.urlencode(values))
         response = urllib.request.urlopen(req)
@@ -89,4 +89,3 @@ def upload_pipeline_file(study_id, file_path, name_of_file_in_future_downloaded_
         print(r._content)
         
     return r
-    

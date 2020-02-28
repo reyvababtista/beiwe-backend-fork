@@ -198,7 +198,6 @@ class FileToProcess(AbstractModel):
         # oh good, identifiers doesn't end in a slash.
         splitter_end_char = '_' if full_data_stream == IDENTIFIERS else '/'
         file_prefix = "/".join((study_obj_id, username, full_data_stream,)) + splitter_end_char
-        print("searching:", file_prefix)
 
         # find all files with data from the appropriate time.
         dt_start = datetime.strptime(timestamp.strip(".csv"), API_TIME_FORMAT)

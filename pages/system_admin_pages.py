@@ -47,7 +47,6 @@ def unflatten_consent_sections(consent_sections_dict):
     refactored_consent_sections = defaultdict(dict)
     for key, content in consent_sections_dict.items():
         _, label, content_type = key.split(".")
-        # print _, label, content_type
         refactored_consent_sections[label][content_type] = content
     return dict(refactored_consent_sections)
 

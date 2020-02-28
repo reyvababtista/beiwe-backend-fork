@@ -96,7 +96,6 @@ def upload(OS_API=""):
     else:
         raise TypeError("uploaded_file was a %s" % type(uploaded_file))
 
-    # print("uploaded file name:", file_name, len(uploaded_file))
 
     client_private_key = get_client_private_key(patient_id, user.study.object_id)
     try:
@@ -105,7 +104,6 @@ def upload(OS_API=""):
         # when decrypting fails, regardless of why, we rely on the decryption code
         # to log it correctly and return 200 OK to get the device to delete the file.
         # We do not want emails on these types of errors, so we use log_error explicitly.
-        print("the following error was handled:")
         log_error(e, "%s; %s; %s" % (patient_id, file_name, e))
         return render_template('blank.html'), 200
 
@@ -121,7 +119,6 @@ def upload(OS_API=""):
         make_sentry_client('eb', tags).captureMessage("DecryptionKeyInvalidError")
         return render_template('blank.html'), 200
 
-    # print "decryption success:", file_name
     # if uploaded data a) actually exists, B) is validly named and typed...
     if uploaded_file and file_name and contains_valid_extension(file_name):
         s3_upload(file_name.replace("_", "/"), uploaded_file, user.study.object_id)

@@ -86,8 +86,7 @@ def make_request(study_id, access_key=ACCESS_KEY, secret_key=SECRET_KEY, user_id
         old_registry = {}
     
     print("sending request, this could take some time.")
-    # print values
-    
+
     req = urllib.request.Request(url, urllib.parse.urlencode(values))
     response = urllib.request.urlopen(req)
     

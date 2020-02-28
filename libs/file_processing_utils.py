@@ -13,8 +13,8 @@ from libs.s3 import s3_delete, s3_list_files, s3_upload
 def reindex_all_files_to_process():
     """
     Totally clears the FilesToProcess DB, deletes all chunked files on S3,
-    clears the ChunksRegistry DB, readds all relevant files on S3 to the
-    FilesToProcess registry and then rechunks them.
+    clears the ChunksRegistry DB, reads all relevant files on S3 to the
+    FilesToProcess registry and then re-chunks them.
     """
     raise Exception("This code has not been tested since converting database backends")
     # Delete all preexisting FTP and ChunkRegistry objects

@@ -357,9 +357,9 @@ class ScheduleTypes(object):
     @classmethod
     def choices(cls):
         return (
-            (cls.absolute, "Absolute"),
-            (cls.relative, "Relative"),
-            (cls.weekly, "Weekly")
+            (cls.absolute, "Absolute Schedule"),
+            (cls.relative, "Relative Schedule"),
+            (cls.weekly, "Weekly Schedule")
         )
 
 

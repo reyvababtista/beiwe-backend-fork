@@ -165,6 +165,7 @@ class Survey(AbstractSurvey):
     object_id = models.CharField(max_length=24, unique=True, validators=[LengthValidator(24)])
     # the study field is not inherited because we need to change its related name
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='surveys')
+    schedule_type = models.CharField(max_length=32, null=True)
 
     @classmethod
     def create_with_object_id(cls, **kwargs):

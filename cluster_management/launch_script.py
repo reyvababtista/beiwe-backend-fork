@@ -8,7 +8,6 @@
 # update data processing?
 # stop data processing?
 # deploy N data processing servers
-
 import argparse
 import json
 import os
@@ -35,21 +34,21 @@ from deployment_helpers.configuration_utils import (are_aws_credentials_present,
 from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS,
     APT_WORKER_INSTALLS, CREATE_ENVIRONMENT_HELP, CREATE_MANAGER_HELP, CREATE_WORKER_HELP,
     DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH, DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, DEV_HELP,
-    DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN, ENVIRONMENT_NAME_RESTRICTIONS,
+    DEV_MODE, DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN, ENVIRONMENT_NAME_RESTRICTIONS,
     EXTANT_ENVIRONMENT_PROMPT, FILES_TO_PUSH, FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP,
     get_beiwe_python_environment_variables_file_path, get_finalized_environment_variables,
     get_global_config, GET_MANAGER_IP_ADDRESS_HELP, get_pushed_full_processing_server_env_file_path,
-    get_server_configuration_file, get_server_configuration_file_path, HELP_SETUP_NEW_ENVIRONMENT,
-    HELP_SETUP_NEW_ENVIRONMENT_HELP, LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH,
-    LOCAL_CRONJOB_MANAGER_FILE_PATH, LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH,
-    LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH,
-    LOG_FILE, MANAGER_SERVER_INSTANCE_TYPE, PROD_HELP, PURGE_COMMAND_BLURB,
+    get_server_configuration_file, get_server_configuration_file_path, GET_WORKER_IP_ADDRESS_HELP,
+    HELP_SETUP_NEW_ENVIRONMENT, HELP_SETUP_NEW_ENVIRONMENT_HELP, LOCAL_AMI_ENV_CONFIG_FILE_PATH,
+    LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
+    LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH,
+    LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, LOG_FILE,
+    MANAGER_SERVER_INSTANCE_TYPE, PROD_HELP, PROD_MODE, PURGE_COMMAND_BLURB,
     PURGE_INSTANCE_PROFILES_HELP, PUSHED_FILES_FOLDER, RABBIT_MQ_PORT,
     REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH,
     REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
     REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH, REMOTE_USERNAME,
-    STAGED_FILES, TERMINATE_PROCESSING_SERVERS_HELP, WORKER_SERVER_INSTANCE_TYPE,
-    GET_WORKER_IP_ADDRESS_HELP)
+    STAGED_FILES, TERMINATE_PROCESSING_SERVERS_HELP, WORKER_SERVER_INSTANCE_TYPE)
 from deployment_helpers.general_utils import current_time_string, do_zip_reduction, EXIT, log, retry
 
 
@@ -59,8 +58,6 @@ fabric_env.abort_exception = FabricExecutionError
 fabric_env.abort_on_prompts = True
 
 parser = argparse.ArgumentParser(description="interactive set of commands for deploying a Beiwe Cluster")
-DEV_MODE = False
-PROD_MODE = False
 
 ####################################################################################################
 ################################### Fabric Operations ##############################################
@@ -154,6 +151,14 @@ def setup_celery_worker():
     run('chmod +x {file}'.format(file=REMOTE_INSTALL_CELERY_WORKER))
     run('{file} >> {log}'.format(file=REMOTE_INSTALL_CELERY_WORKER, log=LOG_FILE))
 
+    # It is unclear what causes this.  The notifications task create zombie processes that on at
+    # least one occasion did not respond to kill -9 commands even when run as the superuser. This
+    # occurs on both workers and managers, a 20 second sleep operation fixes it, 10 seconds does not.
+    # Tested on the slowest server, t3a.nano' with swap that is required to run the celery tasks.)
+    log.warning("Server is almost up.  Waiting 20 seconds to avoid a race condition...")
+    sleep(20)
+
+
 def manager_fix():
     # at this point we need to reboot the server, otherwise we get zombie notification
     # celery tasks.
@@ -162,7 +167,7 @@ def manager_fix():
     sleep(5)
     retry(run, "# waiting server to reboot, this will take a while (blame rabbitmq).")
 
-    # we need to reenable the swap after the reboot, then we can finally start supervisor without
+    # we need to re-enable the swap after the reboot, then we can finally start supervisor without
     # creating zombie celery threads.
     sudo("swapon /swapfile")
     sudo("swapon -s")
@@ -271,9 +276,11 @@ def create_swap():
     sudo("swapon /swapfile")
     sudo("swapon -s")
 
+
 ####################################################################################################
 #################################### CLI Utility ###################################################
 ####################################################################################################
+
 
 def do_fail_if_environment_does_not_exist(name):
     environment_exists = check_if_eb_environment_exists(name)
@@ -435,8 +442,7 @@ def do_create_manager():
     push_manager_private_ip_and_password(name)
     push_firebase_credentials(name)
     setup_manager_cron()
-    setup_celery_worker()  # run setup worker last, it will reboot the server at the end.
-    manager_fix()
+    setup_celery_worker()  # run setup worker last.
     run("supervisord")
 
 
@@ -476,10 +482,7 @@ def do_create_worker():
     push_manager_private_ip_and_password(name)
     push_firebase_credentials(name)
     setup_worker_cron()
-    setup_celery_worker()  # run setup worker last, it will reboot the server at the end.
-
-    log.warning("Server is almost up.  Waiting 20 seconds to avoid a race condition...")
-    sleep(20)
+    setup_celery_worker()  # run setup worker last.
     run("supervisord")
 
 
@@ -579,15 +582,15 @@ if __name__ == "__main__":
     arguments = cli_args_validation()
 
     if arguments.prod:
-        log.info("RUNNING IN PROD MODE")
-        PROD_MODE = True
+        log.warning("RUNNING IN PROD MODE")
+        PROD_MODE.set(True)
 
     if arguments.dev:
         if PROD_MODE:
             log.error("You cannot provide -prod and -dev at the same time.")
             EXIT(1)
-        DEV_MODE = True
-        log.info("RUNNING IN DEV MODE")
+        DEV_MODE.set(True)
+        log.warning("RUNNING IN DEV MODE")
 
     if arguments.help_setup_new_environment:
         do_help_setup_new_environment()

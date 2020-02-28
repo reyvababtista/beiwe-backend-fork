@@ -16,26 +16,26 @@ def reindex_all_files_to_process():
     clears the ChunksRegistry DB, reads all relevant files on S3 to the
     FilesToProcess registry and then re-chunks them.
     """
-    raise Exception("This code has not been tested since converting database backends")
+    raise Exception("This code has not been tested since converting database backends, that means 2018")
     # Delete all preexisting FTP and ChunkRegistry objects
     FileProcessLock.lock()
     print('{!s} purging FileToProcess: {:d}'.format(datetime.now(), FileToProcess.objects.count()))
     FileToProcess.objects.all().delete()
     print('{!s} purging ChunkRegistry: {:d}'.format(datetime.now(), ChunkRegistry.objects.count()))
     ChunkRegistry.objects.all().delete()
-    
+
     pool = ThreadPool(CONCURRENT_NETWORK_OPS * 2)
-    
+
     # Delete all preexisting chunked data files
     CHUNKED_DATA = s3_list_files(CHUNKS_FOLDER)
     print('{!s} deleting older chunked data: {:d}'.format(datetime.now(), len(CHUNKED_DATA)))
     pool.map(s3_delete, CHUNKED_DATA)
     del CHUNKED_DATA
-    
+
     # Get a list of all S3 files to replace in the database
     print('{!s} pulling new files to process...'.format(datetime.now()))
     files_lists = pool.map(s3_list_files, Study.objects.values_list('object_id', flat=True))
-    
+
     # For each such file, create an FTP object
     print("putting new files to process...")
     for i, l in enumerate(files_lists):
@@ -45,13 +45,13 @@ def reindex_all_files_to_process():
                 patient_id = fp.split('/', 2)[1]
                 participant_pk = Participant.objects.filter(patient_id=patient_id).values_list('pk', flat=True).get()
                 FileToProcess.append_file_for_processing(fp, fp.split("/", 1)[0], participant_id=participant_pk)
-    
+
     # Clean up by deleting large variables, closing the thread pool and unlocking the file process lock
     del files_lists, l
     pool.close()
     pool.terminate()
     FileProcessLock.unlock()
-    
+
     # Rechunk the newly created FTPs
     print("{!s} processing data.".format(datetime.now()))
     process_file_chunks()

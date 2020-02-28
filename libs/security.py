@@ -37,7 +37,7 @@ def chunk_hash(data: bytes) -> bytes:
 
 
 def device_hash(data: bytes) -> bytes:
-    """ Hashes an input string using the sha256 hash, mimicing the hash used on
+    """ Hashes an input string using the sha256 hash, mimicking the hash used on
     the devices.  Expects a string not in base64, returns a base64 string."""
     sha256 = hashlib.sha256()
     sha256.update(data)

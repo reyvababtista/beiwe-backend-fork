@@ -1,14 +1,14 @@
 from datetime import datetime
 
 from django.db.models import ProtectedError
-from flask import Blueprint, render_template, request, abort, redirect, flash
+from flask import abort, Blueprint, flash, redirect, render_template, request
 
 from config import constants
 from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
-from database.user_models import ParticipantFieldValue, Participant
-from libs.admin_authentication import authenticate_researcher_study_access, get_session_researcher, \
-    get_researcher_allowed_studies, researcher_is_an_admin
+from database.user_models import Participant, ParticipantFieldValue
+from libs.admin_authentication import (authenticate_researcher_study_access,
+    get_researcher_allowed_studies, get_session_researcher, researcher_is_an_admin)
 
 study_api = Blueprint('study_api', __name__)
 
@@ -28,7 +28,7 @@ def edit_participant(study_id, participant_id):
             'edit_participant.html',
             participant=participant,
             study=study,
-            date_format=constants.REDUCED_API_TIME_FORMAT,
+            date_format=constants.API_DATE_FORMAT,
             allowed_studies=get_researcher_allowed_studies(),
         )
 
@@ -36,7 +36,7 @@ def edit_participant(study_id, participant_id):
         input_date = request.values.get(f"intervention{intervention.id}", None)
         intervention_date = participant.intervention_dates.get(intervention=intervention)
         if input_date:
-            intervention_date.date = datetime.strptime(input_date, constants.REDUCED_API_TIME_FORMAT).date()
+            intervention_date.date = datetime.strptime(input_date, constants.API_DATE_FORMAT).date()
             intervention_date.save()
 
     for field in study.fields.all():

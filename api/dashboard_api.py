@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from flask import abort, Blueprint, render_template, request
 
 from config.constants import (ALL_DATA_STREAMS, COMPLETE_DATA_STREAM_DICT,
-    PROCESSED_DATA_STREAM_DICT, REDUCED_API_TIME_FORMAT)
+    PROCESSED_DATA_STREAM_DICT, API_DATE_FORMAT)
 from database.data_access_models import ChunkRegistry, PipelineRegistry
 from database.study_models import (DashboardColorSetting, DashboardGradient, DashboardInflection,
     Study)
@@ -16,7 +16,7 @@ from libs.admin_authentication import (authenticate_researcher_study_access,
 dashboard_api = Blueprint('dashboard_api', __name__)
 
 DATETIME_FORMAT_ERROR = \
-    "Dates and times provided to this endpoint must be formatted like this: 2010-11-22 (%s)" % REDUCED_API_TIME_FORMAT
+    "Dates and times provided to this endpoint must be formatted like this: 2010-11-22 (%s)" % API_DATE_FORMAT
 
 
 def get_study_or_404(study_id):
@@ -306,7 +306,7 @@ def parse_processed_data(study_id, participant_objects, data_stream):
         if pipeline_chunks is not None:
             for chunk in pipeline_chunks:
                 if data_stream in chunk and "day" in chunk and chunk[data_stream] != "NA":
-                    time_bin = datetime.strptime(chunk["day"], REDUCED_API_TIME_FORMAT).date()
+                    time_bin = datetime.strptime(chunk["day"], API_DATE_FORMAT).date()
                     data_exists = True
                     if first:
                         first_day = time_bin
@@ -343,7 +343,7 @@ def parse_patient_processed_data(study_id, participant):
     if pipeline_chunks is not None:
         for chunk in pipeline_chunks:
             if "day" in chunk:
-                time_bin = datetime.strptime(chunk["day"], REDUCED_API_TIME_FORMAT).date()
+                time_bin = datetime.strptime(chunk["day"], API_DATE_FORMAT).date()
                 if first:
                     first_day = time_bin
                     last_day = time_bin
@@ -490,23 +490,23 @@ def create_next_past_urls(first_day, last_day, start=None, end=None):
         end = datetime.combine(last_day, datetime.min.time())
 
     if 0 < (start.date() - first_day).days < duration:
-        past_url = "?start=" + (start.date() - timedelta(days=(duration + 1))).strftime(REDUCED_API_TIME_FORMAT) + \
-                   "&end=" + (start.date() - timedelta(days=1)).strftime(REDUCED_API_TIME_FORMAT)
+        past_url = "?start=" + (start.date() - timedelta(days=(duration + 1))).strftime(API_DATE_FORMAT) + \
+                   "&end=" + (start.date() - timedelta(days=1)).strftime(API_DATE_FORMAT)
 
     elif (start.date() - first_day).days <= 0:
         past_url = ""
     else:
-        past_url = "?start=" + (start.date() - timedelta(days=duration + 1)).strftime(REDUCED_API_TIME_FORMAT) + \
-                    "&end=" + (start.date() - timedelta(days=1)).strftime(REDUCED_API_TIME_FORMAT)
+        past_url = "?start=" + (start.date() - timedelta(days=duration + 1)).strftime(API_DATE_FORMAT) + \
+                    "&end=" + (start.date() - timedelta(days=1)).strftime(API_DATE_FORMAT)
     if (last_day - timedelta(days=duration + 1)) < end.date() < (last_day - timedelta(days=1)):
-        next_url = "?start=" + (end.date() + timedelta(days=1)).strftime(REDUCED_API_TIME_FORMAT) + "&end=" + \
-                   (end.date() + timedelta(days=(duration + 1))).strftime(REDUCED_API_TIME_FORMAT)
+        next_url = "?start=" + (end.date() + timedelta(days=1)).strftime(API_DATE_FORMAT) + "&end=" + \
+                   (end.date() + timedelta(days=(duration + 1))).strftime(API_DATE_FORMAT)
     elif (last_day - end.date()).days <= 0:
         next_url = ""
     else:
         next_url = "?start=" + \
-                   (start.date() + timedelta(days=duration + 1)).strftime(REDUCED_API_TIME_FORMAT) + "&end=" + \
-                   (end.date() + timedelta(days=duration + 1)).strftime(REDUCED_API_TIME_FORMAT)
+                   (start.date() + timedelta(days=duration + 1)).strftime(API_DATE_FORMAT) + "&end=" + \
+                   (end.date() + timedelta(days=duration + 1)).strftime(API_DATE_FORMAT)
     return next_url, past_url
 
 
@@ -624,9 +624,9 @@ def extract_date_args_from_request():
     end = request.values.get("end", None)
     try:
         if start:
-            start = datetime.strptime(start, REDUCED_API_TIME_FORMAT)
+            start = datetime.strptime(start, API_DATE_FORMAT)
         if end:
-            end = datetime.strptime(end, REDUCED_API_TIME_FORMAT)
+            end = datetime.strptime(end, API_DATE_FORMAT)
     except ValueError as e:
         return abort(400, DATETIME_FORMAT_ERROR)
 

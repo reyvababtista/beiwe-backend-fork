@@ -69,7 +69,7 @@ TIMER_VALUES = [
 # 1990-01-31T07:30:04 gets you jan 31 1990 at 7:30:04am
 # human string is YYYY-MM-DDThh:mm:ss
 API_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
-REDUCED_API_TIME_FORMAT = "%Y-%m-%d"
+API_DATE_FORMAT = "%Y-%m-%d"
 
 ## Chunks
 # This value is in seconds, it sets the time period that chunked files will be sliced into.

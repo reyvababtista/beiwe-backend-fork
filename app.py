@@ -1,8 +1,6 @@
 import os
 from datetime import datetime
 
-from config.load_django import django_loaded; assert django_loaded
-
 import jinja2
 from flask import Flask, redirect, render_template
 from raven.contrib.flask import Sentry

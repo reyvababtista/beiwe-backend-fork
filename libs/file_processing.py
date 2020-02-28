@@ -7,8 +7,6 @@ from datetime import datetime
 from multiprocessing.pool import ThreadPool
 from typing import DefaultDict, Generator, List, Tuple
 
-from config.load_django import django_loaded; assert django_loaded
-
 from botocore.exceptions import ReadTimeoutError
 from cronutils.error_handler import ErrorHandler
 from django.core.exceptions import ValidationError

@@ -1,5 +1,3 @@
-from config.load_django import django_loaded; assert django_loaded
-
 from datetime import datetime, timedelta
 from os.path import abspath
 from sys import path

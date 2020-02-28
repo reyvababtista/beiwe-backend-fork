@@ -5,8 +5,6 @@ from sys import path
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 from typing import List
 
-from config.load_django import django_loaded; assert django_loaded
-
 from collections import Counter
 
 from config.constants import CHUNKABLE_FILES

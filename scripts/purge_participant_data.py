@@ -15,7 +15,6 @@ _current_folder_init = _abspath(__file__).rsplit('/', 1)[0]+ "/__init__.py"
 _imp.load_source("__init__", _current_folder_init)
 
 
-from config.load_django import django_loaded; assert django_loaded
 from config.settings import S3_BUCKET
 from config.constants import CHUNKS_FOLDER, API_TIME_FORMAT
 from database.user_models import Participant

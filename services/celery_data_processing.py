@@ -4,8 +4,6 @@ from sys import path
 # add the root of the project into the path to allow cd-ing into this folder and running the script.
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
-from config.load_django import django_loaded; assert django_loaded
-
 from datetime import datetime, timedelta
 from config.constants import FILE_PROCESS_PAGE_SIZE
 from database.user_models import Participant

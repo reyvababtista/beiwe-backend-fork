@@ -181,48 +181,20 @@ def register_user(OS_API=""):
     device_id = request.values['device_id']
 
     # These values may not be returned by earlier versions of the beiwe app
-    try:
-        device_os = request.values['device_os']
-    except BadRequestKeyError:
-        device_os = "none"
-    try:
-        os_version = request.values['os_version']
-    except BadRequestKeyError:
-        os_version = "none"
-    try:
-        product = request.values["product"]
-    except BadRequestKeyError:
-        product = "none"
-    try:
-        brand = request.values["brand"]
-    except BadRequestKeyError:
-        brand = "none"
-    try:
-        hardware_id = request.values["hardware_id"]
-    except BadRequestKeyError:
-        hardware_id = "none"
-    try:
-        manufacturer = request.values["manufacturer"]
-    except BadRequestKeyError:
-        manufacturer = "none"
-    try:
-        model = request.values["model"]
-    except BadRequestKeyError:
-        model = "none"
-    try:
-        beiwe_version = request.values["beiwe_version"]
-    except BadRequestKeyError:
-        beiwe_version = "none"
+    device_os = request.values.get('device_os', "none")
+    os_version = request.values.get('os_version', "none")
+    product = request.values.get("product", "none")
+    brand = request.values.get("brand", "none")
+    hardware_id = request.values.get("hardware_id", "none")
+    manufacturer = request.values.get("manufacturer", "none")
+    model = request.values.get("model", "none")
+    beiwe_version = request.values.get("beiwe_version", "none")
 
     # This value may not be returned by later versions of the beiwe app.
-    try:
-        mac_address = request.values['bluetooth_id']
-    except BadRequestKeyError:
-        mac_address = "none"
+    mac_address = request.values.get('bluetooth_id', "none")
 
     user = Participant.objects.get(patient_id=patient_id)
     study_id = user.study.object_id
-
     if user.device_id and user.device_id != request.values['device_id']:
         # CASE: this patient has a registered a device already and it does not match this device.
         #   They need to contact the study and unregister their their other device.  The device
@@ -252,7 +224,7 @@ def register_user(OS_API=""):
                      (patient_id, mac_address, phone_number, device_id, device_os,
                       os_version, product, brand, hardware_id, manufacturer, model,
                       beiwe_version)).encode()
-    # print(file_contents + "\n")
+
     s3_upload(file_name, file_contents, study_id)
     FileToProcess.append_file_for_processing(file_name, user.study.object_id, participant=user)
 

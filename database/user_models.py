@@ -306,10 +306,10 @@ class StudyRelation(AbstractModel):
         researcher
     """
     study = models.ForeignKey(
-        'Study', on_delete=models.PROTECT, related_name='study_relations', null=False, db_index=True
+        'Study', on_delete=models.CASCADE, related_name='study_relations', null=False, db_index=True
     )
     researcher = models.ForeignKey(
-        'Researcher', on_delete=models.PROTECT, related_name='study_relations', null=False, db_index=True
+        'Researcher', on_delete=models.CASCADE, related_name='study_relations', null=False, db_index=True
     )
     relationship = models.CharField(max_length=32, null=False, blank=False, db_index=True)
 
@@ -320,4 +320,3 @@ class StudyRelation(AbstractModel):
         return "%s is a %s in %s" % (self.researcher.username,
                                      self.relationship.replace("_", " ").title(),
                                      self.study.name)
-

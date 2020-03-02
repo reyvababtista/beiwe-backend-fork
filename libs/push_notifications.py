@@ -77,25 +77,3 @@ def repopulate_weekly_survey_schedule_events(survey: Survey):
     ScheduledEvent.objects.bulk_create(new_events)
 
 
-def create_absolute_schedules_and_events(survey):
-    # TODO rename schedules variable
-    schedules = survey.timings["schedule"]
-    for schedule in schedules:
-        hour = schedule[3] // 3600
-        minute = schedule[3] % 3600 // 60
-        schedule_date = datetime(schedule[0], schedule[1], schedule[2], hour, minute)
-
-        absolute_schedule = AbsoluteSchedule.objects.create(
-            survey=survey,
-            scheduled_date=schedule_date,
-        )
-
-        for participant in survey.study.participants.all():
-            ScheduledEvent.objects.create(
-                survey=survey,
-                participant=participant,
-                weekly_schedule=None,
-                relative_schedule=None,
-                absolute_schedule=absolute_schedule,
-                scheduled_time=schedule_date,
-            )

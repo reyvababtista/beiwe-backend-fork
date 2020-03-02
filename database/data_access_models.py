@@ -353,7 +353,6 @@ class PipelineUpload(AbstractModel):
 
 
 class PipelineUploadTags(AbstractModel):
-    pipeline_upload = models.ForeignKey(PipelineUpload, related_name="tags", on_delete=models.PROTECT)
+    pipeline_upload = models.ForeignKey(PipelineUpload, related_name="tags", on_delete=models.CASCADE)
     tag = models.TextField()
-
 

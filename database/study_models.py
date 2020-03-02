@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 import json
+from datetime import datetime
 
 from django.db import models
 from django.db.models import F, Func
@@ -197,9 +197,36 @@ class Survey(AbstractSurvey):
         survey_dict['_id'] = survey_dict.pop('object_id')
         return survey_dict
 
+    def create_absolute_schedules_and_events(self):
+        from database.schedule_models import AbsoluteSchedule
+
+        # TODO rename schedules variable
+        schedules = self.timings["schedule"]
+        for schedule in schedules:
+            year, month, day, seconds = schedule
+            hour = schedule[3] // 3600
+            minute = schedule[3] % 3600 // 60
+            schedule_date = datetime(schedule[0], schedule[1], schedule[2], hour, minute)
+
+            absolute_schedule = AbsoluteSchedule.objects.create(
+                survey=self,
+                scheduled_date=schedule_date,
+            )
+            from database.models import ScheduledEvent
+            for participant in self.study.participants.all():
+                ScheduledEvent.objects.create(
+                    survey=self,
+                    participant=participant,
+                    weekly_schedule=None,
+                    relative_schedule=None,
+                    absolute_schedule=absolute_schedule,
+                    scheduled_time=schedule_date,
+                )
+
+
 
 class SurveyArchive(AbstractSurvey):
-    """ All felds declared in abstract survey are copied whenever a change is made to a survey """
+    """ All fields declared in abstract survey are copied whenever a change is made to a survey """
     archive_start = models.DateTimeField()
     archive_end = models.DateTimeField(default=timezone.now)
     # two new foreign key references
@@ -269,63 +296,3 @@ class DeviceSettings(AbstractModel):
     consent_sections = JSONTextField(default=DEFAULT_CONSENT_SECTIONS_JSON)
 
     study = models.OneToOneField('Study', on_delete=models.PROTECT, related_name='device_settings')
-
-
-class DashboardColorSetting(AbstractModel):
-    """ Database model, details of color settings point at this model. """
-    data_type = models.CharField(max_length=32)
-    study = models.ForeignKey("Study", on_delete=models.PROTECT, related_name="dashboard_colors")
-
-    class Meta:
-        # only one of these color settings per-study-per-data type
-        unique_together = (("data_type", "study"),)
-
-    def get_dashboard_color_settings(self):
-        # return a (json serializable) dict of a dict of the gradient and a list of dicts for
-        # the inflection points.
-
-        # Safely/gracefully access the gradient's one-to-one field.
-        try:
-            gradient = {
-                "color_range_min": self.gradient.color_range_min,
-                "color_range_max": self.gradient.color_range_max,
-            }
-        except DashboardGradient.DoesNotExist:
-            gradient = {}
-
-        return {
-            "gradient": gradient,
-            "inflections": list(self.inflections.values("operator", "inflection_point")),
-        }
-
-    def gradient_exists(self):
-        try:
-            if self.gradient:
-                return True
-        except DashboardGradient.DoesNotExist:
-            # this means that the dashboard gradieint does not exist in the database
-            return False
-
-
-class DashboardGradient(AbstractModel):
-    # It should be the case that there is only one gradient per DashboardColorSettings
-    dashboard_color_setting = models.OneToOneField(
-        DashboardColorSetting, on_delete=models.PROTECT, related_name="gradient", unique=True,
-    )
-
-    # By setting both of these to 0 the frontend will automatically use tha biggest and smallest
-    # values on the current page.
-    color_range_min = models.IntegerField(default=0)
-    color_range_max = models.IntegerField(default=0)
-
-
-class DashboardInflection(AbstractModel):
-    # an inflection corresponds to a flag value that has an operator to display a "flag" on the dashboard front end
-    dashboard_color_setting = models.ForeignKey(
-        DashboardColorSetting, on_delete=models.PROTECT, related_name="inflections"
-    )
-
-    # these are a mathematical operator and a numerical "inflection point"
-    # no default for the operator, default of 0 is safe.
-    operator = models.CharField(max_length=1)
-    inflection_point = models.IntegerField(default=0)

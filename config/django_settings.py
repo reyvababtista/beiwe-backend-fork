@@ -62,6 +62,7 @@ SHELL_PLUS = "ipython"
 SHELL_PLUS_PRE_IMPORTS = []
 SHELL_PLUS_POST_IMPORTS = [
     "pytz",
+    "json",
     ["libs.s3", ("s3_list_files",)],
     ["pprint", ("pprint",)],
     ["datetime", ("date", "datetime", "timedelta")],

@@ -540,7 +540,6 @@ def pipeline_data_download():
     else:
         query = PipelineUpload.objects.filter(study__id=study_obj.id)
 
-    ####################################
     return Response(
             zip_generator_for_pipeline(query),
             mimetype="zip",

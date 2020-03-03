@@ -9,17 +9,6 @@
 
   &nbsp; <label for="trigger_on_first_download"><b> Show survey notification immediately</b> </label> when the user downloads this survey. (Will also trigger this survey right after registration.) <br>
 
-  {#  <div class="btn-group">#}
-  {#    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">#}
-  {#      Schedule Type <span class="caret"></span>#}
-  {#    </button><button data-toggle="tooltip" data-placement="right" title="Tooltip on right"><span class="glyphicon glyphicon-info-sign"></span></button>#}
-  {#    <select class="dropdown-menu">#}
-  {#      <li><a href="#">Weekly Schedule</a></li>#}
-  {#      <li><a href="#">Relative Schedule</a></li>#}
-  {#      <li><a href="#">Absolute Schedule</a></li>#}
-  {#    </select>#}
-  {#  </div>#}
-{#  <div ng-bind="surveyBuilder.schedule_type" class="bg-danger"></div>#}
   <h4>Schedule type:</h4>
   <select ng-model="surveyBuilder.schedule_type">
     <option value="weekly">Weekly</option>
@@ -30,10 +19,6 @@
     <i class="fa fa-info-circle"></i>
   </button><em>You can only select one schedule type for a survey</em>
   <br><br>
-
-  {#  <div ng-if="surveyBuilder.schedule_type == 'weekly'">1 string</div>#}
-  {#  <div ng-if="surveyBuilder.schedule_type == 'relative'">string 2</div>#}
-  {#  <div ng-if="surveyBuilder.schedule_type == 'absolute'">g string</div>#}
 
   <div ng-if="surveyBuilder.schedule_type == 'weekly'">
 
@@ -81,11 +66,11 @@
         {% endfor %}
       </select>
 
-      <button class="btn btn-info" {# onclick="add_relative_time()" #}><span class="glyphicon glyphicon-plus"></span>Add time</button>
+      <button class="btn btn-info" onclick="add_relative_time()"><span class="glyphicon glyphicon-plus"></span>Add time</button>
     </div>
   </div>
   <div ng-if="surveyBuilder.schedule_type == 'absolute'">
-    <p>Add new scheduled time followed by how many days before or after the intervention event (type numbers into the pop-up time picker):</p>
+    <p>Add new scheduled time followed by the scheduled date (type numbers into the pop-up time picker):</p>
 
     <div class="form-inline bootstrap-timepicker timepicker">
       <input id="new_time_timepicker" type="text" class="form-control schedule-timepicker">
@@ -93,7 +78,7 @@
 
       <input id="date_picker" type="date" class="form-control">
 
-      <button class="btn btn-info" {# onclick="add_absolute_time()" #}><span class="glyphicon glyphicon-plus"></span>Add time</button>
+      <button class="btn btn-info" onclick="add_absolute_time()"><span class="glyphicon glyphicon-plus"></span>Add time</button>
     </div>
   </div>
 
@@ -112,7 +97,7 @@
           <td>
             <b><span class="label label-info time-label">
               {{int_to_time this}}
-              <i class="remove glyphicon glyphicon-remove" onclick="delete_time({{@../index}}, {{@index}})" title="Delete this time"></i>
+              <i class="remove glyphicon glyphicon-remove" onclick="delete_weekly_time({{@../index}}, {{@index}})" title="Delete this time"></i>
             </span></b>
           </td>
           {{/each}}
@@ -130,8 +115,25 @@
         {{#each schedules}}
           <tr>
             <b><span class="label label-info time-label">
-              {{ rel_sched_to_label }}
+              {{ rel_sched_to_label this }}
+              <i class="remove glyphicon glyphicon-remove" onclick="delete_relative_time({{@index}})" title="Delete this time"></i>
             </span> </b>
+          </tr>
+        {{/each}}
+      </table>
+    </div>
+  </script>
+  <script id="absolute-schedule-template" type="text/x-handlebars-template">
+    <br>
+    <p>Currently scheduled times</p>
+    <div class="well well-sm">
+      <table>
+        {{#each schedules}}
+          <tr>
+            <b><span class="label label-info time-label">
+              {{ abs_sched_to_label this }}
+              <i class="remove glyphicon glyphicon-remove" onclick="delete_relative_time({{@index}})" title="Delete this time"></i>
+            </span></b>
           </tr>
         {{/each}}
       </table>

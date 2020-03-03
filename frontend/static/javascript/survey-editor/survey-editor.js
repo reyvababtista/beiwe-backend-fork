@@ -2,6 +2,7 @@
  * Functionality to create and edit surveys via a web form
  */
 
+// TODO add logic for rendering different survey types
 $(document).ready(function() {
     window.scope = angular.element($("body")).scope();
     renderWeeklySchedule();

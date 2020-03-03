@@ -4,7 +4,7 @@
 
 $(document).ready(function() {
     window.scope = angular.element($("body")).scope();
-    renderSchedule();
+    renderWeeklySchedule();
     $('.schedule-timepicker').timepicker();
     audioSurveyTypeChange( $("[name='audio_survey_type']:checked").val() )
 });

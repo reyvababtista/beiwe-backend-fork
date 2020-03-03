@@ -1,58 +1,140 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
 <div class="row">
 
   <h3>Schedule</h3>
 
   <input type="checkbox" name="trigger_on_first_download" id="trigger_on_first_download"
-  {% if survey.settings['trigger_on_first_download'] %} checked {% endif %}>
+      {% if survey.settings['trigger_on_first_download'] %} checked {% endif %}>
 
   &nbsp; <label for="trigger_on_first_download"><b> Show survey notification immediately</b> </label> when the user downloads this survey. (Will also trigger this survey right after registration.) <br>
-  
-  <p>Add new scheduled time (type numbers into the pop-up time picker):</p>
 
-  <div class="form-inline bootstrap-timepicker timepicker">
-    <input id="new_time_timepicker" type="text" class="form-control schedule-timepicker">
-    <i class="glyphicon glyphicon-time"></i>
+  {#  <div class="btn-group">#}
+  {#    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">#}
+  {#      Schedule Type <span class="caret"></span>#}
+  {#    </button><button data-toggle="tooltip" data-placement="right" title="Tooltip on right"><span class="glyphicon glyphicon-info-sign"></span></button>#}
+  {#    <select class="dropdown-menu">#}
+  {#      <li><a href="#">Weekly Schedule</a></li>#}
+  {#      <li><a href="#">Relative Schedule</a></li>#}
+  {#      <li><a href="#">Absolute Schedule</a></li>#}
+  {#    </select>#}
+  {#  </div>#}
+{#  <div ng-bind="surveyBuilder.schedule_type" class="bg-danger"></div>#}
+  <h4>Schedule type:</h4>
+  <select ng-model="surveyBuilder.schedule_type">
+    <option value="weekly">Weekly</option>
+    <option value="relative">Relative</option>
+    <option value="absolute">Absolute</option>
+  </select>
+  <button type="button" class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="right" data-html="true" title="<ul><li>Weekly schedules send surveys at the same time every week</li><li>Relative schedules send surveys a specified number of days before or after an intervention date that is specific to each participant</li><li>Absolute schedules send out surveys to participants on a specified date</li></ul>">
+    <i class="fa fa-info-circle"></i>
+  </button><em>You can only select one schedule type for a survey</em>
+  <br><br>
 
-    &nbsp;
-    <select id="day_index_select" name="day">
-      <option value="every_day">EVERY DAY</option>
-      <option value=0>Sunday</option>
-      <option value=1>Monday</option>
-      <option value=2>Tuesday</option>
-      <option value=3>Wednesday</option>
-      <option value=4>Thursday</option>
-      <option value=5>Friday</option>
-      <option value=6>Saturday</option>
-    </select>
+  {#  <div ng-if="surveyBuilder.schedule_type == 'weekly'">1 string</div>#}
+  {#  <div ng-if="surveyBuilder.schedule_type == 'relative'">string 2</div>#}
+  {#  <div ng-if="surveyBuilder.schedule_type == 'absolute'">g string</div>#}
 
-    &nbsp;&nbsp;&nbsp;
-    <button class="btn btn-info" onclick="add_time()"><span class="glyphicon glyphicon-plus"></span>Add time</button>
+  <div ng-if="surveyBuilder.schedule_type == 'weekly'">
+
+    <p>Add new scheduled time (type numbers into the pop-up time picker):</p>
+
+    <div class="form-inline bootstrap-timepicker timepicker">
+      <input id="new_time_timepicker" type="text" class="form-control schedule-timepicker">
+      <i class="glyphicon glyphicon-time"></i>
+
+      &nbsp;
+      <select id="day_index_select" name="day">
+        <option value="every_day">EVERY DAY</option>
+        <option value=0>Sunday</option>
+        <option value=1>Monday</option>
+        <option value=2>Tuesday</option>
+        <option value=3>Wednesday</option>
+        <option value=4>Thursday</option>
+        <option value=5>Friday</option>
+        <option value=6>Saturday</option>
+      </select>
+
+      &nbsp;&nbsp;&nbsp;
+      <button class="btn btn-info" onclick="add_weekly_time()"><span class="glyphicon glyphicon-plus"></span>Add time</button>
+    </div>
   </div>
-</div>
 
-{% raw %}
-  <script id="schedule-template" type="text/x-handlebars-template">
-  <br>
-  <p>Currently scheduled times:</p>
-  <div class="well well-sm">    
-    <table>
-      {{#each schedules}}
-      <tr>
+  <div ng-if="surveyBuilder.schedule_type == 'relative'">
+    <p>Add new scheduled time followed by how many days before or after the intervention event (type numbers into the pop-up time picker):</p>
 
-        <th><b>{{day_name}}</b></th>
+    <div class="form-inline bootstrap-timepicker timepicker">
+      <input id="new_time_timepicker" type="text" class="form-control schedule-timepicker">
+      <i class="glyphicon glyphicon-time"></i>
 
-        {{#each times}}
-        <td>
-          <b><span class="label label-info time-label">
-            {{int_to_time this}}
-            <i class="remove glyphicon glyphicon-remove" onclick="delete_time({{@../index}}, {{@index}})" title="Delete this time"></i>
-          </span></b>
-        </td>
+      <input id="num_days_picker" type="number" class="form-control">
+      &nbsp;
+      <select id="before_after_select" name="day">
+        <option value=1>Days After</option>
+        <option value=-1>Days Before</option>
+        <option value=0>Day Of</option>
+      </select>
+
+      <select id="intervention_select" name="intervention">
+        {% for intervention in study.interventions.all() %}
+          <option value="{{ intervention.id }}">{{ intervention.name }}</option>
+        {% endfor %}
+      </select>
+
+      <button class="btn btn-info" {# onclick="add_relative_time()" #}><span class="glyphicon glyphicon-plus"></span>Add time</button>
+    </div>
+  </div>
+  <div ng-if="surveyBuilder.schedule_type == 'absolute'">
+    <p>Add new scheduled time followed by how many days before or after the intervention event (type numbers into the pop-up time picker):</p>
+
+    <div class="form-inline bootstrap-timepicker timepicker">
+      <input id="new_time_timepicker" type="text" class="form-control schedule-timepicker">
+      <i class="glyphicon glyphicon-time"></i>
+
+      <input id="date_picker" type="date" class="form-control">
+
+      <button class="btn btn-info" {# onclick="add_absolute_time()" #}><span class="glyphicon glyphicon-plus"></span>Add time</button>
+    </div>
+  </div>
+
+  {% raw %}
+  <script id="weekly-schedule-template" type="text/x-handlebars-template">
+    <br>
+    <p>Currently scheduled times:</p>
+    <div class="well well-sm">
+      <table>
+        {{#each schedules}}
+        <tr>
+
+          <th><b>{{day_name}}</b></th>
+
+          {{#each times}}
+          <td>
+            <b><span class="label label-info time-label">
+              {{int_to_time this}}
+              <i class="remove glyphicon glyphicon-remove" onclick="delete_time({{@../index}}, {{@index}})" title="Delete this time"></i>
+            </span></b>
+          </td>
+          {{/each}}
+
+        </tr>
         {{/each}}
-
-      </tr>
-      {{/each}}
-    </table>
-  </div>
+      </table>
+    </div>
   </script>
-{% endraw %}
+  <script id="relative-schedule-template" type="text/x-handlebars-template">
+    <br>
+    <p>Currently scheduled times:</p>
+    <div class="well well-sm">
+      <table>
+        {{#each schedules}}
+          <tr>
+            <b><span class="label label-info time-label">
+              {{ rel_sched_to_label }}
+            </span> </b>
+          </tr>
+        {{/each}}
+      </table>
+    </div>
+  </script>
+  {% endraw %}

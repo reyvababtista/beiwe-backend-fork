@@ -89,6 +89,7 @@ def update_survey(survey_id=None):
 
 
 def create_weekly_schedules(survey: Survey):
+    """Given a list of timings in the form of an array of 7 int arrays, creates weekly schedules"""
     # grr imports mean this cannot be a Survey instance method...
     timings_list = json.loads(survey.timings)
     survey.weekly_schedules.delete()

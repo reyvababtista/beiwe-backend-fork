@@ -189,6 +189,44 @@ class Survey(AbstractSurvey):
         survey = cls.create_with_object_id(survey_type=survey_type, **kwargs)
         return survey
 
+    def weekly_timings(self):
+        """
+        Returns a json serializable object that represents the weekly schedules of this survey.
+        The return object is a list of 7 lists of ints
+        """
+        schedules = [[], [], [], [], [], [], []]
+        for schedule in self.weekly_schedules.all():
+            num_seconds = schedule.minute * 60 + schedule.hour * 3600
+            schedules[schedule.day_of_week].append(num_seconds)
+        for day in schedules:
+            day.sort()
+        return schedules
+
+    def relative_timings(self):
+        """
+        Returns a json serializable object that represents the relative schedules of the survey
+        The return object is a list of lists
+        """
+        schedules = []
+        for schedule in self.relative_schedules.all():
+            num_seconds = schedule.minute * 60 + schedule.hour * 3600
+            schedules.append([schedule.intervention.id, schedule.days_after, num_seconds])
+        return schedules
+
+    def absolute_timings(self):
+        """
+        Returns a json serializable object that represents the absolute schedules of the survey
+        The return object is a list of lists
+        """
+        schedules = []
+        for schedule in self.absolute_schedules.all():
+            num_seconds = schedule.scheduled_date.minute * 60 + schedule.scheduled_date.hour * 3600
+            schedules.append([schedule.scheduled_date.year,
+                              schedule.scheduled_date.month,
+                              schedule.scheduled_date.day,
+                              num_seconds])
+        return schedules
+
     def format_survey_for_study(self):
         survey_dict = self.as_native_python()
         # Make the dict look like the old Mongolia-style dict that the frontend is expecting

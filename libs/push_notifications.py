@@ -37,7 +37,7 @@ def set_next_weekly(participant: Participant, survey: Survey):
 
 
 def get_next_weekly_event(survey) -> ((datetime, None), (WeeklySchedule, None)):
-    ''' Determines the next time for a particular survey, provides the relevant weekly schedule. '''
+    """ Determines the next time for a particular survey, provides the relevant weekly schedule. """
     now = make_aware(datetime.utcnow(), timezone=pytz.utc)
     timing_list = []
     for weekly_schedule in survey.weekly_schedules.all():

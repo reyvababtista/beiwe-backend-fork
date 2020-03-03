@@ -23,7 +23,9 @@
   <script type="text/javascript">
       var questions = {{ survey.content|tojson }};
       var survey_id = '{{ survey.id }}';
-      var survey_times = {{ survey.timings|tojson }};
+      var weekly_times = {{ weekly_timings|tojson }};
+      var relative_times = {{ relative_timings|tojson }}
+      var absolute_times = {{ absolute_timings|tojson }}
       var schedule_type = '{{ survey.schedule_type if survey.schedule_type else "weekly" }}';
       var settings = {{ survey.settings|tojson }};
       var interventions={{ interventions_dict|tojson }}

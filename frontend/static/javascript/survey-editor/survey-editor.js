@@ -10,6 +10,19 @@ $(document).ready(function() {
     audioSurveyTypeChange( $("[name='audio_survey_type']:checked").val() )
 });
 
+$( "#schedule-picker" ).change(function() {
+  if ($( this ).val() === "weekly") {
+      renderWeeklySchedule();
+      $('.schedule-timepicker').timepicker();
+  } else if ($( this ).val() === "relative") {
+      renderRelativeSchedule();
+      $('.schedule-timepicker').timepicker();
+  } else if ($( this ).val() === "absolute") {
+      renderAbsoluteSchedule();
+      $('.schedule-timepicker').timepicker();
+  }
+});
+
 
 // Return the hour number (in 24-hour time) that the user selected in the form
 function getHour() {
@@ -80,7 +93,9 @@ function end(domainName) {
         url: '/update_survey/' + survey_id,
         data: {
             content: angular.toJson(content),
-            timings: JSON.stringify(survey_times),
+            weekly_timings: JSON.stringify(weekly_times),
+            relative_timings: JSON.stringify(relative_times),
+            absolute_timings: JSON.stringify(absolute_times),
             settings: JSON.stringify(get_survey_settings())
         },
         statusCode: {

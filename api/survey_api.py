@@ -72,7 +72,7 @@ def update_survey(survey_id=None):
     content = json.dumps(content)
 
     # fixme: this was definitely broken for Eli before adding the json operations, but on dev it was not?
-    timings = json.loads(request.values['timings'])
+    timings = json.loads(request.values['weekly_timings'])
     settings = json.loads(request.values['settings'])
     survey.update(content=content, timings=timings, settings=settings)
 

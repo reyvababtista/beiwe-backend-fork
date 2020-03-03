@@ -79,7 +79,7 @@ function renderWeeklySchedule() {
 
     var schedule = [];
     for (var i=0; i<7; i++) {
-    	day_schedule = {day_name: days_list[i], times: survey_times[i]};
+    	day_schedule = {day_name: days_list[i], times: weekly_times[i]};
     	schedule.push(day_schedule);
     };
 
@@ -112,11 +112,8 @@ function add_weekly_time() {
 
 
 function add_time_to_weekly_day_index(time, day_index) {
-    // TODO change this to commented block
-    survey_times[day_index].push(time);
-    survey_times[day_index].sort();
-    // survey_times['schedule'][day_index].push(time);
-    // survey_times['schedule'][day_index].sort();
+    weekly_times[day_index].push(time);
+    weekly_times[day_index].sort();
 }
 
 
@@ -124,7 +121,7 @@ function renderRelativeSchedule() {
     var source = $("#relative-schedule-template").html();
     var template = Handlebars.compile(source);
 
-    var datalist = {schedules: survey_times['schedule']};
+    var datalist = {schedules: relative_times};
     var htmlSchedule = template(datalist);
     $('#surveySchedule').html(htmlSchedule)
 }
@@ -146,8 +143,8 @@ function add_relative_time() {
 
 // adds new schedule to timings, then sorts them on intervention_id, then day, then time of day
 function add_time_to_relative_timings(intervention_id, days, time) {
-    survey_times['schedule'].push([intervention_id, days, time]);
-    survey_times['schedule'].sort(function (a, b) {
+    relative_times.push([intervention_id, days, time]);
+    relative_times.sort(function (a, b) {
         if (a[0] === b[0]) { // if intervention_ids are the same
             if (a[1] === b[1]) { // if days are the same
                 return a[2] - b[2]; // sort on time
@@ -163,7 +160,7 @@ function renderAbsoluteSchedule() {
     var source = $("#absolute-schedule-template").html();
     var template = Handlebars.compile(source);
 
-    var datalist = {schedules: survey_times['schedule']};
+    var datalist = {schedules: absolute_times};
     var htmlSchedule = template(datalist);
     $('#surveySchedule').html(htmlSchedule)
 }
@@ -179,8 +176,8 @@ function add_absolute_time() {
 
 // adds new schedule to timings, then sorts them chronologically
 function add_time_to_absolute_timings(schedule) {
-    survey_times['schedule'].push(schedule);
-    survey_times['schedule'].sort(function (a, b) {
+    absolute_timesweekly_times.push(schedule);
+    absolute_times.sort(function (a, b) {
         if (a[0] === b[0]) { // if years are the same
             if (a[1] === b[1]) { // if months are the same
                 if (a[2] === b[2]) { // if days are the same
@@ -196,19 +193,19 @@ function add_time_to_absolute_timings(schedule) {
 
 
 function delete_weekly_time(day_index, time_index) {
-    survey_times[day_index].splice(time_index, 1);
+    weekly_times[day_index].splice(time_index, 1);
     renderWeeklySchedule();
 }
 
 
 function delete_relative_time(schedule_index) {
-    survey_times['schedule'].splice(schedule_index, 1);
+    relative_times['schedule'].splice(schedule_index, 1);
     renderRelativeSchedule();
 }
 
 
 function delete_absolute_time(schedule_index) {
-    survey_times['schedule'].splice(schedule_index, 1);
+    absolute_times['schedule'].splice(schedule_index, 1);
     renderAbsoluteSchedule();
 }
 

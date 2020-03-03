@@ -29,4 +29,7 @@ def render_edit_survey(survey_id=None):
         is_admin=researcher_is_an_admin(),
         domain_name=DOMAIN_NAME,  # used in a Javascript alert, see survey-editor.js
         interventions_dict={intervention.id: intervention.name for intervention in study.interventions.all()},
+        weekly_timings=survey.weekly_timings(),
+        relative_timings=survey.relative_timings(),
+        absolute_timings=survey.absolute_timings(),
     )

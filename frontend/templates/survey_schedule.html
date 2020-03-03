@@ -10,7 +10,7 @@
   &nbsp; <label for="trigger_on_first_download"><b> Show survey notification immediately</b> </label> when the user downloads this survey. (Will also trigger this survey right after registration.) <br>
 
   <h4>Schedule type:</h4>
-  <select ng-model="surveyBuilder.schedule_type">
+  <select id="schedule-picker" ng-model="surveyBuilder.schedule_type">
     <option value="weekly">Weekly</option>
     <option value="relative">Relative</option>
     <option value="absolute">Absolute</option>
@@ -132,7 +132,7 @@
           <tr>
             <b><span class="label label-info time-label">
               {{ abs_sched_to_label this }}
-              <i class="remove glyphicon glyphicon-remove" onclick="delete_relative_time({{@index}})" title="Delete this time"></i>
+              <i class="remove glyphicon glyphicon-remove" onclick="delete_absolute_time({{@index}})" title="Delete this time"></i>
             </span></b>
           </tr>
         {{/each}}

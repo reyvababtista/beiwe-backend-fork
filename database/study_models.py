@@ -5,7 +5,7 @@ from django.db import models
 from django.db.models import F, Func
 from django.utils import timezone
 
-from config.constants import ResearcherRole
+from config.constants import ResearcherRole, ScheduleTypes
 from config.study_constants import (ABOUT_PAGE_TEXT, AUDIO_SURVEY_SETTINGS, CONSENT_FORM_TEXT,
     DEFAULT_CONSENT_SECTIONS_JSON, IMAGE_SURVEY_SETTINGS, SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
 from database.models import AbstractModel, JSONTextField
@@ -165,7 +165,7 @@ class Survey(AbstractSurvey):
     object_id = models.CharField(max_length=24, unique=True, validators=[LengthValidator(24)])
     # the study field is not inherited because we need to change its related name
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='surveys')
-    schedule_type = models.CharField(max_length=32, null=True)
+    schedule_type = models.CharField(max_length=32, null=True, default=ScheduleTypes.weekly)
 
     @classmethod
     def create_with_object_id(cls, **kwargs):

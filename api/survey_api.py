@@ -72,16 +72,22 @@ def update_survey(survey_id=None):
     content = json.dumps(content)
 
     # fixme: this was definitely broken for Eli before adding the json operations, but on dev it was not?
-    timings = json.loads(request.values['weekly_timings'])
-    settings = json.loads(request.values['settings'])
-    survey.update(content=content, timings=timings, settings=settings)
+    absolute_timings = json.loads(request.values['absolute_timings'])
+    print("absolute timings: ", absolute_timings)
+    relative_timings = json.loads(request.values['relative_timings'])
+    print("relative timings: ", relative_timings)
+    weekly_timings = json.loads(request.values['weekly_timings'])
+    print("weekly timings: ", weekly_timings)
+    settings = request.values['settings']
+    schedule_type = request.values['schedule_type']
+    survey.update(content=content, timings=weekly_timings, settings=settings)
 
-    if settings['schedule_type'] == ScheduleTypes.weekly:
+    if schedule_type == ScheduleTypes.weekly:
         WeeklySchedule.create_weekly_schedules(survey)
         repopulate_weekly_survey_schedule_events(survey)
-    elif settings['schedule_type'] == ScheduleTypes.relative:
+    elif schedule_type == ScheduleTypes.relative:
         pass
-    elif settings['schedule_type'] == ScheduleTypes.absolute:
+    elif schedule_type == ScheduleTypes.absolute:
         pass
     else:
         raise Exception("Invalid schedule type")

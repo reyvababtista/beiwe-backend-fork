@@ -12,14 +12,14 @@ $(document).ready(function() {
 
 $( "#schedule-picker" ).change(function() {
   if ($( this ).val() === "weekly") {
+      $('.schedule-timepicker').timepicker();
       renderWeeklySchedule();
-      $('.schedule-timepicker').timepicker();
   } else if ($( this ).val() === "relative") {
+      $('.schedule-timepicker').timepicker();
       renderRelativeSchedule();
-      $('.schedule-timepicker').timepicker();
   } else if ($( this ).val() === "absolute") {
-      renderAbsoluteSchedule();
       $('.schedule-timepicker').timepicker();
+      renderAbsoluteSchedule();
   }
 });
 
@@ -93,6 +93,7 @@ function end(domainName) {
         url: '/update_survey/' + survey_id,
         data: {
             content: angular.toJson(content),
+            schedule_type: scope.surveyBuilder.schedule_type,
             weekly_timings: JSON.stringify(weekly_times),
             relative_timings: JSON.stringify(relative_times),
             absolute_timings: JSON.stringify(absolute_times),

@@ -8,13 +8,22 @@ Handlebars.registerHelper("int_to_time", int_to_time);
 
 Handlebars.registerHelper("rel_sched_to_label", function(schedule) {
     [intervention_id, days, time] = schedule;
+    console.log("iid: " + intervention_id + ", days: " + days + ", time: " + time);
     var label = "";
     if (days > 0) {
-        label += days + " days after ";
+        if (days === 1)
+            label += days + " day after ";
+        else {
+            label += days + " days after ";
+        }
     } else if (days < 0) {
-        label += Math.abs(days) + " days before ";
+        if (days === -1) {
+            label += Math.abs(days) + " day before ";
+        } else {
+            label += Math.abs(days) + " days before ";
+        }
     } else {
-        label += " Day of ";
+        label += "Day of ";
     }
     label += interventions[intervention_id] + " at " + int_to_time(time);
     return label;
@@ -24,9 +33,7 @@ Handlebars.registerHelper("rel_sched_to_label", function(schedule) {
 // string of the form "Month Day, Year at h:MM AM/PM"
 Handlebars.registerHelper("abs_sched_to_label", function(schedule) {
     [year, month, day, time] = schedule;
-    var label = months_list[month] + day + ", " + year + " " + int_to_time(time);
-
-    return label;
+    return months_list[month] + " " + day + ", " + year + " at " + int_to_time(time);
 });
 
 // Return the time as an h:MM AM/PM string instead of as a number of seconds past midnight
@@ -132,9 +139,13 @@ function add_relative_time() {
     var number_of_seconds = parse_time_string(time_string);
 
     var num_days = $('#num_days_picker').val();
+    console.log("num days: " + num_days);
     // before_after_select can be one of 1, 0, -1
-    var signed_days = num_days * $('before_after_select').val();
-    var intervention_id = $('intervention_select').val();
+    console.log("before/after: " + $('#before_after_select').val());
+    var signed_days = num_days * $('#before_after_select').val();
+    console.log("signed days: " + signed_days);
+    var intervention_id = $('#intervention_select').val();
+    console.log("intervention id: " + intervention_id);
 
     add_time_to_relative_timings(intervention_id, signed_days, number_of_seconds);
 
@@ -167,16 +178,24 @@ function renderAbsoluteSchedule() {
 
 
 function add_absolute_time() {
+    schedule = []
     var time_string = $('#new_time_timepicker').val();
     var number_of_seconds = parse_time_string(time_string);
+    var date = $('#date_picker').val().split('-');
+    for (var idx in date) {
+        schedule.push(parseInt(date[idx], 10)); //base 10
+    }
+    schedule.push(number_of_seconds);
+    console.log("absolute times before: " + absolute_times);
+    add_time_to_absolute_timings(schedule);
+    console.log("absolute times after: " + absolute_times);
 
-    // TODO parse date_picker
-
+    renderAbsoluteSchedule();
 }
 
 // adds new schedule to timings, then sorts them chronologically
 function add_time_to_absolute_timings(schedule) {
-    absolute_timesweekly_times.push(schedule);
+    absolute_times.push(schedule);
     absolute_times.sort(function (a, b) {
         if (a[0] === b[0]) { // if years are the same
             if (a[1] === b[1]) { // if months are the same
@@ -199,13 +218,14 @@ function delete_weekly_time(day_index, time_index) {
 
 
 function delete_relative_time(schedule_index) {
-    relative_times['schedule'].splice(schedule_index, 1);
+    relative_times.splice(schedule_index, 1);
     renderRelativeSchedule();
 }
 
 
 function delete_absolute_time(schedule_index) {
-    absolute_times['schedule'].splice(schedule_index, 1);
+    console.log("index: " + schedule_index);
+    absolute_times.splice(schedule_index, 1);
     renderAbsoluteSchedule();
 }
 

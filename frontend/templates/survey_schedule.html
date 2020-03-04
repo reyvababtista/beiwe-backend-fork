@@ -54,7 +54,7 @@
 
       <input id="num_days_picker" type="number" class="form-control">
       &nbsp;
-      <select id="before_after_select" name="day">
+      <select id="before_after_select" name="before_after">
         <option value=1>Days After</option>
         <option value=-1>Days Before</option>
         <option value=0>Day Of</option>
@@ -97,7 +97,7 @@
           <td>
             <b><span class="label label-info time-label">
               {{int_to_time this}}
-              <i class="remove glyphicon glyphicon-remove" onclick="delete_weekly_time({{@../index}}, {{@index}})" title="Delete this time"></i>
+              <i class="remove glyphicon glyphicon-remove" onclick="delete_weekly_time({{@../index}}, {{@index}})" style="cursor:pointer" title="Delete this time"></i>
             </span></b>
           </td>
           {{/each}}
@@ -113,12 +113,14 @@
     <div class="well well-sm">
       <table>
         {{#each schedules}}
-          <tr>
+        <tr>
+          <td>
             <b><span class="label label-info time-label">
               {{ rel_sched_to_label this }}
-              <i class="remove glyphicon glyphicon-remove" onclick="delete_relative_time({{@index}})" title="Delete this time"></i>
+              <i class="remove glyphicon glyphicon-remove" onclick="delete_relative_time({{@index}})" style="cursor:pointer" title="Delete this time"></i>
             </span> </b>
-          </tr>
+          </td>
+        </tr>
         {{/each}}
       </table>
     </div>
@@ -129,12 +131,14 @@
     <div class="well well-sm">
       <table>
         {{#each schedules}}
-          <tr>
+        <tr>
+          <td>
             <b><span class="label label-info time-label">
               {{ abs_sched_to_label this }}
-              <i class="remove glyphicon glyphicon-remove" onclick="delete_absolute_time({{@index}})" title="Delete this time"></i>
+              <i class="remove glyphicon glyphicon-remove" onclick="delete_absolute_time({{@index}})" style="cursor:pointer" title="Delete this time"></i>
             </span></b>
-          </tr>
+          </td>
+        </tr>
         {{/each}}
       </table>
     </div>

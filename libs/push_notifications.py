@@ -59,7 +59,7 @@ def get_next_weekly_event(survey) -> ((datetime, None), (WeeklySchedule, None)):
 
 def repopulate_weekly_survey_schedule_events(survey: Survey):
     """ Clear existing schedules, get participants, bulk create schedules """
-    survey.scheduled_events.delete()
+    survey.scheduled_events.all().delete()
     schedule_date, schedule = get_next_weekly_event(survey)
     participant_ids = Participant.objects.filter(study_id=survey.study_id).values_list('pk', flat=True)
 

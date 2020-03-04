@@ -3,6 +3,7 @@
 
 from .common_models import *
 from .study_models import *
+from .survey_models import *
 from .user_models import *
 from .profiling_models import *
 from .data_access_models import *

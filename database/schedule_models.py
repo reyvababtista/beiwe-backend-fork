@@ -9,7 +9,7 @@ from django.utils.timezone import is_naive, make_aware
 
 from config.constants import ScheduleTypes
 from database.common_models import AbstractModel
-from database.study_models import SurveyArchive, Survey
+from database.survey_models import Survey, SurveyArchive
 
 
 class AbsoluteSchedule(AbstractModel):

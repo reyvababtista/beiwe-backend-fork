@@ -2,7 +2,7 @@ from flask import abort, Blueprint, json, make_response, redirect, request
 
 from config.constants import ScheduleTypes
 from database.schedule_models import WeeklySchedule
-from database.study_models import Survey
+from database.survey_models import Survey
 from libs.admin_authentication import authenticate_researcher_study_access
 from libs.json_logic import do_validate_survey
 from libs.push_notifications import repopulate_weekly_survey_schedule_events

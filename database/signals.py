@@ -4,7 +4,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from database.study_models import DeviceSettings, Study, Survey, SurveyArchive
+from database.study_models import DeviceSettings, Study
+from database.survey_models import Survey, SurveyArchive
 
 
 @receiver(post_save, sender=Study)

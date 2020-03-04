@@ -3,7 +3,8 @@ from os import path
 
 from flask import flash, request
 
-from database.study_models import Study, Survey
+from database.study_models import Study
+from database.survey_models import Survey
 
 
 def copy_existing_study_if_asked_to(new_study):

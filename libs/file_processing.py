@@ -16,7 +16,7 @@ from config.constants import (ACCELEROMETER, ANDROID_LOG_FILE, API_TIME_FORMAT, 
     DATA_PROCESSING_NO_ERROR_STRING, FILE_PROCESS_PAGE_SIZE, IDENTIFIERS, IOS_LOG_FILE,
     SURVEY_DATA_FILES, SURVEY_TIMINGS, UPLOAD_FILE_TYPE_MAPPING, WIFI)
 from database.data_access_models import ChunkRegistry, FileProcessLock, FileToProcess
-from database.study_models import Survey
+from database.survey_models import Survey
 from database.user_models import Participant
 from libs.s3 import s3_retrieve, s3_upload
 

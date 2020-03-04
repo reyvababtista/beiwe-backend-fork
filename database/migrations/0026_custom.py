@@ -1,7 +1,7 @@
 from django.db import migrations
 
 from database.schedule_models import WeeklySchedule
-from database.study_models import Survey
+from database.survey_models import Survey
 
 SQL_GET_TIMINGS = """
 SELECT "id", "database_survey"."timings" FROM "database_survey"

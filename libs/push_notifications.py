@@ -7,7 +7,7 @@ from firebase_admin import credentials, initialize_app as initialize_firebase_ap
 
 from config.constants import FIREBASE_CREDENTIAL_LOCATION
 from database.schedule_models import AbsoluteSchedule, ScheduledEvent, WeeklySchedule
-from database.study_models import Survey
+from database.survey_models import Survey
 from database.user_models import Participant
 
 # setup firebase

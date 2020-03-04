@@ -12,7 +12,7 @@ from kombu.exceptions import OperationalError
 
 from config.constants import API_TIME_FORMAT, ScheduleTypes
 from database.schedule_models import ScheduledEvent
-from database.study_models import Survey
+from database.survey_models import Survey
 from database.user_models import Participant
 from libs.celery_control import push_send_celery_app
 from libs.push_notifications import firebase_app, FirebaseNotCredentialed, set_next_weekly

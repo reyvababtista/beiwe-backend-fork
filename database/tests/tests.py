@@ -4,7 +4,8 @@ import json
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from database.study_models import Study, Survey, DeviceSettings
+from database.study_models import Study, DeviceSettings
+from database.survey_models import Survey
 from database.user_models import Participant, Researcher
 
 

@@ -194,13 +194,8 @@ class Survey(AbstractSurvey):
         Returns a json serializable object that represents the weekly schedules of this survey.
         The return object is a list of 7 lists of ints
         """
-        schedules = [[], [], [], [], [], [], []]
-        for schedule in self.weekly_schedules.all():
-            num_seconds = schedule.minute * 60 + schedule.hour * 3600
-            schedules[schedule.day_of_week].append(num_seconds)
-        for day in schedules:
-            day.sort()
-        return schedules
+        from database.schedule_models import WeeklySchedule
+        return WeeklySchedule.export_survey_timings_to_legacy_json(self)
 
     def relative_timings(self):
         """
@@ -236,11 +231,10 @@ class Survey(AbstractSurvey):
         return survey_dict
 
     def create_absolute_schedules_and_events(self):
-        from database.schedule_models import AbsoluteSchedule
+        from database.schedule_models import AbsoluteSchedule, ScheduledEvent
 
-        # TODO rename schedules variable
-        schedules = self.timings["schedule"]
-        for schedule in schedules:
+        # todo: finish writing, this doesn't work
+        for schedule in AbsoluteSchedule.objects.filter(surevy=self).values_list("scheduled_date", flat=True):
             year, month, day, seconds = schedule
             hour = schedule[3] // 3600
             minute = schedule[3] % 3600 // 60
@@ -250,7 +244,6 @@ class Survey(AbstractSurvey):
                 survey=self,
                 scheduled_date=schedule_date,
             )
-            from database.models import ScheduledEvent
             for participant in self.study.participants.all():
                 ScheduledEvent.objects.create(
                     survey=self,

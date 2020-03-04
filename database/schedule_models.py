@@ -83,6 +83,19 @@ class WeeklySchedule(AbstractModel):
 
         WeeklySchedule.objects.bulk_create(new_schedules)
 
+    @classmethod
+    def export_survey_timings_to_legacy_json(cls, survey):
+        # this sort order results in nicely ordered output.
+        fields_ordered = ("hour", "minute", "day_of_week")
+        timings = [[], [], [], [], [], [], []]
+        schedule_components = WeeklySchedule.objects.\
+            filter(survey=survey).order_by(*fields_ordered).values_list(*fields_ordered)
+
+        # get, calculate, append, dump.
+        for hour, minute, day in schedule_components:
+            timings[day].append((hour * 60 * 60) + (minute * 60))
+
+        return json.dumps(timings)
 
     def get_prior_and_next_event_times(self, now: datetime=None) -> (datetime, datetime):
         """ Identify the start of the week relative to the current time, use that to determine this

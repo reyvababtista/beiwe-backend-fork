@@ -200,4 +200,3 @@ def edit_custom_field(study_id=None):
             field.save()
 
     return redirect('/study_fields/{:d}'.format(study.id))
-

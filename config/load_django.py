@@ -23,7 +23,6 @@ try:
 
     django.setup()
     django_loaded = True
-except Exception as e:
-    print("Not-critical exception:", e)
-
+except RuntimeError as e:
+    pass
 

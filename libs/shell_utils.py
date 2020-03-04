@@ -9,6 +9,10 @@ from database.profiling_models import UploadTracking
 from database.user_models import Participant
 
 
+def count():
+    return FileToProcess.objects.count()
+
+
 def watch_processing():
     # cannot be imported on EB servers
     from libs.celery_control import (CeleryNotRunningException, get_processing_active_job_ids,

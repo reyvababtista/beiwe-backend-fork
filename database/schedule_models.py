@@ -1,4 +1,6 @@
+import json
 from datetime import datetime, time, timedelta
+from typing import List
 
 import pytz
 from django.core.validators import MaxValueValidator
@@ -7,7 +9,7 @@ from django.utils.timezone import is_naive, make_aware
 
 from config.constants import ScheduleTypes
 from database.common_models import AbstractModel
-from database.study_models import SurveyArchive
+from database.study_models import SurveyArchive, Survey
 
 
 class AbsoluteSchedule(AbstractModel):
@@ -62,6 +64,25 @@ class WeeklySchedule(AbstractModel):
     day_of_week = models.PositiveIntegerField(validators=[MaxValueValidator(6)])
     hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
+
+    @staticmethod
+    def create_weekly_schedules_from_json(timings: str, survey: Survey):
+        WeeklySchedule.create_weekly_schedules(json.loads(timings), survey)
+
+    @staticmethod
+    def create_weekly_schedules(timings: List[List[int]], survey: Survey):
+        """ Creates new WeeklySchedule objects from a frontend-style list of seconds into the day. """
+        assert len(timings) == 7
+        survey.weekly_schedules.all().delete()
+        new_schedules = []
+        for day in range(7):
+            for seconds in timings[day]:
+                hour = seconds // 3600
+                minute = seconds % 3600 // 60
+                new_schedules.append(WeeklySchedule(survey=survey, day_of_week=day, hour=hour, minute=minute))
+
+        WeeklySchedule.objects.bulk_create(new_schedules)
+
 
     def get_prior_and_next_event_times(self, now: datetime=None) -> (datetime, datetime):
         """ Identify the start of the week relative to the current time, use that to determine this

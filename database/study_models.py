@@ -130,8 +130,8 @@ class AbstractSurvey(AbstractModel):
     survey_type = models.CharField(max_length=16, choices=SURVEY_TYPE_CHOICES,
                                    help_text='What type of survey this is.')
     settings = JSONTextField(default='{}', help_text='JSON blob containing settings for the survey.')
-    timings = JSONTextField(default=json.dumps([[], [], [], [], [], [], []]),
-                            help_text='JSON blob containing the times at which the survey is sent.')
+    # timings = JSONTextField(default=json.dumps([[], [], [], [], [], [], []]),
+    #                         help_text='JSON blob containing the times at which the survey is sent.')
     
     class Meta:
         abstract = True

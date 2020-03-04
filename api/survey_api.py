@@ -77,7 +77,7 @@ def update_survey(survey_id=None):
     survey.update(content=content, timings=timings, settings=settings)
 
     if settings['schedule_type'] == ScheduleTypes.weekly:
-        create_weekly_schedules(survey)
+        WeeklySchedule.create_weekly_schedules(survey)
         repopulate_weekly_survey_schedule_events(survey)
     elif settings['schedule_type'] == ScheduleTypes.relative:
         pass
@@ -86,22 +86,6 @@ def update_survey(survey_id=None):
     else:
         raise Exception("Invalid schedule type")
     return make_response("", 201)
-
-
-def create_weekly_schedules(survey: Survey):
-    """Given a list of timings in the form of an array of 7 int arrays, creates weekly schedules"""
-    # grr imports mean this cannot be a Survey instance method...
-    timings_list = json.loads(survey.timings)
-    survey.weekly_schedules.delete()
-
-    new_schedules = []
-    for day in range(7):
-        for time in timings_list[day]:
-            hour = time // 3600
-            minute = time % 3600 // 60
-            WeeklySchedule(survey=survey, day_of_week=day, hour=hour, minute=minute)
-
-    WeeklySchedule.objects.bulk_create(new_schedules)
 
 
 def recursive_survey_content_json_decode(json_entity):

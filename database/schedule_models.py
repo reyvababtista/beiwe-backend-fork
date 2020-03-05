@@ -16,6 +16,21 @@ class AbsoluteSchedule(AbstractModel):
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='absolute_schedules')
     scheduled_date = models.DateTimeField()
 
+    @staticmethod
+    def create_absolute_schedules(timings: List[List[int]], survey: Survey):
+        """ Creates new AbsoluteSchedule objects from a frontend-style list of dates and times"""
+        survey.absolute_schedules.all().delete()
+        new_schedules = []
+        for timing in timings:
+            year, month, day, num_seconds = timing
+            hour = num_seconds // 3600
+            minute = num_seconds % 3600 // 60
+            schedule_date = datetime(year, month, day, hour, minute)
+            new_schedules.append(AbsoluteSchedule(survey=survey, scheduled_date=schedule_date))
+
+        AbsoluteSchedule.objects.bulk_create(new_schedules)
+
+
     def create_events(self):
         new_events = []
         for participant in self.survey.study.participants.all():
@@ -32,25 +47,25 @@ class AbsoluteSchedule(AbstractModel):
 
 class RelativeSchedule(AbstractModel):
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='relative_schedules')
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='relative_schedules')
     intervention = models.ForeignKey('Intervention', on_delete=models.PROTECT, related_name='relative_schedules', null=True)
     days_after = models.IntegerField(default=0)
     hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
 
-    def create_event(self):
-        scheduled_time = datetime.combine(
-            self.intervention.intervention_dates.get(participant=self.participant).date,
-            time(self.hour, self.minute)
-        )
-        ScheduledEvent.objects.create(
-            survey=self.survey,
-            participant=self.participant,
-            weekly_schedule=None,
-            relative_schedule=self,
-            absolute_schedule=None,
-            scheduled_time=scheduled_time,
-        )
+    def create_events(self):
+        for participant in self.survey.study.participants.all():
+            scheduled_time = datetime.combine(
+                self.intervention.intervention_dates.get(participant=participant).date,
+                time(self.hour, self.minute)
+            )
+            ScheduledEvent.objects.create(
+                survey=self.survey,
+                participant=participant,
+                weekly_schedule=None,
+                relative_schedule=self,
+                absolute_schedule=None,
+                scheduled_time=scheduled_time,
+            )
 
 
 class WeeklySchedule(AbstractModel):
@@ -153,7 +168,7 @@ class ScheduledEvent(AbstractModel):
         unique_together = ('survey', 'participant', 'scheduled_time',)
 
     def get_schedule_type(self):
-        return self.SCHEDULE_CLASS_LOOKUP[self.get_schedule()]
+        return self.SCHEDULE_CLASS_LOOKUP[self.get_schedule().__class__]
 
     def get_schedule(self):
         number_schedules = sum((
@@ -190,6 +205,7 @@ class ArchivedEvent(AbstractModel):
     scheduled_time = models.DateTimeField()
     response_time = models.DateTimeField(null=True)
 
+    # TODO update endpoint to update response_time
 
 class Intervention(models.Model):
     name = models.TextField()

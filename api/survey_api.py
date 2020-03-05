@@ -1,11 +1,12 @@
 from flask import abort, Blueprint, json, make_response, redirect, request
 
 from config.constants import ScheduleTypes
-from database.schedule_models import WeeklySchedule
+from database.schedule_models import WeeklySchedule, AbsoluteSchedule
 from database.survey_models import Survey
 from libs.admin_authentication import authenticate_researcher_study_access
 from libs.json_logic import do_validate_survey
-from libs.push_notifications import repopulate_weekly_survey_schedule_events
+from libs.push_notifications import repopulate_weekly_survey_schedule_events, \
+    repopulate_absolute_survey_schedule_events
 
 survey_api = Blueprint('survey_api', __name__)
 
@@ -73,17 +74,16 @@ def update_survey(survey_id=None):
 
     # fixme: this was definitely broken for Eli before adding the json operations, but on dev it was not?
     absolute_timings = json.loads(request.values['absolute_timings'])
-    print("absolute timings: ", absolute_timings)
     relative_timings = json.loads(request.values['relative_timings'])
-    print("relative timings: ", relative_timings)
     weekly_timings = json.loads(request.values['weekly_timings'])
-    print("weekly timings: ", weekly_timings)
     settings = request.values['settings']
     survey.update(content=content, settings=settings)
 
     WeeklySchedule.create_weekly_schedules(weekly_timings, survey)
     repopulate_weekly_survey_schedule_events(survey)
 
+    AbsoluteSchedule.create_absolute_schedules(absolute_timings, survey)
+    repopulate_absolute_survey_schedule_events(survey)
     return make_response("", 201)
 
 

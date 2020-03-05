@@ -7,7 +7,7 @@ The setup script [uses AWS Certificate Manager to generate an SSL certificate](h
 
 ## Configuring Firebase
 To initialize the Firebase SDK, [generate a private key file](https://firebase.google.com/docs/admin/setup#initialize-sdk).
-Rename the file serviceAccountKey.json and place it in /private.
+Rename the file firebase_cloud_messaging_credentials.json and place it in the project root.
 
 ***
 

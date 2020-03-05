@@ -33,7 +33,7 @@ Handlebars.registerHelper("rel_sched_to_label", function(schedule) {
 // string of the form "Month Day, Year at h:MM AM/PM"
 Handlebars.registerHelper("abs_sched_to_label", function(schedule) {
     [year, month, day, time] = schedule;
-    return months_list[month] + " " + day + ", " + year + " at " + int_to_time(time);
+    return months_list[month - 1] + " " + day + ", " + year + " at " + int_to_time(time);
 });
 
 // Return the time as an h:MM AM/PM string instead of as a number of seconds past midnight

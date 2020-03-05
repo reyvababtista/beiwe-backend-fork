@@ -63,7 +63,6 @@ class Survey(AbstractSurvey):
     object_id = models.CharField(max_length=24, unique=True, validators=[LengthValidator(24)])
     # the study field is not inherited because we need to change its related name
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='surveys')
-    schedule_type = models.CharField(max_length=32, null=True)
 
     @classmethod
     def create_with_object_id(cls, **kwargs):
@@ -134,9 +133,9 @@ class Survey(AbstractSurvey):
         # todo: finish writing, this doesn't work
         for schedule in AbsoluteSchedule.objects.filter(surevy=self).values_list("scheduled_date", flat=True):
             year, month, day, seconds = schedule
-            hour = schedule[3] // 3600
-            minute = schedule[3] % 3600 // 60
-            schedule_date = datetime(schedule[0], schedule[1], schedule[2], hour, minute)
+            hour = seconds // 3600
+            minute = seconds % 3600 // 60
+            schedule_date = datetime(year, month, day, hour, minute)
 
             absolute_schedule = AbsoluteSchedule.objects.create(
                 survey=self,

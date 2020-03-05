@@ -1,12 +1,11 @@
-from flask import abort, Blueprint, json, make_response, redirect, request, flash
+from flask import abort, Blueprint, flash, json, make_response, redirect, request
 
-from config.constants import ScheduleTypes
-from database.schedule_models import WeeklySchedule, AbsoluteSchedule, RelativeSchedule
+from database.schedule_models import AbsoluteSchedule, RelativeSchedule, WeeklySchedule
 from database.survey_models import Survey
 from libs.admin_authentication import authenticate_researcher_study_access
 from libs.json_logic import do_validate_survey
-from libs.push_notifications import repopulate_weekly_survey_schedule_events, \
-    repopulate_absolute_survey_schedule_events, repopulate_relative_survey_schedule_events
+from libs.push_notifications import (repopulate_absolute_survey_schedule_events,
+    repopulate_relative_survey_schedule_events, repopulate_weekly_survey_schedule_events)
 
 survey_api = Blueprint('survey_api', __name__)
 
@@ -94,7 +93,7 @@ def update_survey(survey_id=None):
     return make_response("", 201)
 
 
-def recursive_survey_content_json_decode(json_entity):
+def recursive_survey_content_json_decode(json_entity: str):
     """ Decodes through up to 100 attempts a json entity until it has deserialized to a list. """
     count = 100
     decoded_json = None

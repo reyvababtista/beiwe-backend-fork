@@ -112,7 +112,7 @@ class AbstractModel(models.Model):
         ret.update(self._related)
         return ret
     
-    def as_native_python(self, remove_timestamps=True):
+    def as_native_python(self, remove_timestamps=True) -> dict:
         """
         Collect all of the fields of the model and return their values in a python dict,
         with json fields appropriately deserialized.

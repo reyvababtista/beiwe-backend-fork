@@ -15,7 +15,7 @@ class AbstractSurvey(AbstractModel):
 
     AUDIO_SURVEY = 'audio_survey'
     TRACKING_SURVEY = 'tracking_survey'
-    DUMMY_SURVEY = 'dummy'
+    DUMMY_SURVEY = 'dummy'  # this does not appear to exist elsewhere.
     IMAGE_SURVEY = 'image_survey'
     SURVEY_TYPE_CHOICES = (
         (AUDIO_SURVEY, AUDIO_SURVEY),

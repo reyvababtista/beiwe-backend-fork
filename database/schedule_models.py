@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, time, timedelta
-from typing import List
+from typing import List, Tuple
 
 import pytz
 from django.core.validators import MaxValueValidator
@@ -21,18 +21,16 @@ class AbsoluteSchedule(AbstractModel):
         """ Creates new AbsoluteSchedule objects from a frontend-style list of dates and times"""
         survey.absolute_schedules.all().delete()
         duplicated = False
-        for timing in timings:
-            year, month, day, num_seconds = timing
+        for year, month, day, num_seconds in timings:
             hour = num_seconds // 3600
             minute = num_seconds % 3600 // 60
-            schedule_date = datetime(year, month, day, hour, minute)
-                # using get_or_create to catch duplicate schedules
+            schedule_date = datetime(year=year, month=month, day=day, hour=hour, minute=minute)
+            # using get_or_create to catch duplicate schedules
             _, created = AbsoluteSchedule.objects.get_or_create(survey=survey, scheduled_date=schedule_date)
             if not created:
                 duplicated = True
 
         return duplicated
-
 
     def create_events(self):
         new_events = []
@@ -75,8 +73,8 @@ class RelativeSchedule(AbstractModel):
     def create_relative_schedules(timings: List[List[int]], survey: Survey):
         survey.relative_schedules.all().delete()
         duplicated = False
-        for timing in timings:
-            intervention_id, days_after, num_seconds = timing
+        # should be all ints
+        for intervention_id, days_after, num_seconds in timings:
             hour = num_seconds // 3600
             minute = num_seconds % 3600 // 60
             # using get_or_create to catch duplicate schedules
@@ -119,7 +117,9 @@ class WeeklySchedule(AbstractModel):
                 hour = seconds // 3600
                 minute = seconds % 3600 // 60
                 # using get_or_create to catch duplicate schedules
-                _, created = WeeklySchedule.objects.get_or_create(survey=survey, day_of_week=day, hour=hour, minute=minute)
+                _, created = WeeklySchedule.objects.get_or_create(
+                    survey=survey, day_of_week=day, hour=hour, minute=minute
+                )
                 if not created:
                     duplicated = True
 

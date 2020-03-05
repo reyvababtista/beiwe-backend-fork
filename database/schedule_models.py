@@ -20,15 +20,18 @@ class AbsoluteSchedule(AbstractModel):
     def create_absolute_schedules(timings: List[List[int]], survey: Survey):
         """ Creates new AbsoluteSchedule objects from a frontend-style list of dates and times"""
         survey.absolute_schedules.all().delete()
-        new_schedules = []
+        duplicated = False
         for timing in timings:
             year, month, day, num_seconds = timing
             hour = num_seconds // 3600
             minute = num_seconds % 3600 // 60
             schedule_date = datetime(year, month, day, hour, minute)
-            new_schedules.append(AbsoluteSchedule(survey=survey, scheduled_date=schedule_date))
+                # using get_or_create to catch duplicate schedules
+            _, created = AbsoluteSchedule.objects.get_or_create(survey=survey, scheduled_date=schedule_date)
+            if not created:
+                duplicated = True
 
-        AbsoluteSchedule.objects.bulk_create(new_schedules)
+        return duplicated
 
 
     def create_events(self):
@@ -67,6 +70,26 @@ class RelativeSchedule(AbstractModel):
                 scheduled_time=scheduled_time,
             )
 
+    @staticmethod
+    def create_relative_schedules(timings: List[List[int]], survey: Survey):
+        survey.relative_schedules.all().delete()
+        duplicated = False
+        for timing in timings:
+            intervention_id, days_after, num_seconds = timing
+            hour = num_seconds // 3600
+            minute = num_seconds % 3600 // 60
+            # using get_or_create to catch duplicate schedules
+            _, created = RelativeSchedule.objects.get_or_create(
+                survey=survey,
+                intervention=Intervention.objects.get(id=intervention_id),
+                days_after=days_after,
+                hour=hour,
+                minute=minute,
+            )
+            if not created:
+                duplicated = True
+        return duplicated
+
 
 class WeeklySchedule(AbstractModel):
     """ Represents an instance of a time of day within a week for the weekly survey schedule.
@@ -89,14 +112,17 @@ class WeeklySchedule(AbstractModel):
         """ Creates new WeeklySchedule objects from a frontend-style list of seconds into the day. """
         assert len(timings) == 7
         survey.weekly_schedules.all().delete()
-        new_schedules = []
+        duplicated = False
         for day in range(7):
             for seconds in timings[day]:
                 hour = seconds // 3600
                 minute = seconds % 3600 // 60
-                new_schedules.append(WeeklySchedule(survey=survey, day_of_week=day, hour=hour, minute=minute))
+                # using get_or_create to catch duplicate schedules
+                _, created = WeeklySchedule.objects.get_or_create(survey=survey, day_of_week=day, hour=hour, minute=minute)
+                if not created:
+                    duplicated = True
 
-        WeeklySchedule.objects.bulk_create(new_schedules)
+        return duplicated
 
     @classmethod
     def export_survey_timings(cls, survey):

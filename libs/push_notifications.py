@@ -59,8 +59,6 @@ def get_next_weekly_event(survey) -> ((datetime, None), (WeeklySchedule, None)):
 
 def repopulate_weekly_survey_schedule_events(survey: Survey):
     """ Clear existing schedules, get participants, bulk create schedules """
-    print(survey.scheduled_events.all())
-    print(survey.scheduled_events.filter(relative_schedule=None, absolute_schedule=None))
     survey.scheduled_events.filter(relative_schedule=None, absolute_schedule=None).delete()
     schedule_date, schedule = get_next_weekly_event(survey)
     participants = survey.study.participants.all()
@@ -94,4 +92,20 @@ def repopulate_absolute_survey_schedule_events(survey: Survey):
 
     ScheduledEvent.objects.bulk_create(new_events)
 
+
+def repopulate_relative_survey_schedule_events(survey: Survey):
+    survey.scheduled_events.filter(absolute_schedule=None, weekly_schedule=None).delete()
+    new_events = []
+    for schedule in survey.relative_schedules.all():
+        for participant in survey.study.participants.all():
+            new_events.append(ScheduledEvent(
+                survey=survey,
+                participant=participant,
+                weekly_schedule=None,
+                relative_schedule=schedule,
+                absolute_schedule=None,
+                scheduled_time=participant.intervention_dates.get(intervention=schedule.intervention),
+            ))
+
+    ScheduledEvent.objects.bulk_create(new_events)
 

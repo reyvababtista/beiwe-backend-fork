@@ -1,12 +1,12 @@
-from flask import abort, Blueprint, json, make_response, redirect, request
+from flask import abort, Blueprint, json, make_response, redirect, request, flash
 
 from config.constants import ScheduleTypes
-from database.schedule_models import WeeklySchedule, AbsoluteSchedule
+from database.schedule_models import WeeklySchedule, AbsoluteSchedule, RelativeSchedule
 from database.survey_models import Survey
 from libs.admin_authentication import authenticate_researcher_study_access
 from libs.json_logic import do_validate_survey
 from libs.push_notifications import repopulate_weekly_survey_schedule_events, \
-    repopulate_absolute_survey_schedule_events
+    repopulate_absolute_survey_schedule_events, repopulate_relative_survey_schedule_events
 
 survey_api = Blueprint('survey_api', __name__)
 
@@ -79,11 +79,18 @@ def update_survey(survey_id=None):
     settings = request.values['settings']
     survey.update(content=content, settings=settings)
 
-    WeeklySchedule.create_weekly_schedules(weekly_timings, survey)
+    w_duplicated = WeeklySchedule.create_weekly_schedules(weekly_timings, survey)
     repopulate_weekly_survey_schedule_events(survey)
 
-    AbsoluteSchedule.create_absolute_schedules(absolute_timings, survey)
+    a_duplicated = AbsoluteSchedule.create_absolute_schedules(absolute_timings, survey)
     repopulate_absolute_survey_schedule_events(survey)
+
+    r_duplicated = RelativeSchedule.create_relative_schedules(relative_timings, survey)
+    repopulate_relative_survey_schedule_events(survey)
+
+    # if any duplicate schedules were submitted, flash an error
+    if w_duplicated or a_duplicated or r_duplicated:
+        flash('Duplicate schedule was submitted. Only one of the duplicates was created.', 'error')
     return make_response("", 201)
 
 

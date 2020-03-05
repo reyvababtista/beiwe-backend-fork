@@ -93,7 +93,6 @@ function end(domainName) {
         url: '/update_survey/' + survey_id,
         data: {
             content: angular.toJson(content),
-            schedule_type: scope.surveyBuilder.schedule_type,
             weekly_timings: JSON.stringify(weekly_times),
             relative_timings: JSON.stringify(relative_times),
             absolute_timings: JSON.stringify(absolute_times),

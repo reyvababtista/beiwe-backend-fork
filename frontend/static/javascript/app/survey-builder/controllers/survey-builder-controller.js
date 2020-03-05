@@ -43,7 +43,7 @@
     vm.randomize = window.randomize;
     vm.randomizeWithMemory = window.randomizeWithMemory;
     vm.numberOfRandomQuestions = window.numberOfRandomQuestions;
-    vm.schedule_type = window.schedule_type;
+    vm.schedule_type = "weekly";
 // vm.questionIds is set below in vm.refreshQuestionIds()
 
     /* Current question for displaying/modifying with modal */

@@ -88,7 +88,7 @@ function renderWeeklySchedule() {
     for (var i=0; i<7; i++) {
     	day_schedule = {day_name: days_list[i], times: weekly_times[i]};
     	schedule.push(day_schedule);
-    };
+    }
 
     var dataList = {schedules: schedule};
     var htmlSchedule = template(dataList);

@@ -79,18 +79,11 @@ def update_survey(survey_id=None):
     weekly_timings = json.loads(request.values['weekly_timings'])
     print("weekly timings: ", weekly_timings)
     settings = request.values['settings']
-    schedule_type = request.values['schedule_type']
-    survey.update(content=content, timings=weekly_timings, settings=settings)
+    survey.update(content=content, settings=settings)
 
-    if schedule_type == ScheduleTypes.weekly:
-        WeeklySchedule.create_weekly_schedules(weekly_timings, survey)
-        repopulate_weekly_survey_schedule_events(survey)
-    elif schedule_type == ScheduleTypes.relative:
-        pass
-    elif schedule_type == ScheduleTypes.absolute:
-        pass
-    else:
-        raise Exception("Invalid schedule type")
+    WeeklySchedule.create_weekly_schedules(weekly_timings, survey)
+    repopulate_weekly_survey_schedule_events(survey)
+
     return make_response("", 201)
 
 

@@ -38,8 +38,11 @@ class AbstractPasswordUser(AbstractModel):
         Sets the instance's password hash to match the hash of the provided string.
         """
         password_hash, salt = self.generate_hash_and_salt(password.encode())
-        self.password = password_hash
-        self.salt = salt
+        # march 2020: this started failing when running postgres in a local environment.  There
+        # appears to be some extra type conversion going on, characters are getting expanded when
+        # passed in as bytes, causing failures in passing length validation.
+        self.password = password_hash.decode()
+        self.salt = salt.decode()
         self.save()
 
     def reset_password(self):

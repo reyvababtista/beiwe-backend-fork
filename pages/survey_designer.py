@@ -19,7 +19,6 @@ def render_edit_survey(survey_id=None):
     except Survey.DoesNotExist:
         return abort(404)
 
-    s = survey.as_native_python()
     study = survey.study
     return render_template(
         'edit_survey.html',

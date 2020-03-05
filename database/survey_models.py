@@ -93,7 +93,7 @@ class Survey(AbstractSurvey):
         The return object is a list of 7 lists of ints
         """
         from database.schedule_models import WeeklySchedule
-        return WeeklySchedule.export_survey_timings_to_legacy_json(self)
+        return WeeklySchedule.export_survey_timings(self)
 
     def relative_timings(self):
         """

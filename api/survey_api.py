@@ -83,7 +83,7 @@ def update_survey(survey_id=None):
     survey.update(content=content, timings=weekly_timings, settings=settings)
 
     if schedule_type == ScheduleTypes.weekly:
-        WeeklySchedule.create_weekly_schedules(survey)
+        WeeklySchedule.create_weekly_schedules(weekly_timings, survey)
         repopulate_weekly_survey_schedule_events(survey)
     elif schedule_type == ScheduleTypes.relative:
         pass

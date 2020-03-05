@@ -24,11 +24,11 @@
       var questions = {{ survey.content|tojson }};
       var survey_id = '{{ survey.id }}';
       var weekly_times = {{ weekly_timings|tojson }};
-      var relative_times = {{ relative_timings|tojson }}
-      var absolute_times = {{ absolute_timings|tojson }}
+      var relative_times = {{ relative_timings|tojson }};
+      var absolute_times = {{ absolute_timings|tojson }};
       var schedule_type = '{{ survey.schedule_type if survey.schedule_type else "weekly" }}';
       var settings = {{ survey.settings|tojson }};
-      var interventions={{ interventions_dict|tojson }}
+      var interventions = {{ interventions_dict|tojson }};
       var randomize = settings.randomize || false;
       var randomizeWithMemory = settings.randomize_with_memory || false;
       var numberOfRandomQuestions = settings.number_of_random_questions || null;

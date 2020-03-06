@@ -10,7 +10,7 @@ from database.user_models import Researcher, StudyRelation
 from libs.admin_authentication import (assert_admin, assert_researcher_under_admin,
     authenticate_admin, authenticate_researcher_study_access, get_researcher_allowed_studies,
     get_session_researcher, researcher_is_an_admin)
-from libs.copy_study import copy_existing_study_if_asked_to
+from libs.copy_study import copy_existing_study
 from libs.http_utils import checkbox_to_boolean, string_to_int
 
 system_admin_pages = Blueprint('system_admin_pages', __name__)
@@ -248,7 +248,7 @@ def edit_study(study_id=None):
 @system_admin_pages.route('/create_study', methods=['GET', 'POST'])
 @authenticate_admin
 def create_study():
-    # ONLY THE SITE ADMIN CAN CREATE NEW STUDIES.
+    # Only a SITE admin can create new studies.
     if not get_session_researcher().site_admin:
         return abort(403)
 
@@ -264,15 +264,20 @@ def create_study():
     name = request.form.get('name', '')
     encryption_key = request.form.get('encryption_key', '')
     is_test = request.form.get('is_test') == 'true'  # 'true' -> True, 'false' -> False
+    duplicate_existing_study = request.form.get('copy_existing_study', None) == 'true'
 
     assert len(name) <= 2 ** 16, "safety check on new study name failed"
 
     try:
-        study = Study.create_with_object_id(name=name, encryption_key=encryption_key, is_test=is_test)
-        copy_existing_study_if_asked_to(study)
+        new_study = Study.create_with_object_id(name=name, encryption_key=encryption_key, is_test=is_test)
+        if duplicate_existing_study:
+            old_study = Study.objects.get(pk=request.form.get('existing_study_id', None))
+            copy_existing_study(new_study, old_study)
+
         flash('Successfully created study {}.'.format(name), 'success')
-        return redirect('/device_settings/{:d}'.format(study.pk))
+        return redirect('/device_settings/{:d}'.format(new_study.pk))
     except ValidationError as ve:
+        # display message describing failure based on the validation error (hacky, but works.)
         for field, message in ve.message_dict.items():
             flash('{}: {}'.format(field, message[0]), 'danger')
         return redirect('/create_study')

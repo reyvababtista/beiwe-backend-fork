@@ -18,6 +18,7 @@ else:
 
 
 class FirebaseNotCredentialed(Exception): pass
+class NoSchedulesException(Exception): pass
 
 
 def set_next_weekly(participant: Participant, survey: Survey):
@@ -36,7 +37,7 @@ def set_next_weekly(participant: Participant, survey: Survey):
         )
 
 
-def get_next_weekly_event(survey) -> ((datetime, None), (WeeklySchedule, None)):
+def get_next_weekly_event(survey) -> (datetime, WeeklySchedule):
     """ Determines the next time for a particular survey, provides the relevant weekly schedule. """
     now = make_aware(datetime.utcnow(), timezone=pytz.utc)
     timing_list = []
@@ -50,17 +51,22 @@ def get_next_weekly_event(survey) -> ((datetime, None), (WeeklySchedule, None)):
 
     # handle case where there are no scheduled events
     if not timing_list:
-        return None, None
+        raise NoSchedulesException
 
     timing_list.sort(key=lambda date_and_schedule: date_and_schedule[0])
     schedule_date, schedule = timing_list[0]
     return schedule_date, schedule
 
 
-def repopulate_weekly_survey_schedule_events(survey: Survey):
+def repopulate_weekly_survey_schedule_events(survey: Survey) -> None:
     """ Clear existing schedules, get participants, bulk create schedules """
     survey.scheduled_events.filter(relative_schedule=None, absolute_schedule=None).delete()
-    schedule_date, schedule = get_next_weekly_event(survey)
+
+    try:
+        schedule_date, schedule = get_next_weekly_event(survey)
+    except NoSchedulesException:
+        return
+
     participants = survey.study.participants.all()
     new_events = []
     for participant in participants:

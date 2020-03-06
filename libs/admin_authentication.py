@@ -118,6 +118,7 @@ def assert_researcher_under_admin(researcher, study=None):
 
 class ArgumentMissingException(Exception): pass
 
+
 def authenticate_researcher_study_access(some_function):
     """ This authentication decorator checks whether the user has permission to to access the
     study/survey they are accessing.

@@ -1,7 +1,6 @@
 import json
 from os import path
-from plistlib import Dict
-from typing import List
+from typing import Dict, List
 
 from flask import flash, request
 

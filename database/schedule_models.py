@@ -19,6 +19,9 @@ class AbsoluteSchedule(AbstractModel):
     @staticmethod
     def create_absolute_schedules(timings: List[List[int]], survey: Survey):
         """ Creates new AbsoluteSchedule objects from a frontend-style list of dates and times"""
+        if not timings:
+            return
+
         survey.absolute_schedules.all().delete()
         duplicated = False
         for year, month, day, num_seconds in timings:
@@ -71,6 +74,9 @@ class RelativeSchedule(AbstractModel):
 
     @staticmethod
     def create_relative_schedules(timings: List[List[int]], survey: Survey):
+        if not timings:
+            return False
+
         survey.relative_schedules.all().delete()
         duplicated = False
         # should be all ints
@@ -109,6 +115,9 @@ class WeeklySchedule(AbstractModel):
     @staticmethod
     def create_weekly_schedules(timings: List[List[int]], survey: Survey):
         """ Creates new WeeklySchedule objects from a frontend-style list of seconds into the day. """
+        if not timings:
+            return False
+        
         assert len(timings) == 7
         survey.weekly_schedules.all().delete()
         duplicated = False

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from os.path import exists
 
 import pytz
@@ -98,14 +98,20 @@ def repopulate_relative_survey_schedule_events(survey: Survey):
     new_events = []
     for schedule in survey.relative_schedules.all():
         for participant in survey.study.participants.all():
-            new_events.append(ScheduledEvent(
-                survey=survey,
-                participant=participant,
-                weekly_schedule=None,
-                relative_schedule=schedule,
-                absolute_schedule=None,
-                scheduled_time=participant.intervention_dates.get(intervention=schedule.intervention),
-            ))
+            intervention_date =  schedule.intervention.intervention_dates.get(participant=participant).date
+            if intervention_date:
+                scheduled_time = datetime.combine(
+                    schedule.intervention.intervention_dates.get(participant=participant).date,
+                    time(schedule.hour, schedule.minute),
+                )
+                new_events.append(ScheduledEvent(
+                    survey=survey,
+                    participant=participant,
+                    weekly_schedule=None,
+                    relative_schedule=schedule,
+                    absolute_schedule=None,
+                    scheduled_time=scheduled_time,
+                ))
 
     ScheduledEvent.objects.bulk_create(new_events)
 

@@ -55,6 +55,7 @@ class RelativeSchedule(AbstractModel):
     hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
 
+    # not used
     def create_events(self):
         for participant in self.survey.study.participants.all():
             scheduled_time = datetime.combine(

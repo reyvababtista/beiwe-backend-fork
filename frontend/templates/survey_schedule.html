@@ -9,81 +9,86 @@
 
   &nbsp; <label for="trigger_on_first_download"><b> Show survey notification immediately</b> </label> when the user downloads this survey. (Will also trigger this survey right after registration.) <br>
 
-  <h4>Schedule type:</h4>
-  <select id="schedule-picker" ng-model="surveyBuilder.schedule_type">
-    <option value="weekly">Weekly</option>
-    <option value="relative">Relative</option>
-    <option value="absolute">Absolute</option>
-  </select>
-  <button type="button" class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="right" data-html="true" title="<ul><li>Weekly schedules send surveys at the same time every week</li><li>Relative schedules send surveys a specified number of days before or after an intervention date that is specific to each participant</li><li>Absolute schedules send out surveys to participants on a specified date</li></ul>">
-    <i class="fa fa-info-circle"></i>
-  </button>
+  <h4>Schedule type:
+    <button type="button" class="btn btn-default btn-xs" data-toggle="tooltip" data-placement="right" data-html="true" title="<ul><li>Weekly schedules send surveys at the same time every week</li><li>Relative schedules send surveys a specified number of days before or after an intervention date that is specific to each participant</li><li>Absolute schedules send out surveys to participants on a specified date</li></ul>">
+      <i class="fa fa-info-circle"></i>
+    </button> </h4>
+
+
+  <ul class="nav nav-tabs" id="schedule-picker">
+    <li id="weekly-tab" class="active"><a data-toggle="tab" href="#weekly">Weekly</a></li>
+    <li id="relative-tab"><a data-toggle="tab" href="#relative">Relative</a></li>
+    <li id="absolute-tab"><a data-toggle="tab" href="#absolute">Absolute</a></li>
+  </ul>
   <br><br>
 
-  <div ng-if="surveyBuilder.schedule_type == 'weekly'">
 
-    <p>Add new scheduled time (type numbers into the pop-up time picker):</p>
+  <div class="tab-content">
+    <div id="weekly" class="tab-pane fade in active">
+      <p>Add new scheduled time (type numbers into the pop-up time picker):</p>
 
-    <div class="form-inline bootstrap-timepicker timepicker">
-      <input id="new_time_timepicker" type="text" class="form-control schedule-timepicker">
-      <i class="glyphicon glyphicon-time"></i>
-
-      &nbsp;
-      <select id="day_index_select" name="day">
-        <option value="every_day">EVERY DAY</option>
-        <option value=0>Sunday</option>
-        <option value=1>Monday</option>
-        <option value=2>Tuesday</option>
-        <option value=3>Wednesday</option>
-        <option value=4>Thursday</option>
-        <option value=5>Friday</option>
-        <option value=6>Saturday</option>
-      </select>
-
-      &nbsp;&nbsp;&nbsp;
-      <button class="btn btn-info" onclick="add_weekly_time()"><span class="glyphicon glyphicon-plus"></span>Add time</button>
-    </div>
-  </div>
-
-  <div ng-if="surveyBuilder.schedule_type == 'relative'">
-    {% if study.interventions.all().count() == 0 %}
-      <p>There are no interventions for this study. To create a relative schedule, please <a href="/interventions/{{ study.id }}">create an intervention</a>.</p>
-    {% else %}
-      <p>Add new scheduled time followed by how many days before or after the intervention event (type numbers into the pop-up time picker):</p>
       <div class="form-inline bootstrap-timepicker timepicker">
         <input id="new_time_timepicker" type="text" class="form-control schedule-timepicker">
         <i class="glyphicon glyphicon-time"></i>
 
-        <input id="num_days_picker" type="number" class="form-control">
         &nbsp;
-        <select id="before_after_select" name="before_after">
-          <option value=1>Days After</option>
-          <option value=-1>Days Before</option>
-          <option value=0>Day Of</option>
+        <select id="day_index_select" name="day">
+          <option value="every_day">EVERY DAY</option>
+          <option value=0>Sunday</option>
+          <option value=1>Monday</option>
+          <option value=2>Tuesday</option>
+          <option value=3>Wednesday</option>
+          <option value=4>Thursday</option>
+          <option value=5>Friday</option>
+          <option value=6>Saturday</option>
         </select>
 
-        <select id="intervention_select" name="intervention">
-          {% for intervention in study.interventions.all() %}
-            <option value="{{ intervention.id }}">{{ intervention.name }}</option>
-          {% endfor %}
-        </select>
-
-        <button class="btn btn-info" onclick="add_relative_time()"><span class="glyphicon glyphicon-plus"></span>Add time</button>
+        &nbsp;&nbsp;&nbsp;
+        <button class="btn btn-info" onclick="add_weekly_time()"><span class="glyphicon glyphicon-plus"></span>Add time</button>
       </div>
-    {% endif %}
-  </div>
-  <div ng-if="surveyBuilder.schedule_type == 'absolute'">
-    <p>Add new scheduled time followed by the scheduled date (type numbers into the pop-up time picker):</p>
+    </div>
 
-    <div class="form-inline bootstrap-timepicker timepicker">
-      <input id="new_time_timepicker" type="text" class="form-control schedule-timepicker">
-      <i class="glyphicon glyphicon-time"></i>
+    <div id="relative" class="tab-pane fade">
+      {% if study.interventions.all().count() == 0 %}
+        <p>There are no interventions for this study. To create a relative schedule, please <a href="/interventions/{{ study.id }}">create an intervention</a>.</p>
+      {% else %}
+        <p>Add new scheduled time followed by how many days before or after the intervention event (type numbers into the pop-up time picker):</p>
+        <div class="form-inline bootstrap-timepicker timepicker">
+          <input id="new_time_timepicker" type="text" class="form-control schedule-timepicker">
+          <i class="glyphicon glyphicon-time"></i>
 
-      <input id="date_picker" type="date" class="form-control">
+          <input id="num_days_picker" type="number" class="form-control">
+          &nbsp;
+          <select id="before_after_select" name="before_after">
+            <option value=1>Days After</option>
+            <option value=-1>Days Before</option>
+            <option value=0>Day Of</option>
+          </select>
 
-      <button class="btn btn-info" onclick="add_absolute_time()"><span class="glyphicon glyphicon-plus"></span>Add time</button>
+          <select id="intervention_select" name="intervention">
+            {% for intervention in study.interventions.all() %}
+              <option value="{{ intervention.id }}">{{ intervention.name }}</option>
+            {% endfor %}
+          </select>
+
+          <button class="btn btn-info" onclick="add_relative_time()"><span class="glyphicon glyphicon-plus"></span>Add time</button>
+        </div>
+      {% endif %}
+    </div>
+    <div id="absolute" class="tab-pane fade">
+      <p>Add new scheduled time followed by the scheduled date (type numbers into the pop-up time picker):</p>
+
+      <div class="form-inline bootstrap-timepicker timepicker">
+        <input id="new_time_timepicker" type="text" class="form-control schedule-timepicker">
+        <i class="glyphicon glyphicon-time"></i>
+
+        <input id="date_picker" type="date" class="form-control">
+
+        <button class="btn btn-info" onclick="add_absolute_time()"><span class="glyphicon glyphicon-plus"></span>Add time</button>
+      </div>
     </div>
   </div>
+
 
   {% raw %}
   <script id="weekly-schedule-template" type="text/x-handlebars-template">

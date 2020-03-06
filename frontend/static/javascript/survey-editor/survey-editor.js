@@ -10,19 +10,26 @@ $(document).ready(function() {
     audioSurveyTypeChange( $("[name='audio_survey_type']:checked").val() )
 });
 
-$( "#schedule-picker" ).change(function() {
-  if ($( this ).val() === "weekly") {
-      $('.schedule-timepicker').timepicker();
-      renderWeeklySchedule();
-  } else if ($( this ).val() === "relative") {
-      $('.schedule-timepicker').timepicker();
-      renderRelativeSchedule();
-  } else if ($( this ).val() === "absolute") {
-      $('.schedule-timepicker').timepicker();
-      renderAbsoluteSchedule();
-  }
-});
-
+const weeklyNode = document.getElementById('weekly-tab');
+const relativeNode = document.getElementById('relative-tab');
+const absoluteNode = document.getElementById('absolute-tab');
+const config = { attributes: true};
+const callback = function(mutationsList, observer) {
+    // Use traditional 'for loops' for IE 11
+    for(let mutation of mutationsList) {
+        if (mutation.target.getAttribute("class") == "active" && mutation.target.id == "weekly-tab") {
+            renderWeeklySchedule();
+        } else if (mutation.target.getAttribute("class") == "active" && mutation.target.id == "relative-tab") {
+            renderRelativeSchedule();
+        }else if (mutation.target.getAttribute("class") == "active" && mutation.target.id == "absolute-tab") {
+            renderAbsoluteSchedule();
+        }
+    }
+};
+const observer = new MutationObserver(callback);
+observer.observe(weeklyNode, config);
+observer.observe(relativeNode, config);
+observer.observe(absoluteNode, config);
 
 // Return the hour number (in 24-hour time) that the user selected in the form
 function getHour() {
@@ -61,15 +68,15 @@ function get_survey_settings() {
         var make_survey_always_available = document.getElementById('always_available').checked;
         var audioSurveyType = $("[name='audio_survey_type']:checked").val();
         ret = {'trigger_on_first_download': trigger_on_first_download,
-                'audio_survey_type': audioSurveyType,
-                'always_available' : make_survey_always_available};
+            'audio_survey_type': audioSurveyType,
+            'always_available' : make_survey_always_available};
         if (audioSurveyType == 'raw') { ret['sample_rate'] = parseInt($('#raw_options').val()); }
         if (audioSurveyType == 'compressed') { ret['bit_rate'] = parseInt($('#compressed_options').val()); }
         return ret;
     } else {
         var make_survey_always_available = document.getElementById('always_available').checked;
         ret = {'trigger_on_first_download': trigger_on_first_download,
-                'always_available': make_survey_always_available };
+            'always_available': make_survey_always_available };
         return ret;
     }
 }

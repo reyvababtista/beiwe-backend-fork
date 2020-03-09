@@ -120,6 +120,9 @@ class Survey(AbstractSurvey):
         return schedules
 
     def format_survey_for_study(self):
+        """
+        Returns a dict with the values of the survey fields for download to the app
+        """
         survey_dict = self.as_native_python()
         # Make the dict look like the old Mongolia-style dict that the frontend is expecting
         survey_dict.pop('id')
@@ -130,7 +133,7 @@ class Survey(AbstractSurvey):
     def create_absolute_schedules_and_events(self):
         from database.schedule_models import AbsoluteSchedule, ScheduledEvent
 
-        # todo: finish writing, this doesn't work
+        # todo: finish writing, this doesn't work, isn't used anywhere
         for schedule in AbsoluteSchedule.objects.filter(surevy=self).values_list("scheduled_date", flat=True):
             year, month, day, seconds = schedule
             hour = seconds // 3600

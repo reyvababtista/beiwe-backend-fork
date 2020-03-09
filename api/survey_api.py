@@ -41,6 +41,10 @@ def delete_survey(survey_id=None):
 @survey_api.route('/update_survey/<string:survey_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def update_survey(survey_id=None):
+    """
+    Updates the survey when the 'Save & Deploy button on the edit_survey page is hit. Expects
+    content, weekly_timings, absolute_timings, relative_timings, and settings in the request body
+    """
     try:
         survey = Survey.objects.get(pk=survey_id)
     except Survey.DoesNotExist:
@@ -78,6 +82,7 @@ def update_survey(survey_id=None):
     settings = request.values['settings']
     survey.update(content=content, settings=settings)
 
+    # For each of the schedule types, creates Schedule objects and ScheduledEvent objects
     w_duplicated = WeeklySchedule.create_weekly_schedules(weekly_timings, survey)
     repopulate_weekly_survey_schedule_events(survey)
 
@@ -87,7 +92,7 @@ def update_survey(survey_id=None):
     r_duplicated = RelativeSchedule.create_relative_schedules(relative_timings, survey)
     repopulate_relative_survey_schedule_events(survey)
 
-    # if any duplicate schedules were submitted, flash an error
+    # if any duplicate schedules were submitted, flash a message
     if w_duplicated or a_duplicated or r_duplicated:
         flash('Duplicate schedule was submitted. Only one of the duplicates was created.', 'success')
     return make_response("", 201)

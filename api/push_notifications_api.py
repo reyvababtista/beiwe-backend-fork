@@ -20,6 +20,10 @@ push_notifications_api = Blueprint('push_notifications_api', __name__)
 @push_notifications_api.route('/set_fcm_token', methods=['POST'])
 @authenticate_user
 def set_fcm_token():
+    """
+    Sets a participants Firebase CLoud Messaging (FCM) instance token, called whenever a new token
+    is generated. Expects a patient_id and and fcm_token in the request body.
+    """
     patient_id = request.values['patient_id']
     participant = Participant.objects.get(patient_id=patient_id)
     participant.fcm_instance_id = request.values['fcm_token']
@@ -31,6 +35,10 @@ def set_fcm_token():
 @push_notifications_api.route('/send_notification', methods=['POST'])
 @authenticate_user
 def send_notification():
+    """
+    Sends a push notification to the participant, used for testing
+    Expects a patient_id in the request body.
+    """
     participant = Participant.objects.get(patient_id=request.values['patient_id'])
     token = participant.fcm_instance_id
     message = messaging.Message(
@@ -48,6 +56,10 @@ def send_notification():
 @push_notifications_api.route('/send_survey_notification', methods=['Post'])
 @authenticate_user
 def send_survey_notification():
+    """
+    Sends a push notification to the participant with survey data, used for testing
+    Expects a patient_id in the request body
+    """
     participant = Participant.objects.get(patient_id=request.values['patient_id'])
     token = participant.fcm_instance_id
     survey_id = participant.study.surveys.first().object_id
@@ -72,6 +84,10 @@ def send_survey_notification():
 
 @push_notifications_api.route('/download_survey', methods=['GET', 'POST'])
 def get_single_survey():
+    """
+    Sends a json-formatted survey to the participant's phone
+    Expects a patient_id and survey_id in the request body
+    """
     participant = Participant.objects.get(patient_id=request.values['patient_id'])
     study = participant.study
     survey = study.surveys.get(object_id=request.values["survey_id"])

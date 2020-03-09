@@ -47,7 +47,7 @@
               {% if readonly %}
                 {{ patient.patient_id }}
               {% else %}
-                <b><a href="/view_study/{{ study.id }}/edit_participant/{{ patient.id }}" class="list-group-item">{{ patient.patient_id }}</a></b>
+                <b><a href="/view_study/{{ study.id }}/edit_participant/{{ patient.id }}">{{ patient.patient_id }}</a></b>
               {% endif %}
             </td>
             <td>

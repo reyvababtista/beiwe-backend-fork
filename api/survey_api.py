@@ -89,7 +89,7 @@ def update_survey(survey_id=None):
 
     # if any duplicate schedules were submitted, flash an error
     if w_duplicated or a_duplicated or r_duplicated:
-        flash('Duplicate schedule was submitted. Only one of the duplicates was created.', 'error')
+        flash('Duplicate schedule was submitted. Only one of the duplicates was created.', 'success')
     return make_response("", 201)
 
 

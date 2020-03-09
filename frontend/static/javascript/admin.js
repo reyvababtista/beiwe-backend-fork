@@ -1,6 +1,6 @@
 $(document).ready(function(){
     // Set up the main list of patients using DataTables
-    $("#patients_list").DataTable();
+    $("#participant_list").DataTable();
 
     $('#many-new-patients-loading-spinner').hide();
 

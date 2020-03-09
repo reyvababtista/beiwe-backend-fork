@@ -55,7 +55,7 @@ def view_study(study_id=None):
     return render_template(
         'view_study.html',
         study=study,
-        patients=participants,
+        participants=participants,
         audio_survey_ids=audio_survey_ids,
         image_survey_ids=image_survey_ids,
         tracking_survey_ids=tracking_survey_ids,

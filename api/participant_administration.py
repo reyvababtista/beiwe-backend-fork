@@ -45,18 +45,24 @@ def reset_device():
 
     patient_id = request.values['patient_id']
     study_id = request.values['study_id']
-    participant_set = Participant.objects.filter(patient_id=patient_id)
-    if participant_set.exists() and str(participant_set.values_list('study', flat=True).get()) == study_id:
-        participant = participant_set.get()
-        participant.clear_device()
-        flash('For patient {:s}, device was reset; password is untouched.'.format(patient_id), 'success')
-    else:
-        flash('Sorry, something went wrong when trying to reset the patient\'s device.', 'danger')
 
-    return redirect('/view_study/{:s}'.format(study_id))
+    try:
+        participant = Participant.objects.get(patient_id=patient_id)
+    except Participant.DoesNotExist:
+        flash(f'The participant {patient_id} does not exist', 'danger')
+        return redirect(f'/view_study/{study_id}/')
+
+    redirect_obj = redirect(f'/view_study/{study_id}/edit_participant/{participant.id}')
+    if participant.study.id != int(study_id):
+        flash(f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}', 'danger')
+        return redirect_obj
+
+    participant.clear_device()
+    flash(f'For patient {patient_id}, device was reset; password is untouched. ', 'success')
+    return redirect_obj
 
 
-@participant_administration.route('/create_new_patient', methods=["POST"])
+@participant_administration.route('/create_new_participant', methods=["POST"])
 @authenticate_researcher_study_access
 def create_new_participant():
     """

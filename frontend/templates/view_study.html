@@ -22,10 +22,10 @@
 
     <div class="span12">
       <div class="row">
-        <h3>Patients</h3>
+        <h3>Participants</h3>
       </div>
 
-      <table class="table" id="patients_list">
+      <table class="table" id="participant_list">
         <thead>
         <tr>
           <th>Patient ID</th>
@@ -41,17 +41,17 @@
         </thead>
         <tbody id="users-table-body">
 
-        {% for patient in patients %}
+        {% for participant in participants %}
           <tr>
             <td>
               {% if readonly %}
-                {{ patient.patient_id }}
+                {{ participant.patient_id }}
               {% else %}
-                <b><a href="/view_study/{{ study.id }}/edit_participant/{{ patient.id }}">{{ patient.patient_id }}</a></b>
+                <b><a href="/view_study/{{ study.id }}/edit_participant/{{ participant.id }}">{{ participant.patient_id }}</a></b>
               {% endif %}
             </td>
             <td>
-              {% if patient.device_id %}
+              {% if participant.device_id %}
                 <form action="/reset_device" method="post">
                   Smartphone registered
                 </form>
@@ -60,31 +60,31 @@
               {% endif %}
             </td>
             <td>
-              {% if patient.os_type %}
-                {{ patient.os_type }}
+              {% if participant.os_type %}
+                {{ participant.os_type }}
               {% else %}
                 <i>unknown</i>
               {% endif %}
             </td>
             {% for intervention in interventions | sort(case_sensitive=Flase) %}
-              <th>{{ patient.intervention_dict[intervention] }}</th>
+              <th>{{ participant.intervention_dict[intervention] }}</th>
             {% endfor %}
             {% for field in study_fields | sort(case_sensitive=False) %}
-              <td>{{ patient.field_dict[field] }}</td>
+              <td>{{ participant.field_dict[field] }}</td>
             {% endfor %}
           </tr>
         {% endfor %}
 
         </tbody>
       </table>
-      <form action="/create_new_patient" method="post">
+      <form action="/create_new_participant" method="post">
         <div class="form-inline pull-left">
           <input type="hidden" name="study_id" value="{{ study.id }}">
-          <button type="submit" class="btn btn-primary add_new_patient_button">Add new patient</button>
+          <button type="submit" class="btn btn-primary add_new_patient_button">Add new participant</button>
         </div>
       </form>
 
-      <button type="button" class="btn btn-warning add_many_patients_button" data-toggle="modal" data-target="#addManyPatientsModal" title="Enable a number of new patients to enroll in {{ study.name }}: download a file of new Patient IDs and registration passwords">Add many new patients</button>
+      <button type="button" class="btn btn-warning add_many_patients_button" data-toggle="modal" data-target="#addManyPatientsModal" title="Enable a number of new participants to enroll in {{ study.name }}: download a file of new Patient IDs and registration passwords">Add many new participants</button>
       {% include 'create_many_patients_modal.html' %}
 
       <br/><hr><br/>

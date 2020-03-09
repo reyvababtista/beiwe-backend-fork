@@ -1,6 +1,6 @@
 from json import dumps, loads
 
-from flask import Blueprint, flash, redirect, request, Response, abort
+from flask import abort, Blueprint, flash, redirect, request, Response
 
 from database.study_models import Study
 from libs.admin_authentication import authenticate_admin
@@ -28,8 +28,8 @@ def export_study_settings_file(study_id):
 
     # get only the necessary information for the survey and settings representation.
     surveys = []
-    for survey in study.surveys.all():
-        # content, then schedules.
+    for survey in study.surveys.filter(deleted=False):
+        # content, cleanup, then schedules.
         survey_content = survey.as_native_python()
         purge_unnecessary_fields(survey_content)
 

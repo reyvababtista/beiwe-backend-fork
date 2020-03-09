@@ -4,6 +4,7 @@ from typing import Dict, List
 
 from flask import flash, request
 
+from database.common_models import JSONTextField
 from database.schedule_models import AbsoluteSchedule, RelativeSchedule, WeeklySchedule
 from database.study_models import Study
 from database.survey_models import Survey
@@ -15,7 +16,6 @@ ABSOLUTE_SCHEDULE_KEY = "absolute_timings"
 RELATIVE_SCHEDULE_KEY = "relative_timings"
 
 # keys used if various places, pulled out into constants for consistency.
-CREATED_ON_KEY = 'created_on'
 DEVICE_SETTINGS_KEY = 'device_settings'
 STUDY_KEY = 'study'
 SURVEY_CONTENT_KEY = 'content'
@@ -23,9 +23,7 @@ SURVEY_SETTINGS_KEY = 'settings'
 SURVEYS_KEY = 'surveys'
 
 # "_id" is legacy, pk shouldn't occur
-FIELDS_TO_PURGE = ('_id', 'id', 'pk',  'created_on', 'last_updated', 'object_id')
-
-# ID_FIELDS = ("id", "_id")
+FIELDS_TO_PURGE = ('_id', 'id', 'pk',  'created_on', 'last_updated', 'object_id', "deleted")
 
 
 def purge_unnecessary_fields(d: dict):
@@ -42,6 +40,7 @@ def allowed_file_extension(filename: str):
 
 def copy_existing_study(new_study: Study, old_study: Study):
     """ copy logic for an existing study """
+    # get, drop the foreign key.
     old_device_settings = old_study.device_settings.as_dict()
     old_device_settings.pop(STUDY_KEY)
     msg = update_device_settings(old_device_settings, new_study, old_study.name)
@@ -49,9 +48,18 @@ def copy_existing_study(new_study: Study, old_study: Study):
     surveys_to_copy = []
     for survey in old_study.surveys.all():
         survey_as_dict = survey.as_dict()
+
+        # purge and then special case purge
+        purge_unnecessary_fields(survey_as_dict)
         survey_as_dict.pop(STUDY_KEY, None)
-        survey_as_dict.pop(CREATED_ON_KEY, None)
+
+        # survey timings information
+        survey_as_dict[WEEKLY_SCHEDULE_KEY] = survey.weekly_timings()
+        survey_as_dict[ABSOLUTE_SCHEDULE_KEY] = survey.absolute_timings()
+        survey_as_dict[RELATIVE_SCHEDULE_KEY] = survey.relative_timings()
+
         surveys_to_copy.append(survey_as_dict)
+
     msg += " \n" + add_new_surveys(surveys_to_copy, new_study, old_study.name)
     flash(msg, 'success')
 
@@ -94,6 +102,16 @@ def add_new_surveys(new_survey_settings: List[Dict], study: Study, filename: str
         assert isinstance(weekly_schedules, (list, NoneType)), f"weekly_schedule was a {type(weekly_schedules)}."
         assert isinstance(absolute_schedules, (list, NoneType)), f"absolute_schedule was a {type(absolute_schedules)}."
         assert isinstance(relative_schedules, (list, NoneType)), f"relative_schedule was a {type(relative_schedules)}."
+
+        # convert JSONTextFields to json.
+        for field in Survey._meta.fields:
+            if isinstance(field, JSONTextField):
+                survey_settings[field.name] = json.dumps(survey_settings[field.name])
+
+        # case: due to serialization problems (since fixed in a migration) we need to test
+        # for this particular scenario and replace a javascript null / Python None with a default.
+        if survey_settings[SURVEY_CONTENT_KEY] == "null":
+            survey_settings[SURVEY_CONTENT_KEY] = Survey._meta.get_field(SURVEY_CONTENT_KEY).default
 
         survey = Survey.create_with_object_id(study=study, **survey_settings)
         AbsoluteSchedule.create_absolute_schedules(absolute_schedules, survey)

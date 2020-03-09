@@ -5,7 +5,7 @@ from django.db.models import F, Func
 
 from config.constants import ResearcherRole
 from database.models import AbstractModel
-from database.validators import id_validator, standard_base_64_validator, url_safe_base_64_validator
+from database.validators import ID_VALIDATOR, STANDARD_BASE_64_VALIDATOR, URL_SAFE_BASE_64_VALIDATOR
 from libs.security import (compare_password, device_hash, generate_easy_alphanumeric_string,
     generate_hash_and_salt, generate_random_string, generate_user_hash_and_salt)
 
@@ -21,9 +21,9 @@ class AbstractPasswordUser(AbstractModel):
     that the APU's password is never stored in a reversible manner.
     """
 
-    password = models.CharField(max_length=44, validators=[url_safe_base_64_validator],
+    password = models.CharField(max_length=44, validators=[URL_SAFE_BASE_64_VALIDATOR],
                                 help_text='A hash of the user\'s password')
-    salt = models.CharField(max_length=24, validators=[url_safe_base_64_validator])
+    salt = models.CharField(max_length=24, validators=[URL_SAFE_BASE_64_VALIDATOR])
 
     # This stub function declaration is present because it is used in the set_password funcion below
     def generate_hash_and_salt(self, password):
@@ -80,7 +80,7 @@ class Participant(AbstractPasswordUser):
         (NULL_OS, NULL_OS),
     )
 
-    patient_id = models.CharField(max_length=8, unique=True, validators=[id_validator],
+    patient_id = models.CharField(max_length=8, unique=True, validators=[ID_VALIDATOR],
                                   help_text='Eight-character unique ID with characters chosen from 1-9 and a-z')
 
     device_id = models.CharField(max_length=256, blank=True,
@@ -168,9 +168,9 @@ class Researcher(AbstractPasswordUser):
     username = models.CharField(max_length=32, unique=True, help_text='User-chosen username, stored in plain text')
     site_admin = models.BooleanField(default=False, help_text='Whether the researcher is also an admin')
 
-    access_key_id = models.CharField(max_length=64, validators=[standard_base_64_validator], unique=True, null=True, blank=True)
-    access_key_secret = models.CharField(max_length=44, validators=[url_safe_base_64_validator], blank=True)
-    access_key_secret_salt = models.CharField(max_length=24, validators=[url_safe_base_64_validator], blank=True)
+    access_key_id = models.CharField(max_length=64, validators=[STANDARD_BASE_64_VALIDATOR], unique=True, null=True, blank=True)
+    access_key_secret = models.CharField(max_length=44, validators=[URL_SAFE_BASE_64_VALIDATOR], blank=True)
+    access_key_secret_salt = models.CharField(max_length=24, validators=[URL_SAFE_BASE_64_VALIDATOR], blank=True)
 
     is_batch_user = models.BooleanField(default=False)
 

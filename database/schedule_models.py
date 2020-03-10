@@ -188,7 +188,7 @@ class WeeklySchedule(AbstractModel):
 
 
 class ScheduledEvent(AbstractModel):
-    survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='scheduled_events')
+    survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='scheduled_events')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='scheduled_events')
     weekly_schedule = models.ForeignKey('WeeklySchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)
     relative_schedule = models.ForeignKey('RelativeSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)

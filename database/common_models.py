@@ -35,10 +35,6 @@ class AbstractModel(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)
     
-    def mark_deleted(self):
-        self.deleted = True
-        self.save()
-    
     @classmethod
     def generate_objectid_string(cls, field_name):
         """

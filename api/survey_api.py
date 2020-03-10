@@ -28,10 +28,13 @@ def delete_survey(survey_id=None):
         survey = Survey.objects.get(pk=survey_id)
     except Survey.DoesNotExist:
         return abort(404)
-
-    study_id = survey.study_id
-    survey.mark_deleted()
-    return redirect('/view_study/{:d}'.format(study_id))
+    # mark as deleted, delete all schedules and schedule events
+    survey.deleted = True
+    survey.save()
+    survey.absolute_schedules.all().delete()
+    survey.relative_schedules.all().delete()
+    survey.weekly_schedules.all().delete()
+    return redirect(f'/view_study/{survey.study_id}')
 
 ################################################################################
 ############################# Setters and Editors ##############################

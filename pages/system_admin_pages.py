@@ -291,7 +291,8 @@ def delete_study(study_id=None):
 
     if request.form.get('confirmation', 'false') == 'true':
         study = Study.objects.get(pk=study_id)
-        study.mark_deleted()
+        study.deleted = True
+        study.save()
         flash("Deleted study '%s'" % study.name, 'success')
         return "success"
 

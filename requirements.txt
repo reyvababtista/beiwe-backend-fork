@@ -15,6 +15,7 @@ psycopg2==2.8.3
 # Keep these dependencies up to date
 boto3
 pytz
+django-timezone-field
 ipython
 django-extensions
 python-dateutil

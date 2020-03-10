@@ -55,6 +55,7 @@ USE_TZ = True
 INSTALLED_APPS = [
     'database.apps.DatabaseConfig',
     'django_extensions',
+    'timezone_field',
 ]
 
 SHELL_PLUS = "ipython"

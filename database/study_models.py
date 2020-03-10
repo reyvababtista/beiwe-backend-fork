@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models import F, Func
+from timezone_field import TimeZoneField
 
 from config.constants import ResearcherRole
 from config.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT,
@@ -22,14 +23,12 @@ class Study(AbstractModel):
                                  help_text='ID used for naming S3 files')
 
     is_test = models.BooleanField(default=True)
-    timezone = models.CharField(max_length=64, blank=True, help_text='Timezone of the study')
+    timezone = TimeZoneField(default="America/New_York", help_text='Timezone of the study')
+
 
     @classmethod
     def create_with_object_id(cls, **kwargs):
-        """
-        Creates a new study with a populated object_id field
-        """
-        
+        """ Creates a new study with a populated object_id field. """
         study = cls(object_id=cls.generate_objectid_string("object_id"), **kwargs)
         study.save()
         return study

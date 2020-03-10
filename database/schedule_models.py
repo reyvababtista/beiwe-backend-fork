@@ -13,7 +13,7 @@ from database.survey_models import Survey, SurveyArchive
 
 
 class AbsoluteSchedule(AbstractModel):
-    survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='absolute_schedules')
+    survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='absolute_schedules')
     scheduled_date = models.DateTimeField()
 
     @staticmethod
@@ -51,8 +51,8 @@ class AbsoluteSchedule(AbstractModel):
 
 
 class RelativeSchedule(AbstractModel):
-    survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='relative_schedules')
-    intervention = models.ForeignKey('Intervention', on_delete=models.PROTECT, related_name='relative_schedules', null=True)
+    survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='relative_schedules')
+    intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='relative_schedules', null=True)
     days_after = models.IntegerField(default=0)
     hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
@@ -107,7 +107,7 @@ class WeeklySchedule(AbstractModel):
         The timings schema mimics the Java.util.Calendar.DayOfWeek specification: it is zero-indexed
          with day 0 as Sunday."""
 
-    survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='weekly_schedules')
+    survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='weekly_schedules')
     day_of_week = models.PositiveIntegerField(validators=[MaxValueValidator(6)])
     hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
@@ -246,8 +246,8 @@ class ArchivedEvent(AbstractModel):
     scheduled_time = models.DateTimeField()
     response_time = models.DateTimeField(null=True)
 
-    # TODO update endpoint to update response_time
 
+# TODO update endpoint to update response_time
 class Intervention(models.Model):
     name = models.TextField()
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='interventions')

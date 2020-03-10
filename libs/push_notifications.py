@@ -21,7 +21,7 @@ class FirebaseNotCredentialed(Exception): pass
 class NoSchedulesException(Exception): pass
 
 
-def set_next_weekly(participant: Participant, survey: Survey):
+def set_next_weekly(participant: Participant, survey: Survey) -> None:
     ''' Create a next ScheduledEvent for a survey for a particular participant. '''
     schedule_date, schedule = get_next_weekly_event(survey)
 
@@ -37,7 +37,7 @@ def set_next_weekly(participant: Participant, survey: Survey):
         )
 
 
-def get_next_weekly_event(survey) -> (datetime, WeeklySchedule):
+def get_next_weekly_event(survey: Survey) -> (datetime, WeeklySchedule):
     """ Determines the next time for a particular survey, provides the relevant weekly schedule. """
     now = make_aware(datetime.utcnow(), timezone=pytz.utc)
     timing_list = []
@@ -82,7 +82,12 @@ def repopulate_weekly_survey_schedule_events(survey: Survey) -> None:
     ScheduledEvent.objects.bulk_create(new_events)
 
 
-def repopulate_absolute_survey_schedule_events(survey: Survey):
+def repopulate_absolute_survey_schedule_events(survey: Survey) -> None:
+    """
+    Creates new ScheduledEvents for the survey's AbsoluteSchedules while deleting the old
+    ScheduledEvents related to the survey
+    """
+    # if the event is from an absolute schedule, relative and weekly schedules will be None
     survey.scheduled_events.filter(relative_schedule=None, weekly_schedule=None).delete()
     new_events = []
     for schedule in survey.absolute_schedules.all():
@@ -99,7 +104,12 @@ def repopulate_absolute_survey_schedule_events(survey: Survey):
     ScheduledEvent.objects.bulk_create(new_events)
 
 
-def repopulate_relative_survey_schedule_events(survey: Survey):
+def repopulate_relative_survey_schedule_events(survey: Survey) -> None:
+    """
+    Creates new ScheduledEvents for the survey's RelativeSchedules while deleting the old
+    ScheduledEvents related to the survey
+    """
+    # if the event is from an relative schedule, absolute and weekly schedules will be None
     survey.scheduled_events.filter(absolute_schedule=None, weekly_schedule=None).delete()
     new_events = []
     for schedule in survey.relative_schedules.all():

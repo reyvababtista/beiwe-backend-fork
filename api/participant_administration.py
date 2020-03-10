@@ -31,7 +31,7 @@ def reset_participant_password():
         return redirect_obj
 
     new_password = participant.reset_password()
-    flash('Patient {:s}\'s password has been reset to {:s}.'.format(patient_id, new_password), 'success')
+    flash(f'Patient {patient_id}\'s password has been reset to {new_password}.', 'success')
     return redirect_obj
 
 

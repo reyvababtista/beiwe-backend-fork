@@ -32,6 +32,7 @@ def edit_participant(study_id, participant_id):
             allowed_studies=get_researcher_allowed_studies(),
         )
 
+    # update intervention dates for participant
     for intervention in study.interventions.all():
         input_date = request.values.get(f"intervention{intervention.id}", None)
         intervention_date = participant.intervention_dates.get(intervention=intervention)
@@ -39,6 +40,7 @@ def edit_participant(study_id, participant_id):
             intervention_date.date = datetime.strptime(input_date, constants.API_DATE_FORMAT).date()
             intervention_date.save()
 
+    # update custom fields dates for participant
     for field in study.fields.all():
         input_id = f"field{field.id}"
         field_value = participant.field_values.get(field=field)
@@ -80,6 +82,7 @@ def interventions(study_id=None):
 @study_api.route('/delete_intervention/<string:study_id>', methods=['POST'])
 @authenticate_researcher_study_access
 def delete_intervention(study_id=None):
+    """Deletes the specified Intervention. Expects intervention in the request body."""
     study = Study.objects.get(pk=study_id)
     researcher = get_session_researcher()
     readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
@@ -104,6 +107,10 @@ def delete_intervention(study_id=None):
 @study_api.route('/edit_intervention/<string:study_id>', methods=['POST'])
 @authenticate_researcher_study_access
 def edit_intervention(study_id=None):
+    """
+    Edits the name of the intervention. Expects intervention_id and edit_intervention in the
+    request body
+    """
     study = Study.objects.get(pk=study_id)
     researcher = get_session_researcher()
     readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
@@ -156,6 +163,7 @@ def study_fields(study_id=None):
 @study_api.route('/delete_field/<string:study_id>', methods=['POST'])
 @authenticate_researcher_study_access
 def delete_field(study_id=None):
+    """Deletes the specified Custom Field. Expects field in the request body."""
     study = Study.objects.get(pk=study_id)
     researcher = get_session_researcher()
     readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
@@ -181,6 +189,8 @@ def delete_field(study_id=None):
 @study_api.route('/edit_custom_field/<string:study_id>', methods=['POST'])
 @authenticate_researcher_study_access
 def edit_custom_field(study_id=None):
+    """Edits the name of a Custom field. Expects field_id anf edit_custom_field in request body"""
+
     study = Study.objects.get(pk=study_id)
     researcher = get_session_researcher()
     readonly = True if not researcher.check_study_admin(

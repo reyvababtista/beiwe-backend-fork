@@ -5,10 +5,10 @@ var months_list = ["January", "February", "March", "April", "May", "June", "July
 // Return the time as an h:MM AM/PM string instead of as a number of seconds past midnight
 Handlebars.registerHelper("int_to_time", int_to_time);
 
-
+// Takes a schedule of the form [intervention_id, days, time] and returns a string of the form
+// "X days before/after intevention at h:MM AM/PM"
 Handlebars.registerHelper("rel_sched_to_label", function(schedule) {
     [intervention_id, days, time] = schedule;
-    console.log("iid: " + intervention_id + ", days: " + days + ", time: " + time);
     var label = "";
     if (days > 0) {
         if (days === 1)
@@ -96,7 +96,7 @@ function renderWeeklySchedule() {
     $('#surveySchedule').html(htmlSchedule);
 }
 
-
+// adds a weekly schedule to the weekly timings and re-renders weekly schedule template
 function add_weekly_time() {
     var time_string = $('#new_time_timepicker').val();
     var number_of_seconds = parse_time_string(time_string);
@@ -133,19 +133,16 @@ function renderRelativeSchedule() {
     $('#surveySchedule').html(htmlSchedule)
 }
 
-
+// adds a relative schedule to the relative timings and re-renders relative schedule template
 function add_relative_time() {
     var time_string = $('#new_time_timepicker').val();
     var number_of_seconds = parse_time_string(time_string);
 
     var num_days = $('#num_days_picker').val();
-    console.log("num days: " + num_days);
-    // before_after_select can be one of 1, 0, -1
-    console.log("before/after: " + $('#before_after_select').val());
+
+    // before_after_select can be one of 1, 0, -1. Corresponds to days after, day of, and days before respectively
     var signed_days = num_days * $('#before_after_select').val();
-    console.log("signed days: " + signed_days);
     var intervention_id = $('#intervention_select').val();
-    console.log("intervention id: " + intervention_id);
 
     add_time_to_relative_timings(intervention_id, signed_days, number_of_seconds);
 
@@ -176,19 +173,19 @@ function renderAbsoluteSchedule() {
     $('#surveySchedule').html(htmlSchedule)
 }
 
-
+// adds a absolute schedule to the absolute timings and re-renders absolute schedule template
 function add_absolute_time() {
-    schedule = []
+    schedule = [];
     var time_string = $('#new_time_timepicker').val();
     var number_of_seconds = parse_time_string(time_string);
+    // date is in 'YYYY-MM-DD' format
     var date = $('#date_picker').val().split('-');
     for (var idx in date) {
         schedule.push(parseInt(date[idx], 10)); //base 10
     }
     schedule.push(number_of_seconds);
-    console.log("absolute times before: " + absolute_times);
+    // schedule in [year, month, day, time] format
     add_time_to_absolute_timings(schedule);
-    console.log("absolute times after: " + absolute_times);
 
     renderAbsoluteSchedule();
 }
@@ -229,7 +226,7 @@ function delete_absolute_time(schedule_index) {
     renderAbsoluteSchedule();
 }
 
-
+// I think this function is unnecessary
 $(function () {
   $('[data-toggle="tooltip"]').tooltip()
 });

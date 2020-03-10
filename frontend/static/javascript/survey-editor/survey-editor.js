@@ -2,7 +2,6 @@
  * Functionality to create and edit surveys via a web form
  */
 
-// TODO add logic for rendering different survey types
 $(document).ready(function() {
     window.scope = angular.element($("body")).scope();
     renderWeeklySchedule();
@@ -14,6 +13,9 @@ const weeklyNode = document.getElementById('weekly-tab');
 const relativeNode = document.getElementById('relative-tab');
 const absoluteNode = document.getElementById('absolute-tab');
 const config = { attributes: true};
+
+// called whenever the schedule type tab is changed
+// changes the schedule template
 const callback = function(mutationsList, observer) {
     // Use traditional 'for loops' for IE 11
     for(let mutation of mutationsList) {

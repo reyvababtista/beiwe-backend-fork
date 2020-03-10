@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, time, timedelta
-from typing import List, Tuple
+from typing import List
 
 import pytz
 from django.core.validators import MaxValueValidator
@@ -17,10 +17,10 @@ class AbsoluteSchedule(AbstractModel):
     scheduled_date = models.DateTimeField()
 
     @staticmethod
-    def create_absolute_schedules(timings: List[List[int]], survey: Survey):
+    def create_absolute_schedules(timings: List[List[int]], survey: Survey) -> bool:
         """ Creates new AbsoluteSchedule objects from a frontend-style list of dates and times"""
         if not timings:
-            return
+            return False
 
         survey.absolute_schedules.all().delete()
         duplicated = False
@@ -35,7 +35,8 @@ class AbsoluteSchedule(AbstractModel):
 
         return duplicated
 
-    def create_events(self):
+    # TODO: delete? not used anywhere
+    def create_events(self) -> None:
         new_events = []
         for participant in self.survey.study.participants.all():
             new_events.append(ScheduledEvent(
@@ -56,7 +57,7 @@ class RelativeSchedule(AbstractModel):
     hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
 
-    # not used
+    # TODO: delete? not used anywhere
     def create_events(self):
         for participant in self.survey.study.participants.all():
             scheduled_time = datetime.combine(
@@ -73,7 +74,10 @@ class RelativeSchedule(AbstractModel):
             )
 
     @staticmethod
-    def create_relative_schedules(timings: List[List[int]], survey: Survey):
+    def create_relative_schedules(timings: List[List[int]], survey: Survey) -> bool:
+        """
+        Creates new RelativeSchedule objects from a frontend-style list of interventions and times
+        """
         if not timings:
             return False
 
@@ -109,11 +113,11 @@ class WeeklySchedule(AbstractModel):
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
 
     @staticmethod
-    def create_weekly_schedules_from_json(timings: str, survey: Survey):
+    def create_weekly_schedules_from_json(timings: str, survey: Survey) -> None:
         WeeklySchedule.create_weekly_schedules(json.loads(timings), survey)
 
     @staticmethod
-    def create_weekly_schedules(timings: List[List[int]], survey: Survey):
+    def create_weekly_schedules(timings: List[List[int]], survey: Survey) -> bool:
         """ Creates new WeeklySchedule objects from a frontend-style list of seconds into the day. """
         if not timings:
             return False
@@ -135,7 +139,8 @@ class WeeklySchedule(AbstractModel):
         return duplicated
 
     @classmethod
-    def export_survey_timings(cls, survey):
+    def export_survey_timings(cls, survey) -> List[List[int]]:
+        """Returns a json formatted list of weekly timings for use on the frontend"""
         # this sort order results in nicely ordered output.
         fields_ordered = ("hour", "minute", "day_of_week")
         timings = [[], [], [], [], [], [], []]

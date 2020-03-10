@@ -48,6 +48,8 @@ def view_study(study_id=None):
 
     study_fields = list(study.fields.all().values_list('field_name', flat=True))
     interventions = list(study.interventions.all().values_list("name", flat=True))
+
+    # creates dicts of Custom Fields and Interventions to be easily accessed in the template
     for p in participants:
         p.field_dict = {tag.field.field_name: tag.value for tag in p.field_values.all()}
         p.intervention_dict = {tag.intervention.name: tag.date for tag in p.intervention_dates.all()}
@@ -82,6 +84,7 @@ def view_study_data_pipeline(study_id=None):
     )
 
 
+# TODO: delete, this end point cannot be hit, this page isn't used anymore, can delete template too
 @admin_pages.route('/view_study/<string:study_id>/patient_fields/<string:patient_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def patient_fields(study_id, patient_id=None):

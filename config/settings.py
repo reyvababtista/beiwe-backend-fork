@@ -1,4 +1,4 @@
-from os import getenv
+from os import getenv, cpu_count
 
 """
 To customize any of these values, append a line to config/remote_db_env.py such as:
@@ -23,7 +23,7 @@ DOMAIN_NAME = getenv("DOMAIN_NAME")
 # comma separated list; whitespace before and after addresses will be stripped.
 SYSADMIN_EMAILS = getenv("SYSADMIN_EMAILS")
 
-# Sentry DSNs
+# Sentry DSNs (optional)
 SENTRY_ANDROID_DSN = getenv("SENTRY_ANDROID_DSN")
 SENTRY_DATA_PROCESSING_DSN = getenv("SENTRY_DATA_PROCESSING_DSN")
 SENTRY_ELASTIC_BEANSTALK_DSN = getenv("SENTRY_ELASTIC_BEANSTALK_DSN")
@@ -37,3 +37,11 @@ S3_REGION_NAME = getenv("S3_REGION_NAME", "us-east-1")
 
 # Location of the downloadable Android APK file that'll be served from /download
 DOWNLOADABLE_APK_URL = getenv("DOWNLOADABLE_APK_URL", "https://s3.amazonaws.com/beiwe-app-backups/release/Beiwe-2.4.1-onnelaLabServer-release.apk")
+
+# File processing directives
+# Used in data download and data processing, base this on CPU core count.
+CONCURRENT_NETWORK_OPS = getenv("CONCURRENT_NETWORK_OPS") or cpu_count() * 2
+# Used in file processing, number of files to be pulled in and processed simultaneously.
+# Mostly this changes the ram utilization of file processing, higher is more efficient,
+# but will use more memory.
+FILE_PROCESS_PAGE_SIZE = getenv("FILE_PROCESS_PAGE_SIZE") or 250

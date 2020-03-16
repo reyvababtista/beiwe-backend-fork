@@ -1,20 +1,9 @@
-from os import getenv
+# from os import getenv
 from os.path import join as path_join
 from config.settings import DOMAIN_NAME
 
-### Environment settings ###
-# All settings here can be configured by setting an environment variable, or by editing the default value
-
-## File processing directives
-# NOTE: these numbers were determined through trial and error on a C4 Large AWS instance.
-# Used in data download and data processing, base this on CPU core count.
-CONCURRENT_NETWORK_OPS = getenv("CONCURRENT_NETWORK_OPS") or 10
-# Used in file processing, number of files to be pulled in and processed simultaneously.
-# Higher values reduce s3 usage, reduce processing time, but increase ram requirements.
-FILE_PROCESS_PAGE_SIZE = getenv("FILE_PROCESS_PAGE_SIZE") or 250
-
 # This string will be printed into non-error hourly reports to improve error filtering.
-DATA_PROCESSING_NO_ERROR_STRING = getenv("DATA_PROCESSING_NO_ERROR_STRING") or "2HEnBwlawY"
+DATA_PROCESSING_NO_ERROR_STRING = "2HEnBwlawY"
 
 ## Data streams and survey types ##
 ALLOWED_EXTENSIONS = {'csv', 'json', 'mp4', "wav", 'txt', 'jpg'}

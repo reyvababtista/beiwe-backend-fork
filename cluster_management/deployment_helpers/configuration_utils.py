@@ -233,8 +233,3 @@ def create_rabbit_mq_password_file(eb_environment_name):
 def get_rabbit_mq_password(eb_environment_name):
     with open(get_rabbit_mq_manager_ip_file_path(eb_environment_name), 'r') as f:
         return f.read()
-
-
-def get_firebase_credentials_path(eb_environment_name):
-    firebase_creds_path = get_firebase_credentials_file_path(eb_environment_name)
-    return firebase_creds_path if file_exists(firebase_creds_path) else None

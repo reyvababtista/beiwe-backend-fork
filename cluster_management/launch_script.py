@@ -14,7 +14,7 @@ import os
 import re
 import sys
 from os import environ
-from os.path import join as path_join, relpath
+from os.path import exists as file_exists, join as path_join, relpath
 from time import sleep
 
 from fabric.api import env as fabric_env, put, run, sudo
@@ -28,22 +28,23 @@ from deployment_helpers.aws.iam import iam_purge_instance_profiles
 from deployment_helpers.aws.rds import create_new_rds_instance
 from deployment_helpers.configuration_utils import (are_aws_credentials_present,
     create_finalized_configuration, create_processing_server_configuration_file,
-    create_rabbit_mq_password_file, get_firebase_credentials_path, get_rabbit_mq_password,
+    create_rabbit_mq_password_file, get_rabbit_mq_password,
     is_global_configuration_valid, reference_data_processing_server_configuration,
     reference_environment_configuration_file, validate_beiwe_environment_config)
 from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS,
-    APT_WORKER_INSTALLS, CREATE_ENVIRONMENT_HELP, CREATE_MANAGER_HELP, CREATE_WORKER_HELP,
+    APT_WORKER_INSTALLS, CHECK_FIREBASE_CREDS_PROMPT, CHECK_FIREBASE_CREDS_PROMPT2,
+    CREATE_ENVIRONMENT_HELP, CREATE_MANAGER_HELP, CREATE_WORKER_HELP,
     DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH, DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, DEV_HELP,
     DEV_MODE, DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN, ENVIRONMENT_NAME_RESTRICTIONS,
     EXTANT_ENVIRONMENT_PROMPT, FILES_TO_PUSH, FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP,
     get_beiwe_python_environment_variables_file_path, get_finalized_environment_variables,
-    get_global_config, GET_MANAGER_IP_ADDRESS_HELP, get_pushed_full_processing_server_env_file_path,
-    get_server_configuration_file, get_server_configuration_file_path, GET_WORKER_IP_ADDRESS_HELP,
-    HELP_SETUP_NEW_ENVIRONMENT, HELP_SETUP_NEW_ENVIRONMENT_HELP, LOCAL_AMI_ENV_CONFIG_FILE_PATH,
-    LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
-    LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH,
-    LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, LOG_FILE,
-    MANAGER_SERVER_INSTANCE_TYPE, PROD_HELP, PROD_MODE, PURGE_COMMAND_BLURB,
+    get_firebase_credentials_file_path, get_global_config, GET_MANAGER_IP_ADDRESS_HELP,
+    get_pushed_full_processing_server_env_file_path, get_server_configuration_file,
+    get_server_configuration_file_path, GET_WORKER_IP_ADDRESS_HELP, HELP_SETUP_NEW_ENVIRONMENT,
+    HELP_SETUP_NEW_ENVIRONMENT_HELP, LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH,
+    LOCAL_CRONJOB_MANAGER_FILE_PATH, LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH,
+    LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH,
+    LOG_FILE, MANAGER_SERVER_INSTANCE_TYPE, PROD_HELP, PROD_MODE, PURGE_COMMAND_BLURB,
     PURGE_INSTANCE_PROFILES_HELP, PUSHED_FILES_FOLDER, RABBIT_MQ_PORT,
     REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH,
     REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
@@ -199,9 +200,21 @@ def setup_rabbitmq(eb_environment_name):
 
 
 def push_firebase_credentials(eb_environment_name):
-    firebase_creds_path = get_firebase_credentials_path(eb_environment_name)
-    if firebase_creds_path is not None:
-        put(firebase_creds_path, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH)
+    # firebase_creds_path = get_firebase_credentials_file_path(eb_environment_name)
+    file_path = get_firebase_credentials_file_path(eb_environment_name)
+    exists = file_exists(file_path)
+
+    if not exists:
+        log.warning(CHECK_FIREBASE_CREDS_PROMPT.format(file_path=file_path))
+        while True:
+            response = input(CHECK_FIREBASE_CREDS_PROMPT2).lower()
+            if response == "y":
+                exit(0)
+            elif response == "n":
+                break
+
+    if exists:
+        put(file_path, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH)
 
 
 def apt_installs(manager=False, single_server_ami=False):

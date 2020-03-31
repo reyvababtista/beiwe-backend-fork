@@ -3,8 +3,9 @@ from re import sub
 
 from flask import Blueprint, flash, redirect, request, Response
 
+from database.schedule_models import InterventionDate
 from database.study_models import Study
-from database.user_models import Participant
+from database.user_models import Participant, ParticipantFieldValue
 from libs.admin_authentication import authenticate_researcher_study_access
 from libs.s3 import create_client_key_pair, s3_upload
 from libs.streaming_bytes_io import StreamingStringsIO
@@ -74,6 +75,9 @@ def create_new_participant():
 
     study_id = request.values['study_id']
     patient_id, password = Participant.create_with_password(study_id=study_id)
+    participant = Participant.objects.get(patient_id=patient_id)
+    study = Study.objects.get(id=study_id)
+    add_fields_and_interventions(participant, study)
 
     # Create an empty file on S3 indicating that this user exists
     study_object_id = Study.objects.filter(pk=study_id).values_list('object_id', flat=True).get()
@@ -111,9 +115,19 @@ def csv_generator(study_id, number_of_new_patients):
     study_object_id = Study.objects.filter(pk=study_id).values_list('object_id', flat=True).get()
     for _ in range(number_of_new_patients):
         patient_id, password = Participant.create_with_password(study_id=study_id)
+        add_fields_and_interventions(Participant.objects.get(patient_id=patient_id), Study.objects.get(id=study_id))
         # Creates an empty file on s3 indicating that this user exists
         s3_upload(patient_id, "", study_object_id)
         create_client_key_pair(patient_id, study_object_id)
         filewriter.writerow([patient_id, password])
         yield si.getvalue()
         si.empty()
+
+
+def add_fields_and_interventions(participant: Participant, study: Study):
+    """ Creates empty ParticipantFieldValue and InterventionDate objects for newly created
+     participants. """
+    for field in study.fields.all():
+        ParticipantFieldValue.objects.get_or_create(participant=participant, field=field)
+    for intervention in study.interventions.all():
+        InterventionDate.objects.get_or_create(participant=participant, intervention=intervention)

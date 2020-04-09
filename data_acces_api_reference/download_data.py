@@ -1,6 +1,11 @@
-import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse, io, zipfile, json
-from datetime import datetime
+import io
+import json
+import os
+import urllib.parse
+import urllib.request
+import zipfile
 from os import path
+
 # Comment out the following import to disable the credentials file.
 try:
     from my_data_access_api_credentials import ACCESS_KEY, SECRET_KEY
@@ -23,6 +28,7 @@ WIFI = "wifi"
 IOS_LOG = "ios_log"
 
 DEBUG = False
+
 
 def make_request(study_id, access_key=ACCESS_KEY, secret_key=SECRET_KEY, user_ids=None, data_streams=None,
                  time_start=None, time_end=None):
@@ -55,18 +61,18 @@ def make_request(study_id, access_key=ACCESS_KEY, secret_key=SECRET_KEY, user_id
     NOTE: granularity of requesting time is by hour, data will be updated on the server roughly once an hour.
     NOTE: Use the string from this module's API_TIME_FORMAT variable if you are using the Python DateTime library to generate date strings, or investigate the commented out lines of code in this function.
     """
-    
+
     if access_key is None or secret_key is None:
         raise Exception("You must provide credentials to run this API call.")
-    
+
     url = API_URL_BASE + 'get-data/v1'
     values = {'access_key':access_key,
               'secret_key':secret_key,
               'study_id':study_id}
-    
+
     if user_ids: values['user_ids'] = json.dumps(user_ids)
     if data_streams: values['data_streams'] = json.dumps(data_streams)
-    
+
     # Uncomment the below lines to enable (time zone unaware) datetime object support, add 'from datetime import datetime' to the imports.
     if time_start:
         # if isinstance(time_start, datetime):
@@ -76,7 +82,7 @@ def make_request(study_id, access_key=ACCESS_KEY, secret_key=SECRET_KEY, user_id
         # if isinstance(time_end, datetime):
         # time_end = time_end.strftime(API_TIME_FORMAT)
         values['time_end'] = time_end
-    
+
     if path.exists("master_registry"):
         with open("master_registry") as f:
             old_registry = json.load(f)
@@ -84,13 +90,12 @@ def make_request(study_id, access_key=ACCESS_KEY, secret_key=SECRET_KEY, user_id
             values["registry"] = json.dumps(old_registry)
     else:
         old_registry = {}
-    
+
     print("sending request, this could take some time.")
-    # print values
-    
+
     req = urllib.request.Request(url, urllib.parse.urlencode(values))
     response = urllib.request.urlopen(req)
-    
+
     if DEBUG == False:
         return_data = response.read()
     else:
@@ -113,24 +118,24 @@ def make_request(study_id, access_key=ACCESS_KEY, secret_key=SECRET_KEY, user_id
             speed = (chunk_size / 1024. / 1024.) / (b - a).total_seconds()
             profile_list.append(speed)
             print("%s MB downloaded @ %s MB/s" % (total, speed))
-        
+
         return_data = "".join(data_list)
         del data_list
         gc.collect()
-    
+
     print("Data received.  Unpacking and overwriting any updated files into", path.abspath('.'))
-    
+
     z = zipfile.ZipFile(io.StringIO(return_data))
     z.extractall()
-    
+
     with open("registry") as f:
         new_registry = json.load(f)
         f.close()
-    
+
     old_registry.update(new_registry)
     with open("master_registry", "w") as f:
         json.dump(old_registry, f)
-    path.os.remove("registry")
+    os.remove("registry")
     print("Operations complete.")
     # Uncomment the following line to have the function return a list of newly updated files.
     # return [name.filename for name in z.filelist if name.filename != "registry"]
@@ -142,7 +147,7 @@ def get_users_request(study_id, access_key=ACCESS_KEY, secret_key=SECRET_KEY):
     values = {'access_key':access_key,
               'secret_key':secret_key,
               'study_id':study_id}
-    
+
     req = urllib.request.Request(url, urllib.parse.urlencode(values))
     response = urllib.request.urlopen(req)
     return json.loads(response.read())
@@ -153,7 +158,7 @@ def get_studies_request(access_key=ACCESS_KEY, secret_key=SECRET_KEY):
     url = API_URL_BASE + 'get-studies/v1'
     values = {'access_key':access_key,
               'secret_key':secret_key}
-    
+
     req = urllib.request.Request(url, urllib.parse.urlencode(values))
     response = urllib.request.urlopen(req)
     return json.loads(response.read())

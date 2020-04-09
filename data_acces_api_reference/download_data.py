@@ -8,9 +8,9 @@ from os import path
 
 # Comment out the following import to disable the credentials file.
 try:
-    from my_data_access_api_credentials import ACCESS_KEY, SECRET_KEY
+    from my_data_access_api_credentials import ACCESS_KEY, SECRET_KEY, API_URL_BASE
 except ImportError:
-    ACCESS_KEY, SECRET_KEY = None, None
+    ACCESS_KEY, SECRET_KEY, API_URL_BASE = None, None, None
 
 API_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 ACCELEROMETER = "accelerometer"
@@ -93,7 +93,7 @@ def make_request(study_id, access_key=ACCESS_KEY, secret_key=SECRET_KEY, user_id
 
     print("sending request, this could take some time.")
 
-    req = urllib.request.Request(url, urllib.parse.urlencode(values))
+    req = urllib.request.Request(url, data=bytes(json.dumps(values), encoding="utf-8"))
     response = urllib.request.urlopen(req)
 
     if DEBUG == False:

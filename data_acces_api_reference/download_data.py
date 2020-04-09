@@ -93,7 +93,7 @@ def make_request(study_id, access_key=ACCESS_KEY, secret_key=SECRET_KEY, user_id
 
     print("sending request, this could take some time.")
 
-    req = urllib.request.Request(url, data=bytes(json.dumps(values), encoding="utf-8"))
+    req = urllib.request.Request(url, data=bytes(json.dumps(values), encoding="utf-8"), method='POST')
     response = urllib.request.urlopen(req)
 
     if DEBUG == False:

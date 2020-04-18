@@ -26,9 +26,12 @@ from database.data_access_models import PipelineUpload, InvalidUploadParameterEr
 
 data_access_api = Blueprint('data_access_api', __name__)
 
+
 class DummyError(Exception): pass
 
+
 #########################################################################################
+
 
 def get_and_validate_study_id(chunked_download=False):
     """
@@ -38,14 +41,15 @@ def get_and_validate_study_id(chunked_download=False):
     Study object id otherwise invalid causes 400 error.
     Study does not exist in our database causes 404 error.
     """
-    study = _get_study_or_abort_404(request.values.get('study_id', None),
-                                    request.values.get('study_pk', None))
+    study = _get_study_or_abort_404(
+        study_object_id=request.values.get('study_id', None),
+        study_pk=request.values.get('study_pk', None)
+    )
 
     try:
-        # FIXME: this is an unsafe solution to identifying the exception to the raw data access rule
         # for the batch user tasks. Update the researcher model to have a special flag.
         r = Researcher.objects.get(access_key_id=request.values["access_key"])
-        override_for_batch = r.username.startswith("BATCH USER")
+        override_for_batch = r.values_list("is_batch_user", flat=True)
     except Researcher.DoesNotExist:
         override_for_batch = False
 
@@ -57,7 +61,7 @@ def get_and_validate_study_id(chunked_download=False):
         return study
 
 
-def _get_study_or_abort_404(study_object_id, study_pk):
+def _get_study_or_abort_404(study_object_id, study_pk) -> Study:
     if study_object_id:
         # If the ID is incorrectly sized, we return a 400
         if not is_object_id(study_object_id):
@@ -65,21 +69,22 @@ def _get_study_or_abort_404(study_object_id, study_pk):
             return abort(400)
         # If no Study with the given ID exists, we return a 404
         try:
-            study = Study.objects.get(object_id=study_object_id)
+            return Study.objects.get(object_id=study_object_id)
         except Study.DoesNotExist:
-            print("study '%s' does not exist." % study_object_id)
+            # print("study '%s' does not exist." % study_object_id)
             return abort(404)
-        else:
-            return study
     elif study_pk:
+        # we have to test that study_pk is coercible into an int.
+        try:
+            int(study_pk)
+        except ValueError:
+            return abort(400)
         # If no Study with the given ID exists, we return a 404
         try:
-            study = Study.objects.get(pk=study_pk)
+            return Study.objects.get(pk=study_pk)
         except Study.DoesNotExist:
-            print("study '%s' does not exist." % study_pk)
+            # print("study '%s' does not exist." % study_pk)
             return abort(404)
-        else:
-            return study
     else:
         return abort(400)
 
@@ -274,8 +279,8 @@ def zip_generator(files_list, construct_registry=False):
         #             str(name_path) for name_path in duplicate_files)
 
 
-
 #########################################################################################
+
 
 def parse_registry(reg_dat):
     """ Parses the provided registry.dat file and returns a dictionary of chunk

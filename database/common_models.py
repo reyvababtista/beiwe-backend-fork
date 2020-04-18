@@ -171,4 +171,5 @@ class AbstractModel(models.Model):
 
 
 def is_object_id(object_id):
+    """ Object IDs, we have random strings in newer objects, so we only care about length. """
     return len(object_id) == 24

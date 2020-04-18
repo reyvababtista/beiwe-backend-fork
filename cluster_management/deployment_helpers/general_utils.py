@@ -54,8 +54,10 @@ def retry(func, *args, **kwargs):
 
 ALPHANUMERICS = string.ascii_letters + string.digits
 
+
 def random_alphanumeric_string(length):
     return ''.join(random.choice(ALPHANUMERICS) for _ in range(length))
+
 
 def random_alphanumeric_starting_with_letter(length):
     return random.choice(string.ascii_letters) + random_alphanumeric_string(length - 1)

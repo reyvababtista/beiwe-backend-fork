@@ -270,7 +270,7 @@ class DashboardColorSetting(AbstractModel):
         # only one of these color settings per-study-per-data type
         unique_together = (("data_type", "study"),)
 
-    def get_dashboard_color_settings(self):
+    def get_dashboard_color_settings(self) -> dict:
         # return a (json serializable) dict of a dict of the gradient and a list of dicts for
         # the inflection points.
 

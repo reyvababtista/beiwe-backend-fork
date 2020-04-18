@@ -15,8 +15,8 @@ from libs.admin_authentication import (authenticate_researcher_study_access,
 
 dashboard_api = Blueprint('dashboard_api', __name__)
 
-DATETIME_FORMAT_ERROR = \
-    "Dates and times provided to this endpoint must be formatted like this: 2010-11-22 (%s)" % REDUCED_API_TIME_FORMAT
+DATETIME_FORMAT_ERROR = f"Dates and times provided to this endpoint must be formatted like this: " \
+                        f"2010-11-22 ({REDUCED_API_TIME_FORMAT})"
 
 
 def get_study_or_404(study_id):
@@ -516,9 +516,9 @@ def get_bytes_data_stream_match(chunks, date, stream):
     for chunk in chunks:
         if (chunk["time_bin"]).date() == date and chunk["data_stream"] == stream:
             if all_bytes is None:
-                all_bytes = chunk.get("bytes", 0)
+                all_bytes = chunk.get("bytes", 0) or 0
             else:
-                all_bytes += chunk.get("bytes", 0)
+                all_bytes += chunk.get("bytes", 0) or 0
     if all_bytes is not None:
         return all_bytes
     else:
@@ -530,9 +530,9 @@ def get_bytes_participant_match(stream_data, date):
     for data_point in stream_data:
         if (data_point["time_bin"]).date() == date:
             if all_bytes is None:
-                all_bytes = data_point.get("bytes", 0)
+                all_bytes = data_point.get("bytes", 0) or 0
             else:
-                all_bytes += data_point.get("bytes", 0)
+                all_bytes += data_point.get("bytes", 0) or 0
     if all_bytes is not None:
         return all_bytes
     else:

@@ -67,7 +67,7 @@ def upload(OS_API=""):
     # Handle these corner cases first because they requires no database input.
     # Crash logs are from truly ancient versions of the android codebase
     file_name = request.values['file_name']
-    if file_name[:6] == "rList-" or "crashlog" in file_name.lower():
+    if file_name.startswith("rList") or "crashlog" in file_name.lower():
         return render_template('blank.html'), 200
 
     patient_id = request.values['patient_id']

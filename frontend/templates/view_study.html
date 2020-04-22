@@ -67,10 +67,10 @@
               {% endif %}
             </td>
             {% for intervention in interventions | sort(case_sensitive=Flase) %}
-              <th>{{ participant.intervention_dict[intervention] }}</th>
+              <th>{{ participant.intervention_dict[intervention]  or "" }}</th>
             {% endfor %}
             {% for field in study_fields | sort(case_sensitive=False) %}
-              <td>{{ participant.field_dict[field] }}</td>
+              <td>{{ participant.field_dict[field] or "" }}</td>
             {% endfor %}
           </tr>
         {% endfor %}
@@ -103,8 +103,6 @@
             <p><b>This study does not have any surveys.</b></p>
           {% endif %}
         </div>
-
-        {# TODO: Josh, make this pass in the study ID #}
         <a href="/create_survey/{{ study.id }}/tracking_survey" class="btn btn-info">Create new survey</a>
       </div>
 

@@ -15,6 +15,7 @@ private/*
 *__pycache__*
 *~
 *.pem
+.directory
 
 # Files containing aws credentials
 pipeline/configs/aws-config.json

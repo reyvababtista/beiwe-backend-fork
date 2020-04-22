@@ -44,12 +44,7 @@ app.register_blueprint(data_pipeline_api.data_pipeline_api)
 app.register_blueprint(dashboard_api.dashboard_api)
 app.register_blueprint(push_notifications_api.push_notifications_api)
 
-
-if not firebase_app:
-    print("Running with Android Push notifications disabled.")
-
-
-#
+# Sentry is not required, that was too much of a hassle
 if SENTRY_ELASTIC_BEANSTALK_DSN:
     sentry = Sentry(app, dsn=SENTRY_ELASTIC_BEANSTALK_DSN)
 

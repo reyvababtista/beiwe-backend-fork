@@ -3,13 +3,14 @@ import json
 from config.constants import (COMPARATORS, NUMERIC_COMPARATORS, NUMERIC_QUESTIONS,
                               FREE_RESPONSE, FREE_RESPONSE_NUMERIC)
 
-class InvalidLogicError(Exception): pass #this is the super class, it should not show up in any validation check
-class NonExistantUUIDReference(InvalidLogicError): pass #the uuid referenced does not exist
-class InvalidOperator(InvalidLogicError): pass #the comparator provided is not a valid comparator
-class InvalidNumeric(InvalidLogicError): pass #the value provided (by the researcher) to compare against is not numeric
-class NumericPointerInvalid(InvalidLogicError): pass #the answer pointed to should be of a numeric answer type but isn't
-class QuestionReferenceOutOfOrder(InvalidLogicError): pass #this question references a question that comes after it
-class EmptyLogicObject(InvalidLogicError): pass #this question has an empty logic object
+
+class InvalidLogicError(Exception): pass  # this is the super class, it should not show up in any validation check
+class NonExistantUUIDReference(InvalidLogicError): pass  # the uuid referenced does not exist
+class InvalidOperator(InvalidLogicError): pass  # the comparator provided is not a valid comparator
+class InvalidNumeric(InvalidLogicError): pass  # the value provided (by the researcher) to compare against is not numeric
+class NumericPointerInvalid(InvalidLogicError): pass  # the answer pointed to should be of a numeric answer type but isn't
+class QuestionReferenceOutOfOrder(InvalidLogicError): pass  # this question references a question that comes after it
+class EmptyLogicObject(InvalidLogicError): pass  # this question has an empty logic object
 
 
 error_messages = {
@@ -20,7 +21,8 @@ error_messages = {
     str(QuestionReferenceOutOfOrder().__class__):"contains a reference to another question that occurs later in the survey.",
     str(EmptyLogicObject().__class__):"contains a section without any logic in it.",
 }
-    
+
+
 def validate_survey_json(json_survey_string):
     return do_validate_survey( json.loads(json_survey_string) )
 
@@ -31,7 +33,7 @@ def validate_survey_from_db(survey):
 
 def do_validate_survey(questions):
     # The existence of this key is used to distinguish validation errors from other errors
-    errors = { "duplicate_uuids":[] }
+    errors = {"duplicate_uuids": []}
     
     # determine duplicate question ids
     question_ids = set()
@@ -48,13 +50,10 @@ def do_validate_survey(questions):
     for question in questions:
         questions_validated.add(question['question_id'])
         try:
-            # print question
-            if "display_if" in question: #if there is no display logic we will display it in the app.
+            if "display_if" in question:  # if there is no display logic we will display it in the app.
                 validate_logic_tree(question['display_if'], questions_dict, questions_validated)
         except InvalidLogicError as e:
-            # print "found error: %s" % str(e.__class__).rsplit(".",1)[1][:-2], str(e)
             errors[question['question_id']] = [error_messages[str(e.__class__)], str(e)]
-    # print "\nerrors:\n", errors
     return errors
 
 
@@ -89,18 +88,15 @@ def validate_logic_tree(logic_entry, questions_dict, questions_validated):
         raise EmptyLogicObject(operator)
     
     if operator == 'or' or operator == "and": # handle the container types "or" and "and"
-        # print 'and/or'
         for l in logic_entry[operator]:
             validate_logic_tree(l, questions_dict, questions_validated)
         return
     
     if operator == "not":  # handle the container type "not"
-        # print 'not'
         validate_logic_tree(logic_entry[operator], questions_dict, questions_validated)
         return
     
     if operator in COMPARATORS:  # handle the (numerical) logical operators
-        # print 'logic!'
         validate_logic_entry(logic_entry, questions_dict, questions_validated)
         return
     
@@ -159,19 +155,15 @@ def validate_logic_entry(logic_entry, questions_dict, questions_validated):
 #     #any time you see logic_entry[operator] that means we are grabbing the next level in the object
 #
 #     if operator == 'or':
-#         # print 'or'
 #         return any(logic_tree_parse(l) for l in logic_entry[operator])
 #
 #     if operator == 'and':
-#         # print 'and'
 #         return all(logic_tree_parse(l) for l in logic_entry[operator])
 #
 #     if operator == "not":
-#         # print 'not'
 #         return not logic_tree_parse(logic_entry[operator])
 #
 #     if operator in COMPARATORS:
-#         # print 'logic!'
 #         return do_logic(logic_entry)
 #
 #     raise InvalidComparator(operator)
@@ -181,7 +173,6 @@ def validate_logic_entry(logic_entry, questions_dict, questions_validated):
 #
 #     comparator = list(logic_entry.keys())[0]
 #     a, b = list(logic_entry.values())[0]
-#     # print operator, a, b
 #     #code no longer functional, a is always a uuid value.
 #     if comparator in NUMERIC_COMPARATORS:
 #         a = float(a)

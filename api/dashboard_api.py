@@ -4,11 +4,11 @@ from datetime import date, datetime, timedelta
 
 from flask import abort, Blueprint, render_template, request
 
-from config.constants import (ALL_DATA_STREAMS, complete_data_stream_dict,
-    processed_data_stream_dict, REDUCED_API_TIME_FORMAT)
+from config.constants import (ALL_DATA_STREAMS, API_DATE_FORMAT, COMPLETE_DATA_STREAM_DICT,
+    PROCESSED_DATA_STREAM_DICT)
+from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
 from database.data_access_models import ChunkRegistry, PipelineRegistry
-from database.study_models import (DashboardColorSetting, DashboardGradient, DashboardInflection,
-    Study)
+from database.study_models import Study
 from database.user_models import Participant
 from libs.admin_authentication import (authenticate_researcher_study_access,
     get_researcher_allowed_studies, researcher_is_an_admin)
@@ -16,7 +16,7 @@ from libs.admin_authentication import (authenticate_researcher_study_access,
 dashboard_api = Blueprint('dashboard_api', __name__)
 
 DATETIME_FORMAT_ERROR = f"Dates and times provided to this endpoint must be formatted like this: " \
-                        f"2010-11-22 ({REDUCED_API_TIME_FORMAT})"
+                        f"2010-11-22 ({API_DATE_FORMAT})"
 
 
 def get_study_or_404(study_id):
@@ -37,7 +37,7 @@ def dashboard_page(study_id):
         study=study,
         participants=participants,
         study_id=study_id,
-        data_stream_dict=complete_data_stream_dict,
+        data_stream_dict=COMPLETE_DATA_STREAM_DICT,
         allowed_studies=get_researcher_allowed_studies(),
         is_admin=researcher_is_an_admin(),
         page_location='dashboard_landing',
@@ -160,13 +160,13 @@ def get_data_for_dashboard_datastream_display(study_id, data_stream):
     return render_template(
         'dashboard/data_stream_dashboard.html',
         study=study,
-        data_stream=complete_data_stream_dict.get(data_stream),
+        data_stream=COMPLETE_DATA_STREAM_DICT.get(data_stream),
         times=unique_dates,
         byte_streams=byte_streams,
         base_next_url=next_url,
         base_past_url=past_url,
         study_id=study_id,
-        data_stream_dict=complete_data_stream_dict,
+        data_stream_dict=COMPLETE_DATA_STREAM_DICT,
         color_low_range=color_low_range,
         color_high_range=color_high_range,
         first_day=first_day,
@@ -228,7 +228,7 @@ def get_data_for_dashboard_patient_display(study_id, patient_id):
         processed_byte_streams = OrderedDict(
             (stream, [
                 get_bytes_patient_processed_match(all_data, date, stream) for date in unique_dates
-            ]) for stream in processed_data_stream_dict
+            ]) for stream in PROCESSED_DATA_STREAM_DICT
         )
     else:
         processed_byte_streams = None
@@ -256,7 +256,7 @@ def get_data_for_dashboard_patient_display(study_id, patient_id):
         processed_byte_streams = OrderedDict(
             (stream, [
                 None for date in unique_dates
-            ]) for stream in processed_data_stream_dict
+            ]) for stream in PROCESSED_DATA_STREAM_DICT
         )
         byte_streams.update(processed_byte_streams)
     # -------------------------  edge case if no data has been entered -----------------------------------
@@ -281,7 +281,7 @@ def get_data_for_dashboard_patient_display(study_id, patient_id):
         study_id=study_id,
         first_date_data=first_date_data_entry,
         last_date_data=last_date_data_entry,
-        data_stream_dict=complete_data_stream_dict,
+        data_stream_dict=COMPLETE_DATA_STREAM_DICT,
         allowed_studies=get_researcher_allowed_studies(),
         is_admin=researcher_is_an_admin(),
         page_location='dashboard_patient',
@@ -306,7 +306,7 @@ def parse_processed_data(study_id, participant_objects, data_stream):
         if pipeline_chunks is not None:
             for chunk in pipeline_chunks:
                 if data_stream in chunk and "day" in chunk and chunk[data_stream] != "NA":
-                    time_bin = datetime.strptime(chunk["day"], REDUCED_API_TIME_FORMAT).date()
+                    time_bin = datetime.strptime(chunk["day"], API_DATE_FORMAT).date()
                     data_exists = True
                     if first:
                         first_day = time_bin
@@ -343,7 +343,7 @@ def parse_patient_processed_data(study_id, participant):
     if pipeline_chunks is not None:
         for chunk in pipeline_chunks:
             if "day" in chunk:
-                time_bin = datetime.strptime(chunk["day"], REDUCED_API_TIME_FORMAT).date()
+                time_bin = datetime.strptime(chunk["day"], API_DATE_FORMAT).date()
                 if first:
                     first_day = time_bin
                     last_day = time_bin
@@ -354,7 +354,7 @@ def parse_patient_processed_data(study_id, participant):
                     elif (time_bin - last_day).days > 0:
                         last_day = time_bin
                 for stream_key in chunk:
-                    if stream_key in processed_data_stream_dict and chunk[stream_key] != "NA":
+                    if stream_key in PROCESSED_DATA_STREAM_DICT and chunk[stream_key] != "NA":
                         if chunk[stream_key].find(".") == -1:
                             processed_data = int(chunk[stream_key])
                         else:
@@ -490,23 +490,23 @@ def create_next_past_urls(first_day, last_day, start=None, end=None):
         end = datetime.combine(last_day, datetime.min.time())
 
     if 0 < (start.date() - first_day).days < duration:
-        past_url = "?start=" + (start.date() - timedelta(days=(duration + 1))).strftime(REDUCED_API_TIME_FORMAT) + \
-                   "&end=" + (start.date() - timedelta(days=1)).strftime(REDUCED_API_TIME_FORMAT)
+        past_url = "?start=" + (start.date() - timedelta(days=(duration + 1))).strftime(API_DATE_FORMAT) + \
+                   "&end=" + (start.date() - timedelta(days=1)).strftime(API_DATE_FORMAT)
 
     elif (start.date() - first_day).days <= 0:
         past_url = ""
     else:
-        past_url = "?start=" + (start.date() - timedelta(days=duration + 1)).strftime(REDUCED_API_TIME_FORMAT) + \
-                    "&end=" + (start.date() - timedelta(days=1)).strftime(REDUCED_API_TIME_FORMAT)
+        past_url = "?start=" + (start.date() - timedelta(days=duration + 1)).strftime(API_DATE_FORMAT) + \
+                    "&end=" + (start.date() - timedelta(days=1)).strftime(API_DATE_FORMAT)
     if (last_day - timedelta(days=duration + 1)) < end.date() < (last_day - timedelta(days=1)):
-        next_url = "?start=" + (end.date() + timedelta(days=1)).strftime(REDUCED_API_TIME_FORMAT) + "&end=" + \
-                   (end.date() + timedelta(days=(duration + 1))).strftime(REDUCED_API_TIME_FORMAT)
+        next_url = "?start=" + (end.date() + timedelta(days=1)).strftime(API_DATE_FORMAT) + "&end=" + \
+                   (end.date() + timedelta(days=(duration + 1))).strftime(API_DATE_FORMAT)
     elif (last_day - end.date()).days <= 0:
         next_url = ""
     else:
         next_url = "?start=" + \
-                   (start.date() + timedelta(days=duration + 1)).strftime(REDUCED_API_TIME_FORMAT) + "&end=" + \
-                   (end.date() + timedelta(days=duration + 1)).strftime(REDUCED_API_TIME_FORMAT)
+                   (start.date() + timedelta(days=duration + 1)).strftime(API_DATE_FORMAT) + "&end=" + \
+                   (end.date() + timedelta(days=duration + 1)).strftime(API_DATE_FORMAT)
     return next_url, past_url
 
 
@@ -624,9 +624,9 @@ def extract_date_args_from_request():
     end = request.values.get("end", None)
     try:
         if start:
-            start = datetime.strptime(start, REDUCED_API_TIME_FORMAT)
+            start = datetime.strptime(start, API_DATE_FORMAT)
         if end:
-            end = datetime.strptime(end, REDUCED_API_TIME_FORMAT)
+            end = datetime.strptime(end, API_DATE_FORMAT)
     except ValueError as e:
         return abort(400, DATETIME_FORMAT_ERROR)
 

@@ -35,10 +35,6 @@ class AbstractModel(models.Model):
     created_on = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)
     
-    def mark_deleted(self):
-        self.deleted = True
-        self.save()
-    
     @classmethod
     def generate_objectid_string(cls, field_name):
         """
@@ -99,12 +95,10 @@ class AbstractModel(models.Model):
                 # get all the related things using .values() for access, but convert to dict
                 # because the whole point is we want these thing to be prettyprintable and nice.
                 related_manager = getattr(self, related_field.related_name)
-                # print related_manager.all()
                 db_calls += 1
                 ret[related_field.related_name] = [x for x in related_manager.all().values()]
                 entities_returned += len(ret[related_field.related_name])
         
-        print("%s database calls required, %s entities returned." % (db_calls, entities_returned))
         return ret
     
     @property
@@ -114,7 +108,7 @@ class AbstractModel(models.Model):
         ret.update(self._related)
         return ret
     
-    def as_native_python(self, remove_timestamps=True):
+    def as_native_python(self, remove_timestamps=True) -> dict:
         """
         Collect all of the fields of the model and return their values in a python dict,
         with json fields appropriately deserialized.

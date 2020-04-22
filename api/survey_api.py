@@ -1,8 +1,11 @@
-from flask import abort, Blueprint, make_response, request, redirect, json
+from flask import abort, Blueprint, flash, json, make_response, redirect, request
 
+from database.schedule_models import AbsoluteSchedule, RelativeSchedule, WeeklySchedule
+from database.survey_models import Survey
 from libs.admin_authentication import authenticate_researcher_study_access
 from libs.json_logic import do_validate_survey
-from database.study_models import Survey
+from libs.push_notifications import (repopulate_absolute_survey_schedule_events,
+    repopulate_relative_survey_schedule_events, repopulate_weekly_survey_schedule_events)
 
 survey_api = Blueprint('survey_api', __name__)
 
@@ -25,10 +28,13 @@ def delete_survey(survey_id=None):
         survey = Survey.objects.get(pk=survey_id)
     except Survey.DoesNotExist:
         return abort(404)
-
-    study_id = survey.study_id
-    survey.mark_deleted()
-    return redirect('/view_study/{:d}'.format(study_id))
+    # mark as deleted, delete all schedules and schedule events
+    survey.deleted = True
+    survey.save()
+    survey.absolute_schedules.all().delete()
+    survey.relative_schedules.all().delete()
+    survey.weekly_schedules.all().delete()
+    return redirect(f'/view_study/{survey.study_id}')
 
 ################################################################################
 ############################# Setters and Editors ##############################
@@ -38,6 +44,10 @@ def delete_survey(survey_id=None):
 @survey_api.route('/update_survey/<string:survey_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def update_survey(survey_id=None):
+    """
+    Updates the survey when the 'Save & Deploy button on the edit_survey page is hit. Expects
+    content, weekly_timings, absolute_timings, relative_timings, and settings in the request body
+    """
     try:
         survey = Survey.objects.get(pk=survey_id)
     except Survey.DoesNotExist:
@@ -46,7 +56,6 @@ def update_survey(survey_id=None):
     # BUG: There is an unknown situation where the frontend sends a string requiring an extra
     # deserialization operation, causing 'content' to be a string containing a json string
     # containing a json list, instead of just a string containing a json list.
-    # print(request.values.get('content', ''))
     json_content = request.values.get('content')
     content = None
 
@@ -68,14 +77,31 @@ def update_survey(survey_id=None):
     
     # These three all stay JSON when added to survey
     content = json.dumps(content)
-    timings = request.values['timings']
+
+    # fixme: this was definitely broken for Eli before adding the json operations, but on dev it was not?
+    absolute_timings = json.loads(request.values['absolute_timings'])
+    relative_timings = json.loads(request.values['relative_timings'])
+    weekly_timings = json.loads(request.values['weekly_timings'])
     settings = request.values['settings']
-    survey.update(content=content, timings=timings, settings=settings)
-    
+    survey.update(content=content, settings=settings)
+
+    # For each of the schedule types, creates Schedule objects and ScheduledEvent objects
+    w_duplicated = WeeklySchedule.create_weekly_schedules(weekly_timings, survey)
+    repopulate_weekly_survey_schedule_events(survey)
+
+    a_duplicated = AbsoluteSchedule.create_absolute_schedules(absolute_timings, survey)
+    repopulate_absolute_survey_schedule_events(survey)
+
+    r_duplicated = RelativeSchedule.create_relative_schedules(relative_timings, survey)
+    repopulate_relative_survey_schedule_events(survey)
+
+    # if any duplicate schedules were submitted, flash a message
+    if w_duplicated or a_duplicated or r_duplicated:
+        flash('Duplicate schedule was submitted. Only one of the duplicates was created.', 'success')
     return make_response("", 201)
 
 
-def recursive_survey_content_json_decode(json_entity):
+def recursive_survey_content_json_decode(json_entity: str):
     """ Decodes through up to 100 attempts a json entity until it has deserialized to a list. """
     count = 100
     decoded_json = None

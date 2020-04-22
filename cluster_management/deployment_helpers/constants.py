@@ -6,6 +6,19 @@ from os.path import abspath, join as path_join
 
 
 ####################################################################################################
+##################################### Behavioral Settings ##########################################
+####################################################################################################
+
+class TRUE_FALSE:
+    _is_true = False
+    def set(self, set_is_true: bool): self._is_true = set_is_true
+    def __bool__(self): return self._is_true
+    def __repr__(self): return str(self._is_true)
+
+DEV_MODE = TRUE_FALSE()
+PROD_MODE = TRUE_FALSE()
+
+####################################################################################################
 ##################################### General Constants ############################################
 ####################################################################################################
 
@@ -106,12 +119,14 @@ DEPLOYMENT_SPECIFIC_CONFIG_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'enviro
 GENERAL_CONFIG_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'general_configuration')
 STAGED_FILES = path_join(CLUSTER_MANAGEMENT_FOLDER, 'staged_files')
 RABBIT_MQ_PASSWORD_FILE_NAME = "rabbit_mq_password.txt"
+FIREBASE_CREDENTIALS_FILE_NAME = "firebase_credentials.json"
 
 ## Global EC2 Instance __remote__ folder paths
 REMOTE_HOME_DIR = path_join('/home', REMOTE_USERNAME)
+REMOTE_PROJECT_DIR = path_join(REMOTE_HOME_DIR, "beiwe-backend")
 
 ## Global EC2 Instance remote file paths
-DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH = path_join(REMOTE_HOME_DIR, 'beiwe-backend/config/remote_db_env.py')
+DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH = path_join(REMOTE_PROJECT_DIR, 'config/remote_db_env.py')
 LOG_FILE = path_join(REMOTE_HOME_DIR, 'server_setup.log')
 
 ## Management Tool Configuration Files
@@ -174,7 +189,8 @@ REMOTE_APACHE_CONFIG_FILE_PATH = path_join(REMOTE_HOME_DIR, 'ami_apache.conf')
 LOCAL_RABBIT_MQ_CONFIG_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'rabbitmq_configuration.txt')
 REMOTE_RABBIT_MQ_CONFIG_FILE_PATH = path_join(REMOTE_HOME_DIR, 'rabbitmq_configuration.txt')
 REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH = path_join('/etc/rabbitmq/rabbitmq-env.conf')
-REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH = path_join(REMOTE_HOME_DIR, "manager_ip")
+REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH = path_join(REMOTE_PROJECT_DIR, "manager_ip")
+REMOTE_FIREBASE_CREDENTIALS_FILE_PATH = path_join(REMOTE_PROJECT_DIR, "firebase_cloud_messaging_credentials.json")
 
 ####################################################################################################
 ####################################### Dynamic Files ##############################################
@@ -209,6 +225,12 @@ def get_beiwe_python_environment_variables_file_path(eb_environment_name):
 def get_rabbit_mq_manager_ip_file_path(eb_environment_name):
     return path_join(
         DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_" + RABBIT_MQ_PASSWORD_FILE_NAME
+    )
+
+
+def get_firebase_credentials_file_path(eb_environment_name):
+    return path_join(
+        DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_" + FIREBASE_CREDENTIALS_FILE_NAME
     )
 
 
@@ -312,6 +334,32 @@ This command exists because Instance Profiles are not fully-exposed on the AWS C
 Note 1: Run this command repeatedly until it tells you it cannot delete anything.
 Note 2: You may have to go and manually delete a Service Role if you are intent on totally resetting your Elastic Beanstalk cluster.
 """
+
+
+CREATE_ENVIRONMENT_HELP = "creates new environment with the provided environment name"
+
+CREATE_MANAGER_HELP = "creates a data processing manager for the provided environment"
+
+CREATE_WORKER_HELP = "creates a data processing worker for the provided environment"
+
+HELP_SETUP_NEW_ENVIRONMENT_HELP = "assists in creation of configuration files for a beiwe environment deployment"
+
+FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP = "sometimes deployment operations fail stating that health checks do not have sufficient permissions, run this command to fix that."
+
+DEV_HELP = "Worker and Manager deploy operations will swap the server over to the development branch instead of master (or you can set the branch explicitly by setting the 'DEV_BRAPROD_HELPNCH' environment variable)."
+
+PROD_HELP = "Worker and Manager deploy operations will swap the server over to the production branch instead of master."
+
+PURGE_INSTANCE_PROFILES_HELP = PURGE_COMMAND_BLURB
+
+TERMINATE_PROCESSING_SERVERS_HELP = "Terminates all manager and data processing servers (does not touch frontend servers).  You will need to do this from time to time as architectural details change."
+
+GET_MANAGER_IP_ADDRESS_HELP = "Prints the public IP address of the manager server for the cluster."
+GET_WORKER_IP_ADDRESS_HELP = "Prints the public IP addresses of the worker servers for the cluster."
+
+
+CHECK_FIREBASE_CREDS_PROMPT = "You have not provided a credentials file at '{file_path}'.\nIt is strongly recommended you follow the directions on the wiki and provide a firebase credentials json document.  As mobile device operating systems advance many details change.  Most critically power saving mechanisms have, over the lifetime of the Beiwe project, become much more aggressive.  As a result the architecture of the Beiwe apps must change too.  These credentials are used to provide push notifications to the app from your servers in order to trigger events.  Beiwe will still work without them, but data collection is very likely to suffer."
+CHECK_FIREBASE_CREDS_PROMPT2 = "Would you like to exit and retry with credentials? Y/N: "
 
 ####################################################################################################
 ########################################## Other ###################################################

@@ -306,8 +306,8 @@ def create_eb_environment(eb_environment_name, without_db=False):
             raise Exception("describe_environments is broken, %s environments returned" % len(envs))
         env = envs[0]
         if env['Status'] in bad_eb_environment_states:
-            msg = "environment deployment failed:\n%s" % format(env)  #pprint format
-            log.error(msg)  #python logging is weird and this fails to print if python exits too quickly.
+            msg = "environment deployment failed:\n%s" % format(env)
+            log.error(msg)  # python logging is weird and this fails to print if python exits too quickly.
             raise EnvironmentDeploymentFailure(msg)
         if env['Status'] in good_eb_environment_states:
             sleep(5)

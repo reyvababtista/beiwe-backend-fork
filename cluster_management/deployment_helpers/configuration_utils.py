@@ -10,7 +10,8 @@ from deployment_helpers.aws.s3 import create_data_bucket
 from deployment_helpers.constants import (AWS_CREDENTIALS_FILE, AWS_CREDENTIALS_FILE_KEYS,
     DB_SERVER_TYPE, ELASTIC_BEANSTALK_INSTANCE_TYPE, get_aws_credentials,
     get_beiwe_environment_variables, get_beiwe_python_environment_variables_file_path,
-    get_finalized_credentials_file_path, get_finalized_environment_variables, get_global_config,
+    get_finalized_credentials_file_path, get_finalized_environment_variables,
+    get_firebase_credentials_file_path, get_global_config,
     get_pushed_full_processing_server_env_file_path, get_rabbit_mq_manager_ip_file_path,
     get_server_configuration_file_path, GLOBAL_CONFIGURATION_FILE, GLOBAL_CONFIGURATION_FILE_KEYS,
     MANAGER_SERVER_INSTANCE_TYPE, VALIDATE_AWS_CREDENTIALS_MESSAGE,
@@ -155,11 +156,6 @@ def validate_beiwe_environment_config(eb_environment_name):
         if ensure_nonempty_string(dsn, name, errors, beiwe_variables_name):
             if not DSN_REGEX.match(dsn):
                 errors.append('({}) Invalid DSN: {}'.format(beiwe_variables_name, dsn))
-            # if name == "SENTRY_JAVASCRIPT_DSN":
-            #     if not PUBLIC_DSN_REGEX.match(dsn):
-            #         errors.append('({}) Invalid DSN: {}'.format(beiwe_variables_name, dsn))
-            # elif not PRIVATE_DSN_REGEX.match(dsn):
-            #     errors.append('({}) Invalid DSN: {}'.format(beiwe_variables_name, dsn))
                 
     domain_name = beiwe_variables.get('DOMAIN', None)
     ensure_nonempty_string(domain_name, 'Domain name', errors, beiwe_variables_name)

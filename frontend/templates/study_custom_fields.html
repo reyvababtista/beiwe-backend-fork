@@ -1,68 +1,94 @@
 {% extends "base.html" %}
+{% block title %}Custom Fields{% endblock %}
 
 {% block content %}
 
-    <ol class="breadcrumb">
-        <li>
-            <a href="/view_study/{{ study.id }}">{{ study.name }}</a>
-        </li>
-        <li class="active">
-            {% if readonly %}
-                View which Custom Fields are on this study
-            {% else %}
-                Edit which Custom Fields are on this study
-            {% endif %}
-        </li>
-    </ol>
+  <ol class="breadcrumb">
+    <li>
+      <a href="/view_study/{{ study.id }}">{{ study.name }}</a>
+    </li>
+    <li class="active">
+      {% if readonly %}
+        View which Custom Fields are on this study
+      {% else %}
+        Edit which Custom Fields are on this study
+      {% endif %}
+    </li>
+  </ol>
 
-    <div class="row">
-        {% if readonly %}
-            <h2>View which Custom Fields are on this study</h2>
-        {% else %}
-            <h2>Edit which Custom Fields are on this study</h2>
-        {% endif %}
-    </div>
+  <div class="row">
+    {% if readonly %}
+      <h2>View which Custom Fields are on this study</h2>
+    {% else %}
+      <h2>Edit which Custom Fields are on this study</h2>
+    {% endif %}
+  </div>
 
-    <div class="row form-horizontal">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Custom Field</th>
-                    {% if not readonly %}
-                        <th>Remove Custom Field</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-            {% for field in fields | sort(attribute='field_name', case_sensitive=False) %}
-                <tr>
-                    <td>
-                        {{ field.field_name }}
-                    </td>
-                    {% if not readonly %}
-                        <td>
-                            <form>
-                            <input type="hidden" name="study_id" value="{{ study.id }}">
-                            <input type="hidden" name="field" value="{{ field.field_name }}">
-                            <button onclick="confirm_delete_custom_field('{{ field.field_name|replace("'", "")|replace('"', "") }}', '{{ field.id }}', '{{ study.id }}')" class="btn btn-danger"><span class="glyphicon glyphicon-trash"></span> Remove Custom Field</button>
-                            </form>
-                        </td>
-                    {% endif %}
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-
+  <div class="row form-horizontal">
+    <table class="table">
+      <thead>
+      <tr>
+        <th>Custom Field</th>
         {% if not readonly %}
-        <br>
-        <form action="/study_fields/{{ study.id }}" method="POST">
-            <input type="hidden" name="study_id" value="{{ study.id }}">
-            <label>Add New Custom Field</label>
-            <input type="text" class="form-control" name="new_field" />
-            <button type="submit" class="btn btn-success"><span class="glyphicon glyphicon-plus"></span> Add New Custom Field</button>
-        </form>
+          <th>Edit Custom Field</th>
+          <th>Remove Custom Field</th>
         {% endif %}
+      </tr>
+      </thead>
+      <tbody>
+      {% for field in fields | sort(attribute='field_name', case_sensitive=False) %}
+        <tr>
+          <td>
+            {{ field.field_name }}
+          </td>
+          {% if not readonly %}
+            <td>
+              <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#customFieldModal{{ field.id }}">
+                Edit Intervention
+              </button>
+              <div class="modal fade" id="customFieldModal{{ field.id }}" tabindex="-1" role="dialog">
+                <div class="modal-dialog" role="document">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                      <h4 class="modal-title">Edit Custom Field</h4>
+                    </div>
+                    <div class="modal-body">
+                      <form action="/edit_custom_field/{{ study.id }}" method="POST">
+                        <input type="text" class="form-control" name="edit_custom_field" value="{{ field.field_name }}"/>
+                        <input type="hidden" name="field_id" value="{{ field.id }}"/>
+                        <br>
+                        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Save changes</button>
+                      </form>
+                    </div>
+                  </div><!-- /.modal-content -->
+                </div><!-- /.modal-dialog -->
+              </div><!-- /.modal -->
+            </td>
+            <td>
+              <form>
+                <input type="hidden" name="study_id" value="{{ study.id }}">
+                <input type="hidden" name="field" value="{{ field.field_name }}">
+                <button onclick="confirm_delete_custom_field('{{ field.field_name|replace("'", "")|replace('"', "") }}', '{{ field.id }}', '{{ study.id }}')" class="btn btn-danger"><span class="glyphicon glyphicon-trash"></span> Remove Custom Field</button>
+              </form>
+            </td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
 
-    </div>
+    {% if not readonly %}
+      <br>
+      <form action="/study_fields/{{ study.id }}" method="POST">
+        <input type="hidden" name="study_id" value="{{ study.id }}">
+        <label>Add New Custom Field</label>
+        <input type="text" class="form-control" name="new_field" />
+        <button type="submit" class="btn btn-success"><span class="glyphicon glyphicon-plus"></span> Add New Custom Field</button>
+      </form>
+    {% endif %}
+
+  </div>
 
 {% endblock %}

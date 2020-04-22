@@ -16,6 +16,8 @@ GLOBAL_CONFIGURATION = get_global_config()
 
 RABBIT_MQ_SEC_GRP_DESCRIPTION = "allows connections to rabbitmq from servers with security group %s"
 PROCESSING_MANAGER_NAME = "%s data processing manager"
+PROCESSING_WORKER_NAME = "%s data processing server"
+
 
 ####################################################################################################
 ######################################## Accessors #################################################
@@ -37,6 +39,14 @@ def get_manager_public_ip(eb_environment_name):
       'PublicIp': '18.216.26.40'} """
     instance = get_manager_instance_by_eb_environment_name(eb_environment_name)
     return instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
+
+
+def get_worker_public_ips(eb_environment_name):
+    """ Returns a list of ip addresses, one for every worker. """
+    return [
+        instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
+        for instance in get_worker_instances(eb_environment_name)
+    ]
 
 
 def get_manager_instance_by_eb_environment_name(eb_environment_name):
@@ -80,6 +90,11 @@ def get_instances_by_name(instance_name):
 
     return instances
 
+
+def get_worker_instances(eb_environment_name):
+    return get_instances_by_name(PROCESSING_WORKER_NAME % eb_environment_name)
+
+
 ####################################################################################################
 ######################################### Utilities ################################################
 ####################################################################################################
@@ -101,9 +116,11 @@ def get_most_recent_ubuntu():
             ]
     )['Images']
     # The names are time-sortable, we want the most recent one, it is at the bottom of a sorted list
+    images = [image for image in images if "aws-marketplace" not in image["ImageLocation"]]
     images.sort(key=lambda x: x['Name'])
     log.info("Using AMI '%s'" % images[-1]['Name'])
     return images[-1]
+
 
 ####################################################################################################
 ##################################### Security Groups ##############################################
@@ -135,6 +152,7 @@ def get_or_create_rabbit_mq_security_group(eb_environment_name):
         )
         open_tcp_port(sec_grp['GroupId'], 22)
         return get_security_group_by_id(sec_grp['GroupId'])
+
 
 ####################################################################################################
 #################################### Instance Creation #############################################
@@ -220,7 +238,7 @@ def create_processing_server(eb_environment_name, aws_server_type):
                                   security_groups=[instance_sec_grp_id])
     instance_resource = create_ec2_resource().Instance(instance_info["InstanceId"])
     instance_resource.create_tags(Tags=[
-        {"Key": "Name", "Value": "%s data processing server" % eb_environment_name},
+        {"Key": "Name", "Value": PROCESSING_WORKER_NAME % eb_environment_name},
         {"Key": "is_processing_worker", "Value": "1"}
     ])
     return instance_info
@@ -230,9 +248,8 @@ def create_processing_control_server(eb_environment_name, aws_server_type):
     """ The differences between a data processing worker server and a processing controller
     server is that the controller needs to allow connections from the processors. """
 
-    get_rds_security_groups_by_eb_name(eb_environment_name)["instance_sec_grp"]['GroupId']
-
-    # TODO: functions that terminate all worker and all manager servers for an environment
+    # this will fail if there are no security groups (safety check against out of order operations.)
+    _ = get_rds_security_groups_by_eb_name(eb_environment_name)["instance_sec_grp"]['GroupId']
 
     manager_info = get_manager_instance_by_eb_environment_name(eb_environment_name)
     if manager_info is not None:
@@ -264,3 +281,18 @@ def create_processing_control_server(eb_environment_name, aws_server_type):
         {"Key": "is_processing_manager", "Value":"1"}
     ])
     return instance_info
+
+
+def terminate_all_processing_servers(eb_environment_name):
+    ec2_client = create_ec2_client()
+    worker_ids = [worker['InstanceId'] for worker in get_worker_instances(eb_environment_name)]
+
+    # don't optimize, we want the log statements
+    for instance_id in worker_ids:
+        ec2_client.terminate_instances(InstanceIds=[instance_id])
+        log.info(f"Terminating worker instance {instance_id}")
+
+    manager_info = get_manager_instance_by_eb_environment_name(eb_environment_name)
+    if manager_info:
+        log.info(f"Terminating manager instance {manager_info['InstanceId']}")
+        ec2_client.terminate_instances(InstanceIds=[manager_info['InstanceId']])

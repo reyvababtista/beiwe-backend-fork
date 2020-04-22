@@ -6,12 +6,11 @@ from flask import Flask, redirect, render_template
 from raven.contrib.flask import Sentry
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from config import load_django
-
 from api import (admin_api, copy_study_api, dashboard_api, data_access_api, data_pipeline_api,
-    mobile_api, participant_administration, survey_api)
+    mobile_api, participant_administration, push_notifications_api, study_api, survey_api)
 from config.settings import SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN
 from libs.admin_authentication import is_logged_in
+from libs.push_notifications import firebase_app
 from libs.security import set_secret_key
 from pages import (admin_pages, data_access_web_form, mobile_pages, survey_designer,
     system_admin_pages)
@@ -37,15 +36,16 @@ app.register_blueprint(survey_designer.survey_designer)
 app.register_blueprint(admin_api.admin_api)
 app.register_blueprint(participant_administration.participant_administration)
 app.register_blueprint(survey_api.survey_api)
+app.register_blueprint(study_api.study_api)
 app.register_blueprint(data_access_api.data_access_api)
 app.register_blueprint(data_access_web_form.data_access_web_form)
 app.register_blueprint(copy_study_api.copy_study_api)
 app.register_blueprint(data_pipeline_api.data_pipeline_api)
 app.register_blueprint(dashboard_api.dashboard_api)
+app.register_blueprint(push_notifications_api.push_notifications_api)
 
-
-# Don't set up Sentry for local development
-if os.environ['DJANGO_DB_ENV'] != 'local':
+# Sentry is not required, that was too much of a hassle
+if SENTRY_ELASTIC_BEANSTALK_DSN:
     sentry = Sentry(app, dsn=SENTRY_ELASTIC_BEANSTALK_DSN)
 
 
@@ -66,6 +66,7 @@ if not __name__ == '__main__':
     @app.errorhandler(404)
     def e404(e):
         return render_template("404.html", is_logged_in=is_logged_in()), 404
+
 
 # Extra Debugging settings
 if __name__ == '__main__':

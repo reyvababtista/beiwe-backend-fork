@@ -4,7 +4,6 @@ import time
 from django.utils import timezone
 from flask import abort, Blueprint, json, render_template, request
 from werkzeug.datastructures import FileStorage
-from werkzeug.exceptions import BadRequestKeyError
 
 from config.constants import ALLOWED_EXTENSIONS, DEVICE_IDENTIFIERS_HEADER
 from database.data_access_models import FileToProcess
@@ -23,17 +22,10 @@ from libs.user_authentication import (authenticate_user, authenticate_user_regis
 ################################################################################
 mobile_api = Blueprint('mobile_api', __name__)
 
+
 ################################################################################
 ################################ UPLOADS #######################################
 ################################################################################
-
-# @mobile_api.route('/loaderio-8ed6e63e16e9e4d07d60a051c4ca6ecb/')
-# def temp():
-#     from io import StringIO
-#     from flask import Response
-#     return Response(StringIO(u"loaderio-8ed6e63e16e9e4d07d60a051c4ca6ecb"),
-#                     mimetype="txt",
-#                     headers={'Content-Disposition':'attachment; filename="loaderio-8ed6e63e16e9e4d07d60a051c4ca6ecb.txt"'})
 
 
 @mobile_api.route('/upload', methods=['POST'])
@@ -75,7 +67,7 @@ def upload(OS_API=""):
     # Handle these corner cases first because they requires no database input.
     # Crash logs are from truly ancient versions of the android codebase
     file_name = request.values['file_name']
-    if file_name[:6] == "rList-" or "crashlog" in file_name.lower():
+    if file_name.startswith("rList") or "crashlog" in file_name.lower():
         return render_template('blank.html'), 200
 
     patient_id = request.values['patient_id']
@@ -103,8 +95,7 @@ def upload(OS_API=""):
     else:
         raise TypeError("uploaded_file was a %s" % type(uploaded_file))
 
-    # print("uploaded file name:", file_name, len(uploaded_file))
-    
+
     client_private_key = get_client_private_key(patient_id, user.study.object_id)
     try:
         uploaded_file = decrypt_device_file(patient_id, uploaded_file, client_private_key, user)
@@ -112,7 +103,6 @@ def upload(OS_API=""):
         # when decrypting fails, regardless of why, we rely on the decryption code
         # to log it correctly and return 200 OK to get the device to delete the file.
         # We do not want emails on these types of errors, so we use log_error explicitly.
-        print("the following error was handled:")
         log_error(e, "%s; %s; %s" % (patient_id, file_name, e))
         return render_template('blank.html'), 200
 
@@ -128,11 +118,11 @@ def upload(OS_API=""):
         make_sentry_client('eb', tags).captureMessage("DecryptionKeyInvalidError")
         return render_template('blank.html'), 200
 
-    # print "decryption success:", file_name
     # if uploaded data a) actually exists, B) is validly named and typed...
     if uploaded_file and file_name and contains_valid_extension(file_name):
         s3_upload(file_name.replace("_", "/"), uploaded_file, user.study.object_id)
-        FileToProcess.append_file_for_processing(file_name.replace("_", "/"), user.study.object_id, participant=user)
+        FileToProcess.append_file_for_processing(file_name.replace("_", "/"), user.study.object_id,
+                                                 participant=user)
         UploadTracking.objects.create(
             file_path=file_name.replace("_", "/"),
             file_size=len(uploaded_file),
@@ -142,17 +132,17 @@ def upload(OS_API=""):
         return render_template('blank.html'), 200
 
     else:
-        error_message ="an upload has failed " + patient_id + ", " + file_name + ", "
+        error_message = "an upload has failed " + patient_id + ", " + file_name + ", "
         if not uploaded_file:
             # it appears that occasionally the app creates some spurious files
             # with a name like "rList-org.beiwe.app.LoadingActivity"
             error_message += "there was no/an empty file, returning 200 OK so device deletes bad file."
             log_error(Exception("upload error"), error_message)
             return render_template('blank.html'), 200
-        
+
         elif not file_name:
             error_message += "there was no provided file name, this is an app error."
-        elif file_name and not contains_valid_extension( file_name ):
+        elif file_name and not contains_valid_extension(file_name):
             error_message += "contains an invalid extension, it was interpretted as "
             error_message += grab_file_extension(file_name)
         else:
@@ -161,7 +151,7 @@ def upload(OS_API=""):
         tags = {"upload_error": "upload error", "user_id": patient_id}
         sentry_client = make_sentry_client('eb', tags)
         sentry_client.captureMessage(error_message)
-        
+
         return abort(400)
 
 
@@ -180,36 +170,27 @@ def register_user(OS_API=""):
     Check the documentation in user_authentication to ensure you have provided the proper credentials.
     Returns the encryption key for this patient/user. """
 
-    #CASE: If the id and password combination do not match, the decorator returns a 403 error.
-    #the following parameter values are required.
+    # CASE: If the id and password combination do not match, the decorator returns a 403 error.
+    # the following parameter values are required.
     patient_id = request.values['patient_id']
     phone_number = request.values['phone_number']
     device_id = request.values['device_id']
 
     # These values may not be returned by earlier versions of the beiwe app
-    try: device_os = request.values['device_os']
-    except BadRequestKeyError: device_os = "none"
-    try: os_version = request.values['os_version']
-    except BadRequestKeyError: os_version = "none"
-    try: product = request.values["product"]
-    except BadRequestKeyError: product = "none"
-    try: brand = request.values["brand"]
-    except BadRequestKeyError: brand = "none"
-    try: hardware_id = request.values["hardware_id"]
-    except BadRequestKeyError: hardware_id = "none"
-    try: manufacturer = request.values["manufacturer"]
-    except BadRequestKeyError: manufacturer = "none"
-    try: model = request.values["model"]
-    except BadRequestKeyError: model = "none"
-    try: beiwe_version = request.values["beiwe_version"]
-    except BadRequestKeyError: beiwe_version = "none"
+    device_os = request.values.get('device_os', "none")
+    os_version = request.values.get('os_version', "none")
+    product = request.values.get("product", "none")
+    brand = request.values.get("brand", "none")
+    hardware_id = request.values.get("hardware_id", "none")
+    manufacturer = request.values.get("manufacturer", "none")
+    model = request.values.get("model", "none")
+    beiwe_version = request.values.get("beiwe_version", "none")
+
     # This value may not be returned by later versions of the beiwe app.
-    try: mac_address = request.values['bluetooth_id']
-    except BadRequestKeyError: mac_address = "none"
+    mac_address = request.values.get('bluetooth_id', "none")
 
     user = Participant.objects.get(patient_id=patient_id)
     study_id = user.study.object_id
-
     if user.device_id and user.device_id != request.values['device_id']:
         # CASE: this patient has a registered a device already and it does not match this device.
         #   They need to contact the study and unregister their their other device.  The device
@@ -219,27 +200,27 @@ def register_user(OS_API=""):
         # need to enter to at registration is their old password.
         # KG: 405 is good for IOS and Android, no need to check OS_API
         return abort(405)
-    
+
     if user.os_type and user.os_type != OS_API:
         # CASE: this patient has registered, but the user was previously registered with a
         # different device type. To keep the CSV munging code sane and data consistent (don't
         # cross the iOS and Android data streams!) we disallow it.
         return abort(400)
-    
+
     # At this point the device has been checked for validity and will be registered successfully.
     # Any errors after this point will be server errors and return 500 codes. the final return
     # will be the encryption key associated with this user.
-    
+
     # Upload the user's various identifiers.
     unix_time = str(calendar.timegm(time.gmtime()))
     file_name = patient_id + '/identifiers_' + unix_time + ".csv"
-    
+
     # Construct a manual csv of the device attributes
     file_contents = (DEVICE_IDENTIFIERS_HEADER + "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" %
                      (patient_id, mac_address, phone_number, device_id, device_os,
                       os_version, product, brand, hardware_id, manufacturer, model,
                       beiwe_version)).encode()
-    # print(file_contents + "\n")
+
     s3_upload(file_name, file_contents, study_id)
     FileToProcess.append_file_for_processing(file_name, user.study.object_id, participant=user)
 
@@ -258,6 +239,7 @@ def register_user(OS_API=""):
 ############################### USER FUNCTIONS #################################
 ################################################################################
 
+
 @mobile_api.route('/set_password', methods=['GET', 'POST'])
 @mobile_api.route('/set_password/ios/', methods=['GET', 'POST'])
 @determine_os_api
@@ -268,6 +250,7 @@ def set_password(OS_API=""):
     participant = Participant.objects.get(patient_id=request.values['patient_id'])
     participant.set_password(request.values["new_password"])
     return render_template('blank.html'), 200
+
 
 ################################################################################
 ########################## FILE NAME FUNCTIONALITY #############################
@@ -283,8 +266,9 @@ def contains_valid_extension(file_name):
     """ Checks if string has a recognized file extension, this is not necessarily limited to 4 characters. """
     return '.' in file_name and grab_file_extension(file_name) in ALLOWED_EXTENSIONS
 
+
 ################################################################################
-################################# Download #####################################
+################################# DOWNLOAD #####################################
 ################################################################################
 
 

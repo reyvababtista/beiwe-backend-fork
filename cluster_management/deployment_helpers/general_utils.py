@@ -4,6 +4,7 @@ import os
 import random
 import shutil
 import string
+import traceback
 import zipfile
 from datetime import datetime
 from os.path import join as path_join, split as path_split
@@ -12,6 +13,8 @@ from time import sleep
 import botocore.exceptions as botoexceptions
 import coloredlogs
 from fabric.exceptions import NetworkError
+
+from deployment_helpers.constants import DEV_MODE
 
 coloredlogs.install(fmt="%(levelname)s %(name)s: %(message)s")
 
@@ -31,6 +34,9 @@ def current_time_string():
 
 def EXIT(n=None):
     """ Ipython has some weirdness with exit statements. """
+    if DEV_MODE:
+        traceback.print_stack()
+
     if n is None:
         n = 0
     try:

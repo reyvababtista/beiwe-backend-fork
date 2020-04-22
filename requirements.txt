@@ -1,5 +1,5 @@
 # core libraries
-Django==1.11.28
+Django==2.2.11
 Flask>=1.1.1
 
 #pycryptodome>=3.9.0
@@ -15,6 +15,8 @@ psycopg2==2.8.3
 # Keep these dependencies up to date
 boto3
 pytz
+django-timezone-field
 ipython
 django-extensions
 python-dateutil
+firebase-admin

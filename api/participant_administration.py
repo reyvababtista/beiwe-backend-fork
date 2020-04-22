@@ -3,11 +3,12 @@ from re import sub
 
 from flask import Blueprint, flash, redirect, request, Response
 
-from libs.admin_authentication import authenticate_researcher_study_access
-from libs.s3 import s3_upload, create_client_key_pair
-from libs.streaming_bytes_io import StreamingBytesIO, StreamingStringsIO
+from database.schedule_models import InterventionDate
 from database.study_models import Study
-from database.user_models import Participant
+from database.user_models import Participant, ParticipantFieldValue
+from libs.admin_authentication import authenticate_researcher_study_access
+from libs.s3 import create_client_key_pair, s3_upload
+from libs.streaming_bytes_io import StreamingStringsIO
 
 participant_administration = Blueprint('participant_administration', __name__)
 
@@ -18,15 +19,21 @@ def reset_participant_password():
     """ Takes a patient ID and resets its password. Returns the new random password."""
     patient_id = request.values['patient_id']
     study_id = request.values['study_id']
-    participant_set = Participant.objects.filter(patient_id=patient_id)
-    if participant_set.exists() and str(participant_set.values_list('study', flat=True).get()) == study_id:
-        participant = participant_set.get()
-        new_password = participant.reset_password()
-        flash('Patient {:s}\'s password has been reset to {:s}.'.format(patient_id, new_password), 'success')
-    else:
-        flash('Sorry, something went wrong when trying to reset the patient\'s password.', 'danger')
 
-    return redirect('/view_study/{:s}'.format(study_id))
+    try:
+        participant = Participant.objects.get(patient_id=patient_id)
+    except Participant.DoesNotExist:
+        flash(f'The participant {patient_id} does not exist', 'danger')
+        return redirect(f'/view_study/{study_id}/')
+
+    redirect_obj = redirect(f'/view_study/{participant.study_id}/edit_participant/{participant.id}')
+    if participant.study.id != int(study_id):
+        flash(f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}', 'danger')
+        return redirect_obj
+
+    new_password = participant.reset_password()
+    flash(f'Patient {patient_id}\'s password has been reset to {new_password}.', 'success')
+    return redirect_obj
 
 
 @participant_administration.route('/reset_device', methods=["POST"])
@@ -39,18 +46,25 @@ def reset_device():
 
     patient_id = request.values['patient_id']
     study_id = request.values['study_id']
-    participant_set = Participant.objects.filter(patient_id=patient_id)
-    if participant_set.exists() and str(participant_set.values_list('study', flat=True).get()) == study_id:
-        participant = participant_set.get()
-        participant.clear_device()
-        flash('For patient {:s}, device was reset; password is untouched.'.format(patient_id), 'success')
-    else:
-        flash('Sorry, something went wrong when trying to reset the patient\'s device.', 'danger')
-
-    return redirect('/view_study/{:s}'.format(study_id))
 
 
-@participant_administration.route('/create_new_patient', methods=["POST"])
+    try:
+        participant = Participant.objects.get(patient_id=patient_id)
+    except Participant.DoesNotExist:
+        flash(f'The participant {patient_id} does not exist', 'danger')
+        return redirect(f'/view_study/{study_id}/')
+
+    redirect_obj = redirect(f'/view_study/{participant.study_id}/edit_participant/{participant.id}')
+    if participant.study.id != int(study_id):
+        flash(f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}', 'danger')
+        return redirect_obj
+
+    participant.clear_device()
+    flash(f'For patient {patient_id}, device was reset; password is untouched. ', 'success')
+    return redirect_obj
+
+
+@participant_administration.route('/create_new_participant', methods=["POST"])
 @authenticate_researcher_study_access
 def create_new_participant():
     """
@@ -61,6 +75,9 @@ def create_new_participant():
 
     study_id = request.values['study_id']
     patient_id, password = Participant.create_with_password(study_id=study_id)
+    participant = Participant.objects.get(patient_id=patient_id)
+    study = Study.objects.get(id=study_id)
+    add_fields_and_interventions(participant, study)
 
     # Create an empty file on S3 indicating that this user exists
     study_object_id = Study.objects.filter(pk=study_id).values_list('object_id', flat=True).get()
@@ -98,9 +115,19 @@ def csv_generator(study_id, number_of_new_patients):
     study_object_id = Study.objects.filter(pk=study_id).values_list('object_id', flat=True).get()
     for _ in range(number_of_new_patients):
         patient_id, password = Participant.create_with_password(study_id=study_id)
+        add_fields_and_interventions(Participant.objects.get(patient_id=patient_id), Study.objects.get(id=study_id))
         # Creates an empty file on s3 indicating that this user exists
         s3_upload(patient_id, "", study_object_id)
         create_client_key_pair(patient_id, study_object_id)
         filewriter.writerow([patient_id, password])
         yield si.getvalue()
         si.empty()
+
+
+def add_fields_and_interventions(participant: Participant, study: Study):
+    """ Creates empty ParticipantFieldValue and InterventionDate objects for newly created
+     participants. """
+    for field in study.fields.all():
+        ParticipantFieldValue.objects.get_or_create(participant=participant, field=field)
+    for intervention in study.interventions.all():
+        InterventionDate.objects.get_or_create(participant=participant, intervention=intervention)

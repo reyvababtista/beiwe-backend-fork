@@ -3,7 +3,7 @@ import codecs
 import hashlib
 import random
 import re
-# pbkdf2 is a hashing protocol specifically for safe password hash generation.
+from binascii import Error as binascii_error
 from hashlib import pbkdf2_hmac as pbkdf2
 from os import urandom
 
@@ -37,7 +37,7 @@ def chunk_hash(data: bytes) -> bytes:
 
 
 def device_hash(data: bytes) -> bytes:
-    """ Hashes an input string using the sha256 hash, mimicing the hash used on
+    """ Hashes an input string using the sha256 hash, mimicking the hash used on
     the devices.  Expects a string not in base64, returns a base64 string."""
     sha256 = hashlib.sha256()
     sha256.update(data)
@@ -46,7 +46,7 @@ def device_hash(data: bytes) -> bytes:
 
 def encode_generic_base64(data: bytes) -> bytes:
     # """ Creates a url safe base64 representation of an input string, strips new lines."""
-    return base64.b64encode(data).replace(b"\n",b"")
+    return base64.b64encode(data).replace(b"\n", b"")
 
 
 def encode_base64(data: bytes) -> bytes:
@@ -56,11 +56,13 @@ def encode_base64(data: bytes) -> bytes:
 
 
 def decode_base64(data: bytes) -> bytes:
-    """ unpacks url safe base64 encoded string. """
+    """ unpacks url safe base64 encoded string. Throws a more obviously named variable when
+    encountering a padding error, which just means that there was no base64 padding for base64
+    blobs of invalid length (possibly invalid base64 ending characters). """
     try:
         return base64.urlsafe_b64decode(data)
-    except TypeError as e:
-        if "Incorrect padding" == str(e):
+    except binascii_error as e:
+        if "incorrect padding" in str(e).lower():
             raise PaddingException()
         raise
 

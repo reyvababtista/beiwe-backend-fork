@@ -5,21 +5,16 @@
 
 # uh-oh - SSL settings - I guess we need to validate route53 DNS settings.
 
-# major script components
-# deploy new cluster
-# update frontend?
 # update data processing?
 # stop data processing?
 # deploy N data processing servers
-# modify EB scaling settings?
-# update rabbitmq/celery server
-
 import argparse
 import json
 import os
 import re
 import sys
-from os.path import join as path_join, relpath
+from os import environ
+from os.path import exists as file_exists, join as path_join, relpath
 from time import sleep
 
 from fabric.api import env as fabric_env, put, run, sudo
@@ -28,29 +23,33 @@ from deployment_helpers.aws.elastic_beanstalk import (check_if_eb_environment_ex
     create_eb_environment, fix_deploy)
 from deployment_helpers.aws.elastic_compute_cloud import (create_processing_control_server,
     create_processing_server, get_manager_instance_by_eb_environment_name, get_manager_private_ip,
-    get_manager_public_ip)
+    get_manager_public_ip, get_worker_public_ips, terminate_all_processing_servers)
 from deployment_helpers.aws.iam import iam_purge_instance_profiles
 from deployment_helpers.aws.rds import create_new_rds_instance
 from deployment_helpers.configuration_utils import (are_aws_credentials_present,
     create_finalized_configuration, create_processing_server_configuration_file,
-    create_rabbit_mq_password_file, get_rabbit_mq_password, is_global_configuration_valid,
-    reference_data_processing_server_configuration, reference_environment_configuration_file,
-    validate_beiwe_environment_config)
+    create_rabbit_mq_password_file, get_rabbit_mq_password,
+    is_global_configuration_valid, reference_data_processing_server_configuration,
+    reference_environment_configuration_file, validate_beiwe_environment_config)
 from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS,
-    APT_WORKER_INSTALLS, DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH,
-    DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN,
-    ENVIRONMENT_NAME_RESTRICTIONS, EXTANT_ENVIRONMENT_PROMPT, FILES_TO_PUSH,
+    APT_WORKER_INSTALLS, CHECK_FIREBASE_CREDS_PROMPT, CHECK_FIREBASE_CREDS_PROMPT2,
+    CREATE_ENVIRONMENT_HELP, CREATE_MANAGER_HELP, CREATE_WORKER_HELP,
+    DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH, DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, DEV_HELP,
+    DEV_MODE, DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN, ENVIRONMENT_NAME_RESTRICTIONS,
+    EXTANT_ENVIRONMENT_PROMPT, FILES_TO_PUSH, FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP,
     get_beiwe_python_environment_variables_file_path, get_finalized_environment_variables,
-    get_global_config, get_pushed_full_processing_server_env_file_path,
-    get_server_configuration_file, get_server_configuration_file_path, HELP_SETUP_NEW_ENVIRONMENT,
-    LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
-    LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH,
-    LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, LOG_FILE,
-    MANAGER_SERVER_INSTANCE_TYPE, PURGE_COMMAND_BLURB, PUSHED_FILES_FOLDER, RABBIT_MQ_PORT,
-    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_HOME_DIR,
-    REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
+    get_firebase_credentials_file_path, get_global_config, GET_MANAGER_IP_ADDRESS_HELP,
+    get_pushed_full_processing_server_env_file_path, get_server_configuration_file,
+    get_server_configuration_file_path, GET_WORKER_IP_ADDRESS_HELP, HELP_SETUP_NEW_ENVIRONMENT,
+    HELP_SETUP_NEW_ENVIRONMENT_HELP, LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH,
+    LOCAL_CRONJOB_MANAGER_FILE_PATH, LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH,
+    LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH,
+    LOG_FILE, MANAGER_SERVER_INSTANCE_TYPE, PROD_HELP, PROD_MODE, PURGE_COMMAND_BLURB,
+    PURGE_INSTANCE_PROFILES_HELP, PUSHED_FILES_FOLDER, RABBIT_MQ_PORT,
+    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH,
+    REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
     REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH, REMOTE_USERNAME,
-    STAGED_FILES, WORKER_SERVER_INSTANCE_TYPE)
+    STAGED_FILES, TERMINATE_PROCESSING_SERVERS_HELP, WORKER_SERVER_INSTANCE_TYPE)
 from deployment_helpers.general_utils import current_time_string, do_zip_reduction, EXIT, log, retry
 
 
@@ -60,8 +59,6 @@ fabric_env.abort_exception = FabricExecutionError
 fabric_env.abort_on_prompts = True
 
 parser = argparse.ArgumentParser(description="interactive set of commands for deploying a Beiwe Cluster")
-DEV_MODE = False
-PROD_MODE = False
 
 ####################################################################################################
 ################################### Fabric Operations ##############################################
@@ -79,6 +76,24 @@ def configure_fabric(eb_environment_name, ip_address, key_filename=None):
     retry(run, "# waiting for ssh to be connectable...")
     run("echo >> {log}".format(log=LOG_FILE))
     sudo("chmod 666 {log}".format(log=LOG_FILE))
+
+
+def try_run(*args, **kwargs):
+    try:
+        run(*args, *kwargs)
+    except FabricExecutionError:
+        pass
+
+def try_sudo(*args, **kwargs):
+    try:
+        sudo(*args, *kwargs)
+    except FabricExecutionError:
+        pass
+
+
+####################################################################################################
+##################################### Server Config ################################################
+####################################################################################################
 
 
 def remove_unneeded_ssh_keys():
@@ -108,25 +123,25 @@ def push_home_directory_files():
 def load_git_repo():
     """ Get a local copy of the git repository """
     # Git clone the repository into the remote beiwe-backend folder
-    # Note that here stderr is redirected to the log file, because git clone prints
-    # to stderr rather than stdout.
-    run('cd {home}; git clone https://github.com/onnela-lab/beiwe-backend.git 2>> {log}'
-        .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
-    
-    # Make sure the code is on the right branch
-    # git checkout prints to both stderr *and* stdout, so redirect them both to the log file
+    # git operations print to both stderr *and* stdout, so redirect them both to the log file
+    run(f'cd {REMOTE_HOME_DIR}; git clone https://github.com/onnela-lab/beiwe-backend.git 2>> {LOG_FILE}')
 
     if DEV_MODE:
-        run('cd {home}/beiwe-backend; git checkout development 1>> {log} 2>> {log}'
-            .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
+        branch = environ.get("DEV_BRANCH", "development")
+    elif PROD_MODE:
+        branch = "production"
     else:
-        run('cd {home}/beiwe-backend; git checkout master 1>> {log} 2>> {log}'
-            .format(home=REMOTE_HOME_DIR, log=LOG_FILE))
+        branch = "master"
+
+    run(f'cd {REMOTE_HOME_DIR}/beiwe-backend; git checkout {branch} 1>> {LOG_FILE} 2>> {LOG_FILE}')
 
 
 def setup_python():
     """ Installs requirements. """
+    # sudo required because we are using the
     sudo('pip3 install -r {home}/beiwe-backend/requirements.txt >> {log}'.
+         format(home=REMOTE_HOME_DIR, log=LOG_FILE))
+    sudo('pip3 install -r {home}/beiwe-backend/requirements_data_processing.txt >> {log}'.
          format(home=REMOTE_HOME_DIR, log=LOG_FILE))
 
 
@@ -136,6 +151,28 @@ def setup_celery_worker():
     put(LOCAL_INSTALL_CELERY_WORKER, REMOTE_INSTALL_CELERY_WORKER)
     run('chmod +x {file}'.format(file=REMOTE_INSTALL_CELERY_WORKER))
     run('{file} >> {log}'.format(file=REMOTE_INSTALL_CELERY_WORKER, log=LOG_FILE))
+
+
+def manager_fix():
+    # It is unclear what causes this.  The notifications task create zombie processes that on at
+    # least one occasion did not respond to kill -9 commands even when run as the superuser. This
+    # occurs on both workers and managers, a 20 second sleep operation fixes it, 10 seconds does not.
+    # Tested on the slowest server, t3a.nano' with swap that is required to run the celery tasks.)
+
+    # Update: it turns out there is an alternate failure mode if you try to do the 20 second
+    # wait (which works for workers), which is that all calls to the celery Inspect object
+    # block for exceptionally long periods, even when a timeout value is provided. (This behavior
+    # has other triggers too, this is just a reliable way to trigger it.)
+    try_sudo("shutdown -r now")
+    log.warning("rebooting server to avoid a race condition...")
+    sleep(5)
+    retry(run, "# waiting server to reboot, this will take a while.")
+
+    # we need to re-enable the swap after the reboot, then we can finally start supervisor without
+    # creating zombie celery threads.
+    sudo("swapon /swapfile")
+    sudo("swapon -s")
+
 
 
 def setup_worker_cron():
@@ -160,14 +197,24 @@ def setup_rabbitmq(eb_environment_name):
     # setup a new password
     sudo(f"rabbitmqctl add_user beiwe {get_rabbit_mq_password(eb_environment_name)}")
     sudo('rabbitmqctl set_permissions -p / beiwe ".*" ".*" ".*"')
-    log.warning("This next command can take quite a while to run.")
-    # I tried backgrounding it, doing so breaks celery.  o_O
-    sudo("service rabbitmq-server restart")
-    
 
-def setup_single_server_ami_cron():
-    put(LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, REMOTE_CRONJOB_FILE_PATH)
-    run('crontab -u {user} {file}'.format(file=REMOTE_CRONJOB_FILE_PATH, user=REMOTE_USERNAME))
+
+def push_firebase_credentials(eb_environment_name):
+    # firebase_creds_path = get_firebase_credentials_file_path(eb_environment_name)
+    file_path = get_firebase_credentials_file_path(eb_environment_name)
+    exists = file_exists(file_path)
+
+    if not exists:
+        log.warning(CHECK_FIREBASE_CREDS_PROMPT.format(file_path=file_path))
+        while True:
+            response = input(CHECK_FIREBASE_CREDS_PROMPT2).lower()
+            if response == "y":
+                exit(0)
+            elif response == "n":
+                break
+
+    if exists:
+        put(file_path, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH)
 
 
 def apt_installs(manager=False, single_server_ami=False):
@@ -179,7 +226,7 @@ def apt_installs(manager=False, single_server_ami=False):
     else:
         apt_install_list = APT_WORKER_INSTALLS
     installs_string = " ".join(apt_install_list)
-    
+
     # Sometimes (usually on slower servers) the remote server isn't done with initial setup when
     # we get to this step, so it has a bunch of retry logic.
     installs_failed = True
@@ -196,9 +243,16 @@ def apt_installs(manager=False, single_server_ami=False):
                 "Will try 10 times, waiting 5 seconds each time."
             )
             sleep(5)
-    
+
+    # we run supervisor manually at the end
+    sudo("service supervisor stop")
     if installs_failed:
         raise Exception("Could not install software on remote machine.")
+
+
+def setup_single_server_ami_cron():
+    put(LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, REMOTE_CRONJOB_FILE_PATH)
+    run('crontab -u {user} {file}'.format(file=REMOTE_CRONJOB_FILE_PATH, user=REMOTE_USERNAME))
 
 
 def push_beiwe_configuration(eb_environment_name, single_server_ami=False):
@@ -236,9 +290,11 @@ def create_swap():
     sudo("swapon /swapfile")
     sudo("swapon -s")
 
+
 ####################################################################################################
 #################################### CLI Utility ###################################################
 ####################################################################################################
+
 
 def do_fail_if_environment_does_not_exist(name):
     environment_exists = check_if_eb_environment_exists(name)
@@ -390,6 +446,7 @@ def do_create_manager():
     public_ip = instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
     
     configure_fabric(name, public_ip)
+    create_swap()
     push_home_directory_files()
     apt_installs(manager=True)
     setup_rabbitmq(name)
@@ -397,9 +454,11 @@ def do_create_manager():
     setup_python()
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
-    setup_celery_worker()
+    push_firebase_credentials(name)
     setup_manager_cron()
-    create_swap()
+    setup_celery_worker()  # run setup worker last.
+    manager_fix()
+    run("supervisord")
 
 
 def do_create_worker():
@@ -410,9 +469,6 @@ def do_create_worker():
         log.error(
             "There is no manager server for the %s cluster, cannot deploy a worker until there is." % name)
         EXIT(1)
-    
-    manager_public_ip = get_manager_public_ip(name)
-    manager_private_ip = get_manager_private_ip(name)
     
     try:
         settings = get_server_configuration_file(name)
@@ -430,18 +486,21 @@ def do_create_worker():
         instance = None  # ide warnings...
         EXIT(1)
     instance_ip = instance['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
-    # TODO: fabric up the worker with the celery/supervisord and ensure it can connect to manager.
     
     configure_fabric(name, instance_ip)
+    create_swap()
     push_home_directory_files()
     apt_installs()
     load_git_repo()
     setup_python()
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
-    setup_celery_worker()
+    push_firebase_credentials(name)
     setup_worker_cron()
-    create_swap()
+    setup_celery_worker()  # run setup worker last.
+    log.warning("Server is almost up.  Waiting 20 seconds to avoid a race condition...")
+    sleep(20)
+    run("supervisord")
 
 
 def do_create_single_server_ami(ip_address, key_filename):
@@ -476,6 +535,26 @@ def do_fix_health_checks():
     print("Success.")
     
 
+def do_terminate_all_processing_servers():
+    name = prompt_for_extant_eb_environment_name()
+    do_fail_if_environment_does_not_exist(name)
+    terminate_all_processing_servers(name)
+
+
+def do_get_manager_ip_address():
+    name = prompt_for_extant_eb_environment_name()
+    do_fail_if_environment_does_not_exist(name)
+    log.info(f"The IP address of the manager server for {name} is {get_manager_public_ip(name)}")
+
+
+def do_get_worker_ip_addresses():
+    name = prompt_for_extant_eb_environment_name()
+    do_fail_if_environment_does_not_exist(name)
+    ips = ', '.join(get_worker_public_ips(name))
+    if ips:
+        log.info(f"The IP address of the worker servers for {name} are {ips}")
+
+
 ####################################################################################################
 ####################################### Validation #################################################
 ####################################################################################################
@@ -483,46 +562,17 @@ def do_fix_health_checks():
 
 def cli_args_validation():
     # Use '"count"' as the type, don't try and be fancy, argparse is a pain.
-    parser.add_argument(
-        '-create-environment',
-        action="count",
-        help="creates new environment with the provided environment name",
-    )
-    parser.add_argument(
-        '-create-manager',
-        action="count",
-        help="creates a data processing manager for the provided environment",
-    )
-    parser.add_argument(
-        '-create-worker',
-        action="count",
-        help="creates a data processing worker for the provided environment",
-    )
-    parser.add_argument(
-        "-help-setup-new-environment",
-        action="count",
-        help="assists in creation of configuration files for a beiwe environment deployment",
-    )
-    parser.add_argument(
-        "-fix-health-checks-blocking-deployment",
-        action="count",
-        help="sometimes deployment operations fail stating that health checks do not have sufficient permissions, run this command to fix that.",
-    )
-    parser.add_argument(
-        "-dev",
-        action="count",
-        help="Worker and Manager deploy operations will swap the server over to the development branch instead of master.",
-    )
-    parser.add_argument(
-        "-prod",
-        action="count",
-        help="Worker and Manager deploy operations will swap the server over to the production branch instead of master.",
-    )
-    parser.add_argument(
-        "-purge-instance-profiles",
-        action="count",
-        help=PURGE_COMMAND_BLURB,
-    )
+    parser.add_argument('-create-environment', action="count", help=CREATE_ENVIRONMENT_HELP)
+    parser.add_argument('-create-manager', action="count", help=CREATE_MANAGER_HELP)
+    parser.add_argument('-create-worker', action="count", help=CREATE_WORKER_HELP)
+    parser.add_argument("-help-setup-new-environment", action="count", help=HELP_SETUP_NEW_ENVIRONMENT_HELP)
+    parser.add_argument("-fix-health-checks-blocking-deployment", action="count", help=FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP)
+    parser.add_argument("-dev", action="count", help=DEV_HELP)
+    parser.add_argument("-prod", action="count", help=PROD_HELP)
+    parser.add_argument("-purge-instance-profiles", action="count", help=PURGE_INSTANCE_PROFILES_HELP)
+    parser.add_argument("-terminate-processing-servers", action="count", help=TERMINATE_PROCESSING_SERVERS_HELP)
+    parser.add_argument('-get-manager-ip', action="count", help=GET_MANAGER_IP_ADDRESS_HELP)
+    parser.add_argument('-get-worker-ips', action="count", help=GET_WORKER_IP_ADDRESS_HELP)
 
     # Note: this arguments variable is not iterable.
     # access entities as arguments.long_name_of_argument, like arguments.update_manager
@@ -544,20 +594,20 @@ if __name__ == "__main__":
     # validate the global configuration file
     if not all((are_aws_credentials_present(), is_global_configuration_valid())):
         EXIT(1)
-    
+
     # get CLI arguments, see function for details
     arguments = cli_args_validation()
 
     if arguments.prod:
-        log.info("RUNNING IN PROD MODE")
-        PROD_MODE = True
+        log.warning("RUNNING IN PROD MODE")
+        PROD_MODE.set(True)
 
     if arguments.dev:
         if PROD_MODE:
             log.error("You cannot provide -prod and -dev at the same time.")
             EXIT(1)
-        DEV_MODE = True
-        log.info("RUNNING IN DEV MODE")
+        DEV_MODE.set(True)
+        log.warning("RUNNING IN DEV MODE")
 
     if arguments.help_setup_new_environment:
         do_help_setup_new_environment()
@@ -582,6 +632,18 @@ if __name__ == "__main__":
     if arguments.purge_instance_profiles:
         print(PURGE_COMMAND_BLURB, "\n\n\n")
         iam_purge_instance_profiles()
+        EXIT(0)
+
+    if arguments.terminate_processing_servers:
+        do_terminate_all_processing_servers()
+        EXIT(0)
+
+    if arguments.get_manager_ip:
+        do_get_manager_ip_address()
+        EXIT(0)
+
+    if arguments.get_worker_ips:
+        do_get_worker_ip_addresses()
         EXIT(0)
 
     # print help if nothing else did (make just supplying -dev print the help screen)

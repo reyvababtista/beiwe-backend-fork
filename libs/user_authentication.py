@@ -39,7 +39,6 @@ def validate_post_ignore_password(is_ios):
     #     return False
     # Only execute if it is an android device
     # if not is_ios and not participant.device_id == request.values['device_id']:
-    #     print "device_id is wrong"
     #     return False
     return True
 
@@ -65,8 +64,6 @@ def authenticate_user(some_function):
 
 def validate_post():
     """Check if user exists, check if the provided passwords match, and if the device id matches."""
-    # print "user info:  ", request.values.items()
-    # print "file info:  ", request.files.items()
     if ("patient_id" not in request.values
             or "password" not in request.values
             or "device_id" not in request.values):

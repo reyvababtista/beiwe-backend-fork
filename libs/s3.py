@@ -1,7 +1,6 @@
 import boto3
 import Crypto
 
-from config.constants import DEFAULT_S3_RETRIES
 from config.settings import (BEIWE_SERVER_AWS_ACCESS_KEY_ID, BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
     S3_BUCKET, S3_REGION_NAME)
 from libs import encryption
@@ -22,7 +21,7 @@ def s3_upload(key_path: str, data_string: bytes, study_object_id: str, raw_path=
     conn.put_object(Body=data, Bucket=S3_BUCKET, Key=key_path)#, ContentType='string')
 
 
-def s3_retrieve(key_path, study_object_id, raw_path=False, number_retries=DEFAULT_S3_RETRIES) -> bytes:
+def s3_retrieve(key_path, study_object_id, raw_path=False, number_retries=3) -> bytes:
     """ Takes an S3 file path (key_path), and a study ID.  Takes an optional argument, raw_path,
     which defaults to false.  When set to false the path is prepended to place the file in the
     appropriate study_id folder. """
@@ -32,7 +31,7 @@ def s3_retrieve(key_path, study_object_id, raw_path=False, number_retries=DEFAUL
     return encryption.decrypt_server(encrypted_data, study_object_id)
 
 
-def _do_retrieve(bucket_name, key_path, number_retries=DEFAULT_S3_RETRIES):
+def _do_retrieve(bucket_name, key_path, number_retries=3):
     """ Run-logic to do a data retrieval for a file in an S3 bucket."""
     try:
         return conn.get_object(Bucket=bucket_name, Key=key_path, ResponseContentType='string')

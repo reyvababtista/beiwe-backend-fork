@@ -1,20 +1,28 @@
+import builtins
 import os
 
 import django
 from django.conf import settings
 
-from config.django_settings import DATABASES, INSTALLED_APPS, SECRET_KEY, TIME_ZONE
+import config.django_settings
+
+builtins = vars(builtins)  # tiny optimization...
+
 
 try:
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.django_settings")
+    # get all the variables declared in the django settings file, exclude builtins for basic sanity.
+    # (unrecognized parameters are ignored, fortunately.)
+    django_config = {
+        setting_name: setting_value for setting_name, setting_value in
+        vars(config.django_settings).items() if setting_name not in builtins
+    }
 
-    settings.configure(
-        SECRET_KEY=SECRET_KEY,
-        DATABASES=DATABASES,
-        TIME_ZONE=TIME_ZONE,
-        INSTALLED_APPS=INSTALLED_APPS
-    )
+    # django setup file
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.django_settings")
+    settings.configure(**django_config)
 
     django.setup()
-except Exception as e:
-    print("Not-critical exception:", e)
+    django_loaded = True
+except RuntimeError as e:
+    pass
+

@@ -111,7 +111,6 @@ def get_and_confirm_study_exists(study_object_id=None, study_pk=None):
 
         # If the ID is incorrectly sized, we return a 400
         if not is_object_id(study_object_id):
-            # print("Received invalid length objectid as study_id in the data access API.")
             return abort(400)
 
         # If no Study with the given ID exists, we return a 404
@@ -128,7 +127,6 @@ def get_and_confirm_study_exists(study_object_id=None, study_pk=None):
         try:
             study = Study.objects.get(pk=study_pk)
         except Study.DoesNotExist:
-            # print("study '%s' does not exist." % study_pk)
             return abort(404)
         else:
             return study

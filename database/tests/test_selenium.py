@@ -8,7 +8,6 @@ import re
 import subprocess
 
 from api import mobile_api
-#from config import load_django
 
 from selenium import webdriver
 from selenium.common.exceptions import (ElementNotVisibleException, WebDriverException,

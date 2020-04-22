@@ -7,21 +7,18 @@ except NameError:
 import imp as _imp
 import json
 from datetime import datetime
-from sys import argv
 from os.path import abspath as _abspath
-from pprint import pprint
+from sys import argv
 
 # modify python path so that this script can be targeted directly but still import everything.
 _current_folder_init = _abspath(__file__).rsplit('/', 1)[0]+ "/__init__.py"
 _imp.load_source("__init__", _current_folder_init)
 
-# noinspection PyUnresolvedReferences
-from config import load_django
+
 from config.settings import S3_BUCKET
 from config.constants import CHUNKS_FOLDER, API_TIME_FORMAT
 from database.user_models import Participant
 from database.data_access_models import ChunkRegistry
-from libs.file_processing import unix_time_to_string
 from libs.s3 import s3_list_files, s3_list_versions, conn as s3_conn
 
 
@@ -41,9 +38,11 @@ You can also supply an argument "-y" to skip the confirmation if you intend to r
 
 print()  # just a blank line
 
+
 def humanize_date(date_string):
     """ returns dates as in this form: 'August 24 2019' """
     return convert_date(date_string).strftime("%B %d %Y")
+
 
 def convert_date(date_string):
     """ transforms the canonical date strings into dates """
@@ -78,8 +77,7 @@ def setup():
             print()
             exit(1)
 
-
-    # sort deletees by date.
+    # sort deletes by date.
     sorted_data = sorted(file_json.items(), key=lambda x: x[1])
 
     # test thata all the participants exist, exit if they don't
@@ -90,7 +88,6 @@ def setup():
             print("Participant '%s' does not exist." % patient_id)
     if not all_patients_exist:
         exit(1)
-
 
     # print out info for confirmation
     for participant_name, date in sorted_data:
@@ -108,6 +105,7 @@ def setup():
             exit(0)
 
     return sorted_data
+
 
 # delete chunk registries
 def delete_chunk_registries(sorted_data):

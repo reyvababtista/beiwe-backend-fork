@@ -198,7 +198,6 @@ class FileToProcess(AbstractModel):
         # oh good, identifiers doesn't end in a slash.
         splitter_end_char = '_' if full_data_stream == IDENTIFIERS else '/'
         file_prefix = "/".join((study_obj_id, username, full_data_stream,)) + splitter_end_char
-        print("searching:", file_prefix)
 
         # find all files with data from the appropriate time.
         dt_start = datetime.strptime(timestamp.strip(".csv"), API_TIME_FORMAT)
@@ -280,7 +279,7 @@ class PipelineUpload(AbstractModel):
     
     # no related name, this is
     object_id = models.CharField(max_length=24, unique=True, validators=[LengthValidator(24)])
-    study = models.ForeignKey(Study, related_name="pipeline_uploads")
+    study = models.ForeignKey(Study, related_name="pipeline_uploads", on_delete=models.PROTECT)
     file_name = models.TextField()
     s3_path = models.TextField()
     file_hash = models.CharField(max_length=128)
@@ -354,7 +353,6 @@ class PipelineUpload(AbstractModel):
 
 
 class PipelineUploadTags(AbstractModel):
-    pipeline_upload = models.ForeignKey(PipelineUpload, related_name="tags")
+    pipeline_upload = models.ForeignKey(PipelineUpload, related_name="tags", on_delete=models.CASCADE)
     tag = models.TextField()
-
 

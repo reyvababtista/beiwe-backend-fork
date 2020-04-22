@@ -1,11 +1,14 @@
+
 from flask import abort, Blueprint, flash, Markup, redirect, render_template, request, session
 
 from database.study_models import Study, StudyField
 from database.user_models import Participant, ParticipantFieldValue, Researcher
 from libs import admin_authentication
 from libs.admin_authentication import (authenticate_researcher_login,
-    authenticate_researcher_study_access, get_researcher_allowed_studies,
-    get_researcher_allowed_studies_as_query_set, researcher_is_an_admin, SESSION_NAME)
+                                       authenticate_researcher_study_access,
+                                       get_researcher_allowed_studies,
+                                       get_researcher_allowed_studies_as_query_set,
+                                       researcher_is_an_admin, SESSION_NAME, get_session_researcher)
 from libs.security import check_password_requirements
 
 admin_pages = Blueprint('admin_pages', __name__)
@@ -40,23 +43,31 @@ def view_study(study_id=None):
     audio_survey_ids = study.get_survey_ids_and_object_ids_for_study('audio_survey')
     image_survey_ids = study.get_survey_ids_and_object_ids_for_study('image_survey')
     participants = study.participants.all()
+    researcher = get_session_researcher()
+    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
 
     study_fields = list(study.fields.all().values_list('field_name', flat=True))
+    interventions = list(study.interventions.all().values_list("name", flat=True))
+
+    # creates dicts of Custom Fields and Interventions to be easily accessed in the template
     for p in participants:
-        p.values_dict = {tag.field.field_name: tag.value for tag in p.field_values.all()}
+        p.field_dict = {tag.field.field_name: tag.value for tag in p.field_values.all()}
+        p.intervention_dict = {tag.intervention.name: tag.date for tag in p.intervention_dates.all()}
 
     return render_template(
         'view_study.html',
         study=study,
-        patients=participants,
+        participants=participants,
         audio_survey_ids=audio_survey_ids,
         image_survey_ids=image_survey_ids,
         tracking_survey_ids=tracking_survey_ids,
         allowed_studies=get_researcher_allowed_studies(),
         is_admin=researcher_is_an_admin(),
         study_fields=study_fields,
+        interventions=interventions,
         page_location='study_landing',
         study_id=study_id,
+        readonly=readonly,
     )
 
 
@@ -73,6 +84,7 @@ def view_study_data_pipeline(study_id=None):
     )
 
 
+# TODO: delete, this end point cannot be hit, this page isn't used anymore, can delete template too
 @admin_pages.route('/view_study/<string:study_id>/patient_fields/<string:patient_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def patient_fields(study_id, patient_id=None):

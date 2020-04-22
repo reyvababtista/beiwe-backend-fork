@@ -1,7 +1,7 @@
 from flask import abort, Blueprint, render_template
 
 from config.settings import DOMAIN_NAME
-from database.study_models import Survey
+from database.survey_models import Survey
 from libs.admin_authentication import (authenticate_researcher_study_access,
     get_researcher_allowed_studies, researcher_is_an_admin)
 
@@ -19,13 +19,19 @@ def render_edit_survey(survey_id=None):
     except Survey.DoesNotExist:
         return abort(404)
 
-    s = survey.as_native_python()
-    study = survey.study
+    intervensions = {
+        intervention.id: intervention.name for intervention in survey.study.interventions.all()
+    }
+
     return render_template(
         'edit_survey.html',
         survey=survey.as_native_python(),
-        study=study,
+        study=survey.study,
         allowed_studies=get_researcher_allowed_studies(),
         is_admin=researcher_is_an_admin(),
         domain_name=DOMAIN_NAME,  # used in a Javascript alert, see survey-editor.js
+        interventions_dict=intervensions,
+        weekly_timings=survey.weekly_timings(),
+        relative_timings=survey.relative_timings(),
+        absolute_timings=survey.absolute_timings(),
     )

@@ -1,9 +1,11 @@
+from datetime import datetime, date
+
 from django.db import models
 from django.db.models import F, Func
 
 from config.constants import ResearcherRole
 from database.models import AbstractModel
-from database.validators import id_validator, standard_base_64_validator, url_safe_base_64_validator
+from database.validators import ID_VALIDATOR, STANDARD_BASE_64_VALIDATOR, URL_SAFE_BASE_64_VALIDATOR
 from libs.security import (compare_password, device_hash, generate_easy_alphanumeric_string,
     generate_hash_and_salt, generate_random_string, generate_user_hash_and_salt)
 
@@ -19,9 +21,9 @@ class AbstractPasswordUser(AbstractModel):
     that the APU's password is never stored in a reversible manner.
     """
 
-    password = models.CharField(max_length=44, validators=[url_safe_base_64_validator],
+    password = models.CharField(max_length=44, validators=[URL_SAFE_BASE_64_VALIDATOR],
                                 help_text='A hash of the user\'s password')
-    salt = models.CharField(max_length=24, validators=[url_safe_base_64_validator])
+    salt = models.CharField(max_length=24, validators=[URL_SAFE_BASE_64_VALIDATOR])
 
     # This stub function declaration is present because it is used in the set_password funcion below
     def generate_hash_and_salt(self, password):
@@ -36,8 +38,11 @@ class AbstractPasswordUser(AbstractModel):
         Sets the instance's password hash to match the hash of the provided string.
         """
         password_hash, salt = self.generate_hash_and_salt(password.encode())
-        self.password = password_hash
-        self.salt = salt
+        # march 2020: this started failing when running postgres in a local environment.  There
+        # appears to be some extra type conversion going on, characters are getting expanded when
+        # passed in as bytes, causing failures in passing length validation.
+        self.password = password_hash.decode()
+        self.salt = salt.decode()
         self.save()
 
     def reset_password(self):
@@ -75,7 +80,7 @@ class Participant(AbstractPasswordUser):
         (NULL_OS, NULL_OS),
     )
 
-    patient_id = models.CharField(max_length=8, unique=True, validators=[id_validator],
+    patient_id = models.CharField(max_length=8, unique=True, validators=[ID_VALIDATOR],
                                   help_text='Eight-character unique ID with characters chosen from 1-9 and a-z')
 
     device_id = models.CharField(max_length=256, blank=True,
@@ -84,6 +89,9 @@ class Participant(AbstractPasswordUser):
                                help_text='The type of device the participant is using, if any.')
 
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='participants', null=False)
+
+    fcm_instance_id = models.CharField(max_length=256, blank=True, db_index=True,
+                                       help_text='The id used to send push notifications to the device.')
 
     @classmethod
     def create_with_password(cls, **kwargs):
@@ -132,18 +140,17 @@ class Participant(AbstractPasswordUser):
         self.device_id = ''
         self.save()
 
-
     def __str__(self):
         return '{} {} of Study {}'.format(self.__class__.__name__, self.patient_id, self.study.name)
 
 
 class ParticipantFieldValue(models.Model):
     """
-    These objects can be deleted.
+    These objects can be deleted.  These are values for per-study custom fields for users
     """
     participant = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='field_values')
     field = models.ForeignKey('StudyField', on_delete=models.CASCADE, related_name='field_values')
-    value = models.TextField()
+    value = models.TextField(null=False, blank=True, default="")
 
     class Meta:
         unique_together = (("participant", "field"),)
@@ -160,9 +167,9 @@ class Researcher(AbstractPasswordUser):
     username = models.CharField(max_length=32, unique=True, help_text='User-chosen username, stored in plain text')
     site_admin = models.BooleanField(default=False, help_text='Whether the researcher is also an admin')
 
-    access_key_id = models.CharField(max_length=64, validators=[standard_base_64_validator], unique=True, null=True, blank=True)
-    access_key_secret = models.CharField(max_length=44, validators=[url_safe_base_64_validator], blank=True)
-    access_key_secret_salt = models.CharField(max_length=24, validators=[url_safe_base_64_validator], blank=True)
+    access_key_id = models.CharField(max_length=64, validators=[STANDARD_BASE_64_VALIDATOR], unique=True, null=True, blank=True)
+    access_key_secret = models.CharField(max_length=44, validators=[URL_SAFE_BASE_64_VALIDATOR], blank=True)
+    access_key_secret_salt = models.CharField(max_length=24, validators=[URL_SAFE_BASE_64_VALIDATOR], blank=True)
 
     is_batch_user = models.BooleanField(default=False)
 
@@ -301,10 +308,10 @@ class StudyRelation(AbstractModel):
         researcher
     """
     study = models.ForeignKey(
-        'Study', on_delete=models.PROTECT, related_name='study_relations', null=False, db_index=True
+        'Study', on_delete=models.CASCADE, related_name='study_relations', null=False, db_index=True
     )
     researcher = models.ForeignKey(
-        'Researcher', on_delete=models.PROTECT, related_name='study_relations', null=False, db_index=True
+        'Researcher', on_delete=models.CASCADE, related_name='study_relations', null=False, db_index=True
     )
     relationship = models.CharField(max_length=32, null=False, blank=False, db_index=True)
 
@@ -315,4 +322,3 @@ class StudyRelation(AbstractModel):
         return "%s is a %s in %s" % (self.researcher.username,
                                      self.relationship.replace("_", " ").title(),
                                      self.study.name)
-

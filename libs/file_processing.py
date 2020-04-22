@@ -12,9 +12,10 @@ from cronutils.error_handler import ErrorHandler
 from django.core.exceptions import ValidationError
 
 from config.constants import (ACCELEROMETER, ANDROID_LOG_FILE, API_TIME_FORMAT, CALL_LOG,
-    CHUNK_TIMESLICE_QUANTUM, CHUNKABLE_FILES, CHUNKS_FOLDER, CONCURRENT_NETWORK_OPS,
-    DATA_PROCESSING_NO_ERROR_STRING, FILE_PROCESS_PAGE_SIZE, IDENTIFIERS, IOS_LOG_FILE,
+    CHUNK_TIMESLICE_QUANTUM, CHUNKABLE_FILES, CHUNKS_FOLDER,
+    DATA_PROCESSING_NO_ERROR_STRING, IDENTIFIERS, IOS_LOG_FILE,
     SURVEY_DATA_FILES, SURVEY_TIMINGS, UPLOAD_FILE_TYPE_MAPPING, WIFI)
+from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
 from database.data_access_models import ChunkRegistry, FileProcessLock, FileToProcess
 from database.survey_models import Survey
 from database.user_models import Participant

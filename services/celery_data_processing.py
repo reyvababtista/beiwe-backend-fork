@@ -1,17 +1,18 @@
 from os.path import abspath
 from sys import path
-
-# add the root of the project into the path to allow cd-ing into this folder and running the script.
+ # add the root of the project into the path to allow cd-ing into this folder and running the script.
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
 from datetime import datetime, timedelta
-from config.constants import FILE_PROCESS_PAGE_SIZE
+
+from kombu.exceptions import OperationalError
+
+from config.settings import FILE_PROCESS_PAGE_SIZE
 from database.user_models import Participant
+from libs.celery_control import get_processing_active_job_ids, processing_celery_app
 from libs.file_processing import do_process_user_file_chunks
 from libs.sentry import make_error_sentry
 
-from kombu.exceptions import OperationalError
-from libs.celery_control import processing_celery_app, get_processing_active_job_ids
 
 ################################################################################
 ############################## Task Endpoints ##################################

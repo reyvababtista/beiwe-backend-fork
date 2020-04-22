@@ -53,14 +53,15 @@
 
     <h3>Interventions</h3>
     {% if study.interventions.count() > 0 %}
-      {% for intervention in study.interventions.all() %}
+      {% for intervention_id, intervention_name, intervention_date in intervention_data %}
         <div class="form-group">
-          <label class="control-label col-sm-2" for="intervention{{ intervention.id }}" > {{ intervention.name }}</label>
+          <label class="control-label col-sm-2" for="intervention{{ intervention_id }}" > {{ intervention_name }}</label>
             <div class="col-sm-2">
-            {% if participant.intervention_dates.filter(intervention=intervention).first().date %}
-              <input id="intervention{{ intervention.id }}" name="intervention{{ intervention.id }}" class="form-control" type="date" value="{{ participant.intervention_dates.get(intervention=intervention).date.strftime(date_format) }}">
+            {% if intervention_date %}
+              <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}" class="form-control" type="date"
+                     value="{{ intervention_date }}">
             {% else %}
-              <input id="intervention{{ intervention.id }}" name="intervention{{ intervention.id }}" class="form-control" type="date">
+              <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}" class="form-control" type="date">
             {% endif %}
           </div>
         </div>
@@ -73,11 +74,12 @@
 
     <h3>Custom Fields</h3>
     {% if study.fields.count() > 0 %}
-      {% for field in study.fields.all() %}
+      {% for field_id, field_name, value in field_values %}
         <div class="form-group">
-          <label class="col-sm-2 control-label" for="field{{ field.id }}">{{ field.field_name }}</label>
+          <label class="col-sm-2 control-label" for="field{{ field_id }}">{{ field_name }}</label>
           <div class="col-sm-4">
-            <input id="field{{ field.id }}" name="field{{ field.id }}" class="form-control" type="text" value="{{ participant.field_values.get(field=field).value }}">
+            <input id="field{{ field_id }}" name="field{{ field_id }}" class="form-control" type="text"
+                   value="{{ value }}">
           </div>
         </div>
       {% endfor %}

@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from django.db.models import ProtectedError
 from flask import abort, Blueprint, flash, redirect, render_template, request
 
-from config import constants
+from config.constants import API_DATE_FORMAT
 from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
 from database.user_models import Participant, ParticipantFieldValue
@@ -24,20 +24,14 @@ def edit_participant(study_id, participant_id):
     study = participant.study
 
     if request.method == 'GET':
-        return render_template(
-            'edit_participant.html',
-            participant=participant,
-            study=study,
-            date_format=constants.API_DATE_FORMAT,
-            allowed_studies=get_researcher_allowed_studies(),
-        )
+        return render_edit_participant(participant, study)
 
     # update intervention dates for participant
     for intervention in study.interventions.all():
         input_date = request.values.get(f"intervention{intervention.id}", None)
         intervention_date = participant.intervention_dates.get(intervention=intervention)
         if input_date:
-            intervention_date.date = datetime.strptime(input_date, constants.API_DATE_FORMAT).date()
+            intervention_date.date = datetime.strptime(input_date, API_DATE_FORMAT).date()
             intervention_date.save()
 
     # update custom fields dates for participant
@@ -50,6 +44,39 @@ def edit_participant(study_id, participant_id):
     flash('Successfully edited participant {}.'.format(participant.patient_id), 'success')
     return redirect('/view_study/{:d}/edit_participant/{:d}'.format(study.id, participant.id))
 
+
+def render_edit_participant(participant: Participant, study: Study):
+    # to reduce database queries we get all the data across 4 queries and then merge it together.
+    # dicts of intervention id to intervention date string, and of field names to value
+    intervention_dates_map = {
+        intervention_id:  # this is the intervention's id, not the intervention_date's id.
+            intervention_date.strftime(API_DATE_FORMAT) if isinstance(intervention_date, date) else ""
+        for intervention_id, intervention_date in
+        participant.intervention_dates.values_list("intervention_id", "date")
+    }
+    participant_fields_map = {
+        name: value for name, value in participant.field_values.values_list("field__field_name", "value")
+    }
+
+    # list of tuples of (intervention id, intervention name, intervention date)
+    intervention_data = [
+        (intervention.id, intervention.name, intervention_dates_map.get(intervention.id, ""))
+        for intervention in study.interventions.order_by("name")
+    ]
+    # list of tuples of field name, value.
+    field_data = [
+        (field_id, field_name, participant_fields_map.get(field_name, ""))
+        for field_id, field_name in study.fields.order_by("field_name").values_list('id', "field_name")
+    ]
+
+    return render_template(
+        'edit_participant.html',
+        participant=participant,
+        study=study,
+        allowed_studies=get_researcher_allowed_studies(),
+        intervention_data=intervention_data,
+        field_values=field_data,
+    )
 
 @study_api.route('/interventions/<string:study_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access

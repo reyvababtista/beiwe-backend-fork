@@ -140,14 +140,13 @@ class Participant(AbstractPasswordUser):
         self.device_id = ''
         self.save()
 
-
     def __str__(self):
         return '{} {} of Study {}'.format(self.__class__.__name__, self.patient_id, self.study.name)
 
 
 class ParticipantFieldValue(models.Model):
     """
-    These objects can be deleted.
+    These objects can be deleted.  These are values for per-study custom fields for users
     """
     participant = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='field_values')
     field = models.ForeignKey('StudyField', on_delete=models.CASCADE, related_name='field_values')

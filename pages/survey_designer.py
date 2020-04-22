@@ -19,15 +19,18 @@ def render_edit_survey(survey_id=None):
     except Survey.DoesNotExist:
         return abort(404)
 
-    study = survey.study
+    intervensions = {
+        intervention.id: intervention.name for intervention in survey.study.interventions.all()
+    }
+
     return render_template(
         'edit_survey.html',
         survey=survey.as_native_python(),
-        study=study,
+        study=survey.study,
         allowed_studies=get_researcher_allowed_studies(),
         is_admin=researcher_is_an_admin(),
         domain_name=DOMAIN_NAME,  # used in a Javascript alert, see survey-editor.js
-        interventions_dict={intervention.id: intervention.name for intervention in study.interventions.all()},
+        interventions_dict=intervensions,
         weekly_timings=survey.weekly_timings(),
         relative_timings=survey.relative_timings(),
         absolute_timings=survey.absolute_timings(),

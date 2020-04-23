@@ -90,7 +90,7 @@ class Participant(AbstractPasswordUser):
 
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='participants', null=False)
 
-    fcm_instance_id = models.CharField(max_length=256, blank=True, null=True, unique=True)
+    fcm_instance_id = models.CharField(max_length=256, blank=True, null=True, db_index=True)
 
     @classmethod
     def create_with_password(cls, **kwargs):

@@ -40,13 +40,12 @@ def send_notification():
     Expects a patient_id in the request body.
     """
     participant = Participant.objects.get(patient_id=request.values['patient_id'])
-    token = participant.fcm_instance_id
     message = messaging.Message(
         data={
             'type': 'fake',
             'content': 'hello good sir',
         },
-        token=token,
+        token=participant.fcm_instance_id,
     )
     response = messaging.send(message)
     print('Successfully sent notification message:', response)

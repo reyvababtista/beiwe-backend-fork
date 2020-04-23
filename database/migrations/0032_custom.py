@@ -19,5 +19,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(backfill_missing_survey_archives),
+        migrations.RunPython(backfill_missing_survey_archives, reverse_code=migrations.RunPython.noop),
     ]

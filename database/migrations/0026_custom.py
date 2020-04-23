@@ -22,11 +22,6 @@ def initial_weekly_schedules(*args, **kwargs):
         )
 
 
-def initial_weekly_schedules_reverse(*arg, **kwargs):
-    # forward migration script doesn't need to be reversed.
-    pass
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -34,7 +29,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(initial_weekly_schedules, initial_weekly_schedules_reverse),
+        migrations.RunPython(initial_weekly_schedules, reverse_code=migrations.RunPython.noop),
         migrations.RemoveField(
             model_name='survey',
             name='timings',

@@ -10,6 +10,7 @@ from database.survey_models import Survey
 def fix_bad_survey_content(*args, **kwargs):
     Survey.objects.filter(content="null").update(content="[]")
 
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -17,6 +18,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(fix_bad_survey_content)
+        migrations.RunPython(fix_bad_survey_content, reverse_code=migrations.RunPython.noop)
 
     ]

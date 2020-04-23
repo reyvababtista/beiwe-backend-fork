@@ -24,8 +24,8 @@ from libs.sentry import make_error_sentry
 ################################################################################
 
 @push_send_celery_app.task
-def queue_push_notification(participant):
-    return celery_send_push_notification(participant)
+def queue_push_notification(survey_obj_id: str, fcm_token: str, sched_pk: int):
+    return celery_send_push_notification(survey_obj_id, fcm_token, sched_pk)
 queue_push_notification.max_retries = 0  # may not be necessary
 
 ################################################################################
@@ -36,7 +36,11 @@ queue_push_notification.max_retries = 0  # may not be necessary
 def create_push_notification_tasks():
     expiry = (datetime.now() + timedelta(minutes=5)).replace(second=30, microsecond=0)
     now = make_aware(datetime.utcnow(), timezone=pytz.utc)
-    event_query = ScheduledEvent.objects.filter(scheduled_time__lte=now).values_list(
+    event_query = ScheduledEvent.objects.filter(
+        scheduled_time__lte=now, participant__fcm_instance_id__isnull=False
+    ).exclude(
+        participant__fcm_instance_id=""
+    ).values_list(
         "survey__object_id", "participant__fcm_instance_id", "pk"
     )
 
@@ -73,7 +77,7 @@ def celery_send_push_notification(survey_obj_id: str, fcm_token: str, sched_pk: 
             data={
                 'type': 'survey',
                 'survey_id': survey_obj_id,
-                'sent_time': schedule.schedule_time.strptime(API_TIME_FORMAT),
+                'sent_time': schedule.scheduled_time.strftime(API_TIME_FORMAT),
             },
             token=fcm_token,
         ))

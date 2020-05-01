@@ -191,16 +191,16 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
     for data_bin, (data_rows_deque, ftp_deque) in binified_data.items():
         with error_handler:
             try:
-                study_id, user_id, data_type, time_bin, original_header = data_bin
+                study_object_id, user_id, data_type, time_bin, original_header = data_bin
                 # data_rows_deque may be a generator; here it is evaluated
                 rows = list(data_rows_deque)
                 updated_header = convert_unix_to_human_readable_timestamps(original_header, rows)
-                chunk_path = construct_s3_chunk_path(study_id, user_id, data_type, time_bin)
+                chunk_path = construct_s3_chunk_path(study_object_id, user_id, data_type, time_bin)
 
                 if ChunkRegistry.objects.filter(chunk_path=chunk_path).exists():
                     chunk = ChunkRegistry.objects.get(chunk_path=chunk_path)
                     try:
-                        s3_file_data = s3_retrieve(chunk_path, study_id, raw_path=True)
+                        s3_file_data = s3_retrieve(chunk_path, study_object_id, raw_path=True)
                     except ReadTimeoutError as e:
                         # The following check was correct for boto 2, still need to hit with boto3 test.
                         if "The specified key does not exist." == str(e):
@@ -232,19 +232,19 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                     new_contents = construct_csv_string(updated_header, old_rows)
                     del old_rows
 
-                    upload_these.append((chunk, chunk_path, codecs.encode(new_contents, "zip"), study_id))
+                    upload_these.append((chunk, chunk_path, codecs.encode(new_contents, "zip"), study_object_id))
                     del new_contents
                 else:
                     ensure_sorted_by_timestamp(rows)
                     new_contents = construct_csv_string(updated_header, rows)
                     if data_type in SURVEY_DATA_FILES:
                         # We need to keep a mapping of files to survey ids, that is handled here.
-                        survey_id_hash = study_id, user_id, data_type, original_header
+                        survey_id_hash = study_object_id, user_id, data_type, original_header
                         survey_id = survey_id_dict[survey_id_hash]
                     else:
                         survey_id = None
                     chunk_params = {
-                        "study_id": study_id,
+                        "study_id": study_object_id,
                         "user_id": user_id,
                         "data_type": data_type,
                         "chunk_path": chunk_path,
@@ -252,7 +252,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                         "survey_id": survey_id
                     }
 
-                    upload_these.append((chunk_params, chunk_path, codecs.encode(new_contents, "zip"), study_id))
+                    upload_these.append((chunk_params, chunk_path, codecs.encode(new_contents, "zip"), study_object_id))
             except Exception as e:
                 # Here we catch any exceptions that may have arisen, as well as the ones that we raised
                 # ourselves (e.g. HeaderMismatchException). Whichever FTP we were processing when the
@@ -260,7 +260,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                 failed_ftps.update(ftp_deque)
                 print(e)
                 print("FAILED TO UPDATE: study_id:%s, user_id:%s, data_type:%s, time_bin:%s, header:%s "
-                      % (study_id, user_id, data_type, time_bin, updated_header))
+                      % (study_object_id, user_id, data_type, time_bin, updated_header))
                 raise
 
             else:
@@ -390,7 +390,7 @@ def process_csv_data(data: dict):
         catches csv files with known problems and runs the correct logic.
         Returns None If the csv has no data in it. """
     participant = data['ftp']['participant']
-
+    
     if participant.os_type == Participant.ANDROID_API:
         # Do fixes for Android
         if data["data_type"] == ANDROID_LOG_FILE:
@@ -428,13 +428,18 @@ def process_csv_data(data: dict):
             # return item 1: the data as a defaultdict
             binify_csv_rows(
                 csv_rows_list,
-                data['ftp']['study'].object_id.encode(),
+                data['ftp']['study'].object_id,
                 data['ftp']['participant'].patient_id,
                 data["data_type"],
                 header
             ),
             # return item 2: the tuple that we use as a key for the defaultdict
-            (data['ftp']['study'].object_id.encode(), data['ftp']['participant'].patient_id, data["data_type"], header)
+            (
+                data['ftp']['study'].object_id,
+                data['ftp']['participant'].patient_id,
+                data["data_type"],
+                header
+            )
         )
     else:
         return None, None

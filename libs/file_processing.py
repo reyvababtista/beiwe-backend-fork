@@ -120,17 +120,8 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
                          files_to_process[skip_count:count+skip_count],
                          chunksize=1):
         with error_handler:
-            # If we encountered any errors in retrieving the files for processing, they have been
-            # lumped together into data['exception']. Raise them here to the error handler and
-            # move to the next file.
             if data['exception']:
-                print("\n" + data['ftp']['s3_file_path'])
-                print(data['traceback'])
-                ################################################################
-                # YOU ARE SEEING THIS EXCEPTION WITHOUT A STACK TRACE
-                # BECAUSE IT OCCURRED INSIDE POOL.MAP ON ANOTHER THREAD
-                ################################################################
-                raise data['exception']
+                raise_data_processing_error(data)
 
             if data['chunkable']:
                 # case: chunkable data files
@@ -588,6 +579,21 @@ def clean_java_timecode(java_time_code_string: bytes) -> int:
 
 def unix_time_to_string(unix_time: int) -> bytes:
     return datetime.utcfromtimestamp(unix_time).strftime(API_TIME_FORMAT).encode()
+
+
+def raise_data_processing_error(data):
+    """
+    If we encountered any errors in retrieving the files for processing, they have been
+    lumped together into data['exception']. Raise them here to the error handler and
+    move to the next file.
+    """
+    print("\n" + data['ftp']['s3_file_path'])
+    print(data['traceback'])
+    ################################################################
+    # YOU ARE SEEING THIS EXCEPTION WITHOUT A STACK TRACE
+    # BECAUSE IT OCCURRED INSIDE POOL.MAP ON ANOTHER THREAD
+    ################################################################
+    raise data['exception']
 
 
 """ Batch Operations """

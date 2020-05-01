@@ -2,9 +2,10 @@ import functools
 
 from flask import abort, request
 
-from database.common_models import is_object_id
+from config.study_constants import OBJECT_ID_ALLOWED_CHARS
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation
+
 
 ####################################################################################################
 ################################# Primary Access Validation ########################################
@@ -57,6 +58,8 @@ def data_access_get_and_validate_credentials():
     secret_key = request.values.get("secret_key", None)
     if access_key is None or secret_key is None:
         abort(400)
+
+    # TODO: should these not be strings of length 64?
     return access_key, secret_key
 
 
@@ -123,6 +126,12 @@ def get_and_confirm_study_exists(study_object_id=None, study_pk=None):
             return study
 
     elif study_pk is not None:
+        # study pk must coerce to an int
+        try:
+            int(study_pk)
+        except ValueError:
+            return abort(400)
+
         # If no Study with the given ID exists, we return a 404
         try:
             study = Study.objects.get(pk=study_pk)
@@ -133,3 +142,21 @@ def get_and_confirm_study_exists(study_object_id=None, study_pk=None):
 
     else:
         return abort(400)
+
+
+class BadObjectIdType(Exception): pass
+
+
+def is_object_id(object_id: str):
+    """ Object IDs, we have random strings in newer objects, so we only care about length. """
+    # due to change in django we have to check database queries for byte strings as they get coerced
+    # to strings prepended with b'
+    if not isinstance(object_id, str) or object_id.startswith("b'"):
+        raise BadObjectIdType(str(object_id))
+
+    # need to be composed of alphanumerics
+    for c in object_id:
+        if c not in OBJECT_ID_ALLOWED_CHARS:
+            return False
+
+    return len(object_id) == 24

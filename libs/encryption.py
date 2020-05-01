@@ -71,6 +71,8 @@ def encrypt_for_server(input_string: bytes, study_object_id: str) -> bytes:
     Encrypts config using the ENCRYPTION_KEY, prepends the generated initialization vector.
     Use this function on an entire file (as a string).
     """
+    if not isinstance(study_object_id, str):
+        raise Exception(f"received non-string object {study_object_id}")
     encryption_key = Study.objects.get(object_id=study_object_id).encryption_key.encode()  # bytes
     iv = urandom(16)  # bytes
     return iv + AES.new(encryption_key, AES.MODE_CFB, segment_size=8, IV=iv).encrypt(input_string)

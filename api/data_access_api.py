@@ -8,11 +8,12 @@ from config.constants import (ALL_DATA_STREAMS, API_TIME_FORMAT, IMAGE_FILE, SUR
     SURVEY_TIMINGS, VOICE_RECORDING)
 from database.data_access_models import (ChunkRegistry, InvalidUploadParameterError,
     PipelineRegistry, PipelineUpload, PipelineUploadTags)
-from database.models import is_object_id
 from database.study_models import Study
 from database.user_models import Participant, Researcher, StudyRelation
+from libs.data_access_authentication import is_object_id
 from libs.s3 import s3_retrieve, s3_upload
 from libs.streaming_bytes_io import StreamingBytesIO
+
 
 class DummyError(Exception): pass
 
@@ -30,7 +31,7 @@ def get_and_validate_study_id(chunked_download=False):
     Study does not exist in our database causes 404 error.
     """
     study = _get_study_or_abort_404(
-        study_object_id=request.values.get('study_id', None),
+        study_object_id=request.values.get('study_id', b"").decode(),
         study_pk=request.values.get('study_pk', None)
     )
 
@@ -129,8 +130,7 @@ def get_studies():
 @data_access_api.route("/get-users/v1", methods=['POST', "GET"])
 def get_users_in_study():
 
-    study_object_id = request.values.get("study_id", "")
-    # if not is_object_id(study_object_id):
+    study_object_id = request.values.get("study_id", b"").decode()
     if not is_object_id(study_object_id):
         return abort(404)
 
@@ -434,7 +434,7 @@ def data_pipeline_upload():
     if not researcher.validate_access_credentials(access_secret):
         return abort(403)  # incorrect secret key
     # case: invalid study
-    study_id = request.values["study_id"]
+    study_id = request.values["study_id"].decode()
 
     if not Study.objects.filter(object_id=study_id).exists():
         return abort(404)
@@ -487,7 +487,7 @@ def json_pipeline_upload():
         return abort(403)  # incorrect secret key
 
     # case: invalid study
-    study_id = request.values["study_id"]
+    study_id = request.values["study_id"].decode()
     if not Study.objects.filter(object_id=study_id).exists():
         return abort(404)
 

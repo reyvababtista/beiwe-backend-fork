@@ -17,6 +17,7 @@ conn = boto3.client('s3',
 def s3_upload(key_path: str, data_string: bytes, study_object_id: str, raw_path=False) -> None:
     if not raw_path:
         key_path = study_object_id + "/" + key_path
+
     data = encrypt_for_server(data_string, study_object_id)
     conn.put_object(Body=data, Bucket=S3_BUCKET, Key=key_path)#, ContentType='string')
 

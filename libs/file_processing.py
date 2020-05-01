@@ -626,7 +626,7 @@ def batch_upload(upload: Tuple[dict, str, bytes, str]):
     try:
         if len(upload) != 4:
             # upload should have length 4; this is for debugging if it doesn't
-            print("upload length not equal to 4: ",upload)
+            print("upload length not equal to 4: ", upload)
         chunk, chunk_path, new_contents, study_object_id = upload
         del upload
 

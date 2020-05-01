@@ -597,7 +597,6 @@ def batch_retrieve_for_processing(ftp_as_object: FileToProcess) -> dict:
     """ Used for mapping an s3_retrieve function. """
     # Convert the ftp object to a dict so we can use __getattr__
     ftp = ftp_as_object.as_dict()
-
     data_type = file_path_to_data_type(ftp['s3_file_path'])
 
     # Create a dictionary to populate and return
@@ -613,7 +612,7 @@ def batch_retrieve_for_processing(ftp_as_object: FileToProcess) -> dict:
     # Try to retrieve the file contents. If any errors are raised, store them to be raised by the
     # parent function
     try:
-        ret['file_contents'] = s3_retrieve(ftp['s3_file_path'], ftp["study"].object_id.encode(), raw_path=True)
+        ret['file_contents'] = s3_retrieve(ftp['s3_file_path'], ftp["study"].object_id, raw_path=True)
     except Exception as e:
         traceback.print_exc()
         ret['traceback'] = sys.exc_info()

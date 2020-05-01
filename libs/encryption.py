@@ -77,7 +77,7 @@ def encrypt_for_server(input_string, study_object_id) -> bytes:
 
 
 def decrypt_server(data: bytes, study_object_id: str) -> bytes:
-    """ Decrypts config encrypted by the encrypt_for_server function."""
+    """ Decrypts config encrypted by the encrypt_for_server function. """
     encryption_key = Study.objects.filter(
         object_id=study_object_id
     ).values_list('encryption_key', flat=True).get().encode()

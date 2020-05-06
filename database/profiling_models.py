@@ -47,7 +47,7 @@ class LineEncryptionError(AbstractModel):
     
     type = models.CharField(max_length=32, choices=ERROR_TYPE_CHOICES)
     line = models.TextField(blank=True)
-    base64_decryption_key = models.CharField(max_length=256)
+    base64_decryption_key = models.TextField()
     prev_line = models.TextField(blank=True)
     next_line = models.TextField(blank=True)
     participant = models.ForeignKey(Participant, null=True, on_delete=models.PROTECT)

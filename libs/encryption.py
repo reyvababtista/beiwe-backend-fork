@@ -113,7 +113,7 @@ def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, us
     def create_decryption_key_error(an_traceback):
         DecryptionKeyError.objects.create(
                 file_path=request.values['file_name'],
-                contents=original_data,
+                contents=original_data.decode(),
                 traceback=an_traceback,
                 participant=user,
         )

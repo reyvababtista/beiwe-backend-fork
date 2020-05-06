@@ -52,12 +52,7 @@ class Study(AbstractModel):
     def get_surveys_for_study(self, requesting_os):
         survey_json_list = []
         for survey in self.surveys.filter(deleted=False):
-            survey_dict = survey.as_native_python()
-            # Make the dict look like the old Mongolia-style dict that the frontend is expecting
-            survey_dict.pop('id')
-            survey_dict.pop('deleted')
-            survey_dict['_id'] = survey_dict.pop('object_id')
-            
+            survey_dict = survey.format_survey_for_study()
             # Exclude image surveys for the Android app to avoid crashing it
             if requesting_os == "ANDROID" and survey.survey_type == "image_survey":
                 pass

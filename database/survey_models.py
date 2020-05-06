@@ -128,6 +128,11 @@ class Survey(AbstractSurvey):
         survey_dict.pop('id')
         survey_dict.pop('deleted')
         survey_dict['_id'] = survey_dict.pop('object_id')
+
+        # the old timings object does need to be provided
+        from database.schedule_models import WeeklySchedule
+        survey_dict['timings'] = WeeklySchedule.export_survey_timings(self)
+
         return survey_dict
 
     def create_absolute_schedules_and_events(self):

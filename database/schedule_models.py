@@ -139,7 +139,7 @@ class WeeklySchedule(AbstractModel):
         return duplicated
 
     @classmethod
-    def export_survey_timings(cls, survey) -> List[List[int]]:
+    def export_survey_timings(cls, survey: Survey) -> List[List[int]]:
         """Returns a json formatted list of weekly timings for use on the frontend"""
         # this sort order results in nicely ordered output.
         fields_ordered = ("hour", "minute", "day_of_week")

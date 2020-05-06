@@ -78,7 +78,7 @@ def update_device_settings(new_device_settings, study, filename):
         
         # ah, it looks like the bug we had was that you can just send dictionary directly
         # into a textfield and it uses the __repr__ or __str__ or __unicode__ function, causing
-        # weirdnesses if as_native_python is called because json does not want to use double quotes.
+        # weirdnesses if as_unpacked_native_python is called because json does not want to use double quotes.
         if isinstance(new_device_settings['consent_sections'], dict):
             new_device_settings['consent_sections'] = json.dumps(new_device_settings['consent_sections'])
         

@@ -228,7 +228,7 @@ def register_user(OS_API=""):
     user.set_device(device_id)
     user.set_os_type(OS_API)
     user.set_password(request.values['new_password'])
-    device_settings = user.study.device_settings.as_native_python()
+    device_settings = user.study.device_settings.as_unpacked_native_python()
     device_settings.pop('_id', None)
     return_obj = {'client_public_key': get_client_public_key_string(patient_id, study_id),
                   'device_settings': device_settings}

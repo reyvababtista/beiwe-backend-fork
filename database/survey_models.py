@@ -123,7 +123,7 @@ class Survey(AbstractSurvey):
         """
         Returns a dict with the values of the survey fields for download to the app
         """
-        survey_dict = self.as_native_python()
+        survey_dict = self.as_unpacked_native_python()
         # Make the dict look like the old Mongolia-style dict that the frontend is expecting
         survey_dict.pop('id')
         survey_dict.pop('deleted')

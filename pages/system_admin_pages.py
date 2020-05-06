@@ -76,7 +76,7 @@ def manage_researchers():
             study_relations__researcher=researcher,
             study_relations__study__in=session_ids,
         ).values_list('name', flat=True)
-        researcher_list.append((researcher.as_native_python(), list(allowed_studies)))
+        researcher_list.append((researcher.as_unpacked_native_python(), list(allowed_studies)))
 
     return render_template(
         'manage_researchers.html',
@@ -208,7 +208,7 @@ def create_new_researcher():
 def manage_studies():
     return render_template(
         'manage_studies.html',
-        studies=json.dumps([study.as_native_python() for study in get_administerable_studies_by_name()]),
+        studies=json.dumps([study.as_unpacked_native_python() for study in get_administerable_studies_by_name()]),
         allowed_studies=get_researcher_allowed_studies(),
         is_admin=researcher_is_an_admin(),
         session_researcher=get_session_researcher(),
@@ -253,7 +253,7 @@ def create_study():
         return abort(403)
 
     if request.method == 'GET':
-        studies = [study.as_native_python() for study in Study.get_all_studies_by_name()]
+        studies = [study.as_unpacked_native_python() for study in Study.get_all_studies_by_name()]
         return render_template(
             'create_study.html',
             studies=json.dumps(studies),
@@ -308,8 +308,8 @@ def device_settings(study_id=None):
     if request.method == 'GET':
         return render_template(
             "device_settings.html",
-            study=study.as_native_python(),
-            settings=study.get_study_device_settings().as_native_python(),
+            study=study.as_unpacked_native_python(),
+            settings=study.get_study_device_settings().as_unpacked_native_python(),
             readonly=readonly,
             allowed_studies=get_researcher_allowed_studies(),
             is_admin=researcher_is_an_admin()

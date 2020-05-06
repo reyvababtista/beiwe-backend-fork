@@ -30,7 +30,7 @@ def export_study_settings_file(study_id):
     surveys = []
     for survey in study.surveys.filter(deleted=False):
         # content, cleanup, then schedules.
-        survey_content = survey.as_native_python()
+        survey_content = survey.as_unpacked_native_python()
         purge_unnecessary_fields(survey_content)
 
         survey_content[WEEKLY_SCHEDULE_KEY] = survey.weekly_timings()
@@ -38,7 +38,7 @@ def export_study_settings_file(study_id):
         survey_content[RELATIVE_SCHEDULE_KEY] = survey.relative_timings()
         surveys.append(survey_content)
 
-    device_settings = study.get_study_device_settings().as_native_python()
+    device_settings = study.get_study_device_settings().as_unpacked_native_python()
     purge_unnecessary_fields(device_settings)
 
     output = {

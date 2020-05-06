@@ -55,8 +55,8 @@ class AbstractModel(models.Model):
         return object_id
     
     @classmethod
-    def query_set_as_native_json(cls, query_set, remove_timestamps=True):
-        return json.dumps([obj.as_native_python(remove_timestamps) for obj in query_set])
+    def query_set_as_unpacked_native_json(cls, query_set, remove_timestamps=True):
+        return json.dumps([obj.as_unpacked_native_python(remove_timestamps) for obj in query_set])
     
     def as_dict(self):
         """ Provides a dictionary representation of the object """
@@ -108,7 +108,7 @@ class AbstractModel(models.Model):
         ret.update(self._related)
         return ret
     
-    def as_native_python(self, remove_timestamps=True) -> dict:
+    def as_unpacked_native_python(self, remove_timestamps=True) -> dict:
         """
         Collect all of the fields of the model and return their values in a python dict,
         with json fields appropriately deserialized.
@@ -136,7 +136,7 @@ class AbstractModel(models.Model):
         Collect all of the fields of the model and return their values in a python dict,
         with json fields appropriately serialized.
         """
-        return json.dumps(self.as_native_python(remove_timestamps))
+        return json.dumps(self.as_unpacked_native_python(remove_timestamps))
     
     def save(self, *args, **kwargs):
         # TODO if we encounter ValidationErrors here after the SQL migration, allow

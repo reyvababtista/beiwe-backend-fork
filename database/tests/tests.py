@@ -165,7 +165,7 @@ class ResearcherModelTests(CommonTestCase):
     def test_researcher_mongo_integrity(self):
         researcher = Researcher(**self.translated_reference_researcher)
         x = compare_dictionaries(self.translated_reference_researcher,
-                                 researcher.as_native_python(),
+                                 researcher.as_unpacked_native_python(),
                                  ignore=["deleted", "id"])
         self.assertTrue(x)
     
@@ -192,7 +192,7 @@ class ParticipantModelTests(CommonTestCase):
     
         reference_participant = self.translated_reference_participant
         django_participant = Participant(study=study,
-                                         **reference_participant).as_native_python()
+                                         **reference_participant).as_unpacked_native_python()
         
         x = compare_dictionaries(reference_participant,
                                  django_participant,
@@ -222,7 +222,7 @@ class StudyModelTests(CommonTestCase):
     def test_study_mongo_integrity(self):
         django_reference_study = Study(**self.translated_reference_study)
         x = compare_dictionaries(self.translated_reference_study,
-                                 django_reference_study.as_native_python(),
+                                 django_reference_study.as_unpacked_native_python(),
                                  ignore=['id'])
         self.assertTrue(x)
     

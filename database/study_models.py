@@ -85,9 +85,9 @@ class Study(AbstractModel):
                 .exclude(username__icontains="BATCH USER").exclude(username__icontains="AWS LAMBDA")
         )
 
-    # We override the as_native_python function to not include the encryption key.
-    def as_native_python(self, remove_timestamps=True, remove_encryption_key=True):
-        ret = super(Study, self).as_native_python(remove_timestamps=remove_timestamps)
+    # We override the as_unpacked_native_python function to not include the encryption key.
+    def as_unpacked_native_python(self, remove_timestamps=True, remove_encryption_key=True):
+        ret = super(Study, self).as_unpacked_native_python(remove_timestamps=remove_timestamps)
         ret.pop("encryption_key")
         return ret
 

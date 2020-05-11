@@ -12,11 +12,11 @@ from database.user_models import Participant
 def minimal_validation(some_function):
     @functools.wraps(some_function)
     def authenticate_and_call(*args, **kwargs):
-        is_ios = kwargs["OS_API"] == Participant.IOS_API
+        is_ios = kwargs.get("OS_API", None) == Participant.IOS_API
         correct_for_basic_auth()
         if validate_post_ignore_password(is_ios):
             return some_function(*args, **kwargs)
-        return abort(401 if (kwargs["OS_API"] == Participant.IOS_API) else 403)
+        return abort(401 if (kwargs.get("OS_API", None) == Participant.IOS_API) else 403)
     return authenticate_and_call
 
 
@@ -58,7 +58,7 @@ def authenticate_user(some_function):
         correct_for_basic_auth()
         if validate_post():
             return some_function(*args, **kwargs)
-        return abort(401 if (kwargs["OS_API"] == Participant.IOS_API) else 403)
+        return abort(401 if (kwargs.get("OS_API", None) == Participant.IOS_API) else 403)
     return authenticate_and_call
 
 
@@ -92,7 +92,7 @@ def authenticate_user_registration(some_function):
         correct_for_basic_auth()
         if validate_registration():
             return some_function(*args, **kwargs)
-        return abort(401 if (kwargs["OS_API"] == Participant.IOS_API) else 403)
+        return abort(401 if (kwargs.get("OS_API", None) == Participant.IOS_API) else 403)
     return authenticate_and_call
 
 

@@ -32,7 +32,7 @@ def set_fcm_token():
     return '', 204
 
 
-@push_notifications_api.route('/send_notification', methods=['POST'])
+@push_notifications_api.route('/test_notification', methods=['POST'])
 @authenticate_user
 def send_notification():
     """

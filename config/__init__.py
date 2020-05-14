@@ -1,6 +1,5 @@
 import os
-from os.path import abspath, dirname, join, exists as file_exists
-from typing import Callable
+from os.path import abspath, dirname, exists as file_exists, join
 
 # stick all errors into this list and raise a special exception at the end.
 ERRORS = []
@@ -15,6 +14,15 @@ ELASTIC_BEANSTALK_ENV_FILE = join(abspath(dirname(dirname(dirname(__file__)))), 
 POSTGRES_DATABASE_SETTINGS = ("RDS_DB_NAME", "RDS_USERNAME", "RDS_PASSWORD", "RDS_HOSTNAME")
 SENTRY_ENVS = ('SENTRY_ANDROID_DSN', 'SENTRY_DATA_PROCESSING_DSN', 'SENTRY_ELASTIC_BEANSTALK_DSN',
                'SENTRY_JAVASCRIPT_DSN')
+
+# these variables are strictly required.
+MANDATORY_VARS = {
+    'DOMAIN_NAME',
+    'FLASK_SECRET_KEY',
+    'IS_STAGING',
+    'S3_BUCKET',
+    'SYSADMIN_EMAILS',
+}
 
 # server modes
 MODE_EB_SERVER = file_exists(ELASTIC_BEANSTALK_ENV_FILE)
@@ -46,29 +54,12 @@ else:
 from config import settings
 PROVIDED_SETTINGS = vars(settings)
 
-# Check that all values provided actually contain something
-for env_setting_name, env_setting_value in PROVIDED_SETTINGS.items():
-    if env_setting_name.startswith("_") or isinstance(env_setting_value, Callable) or env_setting_name in SENTRY_ENVS:
-        continue
-    if not env_setting_value:
-        ERRORS.append(f"The setting '{env_setting_name}' was not provided with a value.")
-
-# these variables are strictly required.
-MANDATORY_VARS = {
-    'DOMAIN_NAME',
-    'FLASK_SECRET_KEY',
-    'IS_STAGING',
-    'S3_BUCKET',
-    'SYSADMIN_EMAILS',
-}
-
-# this might be useful in the future
-# SENTRY_PRESENT = sum(1 for sentry_env in SENTRY_ENVS if sentry_env in PROVIDED_SETTINGS)
-
 # Check that all the mandatory variables exist...
 for mandatory_var in MANDATORY_VARS:
     if mandatory_var not in PROVIDED_SETTINGS:
         ERRORS.append(f"'{mandatory_var}' was not provided in your settings.")
+    if mandatory_var in PROVIDED_SETTINGS and not PROVIDED_SETTINGS[mandatory_var]:
+        ERRORS.append(f"The setting '{mandatory_var}' was not provided with a value.")
 
 # Environment variable type can be unpredictable, sanitize the numerical ones.
 settings.CONCURRENT_NETWORK_OPS = int(settings.CONCURRENT_NETWORK_OPS)

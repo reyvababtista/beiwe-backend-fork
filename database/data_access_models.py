@@ -17,7 +17,6 @@ from libs.s3 import s3_list_files, s3_retrieve
 from libs.security import chunk_hash
 
 
-class FileProcessingLockedError(Exception): pass
 class UnchunkableDataTypeError(Exception): pass
 class ChunkableDataTypeError(Exception): pass
 
@@ -240,30 +239,6 @@ class FileToProcess(AbstractModel):
             else:
                 print(f"Adding {fp} as a file to reprocess.")
                 cls.append_file_for_processing(fp, study_obj_id, participant=participant)
-
-
-class FileProcessLock(AbstractModel):
-
-    lock_time = models.DateTimeField(null=True)
-    
-    @classmethod
-    def lock(cls):
-        if cls.islocked():
-            raise FileProcessingLockedError('File processing already locked')
-        else:
-            cls.objects.create(lock_time=timezone.now())
-    
-    @classmethod
-    def unlock(cls):
-        cls.objects.all().delete()
-    
-    @classmethod
-    def islocked(cls):
-        return cls.objects.exists()
-    
-    @classmethod
-    def get_time_since_locked(cls):
-        return timezone.now() - FileProcessLock.objects.last().lock_time
 
 
 

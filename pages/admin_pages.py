@@ -5,10 +5,9 @@ from database.study_models import Study, StudyField
 from database.user_models import Participant, ParticipantFieldValue, Researcher
 from libs import admin_authentication
 from libs.admin_authentication import (authenticate_researcher_login,
-                                       authenticate_researcher_study_access,
-                                       get_researcher_allowed_studies,
-                                       get_researcher_allowed_studies_as_query_set,
-                                       researcher_is_an_admin, SESSION_NAME, get_session_researcher)
+    authenticate_researcher_study_access, get_researcher_allowed_studies,
+    get_researcher_allowed_studies_as_query_set, get_session_researcher, researcher_is_an_admin,
+    SESSION_NAME)
 from libs.security import check_password_requirements
 
 admin_pages = Blueprint('admin_pages', __name__)

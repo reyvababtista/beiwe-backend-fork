@@ -148,7 +148,7 @@ class ChunkRegistry(AbstractModel):
         return cls.objects.filter(**query)
 
     def update_chunk_hash(self, data_to_hash):
-        self.chunk_hash = chunk_hash(data_to_hash)
+        self.chunk_hash = chunk_hash(data_to_hash).decode()
         self.save()
 
     @classmethod

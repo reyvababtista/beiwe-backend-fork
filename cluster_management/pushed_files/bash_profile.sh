@@ -10,6 +10,8 @@
 # for ssh logins, install and configure the libpam-umask package.
 #umask 022
 
+alias b='cd ~/beiwe-backend/'
+
 alias update-commandline='cp ~/beiwe-backend/cluster_management/pushed_files/bash_profile.sh ~/.profile; cp ~/beiwe-backend/cluster_management/pushed_files/.inputrc ~/.inputrc'
 
 #Alias aliases

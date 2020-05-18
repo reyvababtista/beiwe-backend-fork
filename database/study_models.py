@@ -25,6 +25,15 @@ class Study(AbstractModel):
     is_test = models.BooleanField(default=True)
     timezone = TimeZoneField(default="America/New_York", help_text='Timezone of the study')
 
+    def save(self, *args, **kwargs):
+        """ Ensure there is a study device settings attached to this study. """
+        super().save(self, *args, **kwargs)
+        if not self.device_settings:
+            settings = DeviceSettings(study=self)
+            settings.save()
+            self.device_settings = settings
+            self.save()
+
     @classmethod
     def create_with_object_id(cls, **kwargs):
         """ Creates a new study with a populated object_id field. """

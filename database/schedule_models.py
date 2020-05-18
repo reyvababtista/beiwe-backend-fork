@@ -230,8 +230,16 @@ class ScheduledEvent(AbstractModel):
             raise Exception("ScheduledEvent had no associated schedule")
 
     def archive(self):
+        # for stupid reasons involving the legacy mechanism for creating a survey archive we need
+        # to handle the case where the objects does not exist.
+        try:
+            survey_archive = self.survey.most_recent_archive()
+        except SurveyArchive.DoesNotExist:
+            self.survey.archive()
+            survey_archive = self.survey.most_recent_archive()
+
         ArchivedEvent.objects.create(
-            survey_archive=SurveyArchive.objects.filter(survey=self.survey).order_by('created_on').first(),
+            survey_archive=survey_archive,
             participant=self.participant,
             schedule_type=self.get_schedule_type(),
             scheduled_time=self.scheduled_time,

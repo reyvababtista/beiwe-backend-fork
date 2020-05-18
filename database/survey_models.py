@@ -159,11 +159,46 @@ class Survey(AbstractSurvey):
                     scheduled_time=schedule_date,
                 )
 
+    def save(self, *args, **kwargs):
+        super().save(self, *args, **kwargs)
+        self.archive()
+
+    def most_recent_archive(self):
+        return self.archives.latest('archive_start')
+
+    def archive(self):
+        """ Create an archive if there were any changes to the data since the last archive was
+        created, or if no archive exists. """
+
+        # get self as dictionary representation, remove fields that don't exist, extract last
+        # updated and the survey id.
+        new_data = self.as_dict()
+        archive_start = new_data.pop("last_updated")
+        survey_id = new_data.pop("id")
+        new_data.pop("created_on")
+        new_data.pop("study")
+
+        # Get the most recent archive for this Survey, to check whether the Survey has been edited
+        try:
+            prior_archive = self.most_recent_archive().values()
+        except SurveyArchive.DoesNotExist:
+            prior_archive = None
+
+        # if there was a prior archive identify if there were any changes, don't create an
+        # archive if there were no changes.
+        if prior_archive is not None:
+            if not any(prior_archive[shared_field_name] != shared_field_value
+                       for shared_field_name, shared_field_value in new_data.items()):
+                return
+
+        SurveyArchive(
+            **new_data,
+            survey_id=survey_id,
+            archive_start=archive_start,
+        ).save()
+
 
 class SurveyArchive(AbstractSurvey):
     """ All fields declared in abstract survey are copied whenever a change is made to a survey """
     archive_start = models.DateTimeField()
-    archive_end = models.DateTimeField(default=timezone.now)
-    # two new foreign key references
-    survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='archives')
-    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='surveys_archive')
+    survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='archives', db_index=True)

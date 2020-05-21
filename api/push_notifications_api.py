@@ -61,12 +61,13 @@ def send_survey_notification():
     """
     participant = Participant.objects.get(patient_id=request.values['patient_id'])
     token = participant.fcm_instance_id
-    survey_id = participant.study.surveys.first().object_id
+    survey_ids = [survey.object_id for survey in participant.study.surveys.order_by("?")[:4]]
+    survey_ids.sort()
     sent_time = datetime.now().strftime(constants.API_TIME_FORMAT)
     message = messaging.Message(
         data={
             'type': 'survey',
-            'survey_id': survey_id,
+            'survey_ids': json.dumps(survey_ids),
             'sent_time': sent_time,
         },
         token=token,

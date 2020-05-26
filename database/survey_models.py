@@ -180,7 +180,7 @@ class Survey(AbstractSurvey):
 
         # Get the most recent archive for this Survey, to check whether the Survey has been edited
         try:
-            prior_archive = self.most_recent_archive().values()
+            prior_archive = self.most_recent_archive().as_dict()
         except SurveyArchive.DoesNotExist:
             prior_archive = None
 

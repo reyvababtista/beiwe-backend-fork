@@ -231,11 +231,11 @@ class ScheduledEvent(AbstractModel):
 
     def archive(self):
         # for stupid reasons involving the legacy mechanism for creating a survey archive we need
-        # to handle the case where the objects does not exist.
+        # to handle the case where the object does not exist.
         try:
             survey_archive = self.survey.most_recent_archive()
         except SurveyArchive.DoesNotExist:
-            self.survey.archive()
+            self.survey.archive()  # force create a survey archive
             survey_archive = self.survey.most_recent_archive()
 
         ArchivedEvent.objects.create(

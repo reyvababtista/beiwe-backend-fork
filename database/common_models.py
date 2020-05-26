@@ -139,8 +139,6 @@ class AbstractModel(models.Model):
         return json.dumps(self.as_unpacked_native_python(remove_timestamps))
     
     def save(self, *args, **kwargs):
-        # TODO if we encounter ValidationErrors here after the SQL migration, allow
-        # invalid data but add a Sentry error.
         # Raise a ValidationError if any data is invalid
         self.full_clean()
         super(AbstractModel, self).save(*args, **kwargs)
@@ -153,6 +151,7 @@ class AbstractModel(models.Model):
         self.save()
     
     def __str__(self):
+        """ multipurpose object representation """
         if hasattr(self, 'study'):
             return '{} {} of Study {}'.format(self.__class__.__name__, self.pk, self.study.name)
         elif hasattr(self, 'name'):

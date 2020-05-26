@@ -2,7 +2,6 @@ import json
 from datetime import datetime
 
 from django.db import models
-from django.utils import timezone
 
 from config.study_constants import AUDIO_SURVEY_SETTINGS, IMAGE_SURVEY_SETTINGS
 from database.common_models import AbstractModel, JSONTextField
@@ -160,7 +159,7 @@ class Survey(AbstractSurvey):
                 )
 
     def save(self, *args, **kwargs):
-        super().save(self, *args, **kwargs)
+        super().save(*args, **kwargs)
         self.archive()
 
     def most_recent_archive(self):
@@ -175,6 +174,7 @@ class Survey(AbstractSurvey):
         new_data = self.as_dict()
         archive_start = new_data.pop("last_updated")
         survey_id = new_data.pop("id")
+        new_data.pop("object_id")
         new_data.pop("created_on")
         new_data.pop("study")
 

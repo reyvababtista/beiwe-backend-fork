@@ -25,6 +25,7 @@ def get_celery_app(service_name: str):
     # note that the 2nd trailing slash here is actually required and
     pyamqp_endpoint = f'pyamqp://beiwe:{password}@{manager_ip}//'
 
+    # set up the celery app...
     return Celery(
         service_name,
         broker=pyamqp_endpoint,

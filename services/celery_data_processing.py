@@ -1,27 +1,19 @@
 from os.path import abspath
 from sys import path
- # add the root of the project into the path to allow cd-ing into this folder and running the script.
+# add the root of the project into the path to allow cd-ing into this folder and running the script.
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
 from datetime import datetime, timedelta
 
 from kombu.exceptions import OperationalError
 
+from config.constants import DATA_PROCESSING_CELERY_QUEUE
 from config.settings import FILE_PROCESS_PAGE_SIZE
 from database.user_models import Participant
 from libs.celery_control import get_processing_active_job_ids, processing_celery_app
 from libs.file_processing import do_process_user_file_chunks
 from libs.sentry import make_error_sentry
 
-
-################################################################################
-############################## Task Endpoints ##################################
-################################################################################
-
-@processing_celery_app.task
-def queue_user(participant):
-    return celery_process_file_chunks(participant)
-queue_user.max_retries = 0  # may not be necessary
 
 ################################################################################
 ############################# Data Processing ##################################
@@ -40,7 +32,6 @@ def create_file_processing_tasks():
 
     # set the tasks to expire at the 5 minutes and thirty seconds mark after the most recent
     # 6 minutely cron task. This way all tasks will be revoked at the same, and well-known, instant.
-    # 30 seconds grace period is 30 seconds out of
     expiry = (datetime.now() + timedelta(minutes=5)).replace(second=30, microsecond=0)
 
     with make_error_sentry('data'):
@@ -61,7 +52,7 @@ def create_file_processing_tasks():
         for participant_id in participants_to_process:
             # Queue all users' file processing, and generate a list of currently running jobs
             # to use to detect when all jobs are finished running.
-            safe_queue_user(
+            safely_queue_user(
                 args=[participant_id],
                 max_retries=0,
                 expires=expiry,
@@ -72,6 +63,7 @@ def create_file_processing_tasks():
         print(f"{len(participants_to_process)} users queued for processing")
 
 
+@processing_celery_app.task(queue=DATA_PROCESSING_CELERY_QUEUE)
 def celery_process_file_chunks(participant_id):
     """ This is the function is queued up, it runs through all new uploads from a specific user and
     'chunks' them. Handles logic for skipping bad files, raising errors. """
@@ -118,10 +110,14 @@ def celery_process_file_chunks(participant_id):
         exit(0)
 
 
+# and mark it to not retry!
+celery_process_file_chunks.max_retries = 0
+
+
 # Useful for debugging, we use get_active_job_ids to ensure that there are no multiple concurrent
 # file processing operations for a single user
 
-def safe_queue_user(*args, **kwargs):
+def safely_queue_user(*args, **kwargs):
     """
     Queue the given user's file processing with the given keyword arguments. This should
     return immediately and leave the processing to be done in the background via celery.
@@ -130,7 +126,7 @@ def safe_queue_user(*args, **kwargs):
     """
     for i in range(10):
         try:
-            return queue_user.apply_async(*args, **kwargs)
+            return celery_process_file_chunks.apply_async(*args, **kwargs)
         except OperationalError:
             # Enqueuing can fail deep inside amqp/transport.py with an OperationalError. We
             # wrap it in some retry logic when this occurs.

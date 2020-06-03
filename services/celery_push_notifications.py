@@ -1,16 +1,16 @@
-from datetime import datetime, timedelta
 from os.path import abspath
 from sys import path
-
+# add the root of the project into the path to allow cd-ing into this folder and running the script.
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
-import pytz
+from datetime import datetime, timedelta
 
+import pytz
 from django.utils.timezone import make_aware
 from firebase_admin.messaging import Message, send
 from kombu.exceptions import OperationalError
 
-from config.constants import API_TIME_FORMAT, ScheduleTypes
+from config.constants import API_TIME_FORMAT, PUSH_NOTIFICATION_SEND_QUEUE, ScheduleTypes
 from database.schedule_models import ScheduledEvent
 from database.survey_models import Survey
 from database.user_models import Participant
@@ -18,15 +18,6 @@ from libs.celery_control import push_send_celery_app
 from libs.push_notifications import firebase_app, FirebaseNotCredentialed, set_next_weekly
 from libs.sentry import make_error_sentry
 
-
-################################################################################
-############################## Task Endpoints ##################################
-################################################################################
-
-@push_send_celery_app.task
-def queue_push_notification(survey_obj_id: str, fcm_token: str, sched_pk: int):
-    return celery_send_push_notification(survey_obj_id, fcm_token, sched_pk)
-queue_push_notification.max_retries = 0  # may not be necessary
 
 ################################################################################
 ############################# Data Processing ##################################
@@ -59,6 +50,7 @@ def create_push_notification_tasks():
             )
 
 
+@push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
 def celery_send_push_notification(survey_obj_id: str, fcm_token: str, sched_pk: int):
     ''' Celery task that sends push notifications. '''
     with make_error_sentry("data"):
@@ -99,10 +91,13 @@ def celery_send_push_notification(survey_obj_id: str, fcm_token: str, sched_pk: 
             )
 
 
+celery_send_push_notification.max_retries = 0
+
+
 def safe_queue_push(*args, **kwargs):
     for i in range(10):
         try:
-            return queue_push_notification.apply_async(*args, **kwargs)
+            return celery_send_push_notification.apply_async(*args, **kwargs)
         except OperationalError:
             if i < 3:
                 pass

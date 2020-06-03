@@ -139,9 +139,10 @@ def load_git_repo():
 def setup_python():
     """ Installs requirements. """
     # sudo required because we are using the
-    sudo('pip3 install -r {home}/beiwe-backend/requirements.txt >> {log}'.
+    run("pip3 install pip setuptools")
+    run('python3 -m pip install --user -r {home}/beiwe-backend/requirements.txt >> {log}'.
          format(home=REMOTE_HOME_DIR, log=LOG_FILE))
-    sudo('pip3 install -r {home}/beiwe-backend/requirements_data_processing.txt >> {log}'.
+    run('python3 -m pip install --user -r {home}/beiwe-backend/requirements_data_processing.txt >> {log}'.
          format(home=REMOTE_HOME_DIR, log=LOG_FILE))
 
 

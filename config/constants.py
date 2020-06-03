@@ -334,9 +334,12 @@ ALL_RESEARCHER_TYPES = (ResearcherRole.study_admin, ResearcherRole.researcher)
 PROJECT_ROOT = __file__.rsplit("/", 2)[0] + "/"
 PROJECT_PARENT_FOLDER = PROJECT_ROOT.rsplit("/", 2)[0] + "/"
 
+
 # Celery Constants
 DATA_PROCESSING_CELERY_SERVICE = "services.celery_data_processing"
+DATA_PROCESSING_CELERY_QUEUE = "data_processing"
 PUSH_NOTIFICATION_SEND_SERVICE = "services.push_notification_send"
+PUSH_NOTIFICATION_SEND_QUEUE = "push_notifications"
 
 class ScheduleTypes(object):
     absolute = "absolute"

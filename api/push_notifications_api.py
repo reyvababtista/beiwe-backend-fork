@@ -6,10 +6,9 @@ from flask import Blueprint, request
 from firebase_admin import messaging
 from config import constants
 from database.user_models import Participant
-from libs.user_authentication import authenticate_user
+from libs.user_authentication import authenticate_user, get_session_participant
 
 push_notifications_api = Blueprint('push_notifications_api', __name__)
-
 
 
 ################################################################################
@@ -24,11 +23,10 @@ def set_fcm_token():
     Sets a participants Firebase CLoud Messaging (FCM) instance token, called whenever a new token
     is generated. Expects a patient_id and and fcm_token in the request body.
     """
-    patient_id = request.values['patient_id']
-    participant = Participant.objects.get(patient_id=patient_id)
+    participant = get_session_participant()
     participant.fcm_instance_id = request.values['fcm_token']
     participant.save()
-    print("Patient", patient_id, "token: ", request.values['fcm_token'])
+    print("Patient", participant.patient_id, "token: ", request.values['fcm_token'])
     return '', 204
 
 
@@ -39,7 +37,7 @@ def send_notification():
     Sends a push notification to the participant, used for testing
     Expects a patient_id in the request body.
     """
-    participant = Participant.objects.get(patient_id=request.values['patient_id'])
+    participant = request.get_session_participant()
     message = messaging.Message(
         data={
             'type': 'fake',

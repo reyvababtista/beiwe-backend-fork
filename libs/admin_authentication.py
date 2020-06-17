@@ -53,7 +53,7 @@ def is_logged_in():
     logout_researcher()
 
 
-def get_session_researcher():
+def get_session_researcher() -> Researcher:
     """ Get the researcher declared in the session, raise 400 (bad request) if it is missing. """
     if "researcher_username" not in session:
         return abort(400)

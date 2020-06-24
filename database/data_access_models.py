@@ -9,7 +9,7 @@ from django_extensions.db.fields.json import JSONField
 
 from config.constants import (API_TIME_FORMAT, CHUNK_TIMESLICE_QUANTUM, CHUNKABLE_FILES,
     CHUNKS_FOLDER, IDENTIFIERS, PIPELINE_FOLDER, REVERSE_UPLOAD_FILE_TYPE_MAPPING)
-from database.models import AbstractModel
+from database.models import TimestampedModel
 from database.study_models import Study
 from database.user_models import Participant
 from database.validators import LengthValidator
@@ -21,7 +21,7 @@ class UnchunkableDataTypeError(Exception): pass
 class ChunkableDataTypeError(Exception): pass
 
 
-class PipelineRegistry(AbstractModel):
+class PipelineRegistry(TimestampedModel):
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True)
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True)
 
@@ -41,7 +41,7 @@ class PipelineRegistry(AbstractModel):
         )
 
 
-class ChunkRegistry(AbstractModel):
+class ChunkRegistry(TimestampedModel):
     # this is declared in the abstract model but needs to be indexed for pipeline queries.
     last_updated = models.DateTimeField(auto_now=True, db_index=True)
 
@@ -162,11 +162,11 @@ class ChunkRegistry(AbstractModel):
         ).values_list("participant__patient_id", flat=True).distinct()
 
 
-class FileToProcess(AbstractModel):
-
+class FileToProcess(TimestampedModel):
     s3_file_path = models.CharField(max_length=256, blank=False)
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='files_to_process')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='files_to_process')
+    deleted = models.BooleanField(default=False)
 
     @classmethod
     def append_file_for_processing(cls, file_path, study_object_id, **kwargs):
@@ -245,7 +245,7 @@ class FileToProcess(AbstractModel):
 class InvalidUploadParameterError(Exception): pass
 
 
-class PipelineUpload(AbstractModel):
+class PipelineUpload(TimestampedModel):
     REQUIREDS = [
         "study_id",
         "tags",
@@ -327,7 +327,7 @@ class PipelineUpload(AbstractModel):
         return creation_arguments, tags
 
 
-class PipelineUploadTags(AbstractModel):
+class PipelineUploadTags(TimestampedModel):
     pipeline_upload = models.ForeignKey(PipelineUpload, related_name="tags", on_delete=models.CASCADE)
     tag = models.TextField()
 

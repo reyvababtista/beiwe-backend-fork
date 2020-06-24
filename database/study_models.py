@@ -1,3 +1,4 @@
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.db.models import F, Func
 from timezone_field import TimeZoneField
@@ -5,13 +6,12 @@ from timezone_field import TimeZoneField
 from config.constants import ResearcherRole
 from config.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT,
     DEFAULT_CONSENT_SECTIONS_JSON, SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
-from database.models import AbstractModel, JSONTextField
+from database.models import JSONTextField, TimestampedModel
 from database.user_models import Researcher
 from database.validators import LengthValidator
 
 
-class Study(AbstractModel):
-    
+class Study(TimestampedModel):
     # When a Study object is created, a default DeviceSettings object is automatically
     # created alongside it. If the Study is created via the researcher interface (as it
     # usually is) the researcher is immediately shown the DeviceSettings to edit. The code
@@ -24,15 +24,18 @@ class Study(AbstractModel):
 
     is_test = models.BooleanField(default=True)
     timezone = TimeZoneField(default="America/New_York", help_text='Timezone of the study')
+    deleted = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         """ Ensure there is a study device settings attached to this study. """
-        super().save(self, *args, **kwargs)
-        if not self.device_settings:
+        # the device settings have to be in the database before the save validation passes.
+        try:
+            self.device_settings
+        except ObjectDoesNotExist:
             settings = DeviceSettings(study=self)
             settings.save()
             self.device_settings = settings
-            self.save()
+        super().save(*args, **kwargs)
 
     @classmethod
     def create_with_object_id(cls, **kwargs):
@@ -109,7 +112,7 @@ class StudyField(models.Model):
         unique_together = (("study", "field_name"),)
 
 
-class DeviceSettings(AbstractModel):
+class DeviceSettings(TimestampedModel):
     """
     The DeviceSettings database contains the structure that defines
     settings pushed to devices of users in of a study.

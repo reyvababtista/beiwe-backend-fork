@@ -6,10 +6,10 @@ from django.utils import timezone
 
 from config.constants import UPLOAD_FILE_TYPE_MAPPING
 from libs.security import decode_base64
-from database.models import JSONTextField, AbstractModel, Participant
+from database.models import JSONTextField, TimestampedModel, Participant
 
 
-class EncryptionErrorMetadata(AbstractModel):
+class EncryptionErrorMetadata(TimestampedModel):
     
     file_name = models.CharField(max_length=256)
     total_lines = models.PositiveIntegerField()
@@ -19,7 +19,7 @@ class EncryptionErrorMetadata(AbstractModel):
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, null=True)
 
 
-class LineEncryptionError(AbstractModel):
+class LineEncryptionError(TimestampedModel):
 
     AES_KEY_BAD_LENGTH = "AES_KEY_BAD_LENGTH"
     EMPTY_KEY = "EMPTY_KEY"
@@ -53,7 +53,7 @@ class LineEncryptionError(AbstractModel):
     participant = models.ForeignKey(Participant, null=True, on_delete=models.PROTECT)
 
 
-class DecryptionKeyError(AbstractModel):
+class DecryptionKeyError(TimestampedModel):
     
     file_path = models.CharField(max_length=256)
     contents = models.TextField()
@@ -64,7 +64,7 @@ class DecryptionKeyError(AbstractModel):
         return decode_base64(self.contents)
 
 
-class UploadTracking(AbstractModel):
+class UploadTracking(TimestampedModel):
     
     file_path = models.CharField(max_length=256)
     file_size = models.PositiveIntegerField()

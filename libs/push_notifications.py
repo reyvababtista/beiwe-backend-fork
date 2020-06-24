@@ -6,7 +6,7 @@ from django.utils.timezone import make_aware
 from firebase_admin import credentials, initialize_app as initialize_firebase_app
 
 from config.constants import FIREBASE_CREDENTIAL_LOCATION
-from database.schedule_models import AbsoluteSchedule, ScheduledEvent, WeeklySchedule
+from database.schedule_models import ScheduledEvent, WeeklySchedule
 from database.survey_models import Survey
 from database.user_models import Participant
 

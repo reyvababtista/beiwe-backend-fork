@@ -59,7 +59,8 @@ def reset_device():
         flash(f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}', 'danger')
         return redirect_obj
 
-    participant.clear_device()
+    participant.device_id = ""
+    participant.save()
     flash(f'For patient {patient_id}, device was reset; password is untouched. ', 'success')
     return redirect_obj
 

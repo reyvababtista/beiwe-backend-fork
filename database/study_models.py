@@ -46,9 +46,7 @@ class Study(TimestampedModel):
 
     @classmethod
     def get_all_studies_by_name(cls):
-        """
-        Sort the un-deleted Studies a-z by name, ignoring case.
-        """
+        """ Sort the un-deleted Studies a-z by name, ignoring case. """
         return (cls.objects
                 .filter(deleted=False)
                 .annotate(name_lower=Func(F('name'), function='LOWER'))
@@ -61,8 +59,9 @@ class Study(TimestampedModel):
                 study_relations__relationship=ResearcherRole.study_admin,
             )
 
-    def get_survey_ids_for_study(self, survey_type='tracking_survey'):
-        return self.surveys.filter(survey_type=survey_type, deleted=False).values_list('id', flat=True)
+    @classmethod
+    def get_researcher_studies_by_name(cls, researcher):
+        return cls.get_all_studies_by_name().filter(study_relations__researcher=researcher)
 
     def get_survey_ids_and_object_ids_for_study(self, survey_type='tracking_survey'):
         return self.surveys.filter(survey_type=survey_type, deleted=False).values_list('id', 'object_id')
@@ -70,21 +69,9 @@ class Study(TimestampedModel):
     def get_researchers(self):
         return Researcher.objects.filter(study_relations__study=self)
 
-    @classmethod
-    def get_researcher_studies_by_name(cls, researcher):
-        return cls.get_all_studies_by_name().filter(study_relations__researcher=researcher)
-
-    def get_researchers_by_name(self):
-        return (
-            Researcher.objects.filter(study_relations__study=self)
-                .annotate(name_lower=Func(F('username'), function='LOWER'))
-                .order_by('name_lower')
-                .exclude(username__icontains="BATCH USER").exclude(username__icontains="AWS LAMBDA")
-        )
-
     # We override the as_unpacked_native_python function to not include the encryption key.
     def as_unpacked_native_python(self, remove_timestamps=True, remove_encryption_key=True):
-        ret = super(Study, self).as_unpacked_native_python(remove_timestamps=remove_timestamps)
+        ret = super().as_unpacked_native_python(remove_timestamps=remove_timestamps)
         ret.pop("encryption_key")
         return ret
 

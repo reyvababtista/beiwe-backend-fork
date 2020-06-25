@@ -155,7 +155,6 @@ class WeeklySchedule(TimestampedModel):
     def get_prior_and_next_event_times(self, now: datetime=None) -> (datetime, datetime):
         """ Identify the start of the week relative to the current time, use that to determine this
         week's (past or present) push notification event time, and the same event for next week.
-
         If now is passed in it must have a UTC timezone. """
 
         if now is None:

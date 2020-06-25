@@ -309,7 +309,7 @@ def device_settings(study_id=None):
         return render_template(
             "device_settings.html",
             study=study.as_unpacked_native_python(),
-            settings=study.get_study_device_settings().as_unpacked_native_python(),
+            settings=study.device_settings.as_unpacked_native_python(),
             readonly=readonly,
             allowed_studies=get_researcher_allowed_studies(),
             is_admin=researcher_is_an_admin()
@@ -317,16 +317,15 @@ def device_settings(study_id=None):
 
     if readonly:
         abort(403)
-        
-    settings = study.get_study_device_settings()
-    params = {k:v for k,v in request.values.items() if not k.startswith("consent_section")}
+
+    params = {k: v for k, v in request.values.items() if not k.startswith("consent_section")}
     consent_sections = {k: v for k, v in request.values.items() if k.startswith("consent_section")}
     params = checkbox_to_boolean(CHECKBOX_TOGGLES, params)
     params = string_to_int(TIMER_VALUES, params)
     # the ios consent sections are a json field but the frontend returns something weird,
     # see the documentation in unflatten_consent_sections for details
     params["consent_sections"] = json.dumps(unflatten_consent_sections(consent_sections))
-    settings.update(**params)
+    study.device_settings.update(**params)
     return redirect('/edit_study/{:d}'.format(study.id))
 
 

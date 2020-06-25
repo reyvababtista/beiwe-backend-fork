@@ -61,26 +61,11 @@ class Study(TimestampedModel):
                 study_relations__relationship=ResearcherRole.study_admin,
             )
 
-    def get_surveys_for_study(self, requesting_os):
-        survey_json_list = []
-        for survey in self.surveys.filter(deleted=False):
-            survey_dict = survey.format_survey_for_study()
-            # Exclude image surveys for the Android app to avoid crashing it
-            if requesting_os == "ANDROID" and survey.survey_type == "image_survey":
-                pass
-            else:
-                survey_json_list.append(survey_dict)
-                
-        return survey_json_list
-
     def get_survey_ids_for_study(self, survey_type='tracking_survey'):
         return self.surveys.filter(survey_type=survey_type, deleted=False).values_list('id', flat=True)
 
     def get_survey_ids_and_object_ids_for_study(self, survey_type='tracking_survey'):
         return self.surveys.filter(survey_type=survey_type, deleted=False).values_list('id', 'object_id')
-
-    def get_study_device_settings(self):
-        return self.device_settings
 
     def get_researchers(self):
         return Researcher.objects.filter(study_relations__study=self)

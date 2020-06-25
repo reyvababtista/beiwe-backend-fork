@@ -276,4 +276,10 @@ def contains_valid_extension(file_name):
 @determine_os_api
 # @authenticate_user
 def get_latest_surveys(OS_API=""):
-    return json.dumps(get_session_participant().study.get_surveys_for_study(requesting_os=OS_API))
+    study = get_session_participant().study
+    survey_json_list = []
+    for survey in study.surveys.filter(deleted=False):
+        # Exclude image surveys for the Android app to avoid crashing it
+        if not (OS_API == "ANDROID" and survey.survey_type == "image_survey"):
+            survey_json_list.append(survey.format_survey_for_study())
+    return json.dumps(survey_json_list)

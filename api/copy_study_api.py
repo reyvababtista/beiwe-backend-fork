@@ -38,7 +38,7 @@ def export_study_settings_file(study_id):
         survey_content[RELATIVE_SCHEDULE_KEY] = survey.relative_timings()
         surveys.append(survey_content)
 
-    device_settings = study.get_study_device_settings().as_unpacked_native_python()
+    device_settings = study.device_settings.as_unpacked_native_python()
     purge_unnecessary_fields(device_settings)
 
     output = {

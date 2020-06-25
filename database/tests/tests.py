@@ -308,11 +308,7 @@ class SurveyModelTests(CommonTestCase):
     # Survey model tests:
     def test_survey_create_with_settings(self): raise NotImplementedError
 
-    def test_get_surveys_for_study(self): raise NotImplementedError
-
     def test_get_survey_ids_for_study(self): raise NotImplementedError
-    
-    def test_get_study_device_settings(self): raise NotImplementedError
 
 
 class DeviceSettingsTests(CommonTestCase):

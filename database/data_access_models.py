@@ -22,12 +22,14 @@ class ChunkableDataTypeError(Exception): pass
 
 
 class PipelineRegistry(TimestampedModel):
-    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True)
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True)
-
+    study = models.ForeignKey(
+        'Study', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True
+    )
+    participant = models.ForeignKey(
+        'Participant', on_delete=models.PROTECT, related_name='pipeline_registries', db_index=True
+    )
     data_type = models.CharField(max_length=256, db_index=True)
     processed_data = JSONField(null=True, blank=True)
-
     uploaded_at = models.DateTimeField(db_index=True)
 
     @classmethod
@@ -44,7 +46,6 @@ class PipelineRegistry(TimestampedModel):
 class ChunkRegistry(TimestampedModel):
     # this is declared in the abstract model but needs to be indexed for pipeline queries.
     last_updated = models.DateTimeField(auto_now=True, db_index=True)
-
     is_chunkable = models.BooleanField()
     chunk_path = models.CharField(max_length=256, db_index=True, unique=True)
     chunk_hash = models.CharField(max_length=25, blank=True)
@@ -53,12 +54,17 @@ class ChunkRegistry(TimestampedModel):
     # unnecessarily, so it has been removed.  This has no side effects.
     data_type = models.CharField(max_length=32, db_index=True)
     time_bin = models.DateTimeField(db_index=True)
-
-    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True)
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True)
-    survey = models.ForeignKey('Survey', blank=True, null=True, on_delete=models.PROTECT, related_name='chunk_registries', db_index=True)
-
     file_size = models.IntegerField(null=True, default=None)
+    study = models.ForeignKey(
+        'Study', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True
+    )
+    participant = models.ForeignKey(
+        'Participant', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True
+    )
+    survey = models.ForeignKey(
+        'Survey', blank=True, null=True, on_delete=models.PROTECT, related_name='chunk_registries',
+        db_index=True
+    )
 
     def s3_retrieve(self):
         return s3_retrieve(self.chunk_path, self.study.object_id)
@@ -66,23 +72,12 @@ class ChunkRegistry(TimestampedModel):
     @classmethod
     def register_chunked_data(cls, data_type, time_bin, chunk_path, file_contents, study_id,
                               participant_id, survey_id=None):
-        
         if data_type not in CHUNKABLE_FILES:
             raise UnchunkableDataTypeError
 
         chunk_hash_str = chunk_hash(file_contents).decode()
-        
         time_bin = int(time_bin) * CHUNK_TIMESLICE_QUANTUM
         time_bin = timezone.make_aware(datetime.utcfromtimestamp(time_bin), timezone.utc)
-        # previous time_bin form was this:
-        # datetime.fromtimestamp(time_bin)
-        # On the server, but not necessarily in development environments, datetime.fromtimestamp(0)
-        # provides the same date and time as datetime.utcfromtimestamp(0).
-        # timezone.make_aware(datetime.utcfromtimestamp(0), timezone.utc) creates a time zone
-        # aware datetime that is unambiguous in the UTC timezone and generally identical timestamps.
-        # Django's behavior (at least on this project, but this project is set to the New York
-        # timezone so it should be generalizable) is to add UTC as a timezone when storing a naive
-        # datetime in the database.
         
         cls.objects.create(
             is_chunkable=True,
@@ -99,7 +94,6 @@ class ChunkRegistry(TimestampedModel):
     @classmethod
     def register_unchunked_data(cls, data_type, unix_timestamp, chunk_path, study_id, participant_id,
                                 file_contents, survey_id=None):
-        # see comment in register_chunked_data above
         time_bin = timezone.make_aware(datetime.utcfromtimestamp(unix_timestamp), timezone.utc)
         
         if data_type in CHUNKABLE_FILES:
@@ -127,15 +121,11 @@ class ChunkRegistry(TimestampedModel):
         chunk.file_size = len(file_contents)
         chunk.save()
 
-
     @classmethod
     def get_chunks_time_range(cls, study_id, user_ids=None, data_types=None, start=None, end=None):
-        """
-        This function uses Django query syntax to provide datetimes and have Django do the
+        """This function uses Django query syntax to provide datetimes and have Django do the
         comparison operation, and the 'in' operator to have Django only match the user list
-        provided.
-        """
-
+        provided. """
         query = {'study_id': study_id}
         if user_ids:
             query['participant__patient_id__in'] = user_ids
@@ -170,7 +160,7 @@ class FileToProcess(TimestampedModel):
 
     @classmethod
     def append_file_for_processing(cls, file_path, study_object_id, **kwargs):
-        # Get the study's primary key
+        # all we need is a primary key...
         study_pk = Study.objects.filter(object_id=study_object_id).values_list('pk', flat=True).get()
         
         if file_path[:24] == study_object_id:
@@ -180,6 +170,12 @@ class FileToProcess(TimestampedModel):
 
     @classmethod
     def reprocess_originals_from_chunk_path(cls, chunk_path):
+        """ Takes a processed file (chunk) s3 path, identifies the original source files,
+        and prepares a FileToProcess entry so that the source data will be re-processed
+        and merged into the existing data.
+        This is mostly a utility function, it was originally part of a script, but it is
+        quite complex to accomplish, and worth holding on to.
+        Contains print statements. """
         path_components = chunk_path.split("/")
         if len(path_components) != 5:
             raise Exception("chunked file paths contain exactly 5 components separated by a slash.")
@@ -222,13 +218,13 @@ class FileToProcess(TimestampedModel):
                 print("found:", s3_file_path)
                 file_paths_to_reprocess.append(s3_file_path)
 
-        # a "should be an unnecessary" safety check
+        # a "should be an unnecessary" safety check, but apparently we can't have nice things.
         if prior_hour_last_file and prior_hour_last_file not in file_paths_to_reprocess:
             print("found:", prior_hour_last_file)
             file_paths_to_reprocess.append(prior_hour_last_file)
 
         if not prior_hour_last_file and not file_paths_to_reprocess:
-            raise Exception(
+            raise Exception(  # this should not happen...
                 f"did not find any matching files: '{chunk_path}' using prefix '{file_prefix}'"
             )
 

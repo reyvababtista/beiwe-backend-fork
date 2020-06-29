@@ -9,6 +9,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from api import (admin_api, copy_study_api, dashboard_api, data_access_api, mobile_api,
     other_researcher_apis, participant_administration, push_notifications_api, study_api,
     survey_api)
+from api.tableau_api.views import SummaryStatisticDailyStudyView
 from authentication.admin_authentication import is_logged_in
 from config.settings import SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN
 from libs.security import set_secret_key
@@ -41,6 +42,7 @@ app.register_blueprint(other_researcher_apis.other_researcher_apis)
 app.register_blueprint(copy_study_api.copy_study_api)
 app.register_blueprint(dashboard_api.dashboard_api)
 app.register_blueprint(push_notifications_api.push_notifications_api)
+SummaryStatisticDailyStudyView.register_urls(app)
 
 # Jinja
 app.jinja_env.globals['current_year'] = datetime.now().strftime('%Y')

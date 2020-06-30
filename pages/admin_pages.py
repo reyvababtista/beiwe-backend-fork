@@ -80,7 +80,10 @@ def logout():
 @admin_pages.route('/manage_credentials')
 @authenticate_researcher_login
 def manage_credentials():
-    return render_template('manage_credentials.html')
+    # Todo (CD): Create a section for managing API keys
+    return render_template('manage_credentials.html',
+                           allowed_studies=get_researcher_allowed_studies(),
+                           is_admin=researcher_is_an_admin())
 
 
 @admin_pages.route('/reset_admin_password', methods=['POST'])

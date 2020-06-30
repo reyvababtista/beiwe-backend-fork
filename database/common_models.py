@@ -119,13 +119,6 @@ class UtilityModel(models.Model):
 
         return field_dict
 
-    def as_native_json(self, remove_timestamps=True):
-        """
-        Collect all of the fields of the model and return their values in a python dict,
-        with json fields appropriately serialized.
-        """
-        return json.dumps(self.as_unpacked_native_python(remove_timestamps))
-
     def save(self, *args, **kwargs):
         # Raise a ValidationError if any data is invalid
         self.full_clean()

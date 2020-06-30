@@ -33,7 +33,7 @@ def get_administerable_researchers():
     """ Site admins see all researchers, study admins see researchers on their studies. """
     researcher_admin = get_session_researcher()
     if researcher_admin.site_admin:
-        relevant_researchers = Researcher.get_all_researchers_by_username()
+        relevant_researchers = Researcher.filter_alphabetical()
     else:
         relevant_researchers = researcher_admin.get_administered_researchers_by_username()
     return relevant_researchers

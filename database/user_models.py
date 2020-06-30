@@ -211,29 +211,21 @@ class Researcher(AbstractPasswordUser):
             Researcher.objects
                 .annotate(username_lower=Func(F('username'), function='LOWER'))
                 .order_by('username_lower')
-                .exclude(username__contains="BATCH USER").exclude(username__contains="AWS LAMBDA")
-                .filter(*args, **kwargs)
+                .filter(is_batch_user=False, *args, **kwargs)
         )
-
-    @classmethod
-    def get_all_researchers_by_username(cls):
-        """ Gen the un-deleted Researchers a-z by username, ignoring case."""
-        return cls.filter_alphabetical(deleted=False)
 
     def get_administered_researchers(self):
         studies = self.study_relations.filter(
             relationship=ResearcherRole.study_admin).values_list("study_id", flat=True)
         researchers = StudyRelation.objects.filter(
             study_id__in=studies).values_list("researcher_id", flat=True).distinct()
-        return Researcher.objects.filter(id__in=researchers)
+        return Researcher.objects.filter(id__in=researchers, is_batch_user=False)
 
     def get_administered_researchers_by_username(self):
         return (
             self.get_administered_researchers()
-                .filter(deleted=False)
                 .annotate(username_lower=Func(F('username'), function='LOWER'))
                 .order_by('username_lower')
-                .exclude(username__contains="BATCH USER").exclude(username__contains="AWS LAMBDA")
         )
 
     def get_administered_studies_by_name(self):

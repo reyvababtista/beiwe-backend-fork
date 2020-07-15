@@ -7,7 +7,7 @@ from flask import (abort, Blueprint, flash, redirect, render_template, request)
 from config.constants import CHECKBOX_TOGGLES, ResearcherRole, TIMER_VALUES
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation
-from libs.admin_authentication import (assert_admin, assert_researcher_under_admin,
+from authentication.admin_authentication import (assert_admin, assert_researcher_under_admin,
     authenticate_admin, authenticate_researcher_study_access, get_researcher_allowed_studies,
     get_session_researcher, researcher_is_an_admin)
 from libs.copy_study import copy_existing_study

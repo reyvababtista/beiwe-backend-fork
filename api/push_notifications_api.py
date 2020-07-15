@@ -5,7 +5,7 @@ from firebase_admin import messaging
 from flask import Blueprint, request
 
 from config import constants
-from libs.user_authentication import authenticate_user, get_session_participant
+from authentication.user_authentication import authenticate_user, get_session_participant
 
 push_notifications_api = Blueprint('push_notifications_api', __name__)
 

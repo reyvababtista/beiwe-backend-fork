@@ -13,7 +13,7 @@ from libs.http_utils import determine_os_api
 from libs.logging import log_error
 from libs.s3 import get_client_private_key, get_client_public_key_string, s3_upload
 from libs.sentry import make_sentry_client
-from libs.user_authentication import (authenticate_user, authenticate_user_registration,
+from authentication.user_authentication import (authenticate_user, authenticate_user_registration,
     get_session_participant, minimal_validation)
 
 ################################################################################

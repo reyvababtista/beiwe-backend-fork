@@ -10,7 +10,7 @@ from database.dashboard_models import DashboardColorSetting, DashboardGradient, 
 from database.data_access_models import ChunkRegistry, PipelineRegistry
 from database.study_models import Study
 from database.user_models import Participant
-from libs.admin_authentication import (authenticate_researcher_study_access,
+from authentication.admin_authentication import (authenticate_researcher_study_access,
     get_researcher_allowed_studies, researcher_is_an_admin)
 
 dashboard_api = Blueprint('dashboard_api', __name__)

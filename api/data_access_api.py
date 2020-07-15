@@ -10,7 +10,7 @@ from database.data_access_models import (ChunkRegistry, InvalidUploadParameterEr
     PipelineRegistry, PipelineUpload, PipelineUploadTags)
 from database.study_models import Study
 from database.user_models import Participant, Researcher, StudyRelation
-from libs.data_access_authentication import is_object_id
+from authentication.data_access_authentication import is_object_id
 from libs.s3 import s3_retrieve, s3_upload
 from libs.streaming_bytes_io import StreamingBytesIO
 

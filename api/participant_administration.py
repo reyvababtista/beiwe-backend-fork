@@ -6,7 +6,7 @@ from flask import Blueprint, flash, redirect, request, Response
 from database.schedule_models import InterventionDate
 from database.study_models import Study
 from database.user_models import Participant, ParticipantFieldValue
-from libs.admin_authentication import authenticate_researcher_study_access
+from authentication.admin_authentication import authenticate_researcher_study_access
 from libs.s3 import create_client_key_pair, s3_upload
 from libs.streaming_bytes_io import StreamingStringsIO
 

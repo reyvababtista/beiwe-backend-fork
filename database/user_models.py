@@ -1,5 +1,3 @@
-from datetime import datetime, date
-
 from django.db import models
 from django.db.models import F, Func
 

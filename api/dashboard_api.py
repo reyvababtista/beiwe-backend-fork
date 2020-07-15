@@ -19,18 +19,11 @@ DATETIME_FORMAT_ERROR = f"Dates and times provided to this endpoint must be form
                         f"2010-11-22 ({API_DATE_FORMAT})"
 
 
-def get_study_or_404(study_id):
-    try:
-        return Study.objects.get(pk=study_id)
-    except Study.DoesNotExist:
-        return abort(404)
-
-
 @dashboard_api.route("/dashboard/<string:study_id>", methods=["GET"])
 @authenticate_researcher_study_access
 def dashboard_page(study_id):
     """ information for the general dashboard view for a study"""
-    study = get_study_or_404(study_id)
+    study = Study.get_or_404(pk=study_id)
     participants = list(Participant.objects.filter(study=study_id).values_list("patient_id", flat=True))
     return render_template(
         'dashboard/dashboard.html',
@@ -51,7 +44,7 @@ def get_data_for_dashboard_datastream_display(study_id, data_stream):
     and get requests in the same function because the body of the get request relies on the
     variables set in the post request if a post request is sent --thus if a post request is sent
     we don't want all of the get request running. """
-    study = get_study_or_404(study_id)
+    study = Study.get_or_404(pk=study_id)
 
     if request.method == "POST":
         color_low_range, color_high_range, all_flags_list = set_default_settings_post_request(study, data_stream)
@@ -183,7 +176,7 @@ def get_data_for_dashboard_datastream_display(study_id, data_stream):
 @authenticate_researcher_study_access
 def get_data_for_dashboard_patient_display(study_id, patient_id):
     """ parses data to be displayed for the singular participant dashboard view """
-    study = get_study_or_404(study_id)
+    study = Study.get_or_404(pk=study_id)
     participant = get_participant(patient_id, study_id)
     start, end = extract_date_args_from_request()
     chunks = dashboard_chunkregistry_query(participant.id)

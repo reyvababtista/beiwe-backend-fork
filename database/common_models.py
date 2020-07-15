@@ -3,6 +3,7 @@ from random import choice as random_choice
 
 from django.db import models
 from django.db.models.fields.related import RelatedField
+from flask import abort
 from timezone_field import TimeZoneField
 
 from config.study_constants import OBJECT_ID_ALLOWED_CHARS
@@ -40,6 +41,13 @@ class UtilityModel(models.Model):
             raise ObjectIdError("Could not generate unique id for %s." % cls.__name__)
 
         return object_id
+
+    @classmethod
+    def get_or_404(cls, *args, **kwargs):
+        try:
+            return cls.objects.get(*args, **kwargs)
+        except cls.DoesNotExist:
+            return abort(404)
 
     @classmethod
     def query_set_as_unpacked_native_json(cls, query_set, remove_timestamps=True):

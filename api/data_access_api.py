@@ -38,7 +38,7 @@ def get_and_validate_study_id(chunked_download=False):
     try:
         # for the batch user tasks. Update the researcher model to have a special flag.
         r = Researcher.objects.get(access_key_id=request.values["access_key"])
-        override_for_batch = r.values_list("is_batch_user", flat=True)
+        override_for_batch = r.is_batch_user
     except Researcher.DoesNotExist:
         override_for_batch = False
 

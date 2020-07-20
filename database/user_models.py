@@ -175,7 +175,6 @@ class Researcher(AbstractPasswordUser):
         Creates a new Researcher with provided username and password. They will initially
         not be associated with any Study.
         """
-
         researcher = cls(username=username, **kwargs)
         researcher.set_password(password)
         # todo add check to see if access credentials are in kwargs
@@ -187,7 +186,6 @@ class Researcher(AbstractPasswordUser):
         """
         Create a new Researcher with provided username and no password
         """
-
         r = cls(username=username, password='fakepassword', salt='cab', site_admin=False)
         r.reset_access_credentials()
         return r

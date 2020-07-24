@@ -49,3 +49,4 @@ if __name__ == "__main__":
             run_tasks(TASKS[cron_type], TIME_LIMITS[cron_type], cron_type)
     else:
         raise Exception("Invalid argument to cron\n")
+

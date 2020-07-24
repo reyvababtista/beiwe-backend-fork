@@ -49,10 +49,6 @@ class UtilityModel(models.Model):
         except cls.DoesNotExist:
             return abort(404)
 
-    @classmethod
-    def query_set_as_unpacked_native_json(cls, query_set, remove_timestamps=True):
-        return json.dumps([obj.as_unpacked_native_python(remove_timestamps) for obj in query_set])
-
     def as_dict(self):
         """ Provides a dictionary representation of the object """
         return {field.name: getattr(self, field.name) for field in self._meta.fields}

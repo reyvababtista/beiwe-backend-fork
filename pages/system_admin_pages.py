@@ -2,18 +2,30 @@ import json
 from collections import defaultdict
 
 from django.core.exceptions import ValidationError
-from flask import (abort, Blueprint, flash, redirect, render_template, request)
+from flask import abort, Blueprint, escape, flash, redirect, render_template, request
 
-from config.constants import CHECKBOX_TOGGLES, ResearcherRole, TIMER_VALUES
-from database.study_models import Study
-from database.user_models import Researcher, StudyRelation
 from authentication.admin_authentication import (assert_admin, assert_researcher_under_admin,
     authenticate_admin, authenticate_researcher_study_access, get_researcher_allowed_studies,
     get_session_researcher, researcher_is_an_admin)
+from config.constants import CHECKBOX_TOGGLES, ResearcherRole, TIMER_VALUES
+from database.study_models import Study
+from database.user_models import Researcher, StudyRelation
 from libs.copy_study import copy_existing_study
 from libs.http_utils import checkbox_to_boolean, string_to_int
 
 system_admin_pages = Blueprint('system_admin_pages', __name__)
+SITE_ADMIN = escape("Site Admin")
+
+
+@system_admin_pages.context_processor
+def inject_html_params():
+    # these variables will be accessible to every template rendering attached to the blueprint
+    return {
+        "allowed_studies": get_researcher_allowed_studies(),
+        "is_admin": researcher_is_an_admin(),
+        "session_researcher": get_session_researcher(),
+    }
+
 
 ####################################################################################################
 ###################################### Helpers #####################################################
@@ -78,24 +90,20 @@ def manage_researchers():
         ).values_list('name', flat=True)
         researcher_list.append((researcher.as_unpacked_native_python(), list(allowed_studies)))
 
-    return render_template(
-        'manage_researchers.html',
-        admins=json.dumps(researcher_list),
-        allowed_studies=get_researcher_allowed_studies(),
-        is_admin=researcher_is_an_admin()
-    )
+    return render_template('manage_researchers.html', admins=json.dumps(researcher_list))
 
 
 @system_admin_pages.route('/edit_researcher/<string:researcher_pk>', methods=['GET', 'POST'])
 @authenticate_admin
-def edit_researcher(researcher_pk):
+def edit_researcher_page(researcher_pk):
+    # Wow this got complex...
     session_researcher = get_session_researcher()
     edit_researcher = Researcher.objects.get(pk=researcher_pk)
 
     # site admins can edit study admins, but not other site admins.
     # (users do not edit their own passwords on this page.)
     editable_password = (
-            not edit_researcher.username == get_session_researcher().username
+            not edit_researcher.username == session_researcher.username
             and not edit_researcher.site_admin
     )
 
@@ -109,7 +117,7 @@ def edit_researcher(researcher_pk):
     visible_studies = session_researcher.get_visible_studies_by_name()
     if edit_researcher.site_admin:
         # if the session admin is a site admin then we can skip the complex logic
-        edit_study_info = [("Site Admin", True, study) for study in visible_studies]
+        edit_study_info = [(SITE_ADMIN, True, study) for study in visible_studies]
     else:
         # When the session admin is just a study admin then we need to determine if the study that
         # the session admin can see is also one they are an admin on so we can display buttons.
@@ -118,8 +126,10 @@ def edit_researcher(researcher_pk):
         # We need the overlap of the edit_researcher studies with the studies visible to the session
         # admin, and we need those relationships for display purposes on the page.
         edit_study_relationship_map = {
-            study_id: relationship.replace("_", " ").title()
-            for study_id, relationship in edit_researcher.study_relations.filter(study__in=visible_studies).values_list("study_id", "relationship")
+            study_id: escape(relationship.replace("_", " ").title())
+            for study_id, relationship in edit_researcher.study_relations
+                .filter(study__in=visible_studies)
+                .values_list("study_id", "relationship")
         }
 
         # get the relevant studies, populate with relationship, editability, and the study.
@@ -136,12 +146,9 @@ def edit_researcher(researcher_pk):
         edit_researcher=edit_researcher,
         edit_study_info=edit_study_info,
         all_studies=get_administerable_studies_by_name(),  # this is all the studies administerable by the user
-        allowed_studies=get_researcher_allowed_studies(),
         editable_password=editable_password,
-        is_admin=researcher_is_an_admin(),
         redirect_url='/edit_researcher/{:s}'.format(researcher_pk),
-        session_researcher=session_researcher,
-        is_self=edit_researcher.id==session_researcher.id,
+        is_self=edit_researcher.id == session_researcher.id,
     )
 
 
@@ -154,12 +161,13 @@ def elevate_researcher_to_study_admin():
     edit_researcher = Researcher.objects.get(pk=researcher_pk)
     study = Study.objects.get(pk=study_pk)
     assert_researcher_under_admin(edit_researcher, study)
-    StudyRelation.objects.filter(
-        researcher=edit_researcher,
-        study=study,
-    ).update(relationship=ResearcherRole.study_admin)
-    redirect_url = request.values.get("redirect_url", None) or '/edit_researcher/{:s}'.format(researcher_pk)
-    return redirect(redirect_url)
+
+    StudyRelation.objects.filter(researcher=edit_researcher, study=study)\
+        .update(relationship=ResearcherRole.study_admin)
+
+    return redirect(
+        request.values.get("redirect_url", None) or '/edit_researcher/{:s}'.format(researcher_pk)
+    )
 
 
 @system_admin_pages.route('/demote_researcher', methods=['POST'])
@@ -173,27 +181,23 @@ def demote_study_admin():
         researcher=Researcher.objects.get(pk=researcher_pk),
         study=Study.objects.get(pk=study_pk),
     ).update(relationship=ResearcherRole.researcher)
-
-    redirect_url = request.values.get("redirect_url", None) or '/edit_researcher/{:s}'.format(researcher_pk)
-    return redirect(redirect_url)
+    return redirect(
+        request.values.get("redirect_url", None) or '/edit_researcher/{:s}'.format(researcher_pk)
+    )
 
 
 @system_admin_pages.route('/create_new_researcher', methods=['GET', 'POST'])
 @authenticate_admin
 def create_new_researcher():
     if request.method == 'GET':
-        return render_template(
-            'create_new_researcher.html',
-            allowed_studies=get_researcher_allowed_studies(),
-            is_admin=researcher_is_an_admin()
-        )
+        return render_template('create_new_researcher.html')
 
     # Drop any whitespace or special characters from the username
     username = ''.join(e for e in request.form.get('admin_id', '') if e.isalnum())
     password = request.form.get('password', '')
 
     if Researcher.objects.filter(username=username).exists():
-        flash("There is already a researcher with username " + username, 'danger')
+        flash(f"There is already a researcher with username {escape(username)}", 'danger')
         return redirect('/create_new_researcher')
     else:
         researcher = Researcher.create_with_password(username, password)
@@ -208,10 +212,9 @@ def create_new_researcher():
 def manage_studies():
     return render_template(
         'manage_studies.html',
-        studies=json.dumps([study.as_unpacked_native_python() for study in get_administerable_studies_by_name()]),
-        allowed_studies=get_researcher_allowed_studies(),
-        is_admin=researcher_is_an_admin(),
-        session_researcher=get_session_researcher(),
+        studies=json.dumps(
+            [study.as_unpacked_native_python() for study in get_administerable_studies_by_name()]
+        ),
     )
 
 
@@ -237,11 +240,8 @@ def edit_study(study_id=None):
         'edit_study.html',
         study=Study.objects.get(pk=study_id),
         administerable_researchers=get_administerable_researchers(),
-        allowed_studies=get_researcher_allowed_studies(),
         listed_researchers=listed_researchers,
-        is_admin=researcher_is_an_admin(),
         redirect_url='/edit_study/{:s}'.format(study_id),
-        session_researcher=get_session_researcher(),
     )
 
 
@@ -254,35 +254,32 @@ def create_study():
 
     if request.method == 'GET':
         studies = [study.as_unpacked_native_python() for study in Study.get_all_studies_by_name()]
-        return render_template(
-            'create_study.html',
-            studies=json.dumps(studies),
-            allowed_studies=get_researcher_allowed_studies(),
-            is_admin=researcher_is_an_admin()
-        )
+        return render_template('create_study.html', studies=json.dumps(studies))
 
     name = request.form.get('name', '')
     encryption_key = request.form.get('encryption_key', '')
-    is_test = request.form.get('is_test') == 'true'  # 'true' -> True, 'false' -> False
+    is_test = request.form.get('is_test', "").lower() == 'true'  # 'true' -> True, 'false' -> False
     duplicate_existing_study = request.form.get('copy_existing_study', None) == 'true'
 
-    assert len(name) <= 2 ** 16, "safety check on new study name failed"
+    if not (len(name) <= 2 ** 16) or escape(name) != name:
+        raise Exception("safety check on new study name failed")
 
     try:
         new_study = Study.create_with_object_id(name=name, encryption_key=encryption_key, is_test=is_test)
         if duplicate_existing_study:
             old_study = Study.objects.get(pk=request.form.get('existing_study_id', None))
             copy_existing_study(new_study, old_study)
-
-        flash('Successfully created study {}.'.format(name), 'success')
+        flash(f'Successfully created study {escape(name)}.', 'success')
         return redirect('/device_settings/{:d}'.format(new_study.pk))
+
     except ValidationError as ve:
         # display message describing failure based on the validation error (hacky, but works.)
         for field, message in ve.message_dict.items():
-            flash('{}: {}'.format(field, message[0]), 'danger')
+            flash(f'{field}: {escape(message[0])}', 'danger')
         return redirect('/create_study')
 
 
+# TODO: move to api file
 @system_admin_pages.route('/delete_study/<string:study_id>', methods=['POST'])
 @authenticate_admin
 def delete_study(study_id=None):
@@ -311,8 +308,6 @@ def device_settings(study_id=None):
             study=study.as_unpacked_native_python(),
             settings=study.device_settings.as_unpacked_native_python(),
             readonly=readonly,
-            allowed_studies=get_researcher_allowed_studies(),
-            is_admin=researcher_is_an_admin()
         )
 
     if readonly:

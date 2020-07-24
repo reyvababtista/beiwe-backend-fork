@@ -58,6 +58,15 @@ class AbstractPasswordUser(TimestampedModel):
         """
         return compare_password(compare_me.encode(), self.salt.encode(), self.password.encode())
 
+    def as_unpacked_native_python(self, remove_timestamps=True, remove_encryption_key=True):
+        ret = super().as_unpacked_native_python(remove_timestamps=remove_timestamps)
+        ret.pop("password")
+        ret.pop("salt")
+        ret.pop("access_key_id")
+        ret.pop("access_key_secret")
+        ret.pop("access_key_secret_salt")
+        return ret
+
     class Meta:
         abstract = True
 

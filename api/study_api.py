@@ -13,6 +13,15 @@ from authentication.admin_authentication import (authenticate_researcher_study_a
 study_api = Blueprint('study_api', __name__)
 
 
+@study_api.context_processor
+def inject_html_params():
+    # these variables will be accessible to every template rendering attached to the blueprint
+    return {
+        "allowed_studies": get_researcher_allowed_studies(),
+        "is_admin": researcher_is_an_admin(),
+    }
+
+
 @study_api.route('/view_study/<string:study_id>/edit_participant/<string:participant_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def edit_participant(study_id, participant_id):
@@ -73,7 +82,6 @@ def render_edit_participant(participant: Participant, study: Study):
         'edit_participant.html',
         participant=participant,
         study=study,
-        allowed_studies=get_researcher_allowed_studies(),
         intervention_data=intervention_data,
         field_values=field_data,
     )
@@ -91,7 +99,6 @@ def interventions(study_id=None):
             study=study,
             interventions=study.interventions.all(),
             readonly=readonly,
-            allowed_studies=get_researcher_allowed_studies(),
         )
 
     if readonly:
@@ -171,8 +178,6 @@ def study_fields(study_id=None):
             study=study,
             fields=study.fields.all(),
             readonly=readonly,
-            allowed_studies=get_researcher_allowed_studies(),
-            is_admin=researcher_is_an_admin(),
         )
 
     if readonly:

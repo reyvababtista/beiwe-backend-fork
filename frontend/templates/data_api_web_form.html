@@ -49,7 +49,8 @@
                   {# TODO: it would be nice if this selected the first option by default #}
                   <select class="form-control" name="study_pk" ng-model="selectedStudyId">
                       <option value="" disabled>--- Select Study ---</option>
-                    <option ng-repeat="study in allowedStudies | filter: {is_test: true}" value="{%raw%}{{ study.id }}{%endraw%}">{%raw%}{{ study.name }}{%endraw%}</option>
+                    <option ng-repeat="study in allowedStudies | filter: {is_test: true}"
+                            value="{%raw%}{{ study.id }}{%endraw%}">{%raw%}{{ study.name }}{%endraw%}</option>
                   </select>
               </div>
             </div>
@@ -58,7 +59,9 @@
             <div class="col-sm-4">
               <div class="form-group">
                 <label for="patient_selector">Patients</label>
-                <select id="patient_selector" ng-model="selectedPatient" ng-options="participant for participant in participantsByStudy[selectedStudyId] track by participant" name="user_ids" class="form-control" size=12 multiple></select>
+                <select id="patient_selector" ng-model="selectedPatient"
+                        ng-options="participant for participant in participantsByStudy[selectedStudyId] track by participant"
+                        name="user_ids" class="form-control" size=12 multiple></select>
               </div>
             </div>
 
@@ -118,8 +121,5 @@
           </div>
         </form>
       </div>
-
     </div>
-
-
 {% endblock %}

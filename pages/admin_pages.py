@@ -1,18 +1,25 @@
+from flask import (abort, Blueprint, escape, flash, Markup, redirect, render_template, request,
+    session)
 
-from flask import abort, Blueprint, flash, Markup, redirect, render_template, request, session
-
-from database.study_models import Study, StudyField
-from database.user_models import Participant, ParticipantFieldValue, Researcher
 from authentication import admin_authentication
 from authentication.admin_authentication import (authenticate_researcher_login,
     authenticate_researcher_study_access, get_researcher_allowed_studies,
     get_researcher_allowed_studies_as_query_set, get_session_researcher, researcher_is_an_admin,
     SESSION_NAME)
+from database.study_models import Study, StudyField
+from database.user_models import Participant, ParticipantFieldValue, Researcher
 from libs.security import check_password_requirements
 
 admin_pages = Blueprint('admin_pages', __name__)
 
-# TODO: Document.
+
+@admin_pages.context_processor
+def inject_html_params():
+    # these variables will be accessible to every template rendering attached to the blueprint
+    return {
+        "allowed_studies": get_researcher_allowed_studies(),
+        "is_admin": researcher_is_an_admin(),
+    }
 
 
 @admin_pages.route('/choose_study', methods=['GET'])
@@ -20,94 +27,88 @@ admin_pages = Blueprint('admin_pages', __name__)
 def choose_study():
     allowed_studies = get_researcher_allowed_studies_as_query_set()
 
-    # If the admin is authorized to view exactly 1 study, redirect to that study
+    # If the admin is authorized to view exactly 1 study, redirect to that study.
     if allowed_studies.count() == 1:
         return redirect('/view_study/{:d}'.format(allowed_studies.values_list('pk', flat=True).get()))
 
-    # Otherwise, show the "Choose Study" page
-    allowed_studies_json = Study.query_set_as_unpacked_native_json(allowed_studies)
-    return render_template(
-        'choose_study.html',
-        studies=allowed_studies_json,
-        allowed_studies=allowed_studies_json,
-        is_admin=researcher_is_an_admin()
-    )
+    # escape study name
+    studies = \
+        [{"name": escape(name), "id": pk}for pk, name, in allowed_studies.values_list("id", "name")]
+    return render_template('choose_study.html', studies=studies)
+
+
+def participant_tags_safe(p: Participant):
+        return {
+            escape(tag.field.field_name): escape(tag.value) for tag in p.field_values.all()
+        }
 
 
 @admin_pages.route('/view_study/<string:study_id>', methods=['GET'])
 @authenticate_researcher_study_access
 def view_study(study_id=None):
     study = Study.objects.get(pk=study_id)
-    tracking_survey_ids = study.get_survey_ids_and_object_ids_for_study('tracking_survey')
-    audio_survey_ids = study.get_survey_ids_and_object_ids_for_study('audio_survey')
-    image_survey_ids = study.get_survey_ids_and_object_ids_for_study('image_survey')
-    participants = study.participants.all()
     researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
-
-    study_fields = list(study.fields.all().values_list('field_name', flat=True))
-    interventions = list(study.interventions.all().values_list("name", flat=True))
+    participants = study.participants.all()
 
     # creates dicts of Custom Fields and Interventions to be easily accessed in the template
     for p in participants:
-        p.field_dict = {tag.field.field_name: tag.value for tag in p.field_values.all()}
-        p.intervention_dict = {tag.intervention.name: tag.date for tag in p.intervention_dates.all()}
+        p.field_dict = participant_tags_safe(p)
+        p.intervention_dict = {
+            escape(tag.intervention.name): tag.date for tag in p.intervention_dates.all()
+        }
 
     return render_template(
         'view_study.html',
         study=study,
         participants=participants,
-        audio_survey_ids=audio_survey_ids,
-        image_survey_ids=image_survey_ids,
-        tracking_survey_ids=tracking_survey_ids,
-        allowed_studies=get_researcher_allowed_studies(),
-        is_admin=researcher_is_an_admin(),
-        study_fields=study_fields,
-        interventions=interventions,
+        audio_survey_ids=study.get_survey_ids_and_object_ids('audio_survey'),
+        image_survey_ids=study.get_survey_ids_and_object_ids('image_survey'),
+        tracking_survey_ids=study.get_survey_ids_and_object_ids('tracking_survey'),
+        study_fields=[escape(f) for f in study.fields.all().values_list('field_name', flat=True)],
+        interventions=[escape(s) for s in study.interventions.all().values_list("name", flat=True)],
         page_location='study_landing',
         study_id=study_id,
-        readonly=readonly,
+        readonly=not researcher.check_study_admin(study_id) and not researcher.site_admin,
     )
 
 
 @admin_pages.route('/data-pipeline/<string:study_id>', methods=['GET'])
 @authenticate_researcher_study_access
 def view_study_data_pipeline(study_id=None):
-    study = Study.objects.get(pk=study_id)
-
-    return render_template(
-        'data-pipeline.html',
-        study=study,
-        allowed_studies=get_researcher_allowed_studies(),
-        is_admin=researcher_is_an_admin(),
-    )
+    return render_template('data-pipeline.html', study=Study.objects.get(pk=study_id))
 
 
 # TODO: delete, this end point cannot be hit, this page isn't used anymore, can delete template too
 @admin_pages.route('/view_study/<string:study_id>/patient_fields/<string:patient_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def patient_fields(study_id, patient_id=None):
+    # the study is already authenticated at this time,
     try:
-        patient = Participant.objects.get(pk=patient_id)
+        participant = Participant.objects.get(pk=int(patient_id))  # int coercion is sanitization
+        study = participant.study
     except Participant.DoesNotExist:
         return abort(404)
 
-    patient.values_dict = {tag.field.field_name: tag.value for tag in patient.field_values.all()}
-    study = patient.study
+    # safety chack
+    if study.id != study_id:
+        return abort(403)
+
+    participant.values_dict = participant_tags_safe(participant)
     if request.method == 'GET':
         return render_template(
             'view_patient_custom_field_values.html',
             fields=study.fields.all(),
             study=study,
-            patient=patient,
-            allowed_studies=get_researcher_allowed_studies(),
-            is_admin=researcher_is_an_admin(),
+            patient=participant,
         )
 
+    # todo: sanitize.
     fields = list(study.fields.values_list('field_name', flat=True))
     for key, value in request.values.items():
         if key in fields:
-            pfv, created = ParticipantFieldValue.objects.get_or_create(participant=patient, field=StudyField.objects.get(study=study, field_name=key))
+            pfv, created = ParticipantFieldValue.objects.get_or_create(
+                participant=participant, field=StudyField.objects.get(study=study, field_name=key)
+            )
             pfv.value = value
             pfv.save()
 
@@ -149,9 +150,7 @@ def login():
 @admin_pages.route('/manage_credentials')
 @authenticate_researcher_login
 def manage_credentials():
-    return render_template('manage_credentials.html',
-                           allowed_studies=get_researcher_allowed_studies(),
-                           is_admin=researcher_is_an_admin())
+    return render_template('manage_credentials.html')
 
 
 @admin_pages.route('/reset_admin_password', methods=['POST'])
@@ -161,6 +160,7 @@ def reset_admin_password():
     current_password = request.values['current_password']
     new_password = request.values['new_password']
     confirm_new_password = request.values['confirm_new_password']
+
     if not Researcher.check_password(username, current_password):
         flash("The Current Password you have entered is invalid", 'danger')
         return redirect('/manage_credentials')
@@ -169,6 +169,8 @@ def reset_admin_password():
     if new_password != confirm_new_password:
         flash("New Password does not match Confirm New Password", 'danger')
         return redirect('/manage_credentials')
+
+    # todo: sanitize password?
     Researcher.objects.get(username=username).set_password(new_password)
     flash("Your password has been reset!", 'success')
     return redirect('/manage_credentials')
@@ -179,6 +181,7 @@ def reset_admin_password():
 def reset_download_api_credentials():
     researcher = Researcher.objects.get(username=session[SESSION_NAME])
     access_key, secret_key = researcher.reset_access_credentials()
+
     msg = """<h3>Your Data-Download API access credentials have been reset!</h3>
         <p>Your new <b>Access Key</b> is:
           <div class="container-fluid">

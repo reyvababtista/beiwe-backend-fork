@@ -25,6 +25,7 @@ from libs.s3 import s3_retrieve, s3_upload
 
 class EverythingWentFine(Exception): pass
 class ProcessingOverlapError(Exception): pass
+class BadTimecodeError(Exception): pass
 
 
 """########################## Hourly Update Tasks ###########################"""
@@ -360,7 +361,6 @@ def resolve_survey_id_from_file_name(name: str) -> str:
 
 """############################## Standard CSVs #############################"""
 
-
 def binify_csv_rows(rows_list: list, study_id: str, user_id: str, data_type: str, header: bytes) -> DefaultDict[tuple, deque]:
     """ Assumes a clean csv with element 0 in the rows column as a unix(ish) timestamp.
         Sorts data points into the appropriate bin based on the rounded down hour
@@ -580,8 +580,11 @@ def construct_csv_string(header: bytes, rows_list: List[bytes]) -> bytes:
 
 def clean_java_timecode(java_time_code_string: bytes) -> int:
     """ converts millisecond time (string) to an integer normal unix time. """
-    return int(java_time_code_string[:10])
-
+    try:
+        return int(java_time_code_string[:10])
+    except ValueError as e:
+        # we need a custom error type to handle this error case
+        raise BadTimecodeError(str(e))
 
 def unix_time_to_string(unix_time: int) -> bytes:
     return datetime.utcfromtimestamp(unix_time).strftime(API_TIME_FORMAT).encode()

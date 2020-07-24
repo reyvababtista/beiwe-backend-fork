@@ -586,6 +586,7 @@ def clean_java_timecode(java_time_code_string: bytes) -> int:
         # we need a custom error type to handle this error case
         raise BadTimecodeError(str(e))
 
+
 def unix_time_to_string(unix_time: int) -> bytes:
     return datetime.utcfromtimestamp(unix_time).strftime(API_TIME_FORMAT).encode()
 

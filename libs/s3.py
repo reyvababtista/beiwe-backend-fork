@@ -9,10 +9,13 @@ from libs.encryption import (decrypt_server, encrypt_for_server, generate_key_pa
 
 class S3VersionException(Exception): pass
 
-conn = boto3.client('s3',
-                    aws_access_key_id=BEIWE_SERVER_AWS_ACCESS_KEY_ID,
-                    aws_secret_access_key=BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
-                    region_name=S3_REGION_NAME)
+
+conn = boto3.client(
+    's3',
+    aws_access_key_id=BEIWE_SERVER_AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
+    region_name=S3_REGION_NAME
+)
 
 
 def s3_upload(key_path: str, data_string: bytes, study_object_id: str, raw_path=False) -> None:

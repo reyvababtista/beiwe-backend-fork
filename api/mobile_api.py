@@ -118,13 +118,16 @@ def upload(OS_API=""):
         make_sentry_client('eb', tags).captureMessage("DecryptionKeyInvalidError")
         return render_template('blank.html'), 200
 
+    s3_file_location = file_name.replace("_", "/")
+
     # if uploaded data a) actually exists, B) is validly named and typed...
     if uploaded_file and file_name and contains_valid_extension(file_name):
-        s3_upload(file_name.replace("_", "/"), uploaded_file, user.study.object_id)
-        FileToProcess.append_file_for_processing(file_name.replace("_", "/"), user.study.object_id,
-                                                 participant=user)
+        s3_upload(s3_file_location, uploaded_file, user.study.object_id)
+        FileToProcess.append_file_for_processing(
+            s3_file_location, user.study.object_id, participant=user
+        )
         UploadTracking.objects.create(
-            file_path=file_name.replace("_", "/"),
+            file_path=s3_file_location,
             file_size=len(uploaded_file),
             timestamp=timezone.now(),
             participant=user,
@@ -143,7 +146,7 @@ def upload(OS_API=""):
         elif not file_name:
             error_message += "there was no provided file name, this is an app error."
         elif file_name and not contains_valid_extension(file_name):
-            error_message += "contains an invalid extension, it was interpretted as "
+            error_message += "contains an invalid extension, it was interpreted as "
             error_message += grab_file_extension(file_name)
         else:
             error_message += "AN UNKNOWN ERROR OCCURRED."

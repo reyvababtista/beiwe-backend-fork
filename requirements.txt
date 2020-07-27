@@ -1,5 +1,5 @@
 # core libraries
-Django==2.2.11
+Django==2.2.14
 Flask>=1.1.1
 
 #pycryptodome>=3.9.0

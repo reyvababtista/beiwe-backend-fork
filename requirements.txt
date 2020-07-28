@@ -1,16 +1,16 @@
 # core libraries
 Django==2.2.14
-Flask>=1.1.1
+Flask>=1.1.2
 
 #pycryptodome>=3.9.0
 pycrypto
 
 # error reporting
-raven[flask]>=6.8.0
+raven[flask]>=6.10.0
 cronutils>=0.2.3
 
 # server requirement
-psycopg2==2.8.3
+psycopg2==2.8.5
 
 # Keep these dependencies up to date
 boto3

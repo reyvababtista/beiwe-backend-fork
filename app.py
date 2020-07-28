@@ -8,25 +8,21 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from api import (admin_api, copy_study_api, dashboard_api, data_access_api, data_pipeline_api,
     mobile_api, participant_administration, push_notifications_api, study_api, survey_api)
-from config.settings import SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN
 from authentication.admin_authentication import is_logged_in
+from config.settings import SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN
 from libs.security import set_secret_key
 from pages import (admin_pages, data_access_web_form, mobile_pages, survey_designer,
     system_admin_pages)
 
+# Flask App
+app = Flask(__name__, static_folder="frontend/static")
+app.jinja_loader = jinja2.ChoiceLoader(
+    [app.jinja_loader, jinja2.FileSystemLoader("frontend/templates")]
+)
+set_secret_key(app)
+app.wsgi_app = ProxyFix(app.wsgi_app)
 
-def subdomain(directory):
-    app = Flask(__name__, static_folder=directory + "/static")
-    set_secret_key(app)
-    loader = [app.jinja_loader, jinja2.FileSystemLoader(directory + "/templates")]
-    app.jinja_loader = jinja2.ChoiceLoader(loader)
-    app.wsgi_app = ProxyFix(app.wsgi_app)
-    return app
-
-
-# Register pages here
-app = subdomain("frontend")
-app.jinja_env.globals['current_year'] = datetime.now().strftime('%Y')
+# Flask Blueprints
 app.register_blueprint(mobile_api.mobile_api)
 app.register_blueprint(admin_pages.admin_pages)
 app.register_blueprint(mobile_pages.mobile_pages)
@@ -42,6 +38,10 @@ app.register_blueprint(copy_study_api.copy_study_api)
 app.register_blueprint(data_pipeline_api.data_pipeline_api)
 app.register_blueprint(dashboard_api.dashboard_api)
 app.register_blueprint(push_notifications_api.push_notifications_api)
+
+# Jinja
+app.jinja_env.globals['current_year'] = datetime.now().strftime('%Y')
+
 
 # Sentry is not required, that was too much of a hassle
 if SENTRY_ELASTIC_BEANSTALK_DSN:

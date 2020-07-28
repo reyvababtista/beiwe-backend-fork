@@ -47,7 +47,6 @@ def reset_device():
     patient_id = request.values['patient_id']
     study_id = request.values['study_id']
 
-
     try:
         participant = Participant.objects.get(patient_id=patient_id)
     except Participant.DoesNotExist:

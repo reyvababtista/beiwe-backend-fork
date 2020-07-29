@@ -137,7 +137,7 @@ class ParticipantFCMHistory(TimestampedModel):
     # by making the token unique the solution to problems becomes "reinstall the app"
     participant = models.ForeignKey("Participant", null=False, on_delete=models.PROTECT, related_name="fcm_tokens")
     token = models.CharField(max_length=256, blank=False, null=False, db_index=True, unique=True)
-    unregistered = models.DateTimeField(null=True)
+    unregistered = models.DateTimeField(null=True, blank=True)
 
 
 class ParticipantFieldValue(UtilityModel):

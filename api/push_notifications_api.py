@@ -6,6 +6,7 @@ from flask import Blueprint, request
 
 from config import constants
 from authentication.user_authentication import authenticate_user, get_session_participant
+from database.user_models import ParticipantFCMHistory
 
 push_notifications_api = Blueprint('push_notifications_api', __name__)
 
@@ -23,10 +24,13 @@ def set_fcm_token():
     is generated. Expects a patient_id and and fcm_token in the request body.
     """
     participant = get_session_participant()
-    fcm_token = participant.get_fcm_token()
-    fcm_token.token = request.values['fcm_token']
-    fcm_token.save()
-    # print("Patient", participant.patient_id, "token: ", request.values['fcm_token'])
+    token = request.values.get('fcm_token', "")
+
+    try:
+        ParticipantFCMHistory.objects.get(token=token)
+    except ParticipantFCMHistory.DoesNotExist:
+        ParticipantFCMHistory.objects.create(token=token, participant=participant, unregistered=None)
+
     return '', 204
 
 

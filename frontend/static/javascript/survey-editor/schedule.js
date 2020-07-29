@@ -98,7 +98,7 @@ function renderWeeklySchedule() {
 
 // adds a weekly schedule to the weekly timings and re-renders weekly schedule template
 function add_weekly_time() {
-    var time_string = $('#new_time_timepicker').val();
+    var time_string = $('#weekly_time_timepicker').val();
     var number_of_seconds = parse_time_string(time_string);
 
     var day_index = $('#day_index_select').val();
@@ -135,7 +135,7 @@ function renderRelativeSchedule() {
 
 // adds a relative schedule to the relative timings and re-renders relative schedule template
 function add_relative_time() {
-    var time_string = $('#new_time_timepicker').val();
+    var time_string = $('#relative_time_timepicker').val();
     var number_of_seconds = parse_time_string(time_string);
 
     var num_days = $('#num_days_picker').val();
@@ -176,7 +176,7 @@ function renderAbsoluteSchedule() {
 // adds a absolute schedule to the absolute timings and re-renders absolute schedule template
 function add_absolute_time() {
     schedule = [];
-    var time_string = $('#new_time_timepicker').val();
+    var time_string = $('#absolute_time_timepicker').val();
     var number_of_seconds = parse_time_string(time_string);
     // date is in 'YYYY-MM-DD' format
     var date = $('#date_picker').val().split('-');

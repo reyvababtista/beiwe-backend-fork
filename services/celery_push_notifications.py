@@ -73,7 +73,6 @@ def create_push_notification_tasks():
 @push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
 def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]):
     ''' Celery task that sends push notifications. '''
-
     success = False
     with make_error_sentry("data"):
         if not firebase_app:
@@ -98,7 +97,7 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
             success = True
         except UnregisteredError:
             # mark the fcm history as out of date.
-            fcm_hist = ParticipantFCMHistory.objects.get(fcm_token=fcm_token)
+            fcm_hist = ParticipantFCMHistory.objects.get(token=fcm_token)
             if fcm_hist.unregistered is None:
                 fcm_hist.unregistered = timezone.now()
                 fcm_hist.save()

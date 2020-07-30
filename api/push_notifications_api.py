@@ -61,16 +61,15 @@ def send_survey_notification():
     Expects a patient_id in the request body
     """
     participant = get_session_participant()
-    survey_ids = [  # up to 4 random, valid surveys.
-        survey.object_id for survey in participant.study.surveys.filter(deleted=False).order_by("?")[:4]
-    ]
-    survey_ids.sort()
-    sent_time = datetime.now().strftime(constants.API_TIME_FORMAT)
+    survey_ids = list(
+        participant.study.surveys.filter(deleted=False).exclude(survey_type="image_survey")
+            .values_list("object_id", flat=True)[:4]
+    )
     message = messaging.Message(
         data={
             'type': 'survey',
             'survey_ids': json.dumps(survey_ids),
-            'sent_time': sent_time,
+            'sent_time': datetime.now().strftime(constants.API_TIME_FORMAT),
         },
         token=participant.get_fcm_token().token,
     )

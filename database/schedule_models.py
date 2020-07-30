@@ -242,19 +242,20 @@ class ScheduledEvent(TimestampedModel):
             participant=self.participant,
             schedule_type=self.get_schedule_type(),
             scheduled_time=self.scheduled_time,
-        ).save()
+        )
         self.delete()
 
-
+# TODO there is no code that updates the response_time field.  That should be rolled into the
+#  check-for-downloads as an optional parameter passed in.  If it doesn't get hit then there is
+#  no guarantee that the app checked in.
 class ArchivedEvent(TimestampedModel):
     survey_archive = models.ForeignKey('SurveyArchive', on_delete=models.PROTECT, related_name='archived_events')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='archived_events')
     schedule_type = models.CharField(max_length=32)
     scheduled_time = models.DateTimeField()
-    response_time = models.DateTimeField(null=True)
+    response_time = models.DateTimeField(null=True, blank=True)
 
 
-# TODO update endpoint to update response_time
 class Intervention(models.Model):
     name = models.TextField()
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='interventions')

@@ -102,7 +102,8 @@ def upload(OS_API=""):
         # when decrypting fails, regardless of why, we rely on the decryption code
         # to log it correctly and return 200 OK to get the device to delete the file.
         # We do not want emails on these types of errors, so we use log_error explicitly.
-        log_error(e, "%s; %s; %s" % (patient_id, file_name, e))
+        # this log statement hasn't been valuable since 2015, turning it off.
+        # log_error(e, "%s; %s; %s" % (patient_id, file_name, e))
         return render_template('blank.html'), 200
 
     except DecryptionKeyInvalidError:

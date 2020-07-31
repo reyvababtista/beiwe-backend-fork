@@ -1,6 +1,8 @@
 from os.path import abspath
 from sys import path
+
 # add the root of the project into the path to allow cd-ing into this folder and running the script.
+from libs.sentry import make_error_sentry
 
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
@@ -20,8 +22,6 @@ from database.schedule_models import ScheduledEvent
 from database.user_models import ParticipantFCMHistory
 from libs.celery_control import push_send_celery_app
 from libs.push_notifications import (firebase_app, FirebaseNotCredentialed, set_next_weekly)
-from libs.sentry import make_error_sentry
-
 
 ################################################################################
 ############################# Data Processing ##################################
@@ -30,29 +30,37 @@ from libs.sentry import make_error_sentry
 def get_surveys_and_schedules(now):
     """ Mostly this function exists to reduce namespace clutter. """
     # schedule time is in the past, with participants that have fcm tokens.
+    # need to filter out unregistered fcms, database schema sucks for that, do it in python. its fine.
     query = ScheduledEvent.objects.filter(
-            scheduled_time__lte=now, participant__fcm_tokens__isnull=False
-        ).values_list(
-            "survey__object_id", "participant__fcm_tokens__token", "pk"
-        )
+        scheduled_time__lte=now, participant__fcm_tokens__isnull=False,
+    ).values_list(
+        "survey__object_id",
+        "participant__fcm_tokens__token",
+        "pk",
+        "participant__patient_id",
+        "participant__fcm_tokens__unregistered",
+    )
 
     # defaultdicts = clean code, convert to dicts at end.
     # we need a mapping of fcm tokens (a proxy for participants) to surveys and schedule ids (pks)
     surveys = defaultdict(list)
     schedules = defaultdict(list)
-    for survey_obj_id, fcm, schedule_id in query:
+    patient_ids = {}
+    for survey_obj_id, fcm, schedule_id, patient_id, unregistered in query:
+        if unregistered:
+            continue
         surveys[fcm].append(survey_obj_id)
         schedules[fcm].append(schedule_id)
+        patient_ids[fcm] = patient_id
 
-    return dict(surveys), dict(schedules)
+    return dict(surveys), dict(schedules), patient_ids
 
 
 def create_push_notification_tasks():
     # we reuse the high level strategy from data processing celery tasks, see that documentation.
     expiry = (datetime.now() + timedelta(minutes=5)).replace(second=30, microsecond=0)
     now = make_aware(datetime.utcnow(), timezone=pytz.utc)
-    surveys, schedules = get_surveys_and_schedules(now)
-
+    surveys, schedules, patient_ids = get_surveys_and_schedules(now)
     with make_error_sentry('data'):
         if not firebase_app:
             raise FirebaseNotCredentialed("Firebase is not configured, cannot queue notifications.")
@@ -60,6 +68,7 @@ def create_push_notification_tasks():
         # surveys and schedules are guaranteed to have the same keys, assembling the data structures
         # is a pain, so it is factored out. sorry, but not sorry. it was a mess.
         for fcm_token in surveys.keys():
+            print(f"Queueing up push notification for user {patient_ids[fcm_token]} for {surveys[fcm_token]}")
             safe_queue_push(
                 args=[fcm_token, surveys[fcm_token], schedules[fcm_token]],
                 max_retries=0,
@@ -74,6 +83,8 @@ def create_push_notification_tasks():
 def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]):
     ''' Celery task that sends push notifications. '''
     success = False
+    patient_id = ParticipantFCMHistory.objects.filter(token=fcm_token).values_list("participant__patient_id", flat=True).get()
+
     with make_error_sentry("data"):
         if not firebase_app:
             raise FirebaseNotCredentialed(
@@ -86,6 +97,7 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
 
         try:
             # There is debugging code that looks for this variable, don't delete it...
+            print(f"Sending push notification to {patient_id} for {survey_obj_ids}.")
             response = send(Message(
                 data={
                     'type': 'survey',

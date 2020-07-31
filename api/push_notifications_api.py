@@ -1,6 +1,8 @@
 import json
 from datetime import datetime
 
+import pytz
+from django.utils.timezone import make_aware
 from firebase_admin import messaging
 from flask import Blueprint, request
 
@@ -25,10 +27,22 @@ def set_fcm_token():
     """
     participant = get_session_participant()
     token = request.values.get('fcm_token', "")
+    now = make_aware(datetime.utcnow(), timezone=pytz.utc)
 
+    # These cases shouldn't happen.  All we want is to force the state that the app is serving us.
     try:
-        ParticipantFCMHistory.objects.get(token=token)
+        # try, force to unregistered on success, force every not-unregistered as unregistered.
+        p = ParticipantFCMHistory.objects.get(token=token)
+        p.unregistered = None
+        p.save()  # retain as save, we want last_updated to mutate
+        ParticipantFCMHistory.objects.exclude(token=token).filter(unregistered=None).update(
+            unregistered=now
+        )
     except ParticipantFCMHistory.DoesNotExist:
+        # It wasn't found, it is new, unregister the existing and create the new one.
+        ParticipantFCMHistory.objects.filter(participant=participant, unregistered=None).update(
+            unregistered=now
+        )
         ParticipantFCMHistory.objects.create(token=token, participant=participant, unregistered=None)
 
     return '', 204

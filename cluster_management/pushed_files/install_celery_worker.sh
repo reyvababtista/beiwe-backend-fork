@@ -63,7 +63,7 @@ startsecs = 5
 [program:celery_push_send]
 # the queue and app names are declared in constants.py.
 directory = /home/ubuntu/beiwe-backend/
-command = python3 -m celery -A services.celery_push_notifications worker -Q queue_push_notification --loglevel=info -Ofair --hostname=%%h_notifications --concurrency=20 --pool=threads
+command = python3 -m celery -A services.celery_push_notifications worker -Q push_notifications --loglevel=info -Ofair --hostname=%%h_notifications --concurrency=20 --pool=threads
 stdout_logfile = /home/ubuntu/celery_push_send.log
 stderr_logfile = /home/ubuntu/celery_push_send.log
 autostart = true

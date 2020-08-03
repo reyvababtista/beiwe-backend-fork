@@ -84,7 +84,6 @@ def logout():
 @admin_pages.route('/manage_credentials')
 @authenticate_researcher_login
 def manage_credentials():
-    # Todo (CD): Create a section for managing API keys
     serializer = ApiKeySerializer(ApiKey.objects.filter(researcher=get_session_researcher()), many=True)
     return render_template('manage_credentials.html',
                            allowed_studies=get_researcher_allowed_studies(),

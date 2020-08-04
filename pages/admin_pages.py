@@ -1,4 +1,17 @@
+
 from flask import Blueprint, flash, Markup, redirect, render_template, request, session
+
+
+import json
+from collections import OrderedDict
+
+from django.forms import ModelForm
+from flask import abort, Blueprint, flash, Markup, redirect, render_template, request, session
+from rest_framework.renderers import JSONRenderer
+
+from database.security_models import ApiKey
+from database.study_models import Study, StudyField
+from database.user_models import Participant, ParticipantFieldValue, Researcher
 
 from authentication import admin_authentication
 from authentication.admin_authentication import (authenticate_researcher_login,
@@ -88,7 +101,7 @@ def manage_credentials():
     return render_template('manage_credentials.html',
                            allowed_studies=get_researcher_allowed_studies(),
                            is_admin=researcher_is_an_admin(),
-                           api_keys=serializer.data)
+                           api_keys=sorted(serializer.data, reverse=True, key=lambda x: x['created_on']))
 
 
 @admin_pages.route('/reset_admin_password', methods=['POST'])
@@ -142,22 +155,20 @@ def participant_tags(p: Participant):
 @admin_pages.route('/new_api_key', methods=['POST'])
 @authenticate_researcher_login
 def new_api_key():
-    tableau_api_permission = 'api_permission' in request.values
+    tableau_api_permission = True
     readable_name = request.values.get("readable_name", "")
     researcher = Researcher.objects.get(username=session[SESSION_NAME])
     api_key = ApiKey.generate(researcher=researcher, has_tableau_api_permissions=tableau_api_permission, readable_name=readable_name)
-    msg = """<h3>New Data-Download API credentials have been generated for you!</h3>
+    msg = f"""<h3>New Data-Download API credentials have been generated for you!</h3>
         <p>Your new <b>Access Key</b> is:
           <div class="container-fluid">
-            <textarea rows="1" cols="85" readonly="readonly" onclick="this.focus();this.select()">%s</textarea></p>
+            <textarea rows="1" cols="85" readonly="readonly" onclick="this.focus();this.select()">{api_key.access_key_id}</textarea></p>
           </div>
         <p>Your new <b>Secret Key</b> is:
           <div class="container-fluid">
-            <textarea rows="1" cols="85" readonly="readonly" onclick="this.focus();this.select()">%s</textarea></p>
+            <textarea rows="1" cols="85" readonly="readonly" onclick="this.focus();this.select()">{api_key.access_key_secret_plaintext}</textarea></p>
           </div>
-        <p>Please record these somewhere; This secret key will not be shown again!</p>""" \
-          % (api_key.access_key_id, api_key.access_key_secret_plaintext)
-    api_key.save()
+        <p>Please record these somewhere; This secret key will not be shown again!</p>"""
     flash(Markup(msg), 'warning')
     return redirect("/manage_credentials")
 

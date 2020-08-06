@@ -1,5 +1,10 @@
 from django import forms
+<<<<<<< HEAD
 from flask import Blueprint, flash, Markup, redirect, render_template, request, session
+=======
+from flask import abort, Blueprint, flash, Markup, redirect, render_template, request, session, url_for
+from rest_framework.renderers import JSONRenderer
+>>>>>>> dff68e27... finalizes changes before merging
 
 from authentication import admin_authentication
 from authentication.admin_authentication import (authenticate_researcher_login,
@@ -141,12 +146,12 @@ def participant_tags(p: Participant):
 
 
 class NewApiKeyForm(forms.Form):
-    readable_name = forms.CharField()
+    readable_name = forms.CharField(required=False)
 
     def clean(self):
         super().clean()
-        if self.is_valid():
-            self.cleaned_data['tableau_api_permission'] = True
+        self.cleaned_data['tableau_api_permission'] = True
+
 
 
 @admin_pages.route('/new_api_key', methods=['POST'])
@@ -154,7 +159,7 @@ class NewApiKeyForm(forms.Form):
 def new_api_key():
     form = NewApiKeyForm(request.values)
     if not form.is_valid():
-        return redirect("/manage_credentials")
+        return redirect(url_for("admin_pages.manage_credentials"))
     researcher = Researcher.objects.get(username=session[SESSION_NAME])
     api_key = ApiKey.generate(researcher=researcher, has_tableau_api_permissions=form.cleaned_data['tableau_api_permission'], readable_name=form.cleaned_data['readable_name'])
     msg = f"""<h3>New Data-Download API credentials have been generated for you!</h3>
@@ -168,7 +173,7 @@ def new_api_key():
           </div>
         <p>Please record these somewhere; This secret key will not be shown again!</p>"""
     flash(Markup(msg), 'warning')
-    return redirect("/manage_credentials")
+    return redirect(url_for("admin_pages.manage_credentials"))
 
 
 class DisableApiKeyForm(forms.Form):
@@ -180,6 +185,7 @@ class DisableApiKeyForm(forms.Form):
 def disable_api_key():
     form = DisableApiKeyForm(request.values)
     if not form.is_valid():
+<<<<<<< HEAD
         return redirect("/manage_credentials")
 
     api_key_id = request.values["api_key_id"]
@@ -196,3 +202,8 @@ def disable_api_key():
     # flash("The API key %s is now disabled" % str(api_key.access_key_id), 'warning')
     return redirect("/manage_credentials")
 
+=======
+        return redirect(url_for("admin_pages.manage_credentials"))
+    ApiKey.objects.filter(researcher=get_session_researcher(), access_key_id=form.cleaned_data['api_key_id'], is_active=True).update(is_active=False)
+    return redirect(url_for("admin_pages.manage_credentials"))
+>>>>>>> dff68e27... finalizes changes before merging

@@ -185,7 +185,6 @@ class DisableApiKeyForm(forms.Form):
 def disable_api_key():
     form = DisableApiKeyForm(request.values)
     if not form.is_valid():
-<<<<<<< HEAD
         return redirect("/manage_credentials")
 
     api_key_id = request.values["api_key_id"]
@@ -202,8 +201,3 @@ def disable_api_key():
     # flash("The API key %s is now disabled" % str(api_key.access_key_id), 'warning')
     return redirect("/manage_credentials")
 
-=======
-        return redirect(url_for("admin_pages.manage_credentials"))
-    ApiKey.objects.filter(researcher=get_session_researcher(), access_key_id=form.cleaned_data['api_key_id'], is_active=True).update(is_active=False)
-    return redirect(url_for("admin_pages.manage_credentials"))
->>>>>>> dff68e27... finalizes changes before merging

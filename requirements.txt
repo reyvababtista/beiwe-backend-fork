@@ -17,6 +17,6 @@ boto3
 pytz
 django-timezone-field
 ipython
-django-extensions==2.2.9
+django-extensions
 python-dateutil
 firebase-admin

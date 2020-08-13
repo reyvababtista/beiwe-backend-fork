@@ -28,14 +28,19 @@ class Study(TimestampedModel):
 
     def save(self, *args, **kwargs):
         """ Ensure there is a study device settings attached to this study. """
-        # the device settings have to be in the database before the save validation passes.
+        # First we just save. This code has vacillated between throwing a validation error and not
+        # during study creation.  Our current fix is to save, then test whether a device settings
+        # object exists.  If not, create it.
+        super().save(*args, **kwargs)
+
         try:
             self.device_settings
         except ObjectDoesNotExist:
             settings = DeviceSettings(study=self)
-            settings.save()
             self.device_settings = settings
-        super().save(*args, **kwargs)
+            settings.save()
+            # update the study object to have a device settings object (possibly unnecessary?).
+            super().save(*args, **kwargs)
 
     @classmethod
     def create_with_object_id(cls, **kwargs):

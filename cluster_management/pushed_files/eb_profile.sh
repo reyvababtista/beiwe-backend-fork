@@ -12,6 +12,7 @@ source /opt/python/current/env
 cd /opt/python/current/app
 
 alias db='cd /opt/python/current/app; python /opt/python/current/app/manage.py shell_plus'
+alias restart='sudo killall -s 1 supervisord; htop -u apache'
 
 alias log_commands="tail -f  /var/log/cfn-init-cmd.log"
 alias logo='nano +1000000000 /var/log/httpd/error_log' #open log, go to end

@@ -3,6 +3,7 @@ from flask import abort, Blueprint, flash, json, make_response, redirect, reques
 from database.schedule_models import AbsoluteSchedule, RelativeSchedule, WeeklySchedule
 from database.survey_models import Survey
 from authentication.admin_authentication import authenticate_researcher_study_access
+from libs.dev_utils import p
 from libs.json_logic import do_validate_survey
 from libs.push_notifications import (repopulate_absolute_survey_schedule_events,
     repopulate_relative_survey_schedule_events, repopulate_weekly_survey_schedule_events)
@@ -52,7 +53,7 @@ def update_survey(survey_id=None):
         survey = Survey.objects.get(pk=survey_id)
     except Survey.DoesNotExist:
         return abort(404)
-
+    p()
     # BUG: There is an unknown situation where the frontend sends a string requiring an extra
     # deserialization operation, causing 'content' to be a string containing a json string
     # containing a json list, instead of just a string containing a json list.
@@ -66,34 +67,43 @@ def update_survey(survey_id=None):
     # request is put outside of the decode statement. HOWEVER, evaluating json_content == "" returns false, since the
     # LITERAL value of the json_content is 2 quotation marks, NOT an empty string. Thus, we need to compare the
     # json_content to a string of 2 quotation marks (ie. '""')
+    p()
     if json_content != '""':
         content = recursive_survey_content_json_decode(json_content)
         content = make_slider_min_max_values_strings(content)
-    
+    p()
     if survey.survey_type == Survey.TRACKING_SURVEY:
         errors = do_validate_survey(content)
         if len(errors) > 1:
             return make_response(json.dumps(errors), 400)
-    
+    # For each of the schedule types, creates Schedule objects and ScheduledEvent objects
+    p()
+    weekly_timings = json.loads(request.values['weekly_timings'])
+    p()
+    w_duplicated = WeeklySchedule.create_weekly_schedules(weekly_timings, survey)
+    p()
+    repopulate_weekly_survey_schedule_events(survey)
+    p()
+    absolute_timings = json.loads(request.values['absolute_timings'])
+    p()
+    a_duplicated = AbsoluteSchedule.create_absolute_schedules(absolute_timings, survey)
+    p()
+    repopulate_absolute_survey_schedule_events(survey)
+    p()
+    relative_timings = json.loads(request.values['relative_timings'])
+    p()
+    r_duplicated = RelativeSchedule.create_relative_schedules(relative_timings, survey)
+    p()
+    repopulate_relative_survey_schedule_events(survey)
+    p()
+
     # These three all stay JSON when added to survey
     content = json.dumps(content)
-
-    # fixme: this was definitely broken for Eli before adding the json operations, but on dev it was not?
-    absolute_timings = json.loads(request.values['absolute_timings'])
-    relative_timings = json.loads(request.values['relative_timings'])
-    weekly_timings = json.loads(request.values['weekly_timings'])
+    p()
     settings = request.values['settings']
+    p()
     survey.update(content=content, settings=settings)
-
-    # For each of the schedule types, creates Schedule objects and ScheduledEvent objects
-    w_duplicated = WeeklySchedule.create_weekly_schedules(weekly_timings, survey)
-    repopulate_weekly_survey_schedule_events(survey)
-
-    a_duplicated = AbsoluteSchedule.create_absolute_schedules(absolute_timings, survey)
-    repopulate_absolute_survey_schedule_events(survey)
-
-    r_duplicated = RelativeSchedule.create_relative_schedules(relative_timings, survey)
-    repopulate_relative_survey_schedule_events(survey)
+    p()
 
     # if any duplicate schedules were submitted, flash a message
     if w_duplicated or a_duplicated or r_duplicated:

@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import List
 
 import pytz
@@ -35,20 +35,6 @@ class AbsoluteSchedule(TimestampedModel):
 
         return duplicated
 
-    # TODO: delete? not used anywhere
-    def create_events(self) -> None:
-        new_events = []
-        for participant in self.survey.study.participants.all():
-            new_events.append(ScheduledEvent(
-                survey=self.survey,
-                participant=participant,
-                weekly_schedule=None,
-                relative_schedule=None,
-                absolute_schedule=self,
-                scheduled_time=self.scheduled_date,
-            ))
-        ScheduledEvent.objects.bulk_create(new_events)
-
 
 class RelativeSchedule(TimestampedModel):
     survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='relative_schedules')
@@ -57,21 +43,12 @@ class RelativeSchedule(TimestampedModel):
     hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
 
-    # TODO: delete? not used anywhere
-    def create_events(self):
-        for participant in self.survey.study.participants.all():
-            scheduled_time = datetime.combine(
-                self.intervention.intervention_dates.get(participant=participant).date,
-                time(self.hour, self.minute)
-            )
-            ScheduledEvent.objects.create(
-                survey=self.survey,
-                participant=participant,
-                weekly_schedule=None,
-                relative_schedule=self,
-                absolute_schedule=None,
-                scheduled_time=scheduled_time,
-            )
+    def scheduled_time(self, intervention_date: date, tz=None) -> datetime:
+        # forces the timezone, you can pass in a timezone to reduce overhead.
+        return make_aware(
+            datetime.combine(intervention_date, time(self.hour, self.minute)),
+            tz or self.survey.study.timezone
+        )
 
     @staticmethod
     def create_relative_schedules(timings: List[List[int]], survey: Survey) -> bool:
@@ -249,11 +226,11 @@ class ScheduledEvent(TimestampedModel):
 #  check-for-downloads as an optional parameter passed in.  If it doesn't get hit then there is
 #  no guarantee that the app checked in.
 class ArchivedEvent(TimestampedModel):
-    survey_archive = models.ForeignKey('SurveyArchive', on_delete=models.PROTECT, related_name='archived_events')
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='archived_events')
-    schedule_type = models.CharField(max_length=32)
-    scheduled_time = models.DateTimeField()
-    response_time = models.DateTimeField(null=True, blank=True)
+    survey_archive = models.ForeignKey('SurveyArchive', on_delete=models.PROTECT, related_name='archived_events', db_index=True)
+    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='archived_events', db_index=True)
+    schedule_type = models.CharField(max_length=32, db_index=True)
+    scheduled_time = models.DateTimeField(db_index=True)
+    response_time = models.DateTimeField(null=True, blank=True, db_index=True)
 
 
 class Intervention(models.Model):

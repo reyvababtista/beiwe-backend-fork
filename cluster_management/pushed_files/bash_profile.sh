@@ -117,6 +117,14 @@ function runloop ()
 }
 
 
+function backup () {
+    # parameter order: username, host, then it will prompt for password
+    # this is at least a hundred times faster than the django dumpdata command
+    pg_dump -F d -Z 9 -f /home/ubuntu/beiwe-backend/pg_dump --username=$1 --dbname=$2 --host=$3 --verbose
+}
+
+alias apt="sudo apt"
+
 ## Environment config ##
 
 # uncomment for a colored prompt, if the terminal has the capability; turned

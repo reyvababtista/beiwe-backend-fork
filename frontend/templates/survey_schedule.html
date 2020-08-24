@@ -77,7 +77,7 @@
         <p>
       {% endif %}
       <p>
-        <b> Note: </b> If you create a new relative schedule on a study containing participants with interventions where the conditions for the new notification are already satisfied it will trigger those notifications the next time the server would send push notifications to devices. This occurs every 6 minutes. However, if you create a schedule that matches a push notification event that has already been sent, regardless of the schedule type, it will be skipped.
+        <b> Note: </b> Scheduled events based on Relative schedules occur as soon as the trigger is in the past (usually within 5 minutes). Beiwe will not send survey notifications if there was already one sent for the date and time of the trigger.
     </div>
     <div id="absolute" class="tab-pane fade">
       <p>
@@ -142,7 +142,7 @@
   </script>
   <script id="absolute-schedule-template" type="text/x-handlebars-template">
     <p><p>
-      <b> Note: </b> If you create a new absolute schedule with a time set in the past it will trigger those notifications the next time the server would send push notifications to devices. This occurs every 6 minutes. However, if you create a schedule that matches a push notification event that has already been sent, regardless of the schedule type, it will be skipped.
+      <b> Note: </b> Absolute schedules created with a time in the past will trigger immediately (usually within 5 minutes).  Beiwe will not send survey notifications if there was already one sent for the date and time of the schedule.
     <p>Currently scheduled times</p>
     <div class="well well-sm">
       <table>

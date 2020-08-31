@@ -164,6 +164,7 @@ def validate_beiwe_environment_config(eb_environment_name):
         if key == "SENTRY_ANDROID_DSN":
             errors.append("'SENTRY_ANDROID_DSN' is no longer needed by the Beiwe Backend. "
                           "Please remove it from your environment variables settings file to continue.")
+            continue
         if key not in reference_environment_configuration_keys:
             errors.append("{} is present but was not expected.".format(key))
     

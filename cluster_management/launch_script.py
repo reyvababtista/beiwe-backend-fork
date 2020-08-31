@@ -321,6 +321,15 @@ def do_fail_if_bad_environment_name(name):
         EXIT(1)
 
 
+def do_fail_if_bad_firebase_creds(name):
+    file_path = get_firebase_credentials_file_path(name)
+    exists = file_exists(file_path)
+
+    if not exists:
+        log.error(CHECK_FIREBASE_CREDS_PROMPT.format(file_path=file_path))
+        log.warning("You can view documentation for firebase at https://github.com/onnela-lab/beiwe-backend/wiki/Firebase-Configuration")
+        EXIT(1)
+
 def prompt_for_new_eb_environment_name(with_prompt=True):
     if with_prompt:
         print(ENVIRONMENT_NAME_RESTRICTIONS)
@@ -427,6 +436,7 @@ def do_help_setup_new_environment():
 def do_create_manager():
     name = prompt_for_extant_eb_environment_name()
     do_fail_if_environment_does_not_exist(name)
+    do_fail_if_bad_firebase_creds(name)
     create_processing_server_configuration_file(name)
     
     try:
@@ -465,6 +475,7 @@ def do_create_manager():
 def do_create_worker():
     name = prompt_for_extant_eb_environment_name()
     do_fail_if_environment_does_not_exist(name)
+    do_fail_if_bad_firebase_creds(name)
     manager_instance = get_manager_instance_by_eb_environment_name(name)
     if manager_instance is None:
         log.error(

@@ -1,4 +1,3 @@
 # data processing
-celery==4.3.0
-supervisor
+celery==4.4.7
 

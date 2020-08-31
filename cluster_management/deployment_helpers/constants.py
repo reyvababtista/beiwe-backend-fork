@@ -358,7 +358,7 @@ GET_MANAGER_IP_ADDRESS_HELP = "Prints the public IP address of the manager serve
 GET_WORKER_IP_ADDRESS_HELP = "Prints the public IP addresses of the worker servers for the cluster."
 
 
-CHECK_FIREBASE_CREDS_PROMPT = "You have not provided a credentials file at '{file_path}'.\nIt is strongly recommended you follow the directions on the wiki and provide a firebase credentials json document.  As mobile device operating systems advance many details change.  Most critically power saving mechanisms have, over the lifetime of the Beiwe project, become much more aggressive.  As a result the architecture of the Beiwe apps must change too.  These credentials are used to provide push notifications to the app from your servers in order to trigger events.  Beiwe will still work without them, but data collection is very likely to suffer."
+CHECK_FIREBASE_CREDS_PROMPT = "You have not provided a credentials file at '{file_path}'"
 CHECK_FIREBASE_CREDS_PROMPT2 = "Would you like to exit and retry with credentials? Y/N: "
 
 ####################################################################################################

@@ -371,7 +371,12 @@ def binify_csv_rows(rows_list: list, study_id: str, user_id: str, data_type: str
         # discovered August 7 2017, looks like there was an empty line at the end
         # of a file? row was a [''].
         if row and row[0]:
-            ret[(study_id, user_id, data_type, binify_from_timecode(row[0]), header)].append(row)
+            # this is the first thing that will hit corrupted timecode values errors (origin of which is unknown).
+            try:
+                timecode = binify_from_timecode(row[0])
+            except BadTimecodeError:
+                continue
+            ret[(study_id, user_id, data_type, timecode, header)].append(row)
     return ret
 
 

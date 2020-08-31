@@ -1,5 +1,4 @@
 import os
-os.environ['SENTRY_ANDROID_DSN'] = 'https://foo:foo@sentry.io/foo'
 os.environ['SENTRY_ELASTIC_BEANSTALK_DSN'] = 'https://foo:foo@sentry.io/foo'
 os.environ['SENTRY_DATA_PROCESSING_DSN'] = 'https://foo:foo@sentry.io/foo'
 os.environ['FLASK_SECRET_KEY'] = 'replace_with_random_string'

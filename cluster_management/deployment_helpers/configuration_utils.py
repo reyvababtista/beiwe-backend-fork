@@ -10,8 +10,7 @@ from deployment_helpers.aws.s3 import create_data_bucket
 from deployment_helpers.constants import (AWS_CREDENTIALS_FILE, AWS_CREDENTIALS_FILE_KEYS,
     DB_SERVER_TYPE, ELASTIC_BEANSTALK_INSTANCE_TYPE, get_aws_credentials,
     get_beiwe_environment_variables, get_beiwe_python_environment_variables_file_path,
-    get_finalized_credentials_file_path, get_finalized_environment_variables,
-    get_firebase_credentials_file_path, get_global_config,
+    get_finalized_credentials_file_path, get_finalized_environment_variables, get_global_config,
     get_pushed_full_processing_server_env_file_path, get_rabbit_mq_manager_ip_file_path,
     get_server_configuration_file_path, GLOBAL_CONFIGURATION_FILE, GLOBAL_CONFIGURATION_FILE_KEYS,
     MANAGER_SERVER_INSTANCE_TYPE, VALIDATE_AWS_CREDENTIALS_MESSAGE,
@@ -30,7 +29,6 @@ def reference_environment_configuration_file():
         "DOMAIN": "studies.mywebsite.com",
         "SENTRY_ELASTIC_BEANSTALK_DSN": "https://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX@sentry.io/######",
         "SENTRY_DATA_PROCESSING_DSN": "https://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX@sentry.io/######",
-        "SENTRY_ANDROID_DSN": "https://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX@sentry.io/######",
         "SENTRY_JAVASCRIPT_DSN": "https://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX@sentry.io/######",
     }
 
@@ -117,7 +115,6 @@ def ensure_nonempty_string(value, value_name, errors_list, subject):
 
 def validate_beiwe_environment_config(eb_environment_name):
     # DOMAIN_NAME
-    # SENTRY_ANDROID_DSN
     # SENTRY_DATA_PROCESSING_DSN
     # SENTRY_ELASTIC_BEANSTALK_DSN
     # SENTRY_JAVASCRIPT_DSN
@@ -148,7 +145,6 @@ def validate_beiwe_environment_config(eb_environment_name):
     sentry_dsns = {
         "SENTRY_ELASTIC_BEANSTALK_DSN": beiwe_variables.get('SENTRY_ELASTIC_BEANSTALK_DSN', ''),
         "SENTRY_DATA_PROCESSING_DSN": beiwe_variables.get('SENTRY_DATA_PROCESSING_DSN', ''),
-        "SENTRY_ANDROID_DSN": beiwe_variables.get('SENTRY_ANDROID_DSN', ''),
         "SENTRY_JAVASCRIPT_DSN": beiwe_variables.get('SENTRY_JAVASCRIPT_DSN', ''),
     }
     
@@ -165,6 +161,9 @@ def validate_beiwe_environment_config(eb_environment_name):
             errors.append("{} is missing.".format(key))
 
     for key in beiwe_variables:
+        if key == "SENTRY_ANDROID_DSN":
+            errors.append("'SENTRY_ANDROID_DSN' is no longer needed by the Beiwe Backend. "
+                          "Please remove it from your environment variables settings file to continue.")
         if key not in reference_environment_configuration_keys:
             errors.append("{} is present but was not expected.".format(key))
     
@@ -186,7 +185,6 @@ def validate_beiwe_environment_config(eb_environment_name):
         'SYSADMIN_EMAILS': sysadmin_email,
         'SENTRY_ELASTIC_BEANSTALK_DSN': sentry_dsns['SENTRY_ELASTIC_BEANSTALK_DSN'],
         'SENTRY_DATA_PROCESSING_DSN': sentry_dsns['SENTRY_DATA_PROCESSING_DSN'],
-        'SENTRY_ANDROID_DSN': sentry_dsns['SENTRY_ANDROID_DSN'],
         'SENTRY_JAVASCRIPT_DSN': sentry_dsns['SENTRY_JAVASCRIPT_DSN']
     }
 

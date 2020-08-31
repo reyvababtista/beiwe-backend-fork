@@ -3,16 +3,14 @@ from raven import Client as SentryClient
 from raven.exceptions import InvalidDsn
 from raven.transport import HTTPTransport
 
-from config.settings import (SENTRY_ANDROID_DSN, SENTRY_DATA_PROCESSING_DSN,
-    SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN)
+from config.settings import (SENTRY_DATA_PROCESSING_DSN, SENTRY_ELASTIC_BEANSTALK_DSN,
+    SENTRY_JAVASCRIPT_DSN)
 from libs.logging import log_error
 
 
 def get_dsn_from_string(sentry_type):
     """ Returns a DSN, even if it is incorrectly formatted. """
-    if sentry_type == 'android':
-        return SENTRY_ANDROID_DSN
-    elif sentry_type == 'data':
+    if sentry_type == 'data':
         return SENTRY_DATA_PROCESSING_DSN
     elif sentry_type == 'eb':
         return SENTRY_ELASTIC_BEANSTALK_DSN
@@ -32,8 +30,10 @@ def make_error_sentry(sentry_type, tags=None, null=False):
     """ Creates an ErrorSentry, defaults to error limit 10.
     If the applicable sentry DSN is missing will return an ErrorSentry,
     but if null truthy a NullErrorHandler will be returned instead. """
+
     dsn = get_dsn_from_string(sentry_type)
     tags = tags or {}
+
     try:
         return ErrorSentry(
             dsn,

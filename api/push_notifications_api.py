@@ -6,8 +6,8 @@ from django.utils.timezone import make_aware
 from firebase_admin import messaging
 from flask import Blueprint, request
 
-from config import constants
 from authentication.user_authentication import authenticate_user, get_session_participant
+from config import constants
 from database.user_models import ParticipantFCMHistory
 
 push_notifications_api = Blueprint('push_notifications_api', __name__)
@@ -36,12 +36,12 @@ def set_fcm_token():
         p.unregistered = None
         p.save()  # retain as save, we want last_updated to mutate
         ParticipantFCMHistory.objects.exclude(token=token).filter(unregistered=None).update(
-            unregistered=now
+            unregistered=now, last_updated=now
         )
     except ParticipantFCMHistory.DoesNotExist:
         # It wasn't found, it is new, unregister the existing and create the new one.
         ParticipantFCMHistory.objects.filter(participant=participant, unregistered=None).update(
-            unregistered=now
+            unregistered=now, last_updated=now
         )
         ParticipantFCMHistory.objects.create(token=token, participant=participant, unregistered=None)
 

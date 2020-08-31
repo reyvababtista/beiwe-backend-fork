@@ -14,7 +14,8 @@ from typing import List
 import pytz
 from django.utils import timezone
 from django.utils.timezone import make_aware
-from firebase_admin.messaging import Message, QuotaExceededError, send, UnregisteredError
+from firebase_admin.messaging import (Message, QuotaExceededError, send, ThirdPartyAuthError,
+    UnregisteredError)
 from kombu.exceptions import OperationalError
 
 from config.constants import API_TIME_FORMAT, PUSH_NOTIFICATION_SEND_QUEUE, ScheduleTypes
@@ -118,11 +119,22 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
             # limits are very high, this is effectively impossible, but it is possible.
             raise
 
+        except ThirdPartyAuthError:
+            # occurs when the platform (Android or iOS) is not configured appropriately.
+            raise Exception(
+                "There is a misconfiguration in your firebase push notification setup.  "
+                "Please see Beiwe's documentation for setup of FCM push notifications.  "
+                "If the configuration is correct but you continue to see this error "
+                "please post a bug report."
+                "\n issues: https://github.com/onnela-lab/beiwe-backend/issues"
+                "\n documentation: https://firebase.google.com/docs/admin/setup#initialize-sdk"
+            )
+
         # DEBUG uncomment to print
         # from pprint import pprint
         # if err_sentry.errors:
         #     err_sentry.raise_errors()
-        #
+
         # if "response" in vars():
         #     print(response)
         #     pprint(vars(response))

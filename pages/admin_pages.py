@@ -27,14 +27,18 @@ def inject_html_params():
 def choose_study():
     allowed_studies = get_researcher_allowed_studies_as_query_set()
 
-    # If the admin is authorized to view exactly 1 study, redirect to that study.
+    # If the admin is authorized to view exactly 1 study, redirect to that study
     if allowed_studies.count() == 1:
         return redirect('/view_study/{:d}'.format(allowed_studies.values_list('pk', flat=True).get()))
 
-    # escape study name
-    studies = \
-        [{"name": escape(name), "id": pk}for pk, name, in allowed_studies.values_list("id", "name")]
-    return render_template('choose_study.html', studies=studies)
+    # Otherwise, show the "Choose Study" page
+    return render_template(
+        'choose_study.html',
+        studies=Study.query_set_as_unpacked_native_python(allowed_studies),
+        allowed_studies=get_researcher_allowed_studies(),
+        is_admin=researcher_is_an_admin()
+    )
+
 
 
 def participant_tags_safe(p: Participant):

@@ -1,6 +1,4 @@
-import json
-
-from flask import Blueprint, escape, flash, Markup, render_template
+from flask import Blueprint, flash, Markup, render_template
 
 from authentication.admin_authentication import (authenticate_researcher_login,
     get_researcher_allowed_studies, get_researcher_allowed_studies_as_query_set,
@@ -31,17 +29,20 @@ def data_api_web_form_page():
 @authenticate_researcher_login
 def pipeline_download_page():
     warn_researcher_if_hasnt_yet_generated_access_key(get_session_researcher())
-
+    # FIXME clean this up.
     # it is a bit obnoxious to get this data, we need to deduplcate it and then turn it back into a list
-    tags_by_study = json.dumps({
+    tags_by_study = {
         study['id']: list(set(
-            [escape(tag) for tag in PipelineUploadTags.objects
-                .filter(pipeline_upload__study__id=study['id']).values_list("tag", flat=True)]
+            PipelineUploadTags.objects.filter(
+                pipeline_upload__study__id=study['id']).values_list("tag", flat=True)
         ))
-        for study in get_researcher_allowed_studies(as_json=False)
-    })
-
-    return render_template("data_pipeline_web_form.html", tags_by_study=tags_by_study)
+        for study in get_researcher_allowed_studies()
+    }
+    return render_template(
+        "data_pipeline_web_form.html",
+        tags_by_study=tags_by_study,
+        downloadable_studies=get_researcher_allowed_studies(),
+    )
 
 
 def warn_researcher_if_hasnt_yet_generated_access_key(researcher):
@@ -54,7 +55,7 @@ def warn_researcher_if_hasnt_yet_generated_access_key(researcher):
 
 def participants_by_study():
     # dict of {study ids : list of user ids}
-    return json.dumps({
-        study.pk: [participant.patient_id for participant in study.participants.all()]
+    return {
+        study.pk: list(study.participants.values_list("patient_id", flat=True))
         for study in get_researcher_allowed_studies_as_query_set()
-    })
+    }

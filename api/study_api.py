@@ -121,7 +121,7 @@ def delete_intervention(study_id=None):
     researcher = get_session_researcher()
     readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
     if readonly:
-        abort(403)
+        return abort(403)
 
     intervention_id = request.values.get('intervention')
     if intervention_id:
@@ -149,7 +149,7 @@ def edit_intervention(study_id=None):
     researcher = get_session_researcher()
     readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
     if readonly:
-        abort(403)
+        return abort(403)
 
     intervention_id = request.values.get('intervention_id', None)
     new_name = request.values.get('edit_intervention', None)
@@ -181,7 +181,7 @@ def study_fields(study_id=None):
         )
 
     if readonly:
-        abort(403)
+        return abort(403)
 
     new_field = request.values.get('new_field', None)
     if new_field:
@@ -200,7 +200,7 @@ def delete_field(study_id=None):
     researcher = get_session_researcher()
     readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
     if readonly:
-        abort(403)
+        return abort(403)
 
     field = request.values.get('field', None)
     if field:
@@ -228,7 +228,7 @@ def edit_custom_field(study_id=None):
     readonly = True if not researcher.check_study_admin(
         study_id) and not researcher.site_admin else False
     if readonly:
-        abort(403)
+        return abort(403)
 
     field_id = request.values.get("field_id")
     new_field_name = request.values.get("edit_custom_field")

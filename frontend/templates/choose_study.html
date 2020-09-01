@@ -2,7 +2,7 @@
 
 {% block head %}
     {{ super() }}
-    <script>filterableObjects = {{ allowed_studies|safe }}</script>
+    <script>filterableObjects = {{ studies|tojson }}</script>
     <script src="/static/javascript/app/survey-builder/controllers/filterable-list-controller.js"></script>
 {% endblock %}
 
@@ -17,6 +17,7 @@
         <br>
 
         <div id="filterableList" ng-controller="FilterableListController">
+
             {# Search/filter input field #}
             <div class="row">
                 <div class="form-group col-sm-4">
@@ -29,6 +30,7 @@
                     <a href="/view_study/{% raw %}{{ study.id }}{% endraw %}" class="list-group-item">{% raw %}{{ study.name }}{% endraw %}</a>
                 </h4>
             </div>
+
         </div>
 
     {# If this admin is not authorized to view any studies, show an error message #}

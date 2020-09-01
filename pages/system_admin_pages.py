@@ -14,7 +14,7 @@ from libs.copy_study import copy_existing_study
 from libs.http_utils import checkbox_to_boolean, string_to_int
 
 system_admin_pages = Blueprint('system_admin_pages', __name__)
-SITE_ADMIN = escape("Site Admin")
+SITE_ADMIN = "Site Admin"
 
 
 @system_admin_pages.context_processor
@@ -126,7 +126,7 @@ def edit_researcher_page(researcher_pk):
         # We need the overlap of the edit_researcher studies with the studies visible to the session
         # admin, and we need those relationships for display purposes on the page.
         edit_study_relationship_map = {
-            study_id: escape(relationship.replace("_", " ").title())
+            study_id: relationship.replace("_", " ").title()
             for study_id, relationship in edit_researcher.study_relations
                 .filter(study__in=visible_studies)
                 .values_list("study_id", "relationship")
@@ -197,7 +197,7 @@ def create_new_researcher():
     password = request.form.get('password', '')
 
     if Researcher.objects.filter(username=username).exists():
-        flash(f"There is already a researcher with username {escape(username)}", 'danger')
+        flash(f"There is already a researcher with username {username}", 'danger')
         return redirect('/create_new_researcher')
     else:
         researcher = Researcher.create_with_password(username, password)
@@ -267,13 +267,13 @@ def create_study():
         if duplicate_existing_study:
             old_study = Study.objects.get(pk=request.form.get('existing_study_id', None))
             copy_existing_study(new_study, old_study)
-        flash(f'Successfully created study {escape(name)}.', 'success')
+        flash(f'Successfully created study {name}.', 'success')
         return redirect('/device_settings/{:d}'.format(new_study.pk))
 
     except ValidationError as ve:
         # display message describing failure based on the validation error (hacky, but works.)
         for field, message in ve.message_dict.items():
-            flash(f'{field}: {escape(message[0])}', 'danger')
+            flash(f'{field}: {message[0]}', 'danger')
         return redirect('/create_study')
 
 

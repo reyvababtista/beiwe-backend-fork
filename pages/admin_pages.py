@@ -1,4 +1,4 @@
-from flask import (abort, Blueprint, escape, flash, Markup, redirect, render_template, request,
+from flask import (abort, Blueprint, flash, Markup, redirect, render_template, request,
     session)
 
 from authentication import admin_authentication
@@ -41,12 +41,6 @@ def choose_study():
     )
 
 
-def participant_tags_safe(p: Participant):
-        return {
-            escape(tag.field.field_name): escape(tag.value) for tag in p.field_values.all()
-        }
-
-
 @admin_pages.route('/view_study/<string:study_id>', methods=['GET'])
 @authenticate_researcher_study_access
 def view_study(study_id=None):
@@ -56,10 +50,8 @@ def view_study(study_id=None):
 
     # creates dicts of Custom Fields and Interventions to be easily accessed in the template
     for p in participants:
-        p.field_dict = participant_tags_safe(p)
-        p.intervention_dict = {
-            escape(tag.intervention.name): tag.date for tag in p.intervention_dates.all()
-        }
+        p.field_dict = participant_tags(p)
+        p.intervention_dict = {tag.intervention.name: tag.date for tag in p.intervention_dates.all()}
 
     return render_template(
         'view_study.html',
@@ -68,8 +60,9 @@ def view_study(study_id=None):
         audio_survey_ids=study.get_survey_ids_and_object_ids('audio_survey'),
         image_survey_ids=study.get_survey_ids_and_object_ids('image_survey'),
         tracking_survey_ids=study.get_survey_ids_and_object_ids('tracking_survey'),
-        study_fields=[escape(f) for f in study.fields.all().values_list('field_name', flat=True)],
-        interventions=[escape(s) for s in study.interventions.all().values_list("name", flat=True)],
+        # these need to be lists because they will be converted to json.
+        study_fields=list(study.fields.all().values_list('field_name', flat=True)),
+        interventions=list(study.interventions.all().values_list("name", flat=True)),
         page_location='study_landing',
         study_id=study_id,
         readonly=not researcher.check_study_admin(study_id) and not researcher.site_admin,
@@ -97,7 +90,7 @@ def patient_fields(study_id, patient_id=None):
     if study.id != study_id:
         return abort(403)
 
-    participant.values_dict = participant_tags_safe(participant)
+    participant.values_dict = participant_tags(participant)
     if request.method == 'GET':
         return render_template(
             'view_patient_custom_field_values.html',
@@ -199,3 +192,7 @@ def reset_download_api_credentials():
         % (access_key, secret_key)
     flash(Markup(msg), 'warning')
     return redirect("/manage_credentials")
+
+
+def participant_tags(p: Participant):
+        return {tag.field.field_name: tag.value for tag in p.field_values.all()}

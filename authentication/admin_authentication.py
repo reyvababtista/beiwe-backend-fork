@@ -2,7 +2,7 @@ import functools
 from datetime import datetime, timedelta
 from typing import Dict, List
 
-from flask import escape, flash, json, redirect, request, session
+from flask import flash, redirect, request, session
 from werkzeug.exceptions import abort
 
 from config.constants import ALL_RESEARCHER_TYPES, ResearcherRole

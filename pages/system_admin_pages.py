@@ -90,7 +90,7 @@ def manage_researchers():
         ).values_list('name', flat=True)
         researcher_list.append((researcher.as_unpacked_native_python(), list(allowed_studies)))
 
-    return render_template('manage_researchers.html', admins=json.dumps(researcher_list))
+    return render_template('manage_researchers.html', admins=researcher_list)
 
 
 @system_admin_pages.route('/edit_researcher/<string:researcher_pk>', methods=['GET', 'POST'])
@@ -212,9 +212,7 @@ def create_new_researcher():
 def manage_studies():
     return render_template(
         'manage_studies.html',
-        studies=json.dumps(
-            [study.as_unpacked_native_python() for study in get_administerable_studies_by_name()]
-        ),
+        studies=[study.as_unpacked_native_python() for study in get_administerable_studies_by_name()]
     )
 
 
@@ -254,7 +252,7 @@ def create_study():
 
     if request.method == 'GET':
         studies = [study.as_unpacked_native_python() for study in Study.get_all_studies_by_name()]
-        return render_template('create_study.html', studies=json.dumps(studies))
+        return render_template('create_study.html', studies=studies)
 
     name = request.form.get('name', '')
     encryption_key = request.form.get('encryption_key', '')

@@ -98,10 +98,6 @@ class UtilityModel(models.Model):
         ret.update(self._related)
         return ret
 
-    @classmethod
-    def query_set_as_unpacked_native_python(cls, query_set, remove_timestamps=True):
-        return [obj.as_unpacked_native_python(remove_timestamps) for obj in query_set]
-
     def as_unpacked_native_python(self, remove_timestamps=True) -> dict:
         """
         Collect all of the fields of the model and return their values in a python dict,

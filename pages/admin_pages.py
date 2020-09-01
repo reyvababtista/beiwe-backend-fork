@@ -32,13 +32,13 @@ def choose_study():
         return redirect('/view_study/{:d}'.format(allowed_studies.values_list('pk', flat=True).get()))
 
     # Otherwise, show the "Choose Study" page
+
     return render_template(
         'choose_study.html',
-        studies=Study.query_set_as_unpacked_native_python(allowed_studies),
+        studies=[obj.as_unpacked_native_python() for obj in allowed_studies],
         allowed_studies=get_researcher_allowed_studies(),
         is_admin=researcher_is_an_admin()
     )
-
 
 
 def participant_tags_safe(p: Participant):

@@ -75,7 +75,7 @@ class Study(TimestampedModel):
         return Researcher.objects.filter(study_relations__study=self)
 
     # We override the as_unpacked_native_python function to not include the encryption key.
-    def as_unpacked_native_python(self, remove_timestamps=True, remove_encryption_key=True):
+    def as_unpacked_native_python(self, remove_timestamps=True):
         ret = super().as_unpacked_native_python(remove_timestamps=remove_timestamps)
         ret.pop("encryption_key")
         return ret

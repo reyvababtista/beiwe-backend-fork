@@ -14,6 +14,10 @@ from config.settings import FLASK_SECRET_KEY
 from config.study_constants import EASY_ALPHANUMERIC_CHARS
 
 
+# seed the random number subsystem with some good entropy.
+random.seed(urandom(256))
+
+
 class DatabaseIsDownError(Exception): pass
 class PaddingException(Exception): pass
 

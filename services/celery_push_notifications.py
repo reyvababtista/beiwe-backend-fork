@@ -1,7 +1,9 @@
 from os.path import abspath
+import random
 from sys import path
 
 # add the root of the project into the path to allow cd-ing into this folder and running the script.
+from config.study_constants import OBJECT_ID_ALLOWED_CHARS
 from libs.sentry import make_error_sentry
 
 path.insert(0, abspath(__file__).rsplit('/', 2)[0])
@@ -82,7 +84,7 @@ def create_push_notification_tasks():
 
 @push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
 def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]):
-    ''' Celery task that sends push notifications. '''
+    ''' Celery task that sends push notifications.   Note that this list of pks may contain duplicates.'''
     success = False
     patient_id = ParticipantFCMHistory.objects.filter(token=fcm_token).values_list("participant__patient_id", flat=True).get()
 
@@ -102,8 +104,9 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
             response = send(Message(
                 data={
                     'type': 'survey',
-                    'survey_ids': json.dumps(survey_obj_ids),
+                    'survey_ids': json.dumps(list(set(schedule_pks))),  # Dedupe.
                     'sent_time': reference_schedule.scheduled_time.strftime(API_TIME_FORMAT),
+                    'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32))
                 },
                 token=fcm_token,
             ))

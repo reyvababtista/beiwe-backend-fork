@@ -16,8 +16,9 @@ from typing import List
 import pytz
 from django.utils import timezone
 from django.utils.timezone import make_aware
-from firebase_admin.messaging import (Message, QuotaExceededError, send, ThirdPartyAuthError,
-    UnregisteredError)
+from firebase_admin.messaging import (Message, Notification, QuotaExceededError, send,
+                                      ThirdPartyAuthError,
+                                      UnregisteredError)
 from kombu.exceptions import OperationalError
 
 from config.constants import API_TIME_FORMAT, PUSH_NOTIFICATION_SEND_QUEUE, ScheduleTypes
@@ -25,6 +26,7 @@ from database.schedule_models import ScheduledEvent
 from database.user_models import ParticipantFCMHistory
 from libs.celery_control import push_send_celery_app
 from libs.push_notifications import (firebase_app, FirebaseNotCredentialed, set_next_weekly)
+
 
 ################################################################################
 ############################# Data Processing ##################################
@@ -71,7 +73,8 @@ def create_push_notification_tasks():
         # surveys and schedules are guaranteed to have the same keys, assembling the data structures
         # is a pain, so it is factored out. sorry, but not sorry. it was a mess.
         for fcm_token in surveys.keys():
-            print(f"Queueing up push notification for user {patient_ids[fcm_token]} for {surveys[fcm_token]}")
+            print(
+                f"Queueing up push notification for user {patient_ids[fcm_token]} for {surveys[fcm_token]}")
             safe_queue_push(
                 args=[fcm_token, surveys[fcm_token], schedules[fcm_token]],
                 max_retries=0,
@@ -83,10 +86,12 @@ def create_push_notification_tasks():
 
 
 @push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
-def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]):
+def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str],
+                                  schedule_pks: List[int]):
     ''' Celery task that sends push notifications.   Note that this list of pks may contain duplicates.'''
     success = False
-    patient_id = ParticipantFCMHistory.objects.filter(token=fcm_token).values_list("participant__patient_id", flat=True).get()
+    patient_id = ParticipantFCMHistory.objects.filter(token=fcm_token).values_list(
+        "participant__patient_id", flat=True).get()
 
     with make_error_sentry("data"):
         if not firebase_app:
@@ -97,6 +102,7 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
         # use the earliest timed schedule as our reference for the sent_time parameter.  (why?)
         schedules = ScheduledEvent.objects.filter(pk__in=schedule_pks)
         reference_schedule = schedules.order_by("scheduled_time").first()
+        survey_obj_ids = list(set(survey_obj_ids))
 
         try:
             # There is debugging code that looks for this variable, don't delete it...
@@ -108,8 +114,25 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
                     'sent_time': reference_schedule.scheduled_time.strftime(API_TIME_FORMAT),
                     'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32))
                 },
+                notification=Notification(
+                    title="Beiwe",
+                    body=
+                    "You have a survey to take." if len(survey_obj_ids) == 1 else
+                    "You have surveys to take.",
+                ),
                 token=fcm_token,
             ))
+            #
+            # response = send(Message(
+            #     # data={
+            #     #     'type': 'survey',
+            #     #     'survey_ids': json.dumps(list(set(survey_obj_ids))),  # Dedupe.
+            #     #     'sent_time': reference_schedule.scheduled_time.strftime(API_TIME_FORMAT),
+            #     #     'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32))
+            #     # },
+            #     token=fcm_token,
+            # ))
+
             success = True
         except UnregisteredError:
             # mark the fcm history as out of date.
@@ -174,3 +197,4 @@ def safe_queue_push(*args, **kwargs):
 # Running this file will enqueue users
 if __name__ == "__main__":
     create_push_notification_tasks()
+

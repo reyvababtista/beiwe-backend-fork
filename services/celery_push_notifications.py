@@ -104,7 +104,7 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
             response = send(Message(
                 data={
                     'type': 'survey',
-                    'survey_ids': json.dumps(list(set(schedule_pks))),  # Dedupe.
+                    'survey_ids': json.dumps(list(set(survey_obj_ids))),  # Dedupe.
                     'sent_time': reference_schedule.scheduled_time.strftime(API_TIME_FORMAT),
                     'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32))
                 },

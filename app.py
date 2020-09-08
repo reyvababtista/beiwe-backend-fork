@@ -11,7 +11,7 @@ from api import (admin_api, copy_study_api, dashboard_api, data_access_api, data
 from authentication.admin_authentication import is_logged_in
 from config.settings import SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN
 from libs.security import set_secret_key
-from pages import (admin_pages, data_access_web_form, mobile_pages, survey_designer,
+from pages import (admin_pages, data_access_web_form, login_pages, mobile_pages, survey_designer,
     system_admin_pages)
 
 # Flask App
@@ -23,6 +23,7 @@ set_secret_key(app)
 app.wsgi_app = ProxyFix(app.wsgi_app)
 
 # Flask Blueprints
+app.register_blueprint(login_pages.login_pages)
 app.register_blueprint(mobile_api.mobile_api)
 app.register_blueprint(admin_pages.admin_pages)
 app.register_blueprint(mobile_pages.mobile_pages)

@@ -51,23 +51,25 @@
 
   <form action="/view_study/{{ study.id }}/edit_participant/{{ participant.id }}" class="form-horizontal" method="POST">
 
-    <h3>Interventions</h3>
-    {% if study.interventions.count() > 0 %}
-      {% for intervention_id, intervention_name, intervention_date in intervention_data %}
-        <div class="form-group">
-          <label class="control-label col-sm-2" for="intervention{{ intervention_id }}" > {{ intervention_name }}</label>
-            <div class="col-sm-2">
-            {% if intervention_date %}
-              <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}" class="form-control" type="date"
-                     value="{{ intervention_date }}">
-            {% else %}
-              <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}" class="form-control" type="date">
-            {% endif %}
+    {% if push_notifications_enabled %}
+      <h3>Interventions</h3>
+      {% if study.interventions.count() > 0 %}
+        {% for intervention_id, intervention_name, intervention_date in intervention_data %}
+          <div class="form-group">
+            <label class="control-label col-sm-2" for="intervention{{ intervention_id }}" > {{ intervention_name }}</label>
+              <div class="col-sm-2">
+              {% if intervention_date %}
+                <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}" class="form-control" type="date"
+                       value="{{ intervention_date }}">
+              {% else %}
+                <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}" class="form-control" type="date">
+              {% endif %}
+            </div>
           </div>
-        </div>
-      {%  endfor %}
-    {% else %}
-      <p><b>This study does not have any Interventions.</b></p>
+        {%  endfor %}
+      {% else %}
+        <p><b>This study does not have any Interventions.</b></p>
+      {% endif %}
     {% endif %}
 
     <br>

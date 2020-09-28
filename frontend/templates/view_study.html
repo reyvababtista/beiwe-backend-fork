@@ -31,9 +31,11 @@
           <th>Patient ID</th>
           <th>Phone registered</th>
           <th>Phone OS</th>
-          {% for intervention in interventions | sort(case_sensitive=Flase) %}
-            <th>{{ intervention }}</th>
-          {% endfor %}
+          {% if push_notifications_enabled %}
+            {% for intervention in interventions | sort(case_sensitive=Flase) %}
+              <th>{{ intervention }}</th>
+            {% endfor %}
+          {% endif %}
           {% for field in study_fields | sort(case_sensitive=False) %}
             <th>{{ field }}</th>
           {% endfor %}
@@ -44,7 +46,7 @@
         {% for participant in participants %}
           <tr>
             <td>
-              {% if readonly or not push_notifications_enabled %}
+              {% if readonly %}
                 {{ participant.patient_id }}
               {% else %}
                 <b><a href="/view_study/{{ study.id }}/edit_participant/{{ participant.id }}">{{ participant.patient_id }}</a></b>
@@ -66,9 +68,11 @@
                 <i>unknown</i>
               {% endif %}
             </td>
-            {% for intervention in interventions | sort(case_sensitive=Flase) %}
-              <th>{{ participant.intervention_dict[intervention]  or "" }}</th>
-            {% endfor %}
+            {% if push_notifications_enabled %}
+              {% for intervention in interventions | sort(case_sensitive=Flase) %}
+                <th>{{ participant.intervention_dict[intervention]  or "" }}</th>
+              {% endfor %}
+            {% endif %}
             {% for field in study_fields | sort(case_sensitive=False) %}
               <td>{{ participant.field_dict[field] or "" }}</td>
             {% endfor %}
@@ -140,10 +144,12 @@
         <a href="/create_survey/{{ study.id }}/image_survey" class="btn btn-info">Create new <b>image survey</b></a>
       </div>
 
-      <div class="row">
-        <h3>Interventions</h3>
-        <p><a href="/interventions/{{ study.id }}">View the Interventions for this study</a></p>
-      </div>
+      {% if push_notifications_enabled %}
+        <div class="row">
+          <h3>Interventions</h3>
+          <p><a href="/interventions/{{ study.id }}">View the Interventions for this study</a></p>
+        </div>
+      {% endif %}
 
       <div class="row">
         <h3>App settings</h3>

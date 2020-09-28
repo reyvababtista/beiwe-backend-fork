@@ -2,7 +2,7 @@ from flask import abort, Blueprint, render_template
 
 from authentication.admin_authentication import (authenticate_researcher_study_access,
     get_researcher_allowed_studies, researcher_is_an_admin)
-from config.settings import DOMAIN_NAME
+from config.settings import DOMAIN_NAME, PUSH_NOTIFICATIONS_ENABLED
 from database.survey_models import Survey
 
 survey_designer = Blueprint('survey_designer', __name__)
@@ -32,4 +32,5 @@ def render_edit_survey(survey_id=None):
         weekly_timings=survey.weekly_timings(),
         relative_timings=survey.relative_timings(),
         absolute_timings=survey.absolute_timings(),
+        push_notifications_enabled=PUSH_NOTIFICATIONS_ENABLED,
     )

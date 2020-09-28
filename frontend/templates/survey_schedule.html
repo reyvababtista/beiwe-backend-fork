@@ -14,8 +14,10 @@
 
   <ul class="nav nav-tabs" id="schedule-picker">
     <li id="weekly-tab" class="active"><a data-toggle="tab" href="#weekly">Weekly <span class="badge">{{ study.surveys.get(id=survey.id).weekly_schedules.count() }}</span></a></li>
-    <li id="relative-tab"><a data-toggle="tab" href="#relative">Relative <span class="badge">{{ study.surveys.get(id=survey.id).relative_schedules.count() }}</span></a></li>
-    <li id="absolute-tab"><a data-toggle="tab" href="#absolute">Absolute <span class="badge">{{ study.surveys.get(id=survey.id).absolute_schedules.count() }}</span></a></li>
+    {% if push_notifications_enabled %}
+      <li id="relative-tab"><a data-toggle="tab" href="#relative">Relative <span class="badge">{{ study.surveys.get(id=survey.id).relative_schedules.count() }}</span></a></li>
+      <li id="absolute-tab"><a data-toggle="tab" href="#absolute">Absolute <span class="badge">{{ study.surveys.get(id=survey.id).absolute_schedules.count() }}</span></a></li>
+    {% endif %}
   </ul>
   <br>
 

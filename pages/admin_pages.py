@@ -6,6 +6,7 @@ from authentication.admin_authentication import (authenticate_researcher_login,
     authenticate_researcher_study_access, get_researcher_allowed_studies,
     get_researcher_allowed_studies_as_query_set, get_session_researcher, researcher_is_an_admin,
     SESSION_NAME)
+from config.settings import PUSH_NOTIFICATIONS_ENABLED
 from database.study_models import Study, StudyField
 from database.user_models import Participant, ParticipantFieldValue, Researcher
 from libs.security import check_password_requirements
@@ -66,6 +67,7 @@ def view_study(study_id=None):
         page_location='study_landing',
         study_id=study_id,
         readonly=not researcher.check_study_admin(study_id) and not researcher.site_admin,
+        push_notifications_enabled=PUSH_NOTIFICATIONS_ENABLED,
     )
 
 

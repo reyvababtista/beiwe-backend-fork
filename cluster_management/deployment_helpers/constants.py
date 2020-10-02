@@ -119,7 +119,6 @@ DEPLOYMENT_SPECIFIC_CONFIG_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'enviro
 GENERAL_CONFIG_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'general_configuration')
 STAGED_FILES = path_join(CLUSTER_MANAGEMENT_FOLDER, 'staged_files')
 RABBIT_MQ_PASSWORD_FILE_NAME = "rabbit_mq_password.txt"
-FIREBASE_CREDENTIALS_FILE_NAME = "firebase_credentials.json"
 
 ## Global EC2 Instance __remote__ folder paths
 REMOTE_HOME_DIR = path_join('/home', REMOTE_USERNAME)
@@ -190,7 +189,7 @@ LOCAL_RABBIT_MQ_CONFIG_FILE_PATH = path_join(PUSHED_FILES_FOLDER, 'rabbitmq_conf
 REMOTE_RABBIT_MQ_CONFIG_FILE_PATH = path_join(REMOTE_HOME_DIR, 'rabbitmq_configuration.txt')
 REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH = path_join('/etc/rabbitmq/rabbitmq-env.conf')
 REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH = path_join(REMOTE_PROJECT_DIR, "manager_ip")
-REMOTE_FIREBASE_CREDENTIALS_FILE_PATH = path_join(REMOTE_PROJECT_DIR, "firebase_cloud_messaging_credentials.json")
+
 
 ####################################################################################################
 ####################################### Dynamic Files ##############################################
@@ -225,12 +224,6 @@ def get_beiwe_python_environment_variables_file_path(eb_environment_name):
 def get_rabbit_mq_manager_ip_file_path(eb_environment_name):
     return path_join(
         DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_" + RABBIT_MQ_PASSWORD_FILE_NAME
-    )
-
-
-def get_firebase_credentials_file_path(eb_environment_name):
-    return path_join(
-        DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_" + FIREBASE_CREDENTIALS_FILE_NAME
     )
 
 
@@ -356,10 +349,6 @@ TERMINATE_PROCESSING_SERVERS_HELP = "Terminates all manager and data processing 
 
 GET_MANAGER_IP_ADDRESS_HELP = "Prints the public IP address of the manager server for the cluster."
 GET_WORKER_IP_ADDRESS_HELP = "Prints the public IP addresses of the worker servers for the cluster."
-
-
-CHECK_FIREBASE_CREDS_PROMPT = "You have not provided a credentials file at '{file_path}'"
-CHECK_FIREBASE_CREDS_PROMPT2 = "Would you like to exit and retry with credentials? Y/N: "
 
 ####################################################################################################
 ########################################## Other ###################################################

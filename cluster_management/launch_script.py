@@ -14,7 +14,7 @@ import os
 import re
 import sys
 from os import environ
-from os.path import exists as file_exists, join as path_join, relpath
+from os.path import join as path_join, relpath
 from time import sleep
 
 from fabric.api import env as fabric_env, put, run, sudo
@@ -32,22 +32,21 @@ from deployment_helpers.configuration_utils import (are_aws_credentials_present,
     is_global_configuration_valid, reference_data_processing_server_configuration,
     reference_environment_configuration_file, validate_beiwe_environment_config)
 from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS,
-    APT_WORKER_INSTALLS, CHECK_FIREBASE_CREDS_PROMPT, CHECK_FIREBASE_CREDS_PROMPT2,
-    CREATE_ENVIRONMENT_HELP, CREATE_MANAGER_HELP, CREATE_WORKER_HELP,
+    APT_WORKER_INSTALLS, CREATE_ENVIRONMENT_HELP, CREATE_MANAGER_HELP, CREATE_WORKER_HELP,
     DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH, DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, DEV_HELP,
     DEV_MODE, DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN, ENVIRONMENT_NAME_RESTRICTIONS,
     EXTANT_ENVIRONMENT_PROMPT, FILES_TO_PUSH, FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP,
     get_beiwe_python_environment_variables_file_path, get_finalized_environment_variables,
-    get_firebase_credentials_file_path, get_global_config, GET_MANAGER_IP_ADDRESS_HELP,
-    get_pushed_full_processing_server_env_file_path, get_server_configuration_file,
-    get_server_configuration_file_path, GET_WORKER_IP_ADDRESS_HELP, HELP_SETUP_NEW_ENVIRONMENT,
-    HELP_SETUP_NEW_ENVIRONMENT_HELP, LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH,
-    LOCAL_CRONJOB_MANAGER_FILE_PATH, LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH,
-    LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH,
-    LOG_FILE, MANAGER_SERVER_INSTANCE_TYPE, PROD_HELP, PROD_MODE, PURGE_COMMAND_BLURB,
+    get_global_config, GET_MANAGER_IP_ADDRESS_HELP, get_pushed_full_processing_server_env_file_path,
+    get_server_configuration_file, get_server_configuration_file_path, GET_WORKER_IP_ADDRESS_HELP,
+    HELP_SETUP_NEW_ENVIRONMENT, HELP_SETUP_NEW_ENVIRONMENT_HELP, LOCAL_AMI_ENV_CONFIG_FILE_PATH,
+    LOCAL_APACHE_CONFIG_FILE_PATH, LOCAL_CRONJOB_MANAGER_FILE_PATH,
+    LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH, LOCAL_CRONJOB_WORKER_FILE_PATH,
+    LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, LOG_FILE,
+    MANAGER_SERVER_INSTANCE_TYPE, PROD_HELP, PROD_MODE, PURGE_COMMAND_BLURB,
     PURGE_INSTANCE_PROFILES_HELP, PUSHED_FILES_FOLDER, RABBIT_MQ_PORT,
-    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH,
-    REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
+    REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH, REMOTE_HOME_DIR,
+    REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
     REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH, REMOTE_USERNAME,
     STAGED_FILES, TERMINATE_PROCESSING_SERVERS_HELP, WORKER_SERVER_INSTANCE_TYPE)
 from deployment_helpers.general_utils import current_time_string, do_zip_reduction, EXIT, log, retry
@@ -200,24 +199,6 @@ def setup_rabbitmq(eb_environment_name):
     sudo('rabbitmqctl set_permissions -p / beiwe ".*" ".*" ".*"')
 
 
-def push_firebase_credentials(eb_environment_name):
-    # firebase_creds_path = get_firebase_credentials_file_path(eb_environment_name)
-    file_path = get_firebase_credentials_file_path(eb_environment_name)
-    exists = file_exists(file_path)
-
-    if not exists:
-        log.warning(CHECK_FIREBASE_CREDS_PROMPT.format(file_path=file_path))
-        while True:
-            response = input(CHECK_FIREBASE_CREDS_PROMPT2).lower()
-            if response == "y":
-                exit(0)
-            elif response == "n":
-                break
-
-    if exists:
-        put(file_path, REMOTE_FIREBASE_CREDENTIALS_FILE_PATH)
-
-
 def apt_installs(manager=False, single_server_ami=False):
 
     if manager:
@@ -320,15 +301,6 @@ def do_fail_if_bad_environment_name(name):
         log.error("that is not a valid Elastic Beanstalk environment name.")
         EXIT(1)
 
-
-def do_fail_if_bad_firebase_creds(name):
-    file_path = get_firebase_credentials_file_path(name)
-    exists = file_exists(file_path)
-
-    if not exists:
-        log.error(CHECK_FIREBASE_CREDS_PROMPT.format(file_path=file_path))
-        log.warning("You can view documentation for firebase at https://github.com/onnela-lab/beiwe-backend/wiki/Firebase-Configuration")
-        EXIT(1)
 
 def prompt_for_new_eb_environment_name(with_prompt=True):
     if with_prompt:
@@ -436,7 +408,6 @@ def do_help_setup_new_environment():
 def do_create_manager():
     name = prompt_for_extant_eb_environment_name()
     do_fail_if_environment_does_not_exist(name)
-    do_fail_if_bad_firebase_creds(name)
     create_processing_server_configuration_file(name)
     
     try:
@@ -465,7 +436,6 @@ def do_create_manager():
     setup_python()
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
-    push_firebase_credentials(name)
     setup_manager_cron()
     setup_celery_worker()  # run setup worker last.
     manager_fix()
@@ -475,7 +445,6 @@ def do_create_manager():
 def do_create_worker():
     name = prompt_for_extant_eb_environment_name()
     do_fail_if_environment_does_not_exist(name)
-    do_fail_if_bad_firebase_creds(name)
     manager_instance = get_manager_instance_by_eb_environment_name(name)
     if manager_instance is None:
         log.error(
@@ -507,7 +476,6 @@ def do_create_worker():
     setup_python()
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
-    push_firebase_credentials(name)
     setup_worker_cron()
     setup_celery_worker()  # run setup worker last.
     log.warning("Server is almost up.  Waiting 20 seconds to avoid a race condition...")

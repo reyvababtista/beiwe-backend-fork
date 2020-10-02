@@ -5,14 +5,15 @@ import pytz
 from django.utils.timezone import is_aware, is_naive, make_aware
 from firebase_admin import credentials, initialize_app as initialize_firebase_app
 
-from config.constants import FIREBASE_CREDENTIAL_LOCATION
+from config.settings import PUSH_NOTIFICATIONS_ENABLED
 from database.schedule_models import AbsoluteSchedule, ArchivedEvent, ScheduledEvent, WeeklySchedule
 from database.survey_models import Survey
 from database.user_models import Participant
 
 # setup firebase
-if exists(FIREBASE_CREDENTIAL_LOCATION):
-    firebase_app = initialize_firebase_app(credentials.Certificate(FIREBASE_CREDENTIAL_LOCATION))
+if PUSH_NOTIFICATIONS_ENABLED:
+    # todo: new push notification credential details and populate arguments to certificate
+    firebase_app = initialize_firebase_app(credentials.Certificate(None))
 else:
     firebase_app = None
 

@@ -357,5 +357,4 @@ class ScheduleTypes(object):
 
 
 # Push notification constants
-FIREBASE_CREDENTIAL_LOCATION = path_join(PROJECT_ROOT, "firebase_cloud_messaging_credentials.json")
 CELERY_CONFIG_LOCATION = path_join(PROJECT_ROOT, "manager_ip")

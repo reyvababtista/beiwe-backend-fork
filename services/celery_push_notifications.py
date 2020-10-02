@@ -1,5 +1,5 @@
-from os.path import abspath
 import random
+from os.path import abspath
 from sys import path
 
 # add the root of the project into the path to allow cd-ing into this folder and running the script.
@@ -17,8 +17,7 @@ import pytz
 from django.utils import timezone
 from django.utils.timezone import make_aware
 from firebase_admin.messaging import (Message, Notification, QuotaExceededError, send,
-                                      ThirdPartyAuthError,
-                                      UnregisteredError)
+    ThirdPartyAuthError, UnregisteredError)
 from kombu.exceptions import OperationalError
 
 from config.constants import API_TIME_FORMAT, PUSH_NOTIFICATION_SEND_QUEUE, ScheduleTypes
@@ -28,8 +27,8 @@ from libs.celery_control import push_send_celery_app
 from libs.push_notifications import (firebase_app, FirebaseNotCredentialed, set_next_weekly)
 
 
-################################################################################
-############################# Data Processing ##################################
+################################################################E###############
+############################# PUSH NOTIFICATIONS ###############################
 ################################################################################
 
 def get_surveys_and_schedules(now):

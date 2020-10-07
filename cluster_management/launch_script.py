@@ -138,7 +138,7 @@ def load_git_repo():
 def setup_python():
     """ Installs requirements. """
     # sudo required because we are using the
-    run("pip3 install pip setuptools")
+    sudo("python3 -m pip install --upgrade pip==20.2.3 setuptools==50.3.0")
     run('python3 -m pip install --user -r {home}/beiwe-backend/requirements.txt >> {log}'.
          format(home=REMOTE_HOME_DIR, log=LOG_FILE))
     run('python3 -m pip install --user -r {home}/beiwe-backend/requirements_data_processing.txt >> {log}'.
@@ -166,7 +166,7 @@ def manager_fix():
     try_sudo("shutdown -r now")
     log.warning("rebooting server to avoid a race condition...")
     sleep(5)
-    retry(run, "# waiting server to reboot, this will take a while.")
+    retry(run, "# waiting for server to reboot, this will take a while.")
 
     # we need to re-enable the swap after the reboot, then we can finally start supervisor without
     # creating zombie celery threads.

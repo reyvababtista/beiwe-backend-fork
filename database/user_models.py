@@ -40,6 +40,8 @@ class AbstractPasswordUser(TimestampedModel):
         # march 2020: this started failing when running postgres in a local environment.  There
         # appears to be some extra type conversion going on, characters are getting expanded when
         # passed in as bytes, causing failures in passing length validation.
+        # -- this was caused by the new django behavior that casts bytestrings to their string
+        #    representation silently.  Fix is to insert decode statements
         self.password = password_hash.decode()
         self.salt = salt.decode()
         self.save()
@@ -120,17 +122,17 @@ class Participant(AbstractPasswordUser):
 
         return patient_id, password
 
-    def generate_hash_and_salt(self, password):
+    def generate_hash_and_salt(self, password: bytes):
         return generate_user_hash_and_salt(password)
 
-    def debug_validate_password(self, compare_me):
+    def debug_validate_password(self, compare_me: str):
         """
         Checks if the input matches the instance's password hash, but does the hashing for you
         for use on the command line. This is necessary for manually checking that setting and
         validating passwords work.
         """
-        compare_me = device_hash(compare_me)
-        return compare_password(compare_me, self.salt, self.password)
+        compare_me = device_hash(compare_me.encode())
+        return compare_password(compare_me, self.salt.encode(), self.password.encode())
 
     def assign_fcm_token(self, fcm_instance_id: str):
         ParticipantFCMHistory.objects.create(participant=self, token=fcm_instance_id)

@@ -32,7 +32,7 @@ def create_file_processing_tasks():
 
     # set the tasks to expire at the 5 minutes and thirty seconds mark after the most recent
     # 6 minutely cron task. This way all tasks will be revoked at the same, and well-known, instant.
-    expiry = (datetime.now() + timedelta(minutes=5)).replace(second=30, microsecond=0)
+    expiry = (datetime.utcnow() + timedelta(minutes=5)).replace(second=30, microsecond=0)
 
     with make_error_sentry('data'):
         participant_set = set(

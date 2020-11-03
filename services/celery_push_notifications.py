@@ -1,12 +1,12 @@
 import random
 from os.path import abspath
 from sys import path
+path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
 # add the root of the project into the path to allow cd-ing into this folder and running the script.
 from config.study_constants import OBJECT_ID_ALLOWED_CHARS
 from libs.sentry import make_error_sentry
 
-path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
 import json
 from collections import defaultdict
@@ -62,7 +62,7 @@ def get_surveys_and_schedules(now):
 
 def create_push_notification_tasks():
     # we reuse the high level strategy from data processing celery tasks, see that documentation.
-    expiry = (datetime.now() + timedelta(minutes=5)).replace(second=30, microsecond=0)
+    expiry = (datetime.utcnow() + timedelta(minutes=5)).replace(second=30, microsecond=0)
     now = make_aware(datetime.utcnow(), timezone=pytz.utc)
     surveys, schedules, patient_ids = get_surveys_and_schedules(now)
     with make_error_sentry('data'):

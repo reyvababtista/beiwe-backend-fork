@@ -2,7 +2,7 @@ from flask import Blueprint, flash, Markup, render_template
 
 from authentication.admin_authentication import (authenticate_researcher_login,
     get_researcher_allowed_studies, get_researcher_allowed_studies_as_query_set,
-    get_session_researcher)
+    get_session_researcher, researcher_is_an_admin)
 from config.constants import ALL_DATA_STREAMS
 from database.data_access_models import PipelineUploadTags
 
@@ -15,6 +15,7 @@ def inject_html_params():
     return {
         "allowed_studies": get_researcher_allowed_studies(),
         "users_by_study": participants_by_study(),
+        "is_admin":researcher_is_an_admin()
     }
 
 

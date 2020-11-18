@@ -53,3 +53,36 @@ considered invalid  Additional documentation can be found in config/setting.pys.
     S3_ACCESS_CREDENTIALS_USER - the user id for s3 access for your deployment
     S3_ACCESS_CREDENTIALS_KEY - the secret key for s3 access for your deployment
 ```
+
+***
+
+# Development setup
+How to set up beiwe-backend running on a development machine (NOT a production instance!  For a production instance,
+see https://github.com/onnela-lab/beiwe-backend/wiki/Deployment-Instructions---Scalable-Deployment)
+
+1. `sudo apt-get update;sudo apt-get install postgresql python-psycopg2 libpq-dev`
+2. `pip install -r requirements.txt`
+3. Create a file for your environment variables that contains at least these:
+    ```
+    export DOMAIN_NAME="localhost://8080"
+    export FLASK_SECRET_KEY="asdf"
+    export S3_BUCKET="a"
+    export SYSADMIN_EMAILS="sysadmin@localhst"
+    ```
+    I usually store it at `private/environment.sh`.  Load up these environment variables by running `source private/environment.sh` at the Bash prompt.
+
+### Local Celery setup
+1. Install RabbitMQ (https://docs.celeryproject.org/en/latest/getting-started/brokers/rabbitmq.html#broker-rabbitmq)
+    1. Edit `/etc/rabbitmq/rabbitmq-env.conf` and add the line `NODE_PORT=50000`
+    2. Restart RabbitMQ like this in the Bash shell: `time sudo service rabbitmq-server restart` (`time` isn't necessary, but it tells you how long the command took to execute)
+2. `pip install -r requirements_data_processing.txt` (this will install Celery using Pip)
+3. Create a file called `manager_ip` in the top level of this `beiwe-backend` repo, and enter two lines in it:
+    ```
+    127.0.0.1:50000
+    [PASSWORD]
+    ```
+    Where the password is the one you set when setting up RabbitMQ
+4. `sudo rabbitmqctl set_permissions -p / beiwe ".*" ".*" ".*"`
+5. Set the filename of your Firebase credentials JSON file in `libs/push_notifications.py` line 16 (this is a temporary solution)
+6. Run celery: `celery -A services.celery_push_notifications worker -Q push_notifications --loglevel=info -Ofair --hostname=%%h_notifications --concurrency=20 --pool=threads`
+7. Run `python services/cron.py five_minutes`

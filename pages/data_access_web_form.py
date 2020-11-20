@@ -57,6 +57,6 @@ def warn_researcher_if_hasnt_yet_generated_access_key(researcher):
 def participants_by_study():
     # dict of {study ids : list of user ids}
     return {
-        study.pk: list(study.participants.values_list("patient_id", flat=True))
+        study.pk: list(study.participants.order_by("patient_id").values_list("patient_id", flat=True))
         for study in get_researcher_allowed_studies_as_query_set()
     }

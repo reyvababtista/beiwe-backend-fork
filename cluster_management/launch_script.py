@@ -114,9 +114,9 @@ def push_manager_private_ip_and_password(eb_environment_name):
     
 def push_home_directory_files():
     for local_relative_file, remote_relative_file in FILES_TO_PUSH:
-        local_file = path_join(PUSHED_FILES_FOLDER, local_relative_file)
-        remote_file = path_join(REMOTE_HOME_DIR, remote_relative_file)
-        put(local_file, remote_file)
+        local_file_path = path_join(PUSHED_FILES_FOLDER, local_relative_file)
+        remote_file_path = path_join(REMOTE_HOME_DIR, remote_relative_file)
+        put(local_file_path, remote_file_path)
 
 
 def load_git_repo():

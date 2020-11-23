@@ -15,7 +15,7 @@ def inject_html_params():
     return {
         "allowed_studies": get_researcher_allowed_studies(),
         "users_by_study": participants_by_study(),
-        "is_admin":researcher_is_an_admin()
+        "is_admin": researcher_is_an_admin()
     }
 
 

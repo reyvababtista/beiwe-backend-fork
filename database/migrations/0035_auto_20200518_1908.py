@@ -2,6 +2,15 @@
 
 from django.db import migrations
 
+from database.survey_models import Survey
+
+
+def backfill_missing_survey_archives(*args, **kwargs):
+    """ We need to fill SurveyArchive objects for all surveys predating its existence. """
+    for survey in Survey.objects.filter(archives__isnull=True):
+        # SurveyArchives are created and tested in the save trigger.
+        survey.save()
+
 
 class Migration(migrations.Migration):
 
@@ -18,4 +27,5 @@ class Migration(migrations.Migration):
             model_name='surveyarchive',
             name='study',
         ),
+        migrations.RunPython(backfill_missing_survey_archives, reverse_code=migrations.RunPython.noop),
     ]

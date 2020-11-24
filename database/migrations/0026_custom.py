@@ -11,15 +11,27 @@ SELECT "id", "database_survey"."timings" FROM "database_survey"
 def initial_weekly_schedules(*args, **kwargs):
     # We are removing the timings column field and django doesn't like having the attribute accessed
     # without a custom query.
-
-    # Just to be safe we will not use the survey object returned (not worth possible bugs), and
-    # in order to avoid a database call for every survey we will grab them all and store them by id.
-    surveys_by_id = {s.id: s for s in Survey.objects.all()}
-
+    # we then create weekly schedules, copying the content of the create_weekly_schedules function.
+    #  (We can't safely call the methon in a migration.)
     for survey in Survey.objects.raw(SQL_GET_TIMINGS):
-        WeeklySchedule.create_weekly_schedules_from_json(
-            survey.timings, surveys_by_id[survey.id]
-        )
+        
+        if not survey.timings:
+            continue
+
+        if not len(survey.timings) == 7:
+            # bad source data, shouldn't exist, survey is corrupted. Ignore
+            continue
+
+        survey.weekly_schedules.all().delete()
+
+        for day in range(7):
+            for seconds in survey.timings[day]:
+                hour = seconds // 3600
+                minute = seconds % 3600 // 60
+                # using get_or_create to catch duplicate schedules
+                WeeklySchedule.objects.create(
+                    survey=survey, day_of_week=day, hour=hour, minute=minute
+                )
 
 
 class Migration(migrations.Migration):

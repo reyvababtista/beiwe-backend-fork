@@ -90,10 +90,6 @@ class WeeklySchedule(TimestampedModel):
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
 
     @staticmethod
-    def create_weekly_schedules_from_json(timings: str, survey: Survey) -> None:
-        WeeklySchedule.create_weekly_schedules(json.loads(timings), survey)
-
-    @staticmethod
     def create_weekly_schedules(timings: List[List[int]], survey: Survey) -> bool:
         """ Creates new WeeklySchedule objects from a frontend-style list of seconds into the day. """
         if not timings:

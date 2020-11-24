@@ -155,7 +155,9 @@ def _get_job_ids(celery_query_dict, celery_app_suffix):
 
     all_args = []
     for job_arg in [job['args'] for job in all_processing_jobs]:
-        args = json.loads(job_arg)
+        # 2020-11-24:: this job_arg value has started to return a list object, not a json string
+        #  ... but only on one of 3 newly updated servers. ...  Buh?
+        args = job_arg if isinstance(job_arg, list) else json.loads(job_arg)
         # safety/sanity check, assert that there is only 1 integer id in a list and that it is a list.
         assert isinstance(args, list)
         assert len(args) == 1

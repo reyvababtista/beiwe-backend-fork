@@ -1,32 +1,33 @@
 import codecs
 import gc
-import sys
-import traceback
 from collections import defaultdict, deque
 from datetime import datetime
 from multiprocessing.pool import ThreadPool
-from typing import DefaultDict, Generator, List, Tuple
+from typing import DefaultDict
 
 from botocore.exceptions import ReadTimeoutError
 from cronutils.error_handler import ErrorHandler
 from django.core.exceptions import ValidationError
 
-from config.constants import (ACCELEROMETER, ANDROID_LOG_FILE, API_TIME_FORMAT, CALL_LOG,
-    CHUNK_TIMESLICE_QUANTUM, CHUNKABLE_FILES, CHUNKS_FOLDER,
-    DATA_PROCESSING_NO_ERROR_STRING, IDENTIFIERS, IOS_LOG_FILE,
-    SURVEY_DATA_FILES, SURVEY_TIMINGS, UPLOAD_FILE_TYPE_MAPPING, WIFI)
+from config.constants import (ACCELEROMETER, ANDROID_LOG_FILE, CALL_LOG,
+    CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER, DATA_PROCESSING_NO_ERROR_STRING,
+    IDENTIFIERS, SURVEY_DATA_FILES, SURVEY_TIMINGS, WIFI)
 from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
 from database.data_access_models import ChunkRegistry, FileToProcess
-from database.survey_models import Survey
 from database.system_models import FileProcessLock
 from database.user_models import Participant
-from libs.s3 import s3_retrieve, s3_upload
-
-
-class EverythingWentFine(Exception): pass
-class ProcessingOverlapError(Exception): pass
-class BadTimecodeError(Exception): pass
-
+from libs.file_processing.batched_network_operations import (batch_retrieve_for_processing,
+    batch_upload)
+from libs.file_processing.data_fixes import (fix_app_log_file, fix_call_log_csv, fix_identifier_csv,
+    fix_survey_timings, fix_wifi_csv)
+from libs.file_processing.exceptions import (BadTimecodeError, ChunkFailedToExist,
+    EverythingWentFine, HeaderMismatchException, ProcessingOverlapError)
+from libs.file_processing.utility_functions_csvs import (clean_java_timecode, construct_csv_string,
+    csv_to_list, raise_data_processing_error, unix_time_to_string)
+from libs.file_processing.utility_functions_simple import (binify_from_timecode,
+    convert_unix_to_human_readable_timestamps, ensure_sorted_by_timestamp,
+    resolve_survey_id_from_file_name)
+from libs.s3 import s3_retrieve
 
 """########################## Hourly Update Tasks ###########################"""
 
@@ -101,8 +102,8 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
     skip_count. The first skip_count files are expected to be files that have previously errored
     in file processing.
     """
-    # Declare a defaultdict containing a tuple of two double ended queues (deque, pronounced "deck")
-    all_binified_data = defaultdict(lambda: (deque(), deque()))
+    # Declare a defaultdict of a tuple of 2 lists
+    all_binified_data = defaultdict(lambda: ([], []))
     ftps_to_remove = set()
     # The ThreadPool enables downloading multiple files simultaneously from the network, and continuing
     # to download files as other files are being processed, making the code as a whole run faster.
@@ -287,7 +288,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
 """################################ S3 Stuff ################################"""
 
 
-def construct_s3_chunk_path(study_id, user_id, data_type, time_bin: int) -> str:
+def construct_s3_chunk_path(study_id: bytes, user_id: bytes, data_type: bytes, time_bin: int) -> str:
     """ S3 file paths for chunks are of this form:
         CHUNKED_DATA/study_id/user_id/data_type/time_bin.csv """
 
@@ -302,61 +303,6 @@ def construct_s3_chunk_path(study_id, user_id, data_type, time_bin: int) -> str:
         data_type,
         unix_time_to_string(time_bin*CHUNK_TIMESLICE_QUANTUM).decode()
     )
-
-
-"""################################# Key ####################################"""
-
-
-def file_path_to_data_type(file_path: str):
-    # Look through each folder name in file_path to see if it corresponds to a data type. Due to
-    # a dumb mistake ages ago the identifiers file has an underscore where it should have a
-    # slash, and we have to handle that case.  Also, it looks like we are hitting that case with
-    # the identifiers file separately but without any slashes in it, sooooo we need to for-else.
-    for file_piece in file_path.split('/'):
-        data_type = UPLOAD_FILE_TYPE_MAPPING.get(file_piece, None)
-        if data_type and "identifiers" in data_type:
-            return IDENTIFIERS
-        if data_type:
-            return data_type
-    else:
-        if "identifiers" in file_path:
-            return IDENTIFIERS
-        if "ios/log" in file_path:
-            return IOS_LOG_FILE
-    # If no data type has been selected; i.e. if none of the data types are present in file_path,
-    # raise an error
-    raise Exception("data type unknown: %s" % file_path)
-
-
-def ensure_sorted_by_timestamp(l: list):
-    """ According to the docs the sort method on a list is in place and should
-        faster, this is how to declare a sort by the first column (timestamp). """
-    l.sort(key=lambda x: int(x[0]))
-
-
-def convert_unix_to_human_readable_timestamps(header: bytes, rows: list) -> List[bytes]:
-    """ Adds a new column to the end which is the unix time represented in
-    a human readable time format.  Returns an appropriately modified header. """
-    for row in rows:
-        unix_millisecond = int(row[0])
-        time_string = unix_time_to_string(unix_millisecond // 1000)
-        # this line 0-pads millisecond values that have leading 0s.
-        time_string += b".%03d" % (unix_millisecond % 1000)
-        row.insert(1, time_string)
-    header = header.split(b",")
-    header.insert(1, b"UTC time")
-    return b",".join(header)
-
-
-def binify_from_timecode(unix_ish_time_code_string: bytes) -> int:
-    """ Takes a unix-ish time code (accepts unix millisecond), and returns an
-        integer value of the bin it should go in. """
-    actually_a_timecode = clean_java_timecode(unix_ish_time_code_string)  # clean java time codes...
-    return actually_a_timecode // CHUNK_TIMESLICE_QUANTUM #separate into nice, clean hourly chunks!
-
-
-def resolve_survey_id_from_file_name(name: str) -> str:
-    return name.rsplit("/", 2)[1]
 
 
 """############################## Standard CSVs #############################"""
@@ -380,6 +326,7 @@ def binify_csv_rows(rows_list: list, study_id: str, user_id: str, data_type: str
     return ret
 
 
+
 def append_binified_csvs(old_binified_rows: DefaultDict[tuple, deque],
                          new_binified_rows: DefaultDict[tuple, deque],
                          file_to_process: dict):
@@ -390,6 +337,7 @@ def append_binified_csvs(old_binified_rows: DefaultDict[tuple, deque],
         old_binified_rows[data_bin][1].append(file_to_process['id'])  # Add ftp
 
 
+# TODO: stick on FileForProcessing
 def process_csv_data(data: dict):
     # In order to reduce memory overhead this function takes a dictionary instead of args
     """ Constructs a binified dict of a given list of a csv rows,
@@ -451,247 +399,10 @@ def process_csv_data(data: dict):
         return None, None
 
 
-"""############################ CSV Fixes #####################################"""
-
-
-def fix_survey_timings(header: bytes, rows_list: List[List[bytes]], file_path: str) -> bytes:
-    """ Survey timings need to have a column inserted stating the survey id they come from."""
-    survey_id = file_path.rsplit("/", 2)[1].encode()
-    for row in rows_list:
-        row.insert(2, survey_id)
-    header_list = header.split(b",")
-    header_list.insert(2, b"survey id")
-    return b",".join(header_list)
-
-
-def fix_call_log_csv(header: bytes, rows_list: list) -> bytes:
-    """ The call log has poorly ordered columns, the first column should always be
-        the timestamp, it has it in column 3.
-        Note: older versions of the app name the timestamp column "date". """
-    for row in rows_list:
-        row.insert(0, row.pop(2))
-    header_list = header.split(b",")
-    header_list.insert(0, header_list.pop(2))
-    return b",".join(header_list)
-
-
-def fix_identifier_csv(header: bytes, rows_list: list, file_name: str) -> bytes:
-    """ The identifiers file has its timestamp in the file name. """
-    time_stamp = file_name.rsplit("_", 1)[-1][:-4].encode() + b"000"
-    return insert_timestamp_single_row_csv(header, rows_list, time_stamp)
-
-
-def fix_wifi_csv(header: bytes, rows_list: list, file_name: str):
-    """ Fixing wifi requires inserting the same timestamp on EVERY ROW.
-    The wifi file has its timestamp in the filename. """
-    time_stamp = file_name.rsplit("/", 1)[-1][:-4].encode()
-
-    # the last row is a new line, have to slice.
-    for row in rows_list[:-1]:
-        row = row.insert(0, time_stamp)
-
-    if rows_list:
-        # remove last row (encountered an empty wifi log on sunday may 8 2016)
-        rows_list.pop(-1)
-
-    return b"timestamp," + header
-
-
-def fix_app_log_file(file_contents, file_path):
-    """ The log file is less of a csv than it is a time enumerated list of
-        events, with the time code preceding each row.
-        We insert a base value, a new row stating that a new log file was created,
-        which allows us to guarantee at least one timestamp in the file."""
-    time_stamp = file_path.rsplit("/", 1)[-1][:-4].encode()
-    rows_list = file_contents.splitlines()
-    rows_list[0] = time_stamp + b" New app log file created"
-    new_rows = []
-    for row in rows_list:
-        row_elements = row.split(b" ", 1)  # split first whitespace, element 0 is a java timecode
-        try:
-            int(row_elements[0])  # grab first element, check if it is a valid int
-            new_rows.append(row_elements)
-        except ValueError as e:
-            if (b"bluetooth Failure" == row[:17] or
-                b"our not-quite-race-condition" == row[:28] or
-                b"accelSensorManager" in row[:18] or  # this actually covers 2 cases
-                b"a sessionactivity tried to clear the" == row[:36]
-            ):
-                # Just drop matches to the above lines
-                continue
-            else:
-                # Previously this was a whitelist of broken lines to explicitly insert a timecode
-                # on, but now it is generalized:
-                # 'new_rows[-1][0]' is the timecode of the previous line in the log.
-                new_rows.append((new_rows[-1][0], row))
-                continue
-
-    return b"timestamp, event\n" + b"\n".join(b",".join(row) for row in new_rows)
-
-
-"""###################################### CSV Utils ##################################"""
-
-
-def insert_timestamp_single_row_csv(header: bytes, rows_list: list, time_stamp: bytes) -> bytes:
-    """ Inserts the timestamp field into the header of a csv, inserts the timestamp
-        value provided into the first column.  Returns the new header string."""
-    header_list = header.split(b",")
-    header_list.insert(0, b"timestamp")
-    rows_list[0].insert(0, time_stamp)
-    return b",".join(header_list)
-
-
-def csv_to_list(csv_string: bytes) -> (bytes, Generator):
-    """ Grab a list elements from of every line in the csv, strips off trailing whitespace. dumps
-    them into a new list (of lists), and returns the header line along with the list of rows. """
-    # This code is more memory efficient than fast by using a generator
-    # Note that almost all of the time is spent in the per-row for-loop
-    def split_yielder(l):
-        for row in l:
-            yield row.split(b",")
-    header = csv_string[:csv_string.find(b"\n")]
-    lines = csv_string.splitlines()
-    # Remove the header
-    lines.pop(0)  # This line is annoyingly slow, but its fine...
-    del csv_string  # To clear up memory
-    return header, split_yielder(lines)
-
-
-def construct_csv_string(header: bytes, rows_list: List[bytes]) -> bytes:
-    """ Takes a header list and a csv and returns a single string of a csv.
-        Now handles unicode errors.  :D :D :D """
-    # The old, compact list comprehension was, it turned out, both nonperformant and of an
-    # incomprehensible memory order. This is ~1.5x faster, and has a much clearer memory order.
-
-    def deduplicate(seq):
-        # highly optimized order preserving deduplication function.
-        seen = set()
-        seen_add = seen.add
-        return [x for x in seq if not (x in seen or seen_add(x))]
-
-    rows = []
-    for row_items in rows_list:
-        rows.append(b",".join(row_items))
-
-    del rows_list, row_items
-
-    # we need to ensure no duplicates
-    rows = deduplicate(rows)
-    ret = header
-    for row in rows:
-        ret += b"\n" + row
-    return ret
-
-
-def clean_java_timecode(java_time_code_string: bytes) -> int:
-    """ converts millisecond time (string) to an integer normal unix time. """
-    try:
-        return int(java_time_code_string[:10])
-    except ValueError as e:
-        # we need a custom error type to handle this error case
-        raise BadTimecodeError(str(e))
-
-
-def unix_time_to_string(unix_time: int) -> bytes:
-    return datetime.utcfromtimestamp(unix_time).strftime(API_TIME_FORMAT).encode()
-
-
-def raise_data_processing_error(data):
-    """
-    If we encountered any errors in retrieving the files for processing, they have been
-    lumped together into data['exception']. Raise them here to the error handler and
-    move to the next file.
-    """
-    print("\n" + data['ftp']['s3_file_path'])
-    print(data['traceback'])
-    ################################################################
-    # YOU ARE SEEING THIS EXCEPTION WITHOUT A STACK TRACE
-    # BECAUSE IT OCCURRED INSIDE POOL.MAP ON ANOTHER THREAD
-    ################################################################
-    raise data['exception']
-
-
 """ Batch Operations """
 
 
-def batch_retrieve_for_processing(ftp_as_object: FileToProcess) -> dict:
-    """ Used for mapping an s3_retrieve function. """
-    # Convert the ftp object to a dict so we can use __getattr__
-    ftp = ftp_as_object.as_dict()
-    data_type = file_path_to_data_type(ftp['s3_file_path'])
 
-    # Create a dictionary to populate and return
-    ret = {
-        'ftp': ftp,
-        "data_type": data_type,
-        'exception': None,
-        "file_contents": "",
-        "traceback": None,
-        'chunkable': data_type in CHUNKABLE_FILES,
-    }
-
-    # Try to retrieve the file contents. If any errors are raised, store them to be raised by the
-    # parent function
-    try:
-        ret['file_contents'] = s3_retrieve(ftp['s3_file_path'], ftp["study"].object_id, raw_path=True)
-    except Exception as e:
-        traceback.print_exc()
-        ret['traceback'] = sys.exc_info()
-        ret['exception'] = e
-    return ret
-
-
-def batch_upload(upload: Tuple[dict, str, bytes, str]):
-    """ Used for mapping an s3_upload function.  the tuple is unpacked, can only have one parameter. """
-    ret = {'exception': None, 'traceback': None}
-    try:
-        if len(upload) != 4:
-            # upload should have length 4; this is for debugging if it doesn't
-            print("upload length not equal to 4: ", upload)
-        chunk, chunk_path, new_contents, study_object_id = upload
-        del upload
-
-        if "b'" in chunk_path:
-            raise Exception(chunk_path)
-
-        s3_upload(chunk_path, codecs.decode(new_contents, "zip"), study_object_id, raw_path=True)
-
-        if isinstance(chunk, ChunkRegistry):
-            # If the contents are being appended to an existing ChunkRegistry object
-            chunk.file_size = len(new_contents)
-            chunk.update_chunk_hash(new_contents)
-
-        else:
-            # If a new ChunkRegistry object is being created
-            # Convert the ID's used in the S3 file names into primary keys for making ChunkRegistry FKs
-            participant_pk, study_pk = Participant.objects.filter(patient_id=chunk['user_id']).values_list('pk', 'study_id').get()
-            if chunk['survey_id']:
-                survey_pk = Survey.objects.filter(object_id=chunk['survey_id']).values_list('pk', flat=True).get()
-            else:
-                survey_pk = None
-
-            ChunkRegistry.register_chunked_data(
-                chunk['data_type'],
-                chunk['time_bin'],
-                chunk['chunk_path'],
-                new_contents,  # unlikely to be huge
-                study_pk,
-                participant_pk,
-                survey_pk,
-            )
-
-    # it broke. print stacktrace for debugging
-    except Exception as e:
-        traceback.print_exc()
-        ret['traceback'] = sys.exc_info()
-        ret['exception'] = e
-
-    return ret
-
-
-""" Exceptions """
-class HeaderMismatchException(Exception): pass
-class ChunkFailedToExist(Exception): pass
 
 
 # This is useful for performance testing, replace the real threadpool with this one and everything

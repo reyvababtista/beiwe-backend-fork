@@ -7,7 +7,7 @@ path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 # start actual cron-related code here
 from sys import argv
 from cronutils import run_tasks
-from libs.file_processing import process_file_chunks
+from libs.file_processing.file_processing_core import process_file_chunks
 
 FIVE_MINUTES = "five_minutes"
 HOURLY = "hourly"

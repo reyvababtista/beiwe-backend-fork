@@ -6,7 +6,7 @@ from config.constants import DATA_PROCESSING_CELERY_QUEUE
 from config.settings import FILE_PROCESS_PAGE_SIZE
 from database.user_models import Participant
 from libs.celery_control import get_processing_active_job_ids, processing_celery_app
-from libs.file_processing import do_process_user_file_chunks
+from libs.file_processing.file_processing_core import do_process_user_file_chunks
 from libs.sentry import make_error_sentry
 
 

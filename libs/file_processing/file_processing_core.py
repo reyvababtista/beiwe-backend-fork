@@ -1,6 +1,6 @@
 import codecs
 import gc
-from collections import defaultdict, deque
+from collections import defaultdict
 from datetime import datetime
 from multiprocessing.pool import ThreadPool
 from typing import DefaultDict
@@ -15,6 +15,7 @@ from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.system_models import FileProcessLock
 from database.user_models import Participant
+from libs.dev_utils import p
 from libs.file_processing.batched_network_operations import (batch_retrieve_for_processing,
     batch_upload)
 from libs.file_processing.data_fixes import (fix_app_log_file, fix_call_log_csv, fix_identifier_csv,
@@ -204,12 +205,12 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
     failed_ftps = set([])
     ftps_to_retire = set([])
     upload_these = []
-    for data_bin, (data_rows_deque, ftp_deque) in binified_data.items():
+    for data_bin, (data_rows_list, ftp_list) in binified_data.items():
         with error_handler:
             try:
                 study_object_id, user_id, data_type, time_bin, original_header = data_bin
-                # data_rows_deque may be a generator; here it is evaluated
-                rows = list(data_rows_deque)
+                # data_rows_list may be a generator; here it is evaluated
+                rows = data_rows_list
                 updated_header = convert_unix_to_human_readable_timestamps(original_header, rows)
                 chunk_path = construct_s3_chunk_path(study_object_id, user_id, data_type, time_bin)
 
@@ -239,9 +240,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                         # processing occurs run.
                         raise HeaderMismatchException('%s\nvs.\n%s\nin\n%s' %
                                                       (old_header, updated_header, chunk_path) )
-
-                    old_rows = [_ for _ in old_rows]
-                    # This is O(1), which is why we use a deque (double-ended queue)
+                    old_rows = list(old_rows)
                     old_rows.extend(rows)
                     del rows
                     ensure_sorted_by_timestamp(old_rows)
@@ -273,7 +272,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                 # Here we catch any exceptions that may have arisen, as well as the ones that we raised
                 # ourselves (e.g. HeaderMismatchException). Whichever FTP we were processing when the
                 # exception was raised gets added to the set of failed FTPs.
-                failed_ftps.update(ftp_deque)
+                failed_ftps.update(ftp_list)
                 print(e)
                 print("FAILED TO UPDATE: study_id:%s, user_id:%s, data_type:%s, time_bin:%s, header:%s "
                       % (study_object_id, user_id, data_type, time_bin, updated_header))
@@ -282,7 +281,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
             else:
                 # If no exception was raised, the FTP has completed processing. Add it to the set of
                 # retireable (i.e. completed) FTPs.
-                ftps_to_retire.update(ftp_deque)
+                ftps_to_retire.update(ftp_list)
 
     pool = ThreadPool(CONCURRENT_NETWORK_OPS)
     errors = pool.map(batch_upload, upload_these, chunksize=1)
@@ -320,12 +319,12 @@ def construct_s3_chunk_path(study_id: bytes, user_id: bytes, data_type: bytes, t
 
 """############################## Standard CSVs #############################"""
 
-def binify_csv_rows(rows_list: list, study_id: str, user_id: str, data_type: str, header: bytes) -> DefaultDict[tuple, deque]:
+def binify_csv_rows(rows_list: list, study_id: str, user_id: str, data_type: str, header: bytes) -> DefaultDict[tuple, list]:
     """ Assumes a clean csv with element 0 in the rows column as a unix(ish) timestamp.
         Sorts data points into the appropriate bin based on the rounded down hour
         value of the entry's unix(ish) timestamp. (based CHUNK_TIMESLICE_QUANTUM)
         Returns a dict of form {(study_id, user_id, data_type, time_bin, header):rows_lists}. """
-    ret = defaultdict(deque)
+    ret = defaultdict(list)
     for row in rows_list:
         # discovered August 7 2017, looks like there was an empty line at the end
         # of a file? row was a [''].
@@ -338,8 +337,8 @@ def binify_csv_rows(rows_list: list, study_id: str, user_id: str, data_type: str
             ret[(study_id, user_id, data_type, timecode, header)].append(row)
     return ret
 
-def append_binified_csvs(old_binified_rows: DefaultDict[tuple, deque],
-                         new_binified_rows: DefaultDict[tuple, deque],
+def append_binified_csvs(old_binified_rows: DefaultDict[tuple, list],
+                         new_binified_rows: DefaultDict[tuple, list],
                          file_for_processing:  FileToProcess):
     """ Appends binified rows to an existing binified row data structure.
         Should be in-place. """

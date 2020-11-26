@@ -131,40 +131,40 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
 
     files_to_process = participant.files_to_process.exclude(deleted=True).all()
 
-    for data in pool.map(batch_retrieve_for_processing,
-                         files_to_process[skip_count:count+skip_count],
-                         chunksize=1):
+    for file_for_processing in pool.map(batch_retrieve_for_processing,
+                                        files_to_process[skip_count:count+skip_count],
+                                        chunksize=1):
 
         with error_handler:
-            if data.exception:
-                data.raise_data_processing_error
+            if file_for_processing.exception:
+                file_for_processing.raise_data_processing_error
 
-            if data.chunkable:
+            if file_for_processing.chunkable:
                 # case: chunkable data files
-                newly_binified_data, survey_id_hash = process_csv_data(data)
-                if data.data_type in SURVEY_DATA_FILES:
-                    survey_id_dict[survey_id_hash] = resolve_survey_id_from_file_name(data.file_to_process.s3_file_path)
+                newly_binified_data, survey_id_hash = process_csv_data(file_for_processing)
+                if file_for_processing.data_type in SURVEY_DATA_FILES:
+                    survey_id_dict[survey_id_hash] = resolve_survey_id_from_file_name(file_for_processing.file_to_process.s3_file_path)
 
                 if newly_binified_data:
-                    append_binified_csvs(all_binified_data, newly_binified_data, data.file_to_process)
+                    append_binified_csvs(all_binified_data, newly_binified_data, file_for_processing.file_to_process)
                 else:  # delete empty files from FilesToProcess
-                    ftps_to_remove.add(data.file_to_process.id)
+                    ftps_to_remove.add(file_for_processing.file_to_process.id)
                 continue
             else:
                 # case: unchunkable data file
-                timestamp = clean_java_timecode(data.file_to_process.s3_file_path.rsplit("/", 1)[-1][:-4])
+                timestamp = clean_java_timecode(file_for_processing.file_to_process.s3_file_path.rsplit("/", 1)[-1][:-4])
                 # Since we aren't binning the data by hour, just create a ChunkRegistry that
                 # points to the already existing S3 file.
                 try:
                     ChunkRegistry.register_unchunked_data(
-                        data.data_type,
+                        file_for_processing.data_type,
                         timestamp,
-                        data.file_to_process.s3_file_path,
-                        data.file_to_process.study.pk,
-                        data.file_to_process.participant.pk,
-                        data.file_contents,
+                        file_for_processing.file_to_process.s3_file_path,
+                        file_for_processing.file_to_process.study.pk,
+                        file_for_processing.file_to_process.participant.pk,
+                        file_for_processing.file_contents,
                     )
-                    ftps_to_remove.add(data.file_to_process.id)
+                    ftps_to_remove.add(file_for_processing.file_to_process.id)
                 except ValidationError as ve:
                     if len(ve.messages) != 1:
                         # case: the error case (below) is very specific, we only want that singular error.
@@ -175,11 +175,11 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
                     # (hopefully it doesn't actually change)
                     if 'Chunk registry with this Chunk path already exists.' in ve.messages:
                         ChunkRegistry.update_registered_unchunked_data(
-                            data.data_type,
-                            data.file_to_process.s3_file_path,
-                            data.file_contents,
+                            file_for_processing.data_type,
+                            file_for_processing.file_to_process.s3_file_path,
+                            file_for_processing.file_contents,
                         )
-                        ftps_to_remove.add(data.file_to_process.id)
+                        ftps_to_remove.add(file_for_processing.file_to_process.id)
                     else:
                         # any other errors, add
                         raise
@@ -349,45 +349,44 @@ def append_binified_csvs(old_binified_rows: DefaultDict[tuple, deque],
 
 
 # TODO: stick on FileForProcessing
-def process_csv_data(data: FileForProcessing):
+def process_csv_data(file_for_processing: FileForProcessing):
     # In order to reduce memory overhead this function takes a dictionary instead of args
     """ Constructs a binified dict of a given list of a csv rows,
         catches csv files with known problems and runs the correct logic.
         Returns None If the csv has no data in it. """
     
-    if data.file_to_process.participant.os_type == Participant.ANDROID_API:
+    if file_for_processing.file_to_process.participant.os_type == Participant.ANDROID_API:
         # Do fixes for Android
-        if data.data_type == ANDROID_LOG_FILE:
-            data.set_file_contents(
-                fix_app_log_file(data.file_contents, data.file_to_process.s3_file_path)
+        if file_for_processing.data_type == ANDROID_LOG_FILE:
+            file_for_processing.set_file_contents(
+                fix_app_log_file(file_for_processing.file_contents, file_for_processing.file_to_process.s3_file_path)
             )
 
-        header, csv_rows_list = csv_to_list(data.file_contents)
-        if data.data_type != ACCELEROMETER:
+        header, csv_rows_list = csv_to_list(file_for_processing.file_contents)
+        if file_for_processing.data_type != ACCELEROMETER:
             # If the data is not accelerometer data, convert the generator to a list.
             # For accelerometer data, the data is massive and so we don't want it all
             # in memory at once.
             csv_rows_list = [r for r in csv_rows_list]
 
-        if data.data_type == CALL_LOG:
+        if file_for_processing.data_type == CALL_LOG:
             header = fix_call_log_csv(header, csv_rows_list)
-        if data.data_type == WIFI:
-            header = fix_wifi_csv(header, csv_rows_list, data.file_to_process.s3_file_path)
+        if file_for_processing.data_type == WIFI:
+            header = fix_wifi_csv(header, csv_rows_list, file_for_processing.file_to_process.s3_file_path)
     else:
         # Do fixes for iOS
-        header, csv_rows_list = csv_to_list(data.file_contents)
-        if data.data_type != ACCELEROMETER:
+        header, csv_rows_list = csv_to_list(file_for_processing.file_contents)
+        if file_for_processing.data_type != ACCELEROMETER:
             csv_rows_list = [r for r in csv_rows_list]
 
     # Memory saving measure: this data is now stored in its entirety in csv_rows_list
-    # del data.file_contents
-    data.clear_file_content()
+    file_for_processing.clear_file_content()
 
     # Do these fixes for data whether from Android or iOS
-    if data.data_type == IDENTIFIERS:
-        header = fix_identifier_csv(header, csv_rows_list, data.file_to_process.s3_file_path)
-    if data.data_type == SURVEY_TIMINGS:
-        header = fix_survey_timings(header, csv_rows_list, data.file_to_process.s3_file_path)
+    if file_for_processing.data_type == IDENTIFIERS:
+        header = fix_identifier_csv(header, csv_rows_list, file_for_processing.file_to_process.s3_file_path)
+    if file_for_processing.data_type == SURVEY_TIMINGS:
+        header = fix_survey_timings(header, csv_rows_list, file_for_processing.file_to_process.s3_file_path)
 
     header = b",".join([column_name.strip() for column_name in header.split(b",")])
     if csv_rows_list:
@@ -395,16 +394,16 @@ def process_csv_data(data: FileForProcessing):
             # return item 1: the data as a defaultdict
             binify_csv_rows(
                 csv_rows_list,
-                data.file_to_process.study.object_id,
-                data.file_to_process.participant.patient_id,
-                data.data_type,
+                file_for_processing.file_to_process.study.object_id,
+                file_for_processing.file_to_process.participant.patient_id,
+                file_for_processing.data_type,
                 header
             ),
             # return item 2: the tuple that we use as a key for the defaultdict
             (
-                data.file_to_process.study.object_id,
-                data.file_to_process.participant.patient_id,
-                data.data_type,
+                file_for_processing.file_to_process.study.object_id,
+                file_for_processing.file_to_process.participant.patient_id,
+                file_for_processing.data_type,
                 header
             )
         )

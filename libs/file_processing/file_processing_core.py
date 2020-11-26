@@ -10,8 +10,7 @@ from cronutils.error_handler import ErrorHandler
 from django.core.exceptions import ValidationError
 
 from config.constants import (ACCELEROMETER, ANDROID_LOG_FILE, CALL_LOG,
-    CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER, DATA_PROCESSING_NO_ERROR_STRING,
-    IDENTIFIERS, SURVEY_DATA_FILES, SURVEY_TIMINGS, WIFI)
+    CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER, IDENTIFIERS, SURVEY_DATA_FILES, SURVEY_TIMINGS, WIFI)
 from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.system_models import FileProcessLock
@@ -21,7 +20,7 @@ from libs.file_processing.batched_network_operations import (batch_retrieve_for_
 from libs.file_processing.data_fixes import (fix_app_log_file, fix_call_log_csv, fix_identifier_csv,
     fix_survey_timings, fix_wifi_csv)
 from libs.file_processing.exceptions import (BadTimecodeError, ChunkFailedToExist,
-    EverythingWentFine, HeaderMismatchException, ProcessingOverlapError)
+    HeaderMismatchException, ProcessingOverlapError)
 from libs.file_processing.utility_functions_csvs import (clean_java_timecode, construct_csv_string,
     csv_to_list, raise_data_processing_error, unix_time_to_string)
 from libs.file_processing.utility_functions_simple import (binify_from_timecode,
@@ -78,7 +77,7 @@ def process_file_chunks():
         FileProcessLock.unlock()
 
     error_handler.raise_errors()
-    raise EverythingWentFine(DATA_PROCESSING_NO_ERROR_STRING)
+    # raise EverythingWentFine(DATA_PROCESSING_NO_ERROR_STRING)
 
 
 def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_count: int,
@@ -324,8 +323,6 @@ def binify_csv_rows(rows_list: list, study_id: str, user_id: str, data_type: str
                 continue
             ret[(study_id, user_id, data_type, timecode, header)].append(row)
     return ret
-
-
 
 def append_binified_csvs(old_binified_rows: DefaultDict[tuple, deque],
                          new_binified_rows: DefaultDict[tuple, deque],

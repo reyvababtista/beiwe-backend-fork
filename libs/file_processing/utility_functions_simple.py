@@ -5,7 +5,7 @@ from config.constants import (CHUNK_TIMESLICE_QUANTUM, IDENTIFIERS, IOS_LOG_FILE
 from libs.file_processing.utility_functions_csvs import (clean_java_timecode, unix_time_to_string)
 
 
-def file_path_to_data_type(file_path: str):
+def s3_file_path_to_data_type(file_path: str):
     # Look through each folder name in file_path to see if it corresponds to a data type. Due to
     # a dumb mistake ages ago the identifiers file has an underscore where it should have a
     # slash, and we have to handle that case.  Also, it looks like we are hitting that case with

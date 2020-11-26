@@ -7,15 +7,17 @@ from config.constants import (CHUNKABLE_FILES)
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.survey_models import Survey
 from database.user_models import Participant
-from libs.file_processing.utility_functions_simple import file_path_to_data_type
+from libs.file_processing.utility_functions_simple import s3_file_path_to_data_type
 from libs.s3 import s3_retrieve, s3_upload
 
+from datetime import datetime
+GLOBAL_TIMESTAMP = datetime.now().isoformat()
 
 def batch_retrieve_for_processing(ftp_as_object: FileToProcess) -> dict:
     """ Used for mapping an s3_retrieve function. """
     # Convert the ftp object to a dict so we can use __getattr__
     ftp = ftp_as_object.as_dict()
-    data_type = file_path_to_data_type(ftp['s3_file_path'])
+    data_type = s3_file_path_to_data_type(ftp['s3_file_path'])
 
     # Create a dictionary to populate and return
     ret = {
@@ -51,7 +53,11 @@ def batch_upload(upload: Tuple[dict, str, bytes, str]):
         if "b'" in chunk_path:
             raise Exception(chunk_path)
 
-        s3_upload(chunk_path, codecs.decode(new_contents, "zip"), study_object_id, raw_path=True)
+        with open("processing_tests/" + GLOBAL_TIMESTAMP, 'ba') as f:
+            f.write(b"\n\n")
+            f.write(codecs.decode(new_contents, "zip"))
+
+        # s3_upload(chunk_path, codecs.decode(new_contents, "zip"), study_object_id, raw_path=True)
 
         if isinstance(chunk, ChunkRegistry):
             # If the contents are being appended to an existing ChunkRegistry object

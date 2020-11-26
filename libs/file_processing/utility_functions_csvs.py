@@ -56,7 +56,7 @@ def construct_csv_string(header: bytes, rows_list: List[bytes]) -> bytes:
     return ret
 
 
-def clean_java_timecode(java_time_code_string: bytes) -> int:
+def clean_java_timecode(java_time_code_string: bytes or str) -> int:
     """ converts millisecond time (string) to an integer normal unix time. """
     try:
         return int(java_time_code_string[:10])
@@ -68,17 +68,3 @@ def clean_java_timecode(java_time_code_string: bytes) -> int:
 def unix_time_to_string(unix_time: int) -> bytes:
     return datetime.utcfromtimestamp(unix_time).strftime(API_TIME_FORMAT).encode()
 
-
-def raise_data_processing_error(data):
-    """
-    If we encountered any errors in retrieving the files for processing, they have been
-    lumped together into data['exception']. Raise them here to the error handler and
-    move to the next file.
-    """
-    print("\n" + data['ftp']['s3_file_path'])
-    print(data['traceback'])
-    ################################################################
-    # YOU ARE SEEING THIS EXCEPTION WITHOUT A STACK TRACE
-    # BECAUSE IT OCCURRED INSIDE POOL.MAP ON ANOTHER THREAD
-    ################################################################
-    raise data['exception']

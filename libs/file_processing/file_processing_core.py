@@ -6,7 +6,7 @@ from multiprocessing.pool import ThreadPool
 from typing import DefaultDict
 
 from botocore.exceptions import ReadTimeoutError
-from cronutils.error_handler import ErrorHandler
+from cronutils.error_handler import NullErrorHandler as ErrorHandler
 from django.core.exceptions import ValidationError
 
 from config.constants import (ACCELEROMETER, ANDROID_LOG_FILE, CALL_LOG,
@@ -21,14 +21,27 @@ from libs.file_processing.data_fixes import (fix_app_log_file, fix_call_log_csv,
     fix_survey_timings, fix_wifi_csv)
 from libs.file_processing.exceptions import (BadTimecodeError, ChunkFailedToExist,
     HeaderMismatchException, ProcessingOverlapError)
+from libs.file_processing.file_for_processing import FileForProcessing
 from libs.file_processing.utility_functions_csvs import (clean_java_timecode, construct_csv_string,
-    csv_to_list, raise_data_processing_error, unix_time_to_string)
+    csv_to_list, unix_time_to_string)
 from libs.file_processing.utility_functions_simple import (binify_from_timecode,
     convert_unix_to_human_readable_timestamps, ensure_sorted_by_timestamp,
     resolve_survey_id_from_file_name)
 from libs.s3 import s3_retrieve
 
 """########################## Hourly Update Tasks ###########################"""
+
+# This is useful for performance testing, replace the real threadpool with this one and everything
+# will suddenly be single-threaded, making it much easier to profile.
+# class ThreadPool():
+#     def map(self, *args, **kwargs): # the existence of that self variable is key
+#         # we actually want to cut off any threadpool args, which is conveniently easy because map does not use kwargs!
+#         return map(*args)
+#     def terminate(self): pass
+#     def close(self): pass
+#     def __init__(self, *args,**kwargs):
+#         pass
+
 
 
 def process_file_chunks():
@@ -121,36 +134,37 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
     for data in pool.map(batch_retrieve_for_processing,
                          files_to_process[skip_count:count+skip_count],
                          chunksize=1):
-        with error_handler:
-            if data['exception']:
-                raise_data_processing_error(data)
 
-            if data['chunkable']:
+        with error_handler:
+            if data.exception:
+                data.raise_data_processing_error
+
+            if data.chunkable:
                 # case: chunkable data files
                 newly_binified_data, survey_id_hash = process_csv_data(data)
-                if data['data_type'] in SURVEY_DATA_FILES:
-                    survey_id_dict[survey_id_hash] = resolve_survey_id_from_file_name(data['ftp']["s3_file_path"])
+                if data.data_type in SURVEY_DATA_FILES:
+                    survey_id_dict[survey_id_hash] = resolve_survey_id_from_file_name(data.file_to_process.s3_file_path)
 
                 if newly_binified_data:
-                    append_binified_csvs(all_binified_data, newly_binified_data, data['ftp'])
+                    append_binified_csvs(all_binified_data, newly_binified_data, data.file_to_process)
                 else:  # delete empty files from FilesToProcess
-                    ftps_to_remove.add(data['ftp']['id'])
+                    ftps_to_remove.add(data.file_to_process.id)
                 continue
             else:
                 # case: unchunkable data file
-                timestamp = clean_java_timecode(data['ftp']["s3_file_path"].rsplit("/", 1)[-1][:-4])
+                timestamp = clean_java_timecode(data.file_to_process.s3_file_path.rsplit("/", 1)[-1][:-4])
                 # Since we aren't binning the data by hour, just create a ChunkRegistry that
                 # points to the already existing S3 file.
                 try:
                     ChunkRegistry.register_unchunked_data(
-                        data['data_type'],
+                        data.data_type,
                         timestamp,
-                        data['ftp']['s3_file_path'],
-                        data['ftp']['study'].pk,
-                        data['ftp']['participant'].pk,
-                        data['file_contents'],
+                        data.file_to_process.s3_file_path,
+                        data.file_to_process.study.pk,
+                        data.file_to_process.participant.pk,
+                        data.file_contents,
                     )
-                    ftps_to_remove.add(data['ftp']['id'])
+                    ftps_to_remove.add(data.file_to_process.id)
                 except ValidationError as ve:
                     if len(ve.messages) != 1:
                         # case: the error case (below) is very specific, we only want that singular error.
@@ -161,11 +175,11 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
                     # (hopefully it doesn't actually change)
                     if 'Chunk registry with this Chunk path already exists.' in ve.messages:
                         ChunkRegistry.update_registered_unchunked_data(
-                            data['data_type'],
-                            data['ftp']['s3_file_path'],
-                            data['file_contents'],
+                            data.data_type,
+                            data.file_to_process.s3_file_path,
+                            data.file_contents,
                         )
-                        ftps_to_remove.add(data['ftp']['id'])
+                        ftps_to_remove.add(data.file_to_process.id)
                     else:
                         # any other errors, add
                         raise
@@ -326,52 +340,54 @@ def binify_csv_rows(rows_list: list, study_id: str, user_id: str, data_type: str
 
 def append_binified_csvs(old_binified_rows: DefaultDict[tuple, deque],
                          new_binified_rows: DefaultDict[tuple, deque],
-                         file_to_process: dict):
+                         file_for_processing:  FileToProcess):
     """ Appends binified rows to an existing binified row data structure.
         Should be in-place. """
     for data_bin, rows in new_binified_rows.items():
         old_binified_rows[data_bin][0].extend(rows)  # Add data rows
-        old_binified_rows[data_bin][1].append(file_to_process['id'])  # Add ftp
+        old_binified_rows[data_bin][1].append(file_for_processing.pk)  # Add ftp
 
 
 # TODO: stick on FileForProcessing
-def process_csv_data(data: dict):
+def process_csv_data(data: FileForProcessing):
     # In order to reduce memory overhead this function takes a dictionary instead of args
     """ Constructs a binified dict of a given list of a csv rows,
         catches csv files with known problems and runs the correct logic.
         Returns None If the csv has no data in it. """
-    participant = data['ftp']['participant']
     
-    if participant.os_type == Participant.ANDROID_API:
+    if data.file_to_process.participant.os_type == Participant.ANDROID_API:
         # Do fixes for Android
-        if data["data_type"] == ANDROID_LOG_FILE:
-            data['file_contents'] = fix_app_log_file(data['file_contents'], data['ftp']['s3_file_path'])
+        if data.data_type == ANDROID_LOG_FILE:
+            data.set_file_contents(
+                fix_app_log_file(data.file_contents, data.file_to_process.s3_file_path)
+            )
 
-        header, csv_rows_list = csv_to_list(data['file_contents'])
-        if data["data_type"] != ACCELEROMETER:
+        header, csv_rows_list = csv_to_list(data.file_contents)
+        if data.data_type != ACCELEROMETER:
             # If the data is not accelerometer data, convert the generator to a list.
             # For accelerometer data, the data is massive and so we don't want it all
             # in memory at once.
             csv_rows_list = [r for r in csv_rows_list]
 
-        if data["data_type"] == CALL_LOG:
+        if data.data_type == CALL_LOG:
             header = fix_call_log_csv(header, csv_rows_list)
-        if data["data_type"] == WIFI:
-            header = fix_wifi_csv(header, csv_rows_list, data['ftp']['s3_file_path'])
+        if data.data_type == WIFI:
+            header = fix_wifi_csv(header, csv_rows_list, data.file_to_process.s3_file_path)
     else:
         # Do fixes for iOS
-        header, csv_rows_list = csv_to_list(data['file_contents'])
-        if data["data_type"] != ACCELEROMETER:
+        header, csv_rows_list = csv_to_list(data.file_contents)
+        if data.data_type != ACCELEROMETER:
             csv_rows_list = [r for r in csv_rows_list]
 
     # Memory saving measure: this data is now stored in its entirety in csv_rows_list
-    del data['file_contents']
+    # del data.file_contents
+    data.clear_file_content()
 
     # Do these fixes for data whether from Android or iOS
-    if data["data_type"] == IDENTIFIERS:
-        header = fix_identifier_csv(header, csv_rows_list, data['ftp']['s3_file_path'])
-    if data["data_type"] == SURVEY_TIMINGS:
-        header = fix_survey_timings(header, csv_rows_list, data['ftp']['s3_file_path'])
+    if data.data_type == IDENTIFIERS:
+        header = fix_identifier_csv(header, csv_rows_list, data.file_to_process.s3_file_path)
+    if data.data_type == SURVEY_TIMINGS:
+        header = fix_survey_timings(header, csv_rows_list, data.file_to_process.s3_file_path)
 
     header = b",".join([column_name.strip() for column_name in header.split(b",")])
     if csv_rows_list:
@@ -379,16 +395,16 @@ def process_csv_data(data: dict):
             # return item 1: the data as a defaultdict
             binify_csv_rows(
                 csv_rows_list,
-                data['ftp']['study'].object_id,
-                data['ftp']['participant'].patient_id,
-                data["data_type"],
+                data.file_to_process.study.object_id,
+                data.file_to_process.participant.patient_id,
+                data.data_type,
                 header
             ),
             # return item 2: the tuple that we use as a key for the defaultdict
             (
-                data['ftp']['study'].object_id,
-                data['ftp']['participant'].patient_id,
-                data["data_type"],
+                data.file_to_process.study.object_id,
+                data.file_to_process.participant.patient_id,
+                data.data_type,
                 header
             )
         )
@@ -396,19 +412,3 @@ def process_csv_data(data: dict):
         return None, None
 
 
-""" Batch Operations """
-
-
-
-
-
-# This is useful for performance testing, replace the real threadpool with this one and everything
-# will suddenly be single-threaded, making it much easier to profile.
-# class ThreadPool():
-#     def map(self, *args, **kwargs): # the existence of that self variable is key
-#         # we actually want to cut off any threadpool args, which is conveniently easy because map does not use kwargs!
-#         return map(*args)
-#     def terminate(self): pass
-#     def close(self): pass
-#     def __init__(self, *args,**kwargs):
-#         pass

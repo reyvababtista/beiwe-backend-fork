@@ -1,43 +1,34 @@
 import codecs
 import sys
 import traceback
+from datetime import datetime
 from typing import Tuple
 
-from config.constants import (CHUNKABLE_FILES)
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.survey_models import Survey
 from database.user_models import Participant
-from libs.file_processing.utility_functions_simple import s3_file_path_to_data_type
-from libs.s3 import s3_retrieve, s3_upload
+from libs.file_processing.file_for_processing import FileForProcessing
+from libs.s3 import s3_retrieve
 
-from datetime import datetime
 GLOBAL_TIMESTAMP = datetime.now().isoformat()
 
-def batch_retrieve_for_processing(ftp_as_object: FileToProcess) -> dict:
+def batch_retrieve_for_processing(file_to_process: FileToProcess) -> FileForProcessing:
     """ Used for mapping an s3_retrieve function. """
     # Convert the ftp object to a dict so we can use __getattr__
-    ftp = ftp_as_object.as_dict()
-    data_type = s3_file_path_to_data_type(ftp['s3_file_path'])
+    # data_type = s3_file_path_to_data_type(file_to_process.s3_file_path)
 
     # Create a dictionary to populate and return
-    ret = {
-        'ftp': ftp,
-        "data_type": data_type,
-        'exception': None,
-        "file_contents": "",
-        "traceback": None,
-        'chunkable': data_type in CHUNKABLE_FILES,
-    }
+    return FileForProcessing(file_to_process)
 
     # Try to retrieve the file contents. If any errors are raised, store them to be raised by the
     # parent function
-    try:
-        ret['file_contents'] = s3_retrieve(ftp['s3_file_path'], ftp["study"].object_id, raw_path=True)
-    except Exception as e:
-        traceback.print_exc()
-        ret['traceback'] = sys.exc_info()
-        ret['exception'] = e
-    return ret
+    # try:
+    #     ret['file_contents'] = s3_retrieve(file_to_process['s3_file_path'], file_to_process["study"].object_id, raw_path=True)
+    # except Exception as e:
+    #     traceback.print_exc()
+    #     ret['traceback'] = sys.exc_info()
+    #     ret['exception'] = e
+    # return ret
 
 
 def batch_upload(upload: Tuple[dict, str, bytes, str]):

@@ -4,40 +4,22 @@ import traceback
 from datetime import datetime
 from typing import Tuple
 
-from database.data_access_models import ChunkRegistry, FileToProcess
+from database.data_access_models import ChunkRegistry
 from database.survey_models import Survey
 from database.user_models import Participant
-from libs.file_processing.file_for_processing import FileForProcessing
-from libs.s3 import s3_retrieve
+
 
 GLOBAL_TIMESTAMP = datetime.now().isoformat()
 
-def batch_retrieve_for_processing(file_to_process: FileToProcess) -> FileForProcessing:
-    """ Used for mapping an s3_retrieve function. """
-    # Convert the ftp object to a dict so we can use __getattr__
-    # data_type = s3_file_path_to_data_type(file_to_process.s3_file_path)
 
-    # Create a dictionary to populate and return
-    return FileForProcessing(file_to_process)
-
-    # Try to retrieve the file contents. If any errors are raised, store them to be raised by the
-    # parent function
-    # try:
-    #     ret['file_contents'] = s3_retrieve(file_to_process['s3_file_path'], file_to_process["study"].object_id, raw_path=True)
-    # except Exception as e:
-    #     traceback.print_exc()
-    #     ret['traceback'] = sys.exc_info()
-    #     ret['exception'] = e
-    # return ret
-
-
-def batch_upload(upload: Tuple[dict, str, bytes, str]):
+def batch_upload(upload: Tuple[ChunkRegistry, str, bytes, str]):
     """ Used for mapping an s3_upload function.  the tuple is unpacked, can only have one parameter. """
     ret = {'exception': None, 'traceback': None}
     try:
         if len(upload) != 4:
             # upload should have length 4; this is for debugging if it doesn't
             print("upload length not equal to 4: ", upload)
+
         chunk, chunk_path, new_contents, study_object_id = upload
         del upload
 

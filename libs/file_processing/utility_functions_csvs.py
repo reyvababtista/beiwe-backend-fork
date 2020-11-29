@@ -1,3 +1,4 @@
+
 from datetime import datetime
 from typing import Generator, List
 
@@ -14,20 +15,57 @@ def insert_timestamp_single_row_csv(header: bytes, rows_list: list, time_stamp: 
     return b",".join(header_list)
 
 
-def csv_to_list(csv_string: bytes) -> (bytes, Generator):
+# def csv_to_list(csv_string: bytes) -> (bytes, Generator):
+#     """ Grab a list elements from of every line in the csv, strips off trailing whitespace. dumps
+#     them into a new list (of lists), and returns the header line along with the list of rows. """
+#     # This code is more memory efficient than fast by using a generator
+#     # Note that almost all of the time is spent in the per-row for-loop
+#     def split_yielder(l):
+#         for row in l:
+#             yield row.split(b",")
+#     header = csv_string[:csv_string.find(b"\n")]
+#     lines = csv_string.splitlines()
+#     # Remove the header
+#     lines.pop(0)  # This line is annoyingly slow, but its fine...
+#     del csv_string  # To clear up memory
+#     return header, split_yielder(lines)
+
+def csv_to_list(file_contents) -> (bytes, Generator):
     """ Grab a list elements from of every line in the csv, strips off trailing whitespace. dumps
     them into a new list (of lists), and returns the header line along with the list of rows. """
+
     # This code is more memory efficient than fast by using a generator
     # Note that almost all of the time is spent in the per-row for-loop
-    def split_yielder(l):
-        for row in l:
-            yield row.split(b",")
-    header = csv_string[:csv_string.find(b"\n")]
-    lines = csv_string.splitlines()
-    # Remove the header
-    lines.pop(0)  # This line is annoyingly slow, but its fine...
-    del csv_string  # To clear up memory
-    return header, split_yielder(lines)
+
+    # case: the file coming in is just a single line, e.g. the header.
+    # Need to provide the header and an empty iterator.
+    if b"\n" not in file_contents:
+        return file_contents, (_ for _ in ())
+
+    line_iterator = isplit(file_contents)
+    header = b",".join(next(line_iterator))
+    header2 = file_contents[:file_contents.find(b"\n")]
+    assert header2 == header, f"\n{header}\n{header2}"
+    return header, line_iterator
+
+
+def isplit(source: bytes):
+    """
+    generator version of str.split()/bytes.split()
+    :returns:
+        generator yielding elements of string.
+    """
+    # version using str.find(), less overhead than re.finditer()
+    start = 0
+    while True:
+        # find first split
+        idx = source.find(b"\n", start)
+        if idx == -1:
+            yield source[start:].split(b",")
+            return
+
+        yield source[start:idx].split(b",")
+        start = idx + 1
 
 
 def construct_csv_string(header: bytes, rows_list: List[bytes]) -> bytes:

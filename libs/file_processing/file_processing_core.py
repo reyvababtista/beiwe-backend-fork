@@ -127,18 +127,24 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
     # only gets from the database those FTPs that are in the slice.
     # print(participant.as_unpacked_native_python())
     print(len(participant.files_to_process.exclude(deleted=True).all()))
-    print(count)
-    print(skip_count)
+    print(page_size)
+    print(position)
 
-    files_to_process = participant.files_to_process.exclude(deleted=True).all()
+    # ordering by path results in files grouped by type and chronological order, which is perfect
+    # for efficiency.
+    # Fixme: does this break the skipping of items that failed to process? solution: exclude ids?
+    files_to_process = participant.files_to_process \
+        .exclude(deleted=True).order_by("s3_file_path", "created_on")
 
-    for file_for_processing in pool.map(batch_retrieve_for_processing,
-                                        files_to_process[skip_count:count+skip_count],
+    # Instantiating a FileForProcessing object queries S3 for the File's data. (network request))
+    # chunksize
+    for file_for_processing in pool.map(FileForProcessing,
+                                        files_to_process[position: position + page_size],
                                         chunksize=1):
 
         with error_handler:
             if file_for_processing.exception:
-                file_for_processing.raise_data_processing_error
+                file_for_processing.raise_data_processing_error()
 
             if file_for_processing.chunkable:
                 # case: chunkable data files

@@ -3,12 +3,104 @@ from collections import defaultdict
 from inspect import getframeinfo, stack
 from os.path import relpath
 from pprint import pprint
+from statistics import mean, stdev
 from time import perf_counter
+from types import FunctionType, MethodType
+
+from math import sqrt
 
 from database.survey_models import Survey
 from database.user_models import Participant
 
 PROJECT_PATH = __file__.rsplit("/", 2)[0]
+class DevUtilError(BaseException): pass
+
+class GlobalTimeTracker:
+    """
+    Populate with events, prints event time summaries on deallocation.
+
+    To avoid overhead we initialize an instance of the GlobalTimeTracker
+    when the first event is added.  This way the object is only instantiated
+    if there are any events.  The __del__ function is an instance method,
+    so by initializing lazily we skip it entirely.
+    """
+
+    function_pointers = defaultdict(list)
+    global_time_tracker = None
+
+    @classmethod
+    def add_event(
+            cls, function: FunctionType or MethodType, duration: float, exception: Exception = None
+    ):
+        # initialize and point to new function on the first call
+        cls.global_time_tracker = GlobalTimeTracker()
+
+        #
+        # This is the REAL add_event function
+        #
+        @classmethod  # this decorator ... is allowed here. Cool.
+        def _add_event(
+                cls: GlobalTimeTracker,  # and we can declare our own type, lol.
+                function: FunctionType or MethodType,
+                duration: float,
+                exception: Exception = None
+        ):
+            if exception is None:
+                cls.function_pointers[function. __name__, function].append(duration)
+            else:
+                cls.function_pointers[function.__name__, function, str(exception)].append(duration)
+
+        # repoint, call.
+        cls.add_event = _add_event
+        cls.add_event(function=function, duration=duration, exception=exception)
+
+    def __del__(self, *args, **kwargs):
+        """ On deallocation, print a bunch of statistics. """
+        print("\n")
+        for components, times in self.__class__.function_pointers.items():
+            name = components[0]
+            pointer = components[1]
+            exception = None if len(components) <= 2 else components[2]
+            # these as variable names is easier
+            name_and_exception = f"{name} {str(exception)}"
+            final_name = name if not exception else name_and_exception
+
+            print(
+                f"function: {final_name}",
+                "\n"
+                f"calls: {len(times)}",
+                "\n"
+                f"total milliseconds: {sum(times)}",
+                "\n"
+                f"min: {min(times)}",
+                f"\n"
+                f"max: {max(times)}",
+                f"\n"
+                f"mean: {mean(times)}",
+                "\n"
+                f"rms: {sqrt(mean(t*t for t in times))}",
+                "\n"
+                f"stdev: {'xxx' if len(times) == 1 else stdev(times)}"
+            )
+
+    @staticmethod
+    def track_function(some_function):
+        """ wraps a function with a timer that records to a GlobalTimeTracker"""
+        @functools.wraps(some_function)
+        def wrapper(*args, **kwargs):
+            try:
+                # perf counter is in milliseconds
+                t_start = perf_counter() * 1000
+                ret = some_function(*args, **kwargs)
+                t_end = perf_counter() * 1000
+                GlobalTimeTracker.add_event(some_function, t_end - t_start)
+                return ret
+            except Exception as e:
+                t_end = perf_counter() * 1000
+                # t_start always exists unless there is a bug in perf_timer
+                GlobalTimeTracker.add_event(some_function, t_end - t_start, e)
+                raise
+        return wrapper
 
 
 class TxtClr:

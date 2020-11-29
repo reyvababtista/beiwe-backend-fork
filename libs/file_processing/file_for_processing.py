@@ -5,6 +5,7 @@ import traceback
 
 from config.constants import CHUNKABLE_FILES
 from database.data_access_models import FileToProcess
+from libs.dev_utils import GlobalTimeTracker
 from libs.file_processing.utility_functions_simple import s3_file_path_to_data_type
 from libs.s3 import s3_retrieve
 
@@ -12,48 +13,31 @@ from libs.s3 import s3_retrieve
 class SomeException(Exception): pass
 class SomeException2(Exception): pass
 
+
 class FileForProcessing():
     def __init__(self, file_to_process: FileToProcess):
-        self.file_to_process = file_to_process
-        self.data_type = s3_file_path_to_data_type(file_to_process.s3_file_path)
-        self.chunkable = self.data_type in CHUNKABLE_FILES
-        # self.file_contents = self.get_file_contents()
-
-        self._file_contents = None
+        self.file_to_process: FileToProcess = file_to_process
+        self.data_type: str = s3_file_path_to_data_type(file_to_process.s3_file_path)
+        self.chunkable: bool = self.data_type in CHUNKABLE_FILES
+        self.file_contents: bytes = None
 
         # state tracking
-        self.exception = None
-        self.traceback = None
+        self.exception: Exception or None = None
+        self.traceback: str or None = None
 
         # magically populate at instantiation for now due to networking paradigm.
-        self.file_contents
-
-
-    # todo: is this as a lazy property workable?
-    @property
-    def file_contents(self):
-        # do not catch hasattr("_file_contents"), we intentionally remove the attribute
-        # to force a different error type here if accessed after it is deleted
-        if self._file_contents is None:
-            self._file_contents = self.get_file_contents()
-        return self._file_contents
+        self.download_file_contents()
 
     def clear_file_content(self):
-        del self._file_contents
+        del self.file_contents
 
-    def set_file_contents(self, new_contents: bytes):
-        if not hasattr(self, "_file_contents"):
-            raise SomeException2("this happened at the wrong time")
-        if not isinstance(new_contents, bytes):
-            raise TypeError("only bytes allowed")
-        self._file_contents = new_contents
-
-    def get_file_contents(self) -> bytes or None:
+    @GlobalTimeTracker.track_function
+    def download_file_contents(self) -> bytes or None:
         """ Handles network errors and updates state accordingly """
         # Try to retrieve the file contents. If any errors are raised, store them to be raised by the
         # parent function
         try:
-            return s3_retrieve(
+            self.file_contents = s3_retrieve(
                 self.file_to_process.s3_file_path,
                 self.file_to_process.study.object_id,
                 raw_path=True

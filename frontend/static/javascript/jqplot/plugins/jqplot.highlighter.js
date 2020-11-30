@@ -100,7 +100,7 @@
         // Where to position tooltip, 'n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'
         this.tooltipLocation = 'nw';
         // prop: fadeTooltip
-        // true = fade in/out tooltip, flase = show/hide tooltip
+        // true = fade in/out tooltip, false = show/hide tooltip
         this.fadeTooltip = true;
         // prop: tooltipFadeSpeed
         // 'slow', 'def', 'fast', or number of milliseconds.

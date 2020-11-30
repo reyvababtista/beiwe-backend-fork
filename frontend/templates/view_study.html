@@ -32,7 +32,7 @@
           <th>Phone registered</th>
           <th>Phone OS</th>
           {% if push_notifications_enabled %}
-            {% for intervention in interventions | sort(case_sensitive=Flase) %}
+            {% for intervention in interventions | sort(case_sensitive=False) %}
               <th>{{ intervention }}</th>
             {% endfor %}
           {% endif %}
@@ -69,7 +69,7 @@
               {% endif %}
             </td>
             {% if push_notifications_enabled %}
-              {% for intervention in interventions | sort(case_sensitive=Flase) %}
+              {% for intervention in interventions | sort(case_sensitive=False) %}
                 <th>{{ participant.intervention_dict[intervention]  or "" }}</th>
               {% endfor %}
             {% endif %}

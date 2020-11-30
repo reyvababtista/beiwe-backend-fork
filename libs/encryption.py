@@ -12,7 +12,7 @@ from database.profiling_models import (DecryptionKeyError, EncryptionErrorMetada
     LineEncryptionError)
 from database.study_models import Study
 from libs.logging import log_error
-from .security import decode_base64, encode_base64, PaddingException
+from libs.security import decode_base64, encode_base64, PaddingException
 
 
 class DecryptionKeyInvalidError(Exception): pass

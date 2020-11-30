@@ -30,7 +30,7 @@ def email_bundled_error(bundled_error, subject, emails=SYSADMIN_EMAILS):
     _send_email(OTHER_EMAIL_ADDRESS, emails, bundled_error.__repr__(), subject)
 
 
-def log_error(e, message=None, reraise=False):
+def log_error(e: str, message:str=None, reraise:bool=False):
     """ Prints an error to the apache log. "message" is a customizable that will be printed in
     the log.
     Reraise is dangerous, only set to true if you understand what it is.

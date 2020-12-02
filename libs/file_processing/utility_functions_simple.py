@@ -27,9 +27,22 @@ def s3_file_path_to_data_type(file_path: str):
 
 
 def ensure_sorted_by_timestamp(l: list):
-    """ According to the docs the sort method on a list is in place and should
-        faster, this is how to declare a sort by the first column (timestamp). """
-    l.sort(key=lambda x: int(x[0]))
+    """ In-place sorting is fast, but we (may) need to purge rows that are broken.
+        Purging broken rows is A) exceedingly uncommon, B) potentially VERY slow."""
+    try:
+        # first value should be a timestamp integer-like string, we get a ValueError if it isn't.
+        l.sort(key=lambda x: int(x[0]))
+    except ValueError:
+        # get bad rows, pop them off, sort again
+        bad_rows = []
+        for i, row in enumerate(l, 0):  # enumerate in this context needs to start at 0
+            try:
+                int(row[0])
+            except ValueError:
+                bad_rows.append(i)
+        for bad_row in reversed(bad_rows):
+            l.pop(bad_row)  # SLOW.
+        l.sort(key=lambda x: int(x[0]))
 
 
 def convert_unix_to_human_readable_timestamps(header: bytes, rows: list) -> List[bytes]:

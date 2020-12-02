@@ -12,7 +12,8 @@ python-dateutil==2.8.1
 factory-boy==3.2.0
 
 #pycryptodome>=3.9.0
-pycrypto==2.6.1  # pycrypto is out of support, we use it for 1 thing that has proven difficult to rewrite.
+pycryptodomex==3.9.9
+pycrypto
 
 # error reporting
 raven[flask]>=6.10.0

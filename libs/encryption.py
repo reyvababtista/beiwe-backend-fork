@@ -2,8 +2,8 @@ import json
 import traceback
 from os import urandom
 
-from Crypto.Cipher import AES
 from Crypto.PublicKey import RSA
+from Cryptodome.Cipher import AES
 from flask import request
 
 from config.constants import ASYMMETRIC_KEY_LENGTH

@@ -8,6 +8,7 @@ from libs.encryption import (decrypt_server, encrypt_for_server, generate_key_pa
 
 
 class S3VersionException(Exception): pass
+class NoSuchKeyException(Exception): pass
 
 
 conn = boto3.client(
@@ -40,11 +41,15 @@ def _do_retrieve(bucket_name, key_path, number_retries=3):
     """ Run-logic to do a data retrieval for a file in an S3 bucket."""
     try:
         return conn.get_object(Bucket=bucket_name, Key=key_path, ResponseContentType='string')
-    except Exception:
+    except Exception as boto_error_unknowable_type:
+        # Some error types cannot be imported because they are generated at runtime through a factory
+        if boto_error_unknowable_type.__class__.__name__ == "NoSuchKey":
+            raise NoSuchKeyException(f"{bucket_name}: {key_path}")
+        # usually we want to try again
         if number_retries > 0:
             print("s3_retrieve failed, retrying on %s" % key_path)
             return _do_retrieve(bucket_name, key_path, number_retries=number_retries - 1)
-        
+        # unknown cases: explode.
         raise
 
 

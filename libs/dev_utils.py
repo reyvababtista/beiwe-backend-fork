@@ -54,10 +54,11 @@ class GlobalTimeTracker:
         cls.add_event = _add_event
         cls.add_event(function=function, duration=duration, exception=exception)
 
-    def __del__(self, *args, **kwargs):
-        """ On deallocation, print a bunch of statistics. """
-        print("\n")
-        for components, times in self.__class__.function_pointers.items():
+    @classmethod
+    def print_summary(cls):
+        """ Prints a summary of runtime statistics."""
+
+        for components, times in cls.function_pointers.items():
             name = components[0]
             pointer = components[1]
             exception = None if len(components) <= 2 else components[2]
@@ -66,6 +67,7 @@ class GlobalTimeTracker:
             final_name = name if not exception else name_and_exception
 
             print(
+                "\n"
                 f"function: {final_name}",
                 "\n"
                 f"calls: {len(times)}",
@@ -78,10 +80,14 @@ class GlobalTimeTracker:
                 f"\n"
                 f"mean: {mean(times)}",
                 "\n"
-                f"rms: {sqrt(mean(t*t for t in times))}",
+                f"rms: {sqrt(mean(t * t for t in times))}",
                 "\n"
                 f"stdev: {'xxx' if len(times) == 1 else stdev(times)}"
             )
+
+    def __del__(self, *args, **kwargs):
+        """ On deallocation, print a bunch of statistics. """
+        self.print_summary()
 
     @staticmethod
     def track_function(some_function):

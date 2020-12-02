@@ -60,7 +60,8 @@ SHELL_PLUS_POST_IMPORTS = [
     ["django.utils.timezone", ("localtime", "make_aware", "make_naive")],
     ["time", ("sleep",)],
     ["libs.shell_utils", "*"],
-    ["dateutil", ('tz',)]
+    ["dateutil", ('tz',)],
+    ['libs.dev_utils', "GlobalTimeTracker"],
 ]
 
 # Using the default test runner

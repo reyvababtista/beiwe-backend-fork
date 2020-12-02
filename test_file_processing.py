@@ -5,7 +5,7 @@ from config.constants import ALL_DATA_STREAMS
 from database.data_access_models import FileToProcess
 from database.profiling_models import UploadTracking
 from database.system_models import FileProcessLock
-from libs.dev_utils import p
+from libs.dev_utils import GlobalTimeTracker, p
 from libs.file_processing.file_processing_core import process_file_chunks
 from libs.file_processing.utility_functions_simple import s3_file_path_to_data_type
 
@@ -33,3 +33,4 @@ process_file_chunks()
 p()
 
 print("\n\nOKAY DONE")
+GlobalTimeTracker.print_summary()

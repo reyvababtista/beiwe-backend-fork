@@ -6,6 +6,22 @@ from config.settings import (BEIWE_SERVER_AWS_ACCESS_KEY_ID, BEIWE_SERVER_AWS_SE
 from libs.encryption import (decrypt_server, encrypt_for_server, generate_key_pairing,
     get_RSA_cipher, prepare_X509_key_for_java)
 
+"""
+Research on getting a stream into the decryption code of pycryptodome
+
+The StreamingBody StreamingBody object does not define the __len__ function, which is
+necessary for creating a buffer somewhere in the decryption code, but it is possible to monkeypatch
+it in like this:
+    import botocore.response
+    def monkeypatch_len(self):
+        return int(self._content_length)
+    botocore.response.StreamingBody.__len__ = monkeypatch_len
+
+But that just results in this error from pycryptodome:
+TypeError: Object type <class 'botocore.response.StreamingBody'> cannot be passed to C code
+"""
+
+
 
 class S3VersionException(Exception): pass
 class NoSuchKeyException(Exception): pass
@@ -41,6 +57,7 @@ def _do_retrieve(bucket_name, key_path, number_retries=3):
     """ Run-logic to do a data retrieval for a file in an S3 bucket."""
     try:
         return conn.get_object(Bucket=bucket_name, Key=key_path, ResponseContentType='string')
+
     except Exception as boto_error_unknowable_type:
         # Some error types cannot be imported because they are generated at runtime through a factory
         if boto_error_unknowable_type.__class__.__name__ == "NoSuchKey":

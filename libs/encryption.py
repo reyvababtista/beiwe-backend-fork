@@ -81,7 +81,7 @@ def encrypt_for_server(input_string: bytes, study_object_id: str) -> bytes:
 def decrypt_server(data: bytes, study_object_id: str) -> bytes:
     """ Decrypts config encrypted by the encrypt_for_server function. """
     if not isinstance(study_object_id, str):
-        raise Exception(f"received non-string object {study_object_id}")
+        raise TypeError(f"received non-string object {study_object_id}")
 
     encryption_key = Study.objects.filter(
         object_id=study_object_id

@@ -15,8 +15,7 @@ from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.system_models import FileProcessLock
 from database.user_models import Participant
-from libs.dev_utils import p
-from libs.file_processing.batched_network_operations import (batch_retrieve_for_processing,
+from libs.file_processing.batched_network_operations import (
     batch_upload)
 from libs.file_processing.data_fixes import (fix_app_log_file, fix_call_log_csv, fix_identifier_csv,
     fix_survey_timings, fix_wifi_csv)
@@ -32,17 +31,15 @@ from libs.s3 import s3_retrieve
 
 """########################## Hourly Update Tasks ###########################"""
 
-# This is useful for performance testing, replace the real threadpool with this one and everything
-# will suddenly be single-threaded, making it much easier to profile.
+# This is useful for testing and profiling behavior. Replaces the imported threadpool with this
+# dummy class and poof! Single-threaded so the "threaded" network operations have real stack traces!
 # class ThreadPool():
-#     def map(self, *args, **kwargs): # the existence of that self variable is key
-#         # we actually want to cut off any threadpool args, which is conveniently easy because map does not use kwargs!
+#     def map(self, *args, **kwargs):
+#         # cut off any threadpool kwargs, which is conveniently easy because map does not use kwargs!
 #         return map(*args)
 #     def terminate(self): pass
 #     def close(self): pass
-#     def __init__(self, *args,**kwargs):
-#         pass
-
+#     def __init__(self, *args,**kwargs): pass
 
 
 def process_file_chunks():
@@ -74,9 +71,9 @@ def process_file_chunks():
 
                 # Process the desired number of files and calculate the number of unprocessed files
                 number_bad_files += do_process_user_file_chunks(
-                        count=FILE_PROCESS_PAGE_SIZE,
+                        page_size=FILE_PROCESS_PAGE_SIZE,
                         error_handler=error_handler,
-                        skip_count=number_bad_files,
+                        position=number_bad_files,
                         participant=participant,
                 )
 
@@ -94,8 +91,9 @@ def process_file_chunks():
     # raise EverythingWentFine(DATA_PROCESSING_NO_ERROR_STRING)
 
 
-def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_count: int,
-                                participant: Participant):
+def do_process_user_file_chunks(
+        page_size: int, error_handler: ErrorHandler, position: int, participant: Participant
+):
     """
     Run through the files to process, pull their data, put it into s3 bins. Run the file through
     the appropriate logic path based on file type.
@@ -111,9 +109,10 @@ def do_process_user_file_chunks(count: int, error_handler: ErrorHandler, skip_co
 
     Any errors are themselves concatenated using the passed in error handler.
 
-    In a single call to this function, count files will be processed, starting from file number
-    skip_count. The first skip_count files are expected to be files that have previously errored
-    in file processing.
+    In a single call to this function, page_size files will be processed,at the position specified.
+    This is expected to exclude files that have previously errored in file processing.
+    (some conflicts can be most easily resolved by just delaying a file until the next processing
+    period, and it solves )
     """
     # Declare a defaultdict of a tuple of 2 lists
     all_binified_data = defaultdict(lambda: ([], []))
@@ -359,12 +358,12 @@ def process_csv_data(file_for_processing: FileForProcessing):
     """ Constructs a binified dict of a given list of a csv rows,
         catches csv files with known problems and runs the correct logic.
         Returns None If the csv has no data in it. """
-    
+
     if file_for_processing.file_to_process.participant.os_type == Participant.ANDROID_API:
         # Do fixes for Android
         if file_for_processing.data_type == ANDROID_LOG_FILE:
-            file_for_processing.set_file_contents(
-                fix_app_log_file(file_for_processing.file_contents, file_for_processing.file_to_process.s3_file_path)
+            file_for_processing.file_contents = fix_app_log_file(
+                file_for_processing.file_contents, file_for_processing.file_to_process.s3_file_path
             )
 
         header, csv_rows_list = csv_to_list(file_for_processing.file_contents)

@@ -67,7 +67,7 @@ class ChunkRegistry(TimestampedModel):
     )
 
     def s3_retrieve(self):
-        return s3_retrieve(self.chunk_path, self.study.object_id)
+        return s3_retrieve(self.chunk_path, self.study.object_id, raw_path=True)
 
     @classmethod
     def register_chunked_data(cls, data_type, time_bin, chunk_path, file_contents, study_id,

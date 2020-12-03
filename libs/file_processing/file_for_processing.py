@@ -5,7 +5,6 @@ import traceback
 
 from config.constants import CHUNKABLE_FILES
 from database.data_access_models import FileToProcess
-from libs.dev_utils import GlobalTimeTracker
 from libs.file_processing.utility_functions_simple import s3_file_path_to_data_type
 from libs.s3 import s3_retrieve
 
@@ -31,7 +30,6 @@ class FileForProcessing():
     def clear_file_content(self):
         del self.file_contents
 
-    @GlobalTimeTracker.track_function
     def download_file_contents(self) -> bytes or None:
         """ Handles network errors and updates state accordingly """
         # Try to retrieve the file contents. If any errors are raised, store them to be raised by the

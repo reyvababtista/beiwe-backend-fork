@@ -15,8 +15,7 @@ from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.system_models import FileProcessLock
 from database.user_models import Participant
-from libs.file_processing.batched_network_operations import (
-    batch_upload)
+from libs.file_processing.batched_network_operations import batch_upload
 from libs.file_processing.data_fixes import (fix_app_log_file, fix_call_log_csv, fix_identifier_csv,
     fix_survey_timings, fix_wifi_csv)
 from libs.file_processing.exceptions import (BadTimecodeError, ChunkFailedToExist,
@@ -371,7 +370,7 @@ def process_csv_data(file_for_processing: FileForProcessing):
             # If the data is not accelerometer data, convert the generator to a list.
             # For accelerometer data, the data is massive and so we don't want it all
             # in memory at once.
-            csv_rows_list = [r for r in csv_rows_list]
+            csv_rows_list = list(csv_rows_list)
 
         if file_for_processing.data_type == CALL_LOG:
             header = fix_call_log_csv(header, csv_rows_list)
@@ -380,8 +379,9 @@ def process_csv_data(file_for_processing: FileForProcessing):
     else:
         # Do fixes for iOS
         header, csv_rows_list = csv_to_list(file_for_processing.file_contents)
+
         if file_for_processing.data_type != ACCELEROMETER:
-            csv_rows_list = [r for r in csv_rows_list]
+            csv_rows_list = list(csv_rows_list)
 
     # Memory saving measure: this data is now stored in its entirety in csv_rows_list
     file_for_processing.clear_file_content()

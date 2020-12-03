@@ -3,7 +3,8 @@ from datetime import timedelta
 from django.db import models
 from django.utils import timezone
 
-from config.constants import UPLOAD_FILE_TYPE_MAPPING
+from config.constants import (DATA_STREAM_TO_S3_FILE_NAME_STRING,
+    UPLOAD_FILE_TYPE_MAPPING)
 from database.models import JSONTextField, Participant, TimestampedModel
 from libs.security import decode_base64
 
@@ -96,6 +97,52 @@ class UploadTracking(TimestampedModel):
                 participant__study__object_id,
                 participant=participant,
             )
+
+    @classmethod
+    def add_files_to_process2(cls, limit=25):
+        """ Re-adds the most recent [limit] files that have been uploaded recently to FiletToProcess.
+            (this is fairly optimized because it is part of debugging file processing) """
+        from database.data_access_models import FileToProcess
+
+        upload_queries = []
+        for ds in DATA_STREAM_TO_S3_FILE_NAME_STRING.values():
+            if ds == "identifiers":
+                continue
+            query = (
+                cls.objects.order_by("-created_on")
+                    .filter(file_path__contains=ds)
+                    .values_list("file_path",
+                                 "participant__study__object_id",
+                                 "participant_id")[:limit]
+            )
+            upload_queries.append((ds, query))
+
+
+        participant_cache = {}  # uhg need to cache participants...
+        file_paths_wandered = set(FileToProcess.objects.values_list("s3_file_path", flat=True))
+        for file_type, uploads_query in upload_queries:
+            print(file_type)
+            for i, (file_path, participant__study__object_id,
+                    participant_id) in enumerate(uploads_query):
+
+                if participant_id in participant_cache:
+                    participant = participant_cache[participant_id]
+                else:
+                    participant = Participant.objects.get(id=participant_id)
+                    participant_cache[participant_id] = participant
+
+                if i % 10 == 0 or i == limit-1:
+                    print(i+1 if i == limit-1 else i, sep="... ",)
+
+                if file_path in file_paths_wandered:
+                    continue
+                else:
+                    file_paths_wandered.add(file_path)
+
+                FileToProcess.append_file_for_processing(
+                    file_path, participant__study__object_id, participant=participant,
+                )
+
 
     @classmethod
     def get_trailing_count(cls, time_delta):

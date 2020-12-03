@@ -232,7 +232,7 @@ DATA_STREAM_TO_S3_FILE_NAME_STRING = {
     MAGNETOMETER: "magnetometer",
     DEVICEMOTION: "devicemotion",
     REACHABILITY: "reachability",
-    IOS_LOG_FILE: "ios_log",
+    IOS_LOG_FILE: "ios/log",
     IMAGE_FILE: "imageSurvey"
 }
 

@@ -70,7 +70,7 @@
             </td>
             {% if push_notifications_enabled %}
               {% for intervention in interventions | sort(case_sensitive=False) %}
-                <th><div style="font-weight: normal">{{ participant.intervention_dict[intervention]  or "" }}</div></th>
+                <td>{{ participant.intervention_dict[intervention]  or "" }}</td>
               {% endfor %}
             {% endif %}
             {% for field in study_fields | sort(case_sensitive=False) %}

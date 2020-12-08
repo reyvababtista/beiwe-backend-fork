@@ -55,6 +55,7 @@
                     </div>
                     <div class="modal-body">
                       <form action="/edit_intervention/{{ study.id }}" method="POST">
+                        Intervention Name:
                         <input type="text" class="form-control" name="edit_intervention" value="{{ intervention.name }}"/>
                         <input type="hidden" name="intervention_id" value="{{ intervention.id }}"/>
                         <br>
@@ -84,7 +85,15 @@
       <form action="/interventions/{{ study.id }}" method="POST">
         <input type="hidden" name="study_id" value="{{ study.id }}">
         <label>Add new Intervention</label>
-        <input type="text" class="form-control" name="new_intervention" />
+        <div class="row">
+          <div class="col-sm-1">
+            Intervention Name:
+          </div>
+          <div class="col-sm-11">
+            <input type="text" class="form-control" name="new_intervention" />
+          </div>
+        </div>
+        <br>
         <button type="submit" class="btn btn-success"><span class="glyphicon glyphicon-plus"></span> Add New Intervention</button>
       </form>
     {% endif %}

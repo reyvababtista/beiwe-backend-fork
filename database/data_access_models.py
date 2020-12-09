@@ -67,8 +67,9 @@ class ChunkRegistry(TimestampedModel):
         return s3_retrieve(self.chunk_path, self.study.object_id, raw_path=True)
 
     @classmethod
-    def register_chunked_data(cls, data_type, time_bin, chunk_path, file_contents, study_id,
-                              participant_id, survey_id=None):
+    def register_chunked_data(
+            cls, data_type, time_bin, chunk_path, file_contents, study_id, participant_id, survey_id=None
+    ):
         if data_type not in CHUNKABLE_FILES:
             raise UnchunkableDataTypeError
 
@@ -134,8 +135,9 @@ class ChunkRegistry(TimestampedModel):
             query['time_bin__lte'] = end
         return cls.objects.filter(**query)
 
-    def update_chunk_hash(self, data_to_hash):
+    def update_chunk(self, data_to_hash: bytes):
         self.chunk_hash = chunk_hash(data_to_hash).decode()
+
         self.save()
 
     @classmethod

@@ -73,11 +73,11 @@ class UploadTracking(TimestampedModel):
             (this is fairly optimized because it is part of debugging file processing) """
         from database.data_access_models import FileToProcess
         uploads = cls.objects.order_by("-created_on").values_list(
-            "file_path", "participant__study__object_id", "participant_id"
+            "file_path", "participant__study_id", "participant_id"
         )[:number]
-
+        new_ftps = []
         participant_cache = {}  # uhg need to cache participants...
-        for i, (file_path, participant__study__object_id, participant_id) in enumerate(uploads):
+        for i, (file_path, study_id, participant_id) in enumerate(uploads):
             if participant_id in participant_cache:
                 participant = participant_cache[participant_id]
             else:
@@ -91,12 +91,20 @@ class UploadTracking(TimestampedModel):
                 print(f"skipping {file_path}, appears to already be present")
                 continue
 
-            FileToProcess.append_file_for_processing(
-                # file_path, study_object_id, **kwargs
-                file_path,
-                participant__study__object_id,
-                participant=participant,
-            )
+            new_ftps.append(FileToProcess(
+                s3_file_path=file_path,
+                study_id=study_id,
+                participant=participant
+            ))
+        FileToProcess.objects.bulk_create(
+            new_ftps
+        )
+            # FileToProcess.append_file_for_processing(
+            #     # file_path, study_object_id, **kwargs
+            #     file_path,
+            #     # participant__study__object_id,
+            #     participant=participant,
+            # )
 
     @classmethod
     def add_files_to_process2(cls, limit=25):
@@ -112,24 +120,18 @@ class UploadTracking(TimestampedModel):
                 cls.objects.order_by("-created_on")
                     .filter(file_path__contains=ds)
                     .values_list("file_path",
+                                 "participant__study_id",
                                  "participant__study__object_id",
                                  "participant_id")[:limit]
             )
             upload_queries.append((ds, query))
 
-
-        participant_cache = {}  # uhg need to cache participants...
+        new_ftps = []
+        # participant_cache = {}  # uhg need to cache participants...
         file_paths_wandered = set(FileToProcess.objects.values_list("s3_file_path", flat=True))
         for file_type, uploads_query in upload_queries:
             print(file_type)
-            for i, (file_path, participant__study__object_id,
-                    participant_id) in enumerate(uploads_query):
-
-                if participant_id in participant_cache:
-                    participant = participant_cache[participant_id]
-                else:
-                    participant = Participant.objects.get(id=participant_id)
-                    participant_cache[participant_id] = participant
+            for i, (file_path, study_id, object_id, participant_id) in enumerate(uploads_query):
 
                 if i % 10 == 0 or i == limit-1:
                     print(i+1 if i == limit-1 else i, sep="... ",)
@@ -139,9 +141,12 @@ class UploadTracking(TimestampedModel):
                 else:
                     file_paths_wandered.add(file_path)
 
-                FileToProcess.append_file_for_processing(
-                    file_path, participant__study__object_id, participant=participant,
-                )
+                new_ftps.append(FileToProcess(
+                    s3_file_path=object_id + "/" + file_path,
+                    study_id=study_id,
+                    participant_id=participant_id
+                ))
+        FileToProcess.objects.bulk_create(new_ftps)
 
 
     @classmethod

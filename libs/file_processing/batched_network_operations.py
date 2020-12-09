@@ -1,12 +1,12 @@
-import codecs
 import sys
 import traceback
 from typing import Tuple
 
 from database.data_access_models import ChunkRegistry
+from libs.file_processing.utility_functions_simple import decompress
 from libs.s3 import s3_upload
 
-
+# from datetime import datetime
 # GLOBAL_TIMESTAMP = datetime.now().isoformat()
 
 
@@ -16,7 +16,7 @@ def batch_upload(upload: Tuple[ChunkRegistry, str, bytes, str]):
     try:
         chunk, chunk_path, new_contents, study_object_id = upload
         del upload
-        new_contents = codecs.decode(new_contents, "zip")
+        new_contents = decompress(new_contents)
 
         if "b'" in chunk_path:
             raise Exception(chunk_path)
@@ -24,8 +24,8 @@ def batch_upload(upload: Tuple[ChunkRegistry, str, bytes, str]):
         # for use with test script to avoid network uploads
         # with open("processing_tests/" + GLOBAL_TIMESTAMP, 'ba') as f:
         #     f.write(b"\n\n")
-        #     f.write(codecs.decode(new_contents, "zip"))
-        #     return
+        #     f.write(new_contents)
+        #     return ret
 
         s3_upload(chunk_path, new_contents, study_object_id, raw_path=True)
 

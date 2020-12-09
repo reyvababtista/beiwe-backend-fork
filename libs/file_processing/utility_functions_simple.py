@@ -1,5 +1,7 @@
 from typing import List
 
+import zstd
+
 from config.constants import (CHUNK_TIMESLICE_QUANTUM, IDENTIFIERS, IOS_LOG_FILE,
     UPLOAD_FILE_TYPE_MAPPING)
 from libs.file_processing.utility_functions_csvs import (clean_java_timecode, unix_time_to_string)
@@ -68,3 +70,15 @@ def binify_from_timecode(unix_ish_time_code_string: bytes) -> int:
 
 def resolve_survey_id_from_file_name(name: str) -> str:
     return name.rsplit("/", 2)[1]
+
+
+def compress(data: bytes) -> bytes:
+    return zstd.compress(
+        data,
+        1,  # compression level (1 yields better compression on average across our data streams
+        0,  # auto-tune the number of threads based on cpu cores (no apparent drawbacks)
+    )
+
+
+def decompress(data: bytes) -> bytes:
+    return zstd.decompress(data)

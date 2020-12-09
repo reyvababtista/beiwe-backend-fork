@@ -1,4 +1,3 @@
-import codecs
 import gc
 from collections import defaultdict
 from datetime import datetime
@@ -24,7 +23,7 @@ from libs.file_processing.file_for_processing import FileForProcessing
 from libs.file_processing.utility_functions_csvs import (clean_java_timecode, construct_csv_string,
     csv_to_list, unix_time_to_string)
 from libs.file_processing.utility_functions_simple import (binify_from_timecode,
-    convert_unix_to_human_readable_timestamps, ensure_sorted_by_timestamp,
+    compress, convert_unix_to_human_readable_timestamps, ensure_sorted_by_timestamp,
     resolve_survey_id_from_file_name)
 from libs.s3 import s3_retrieve
 
@@ -251,7 +250,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                     new_contents = construct_csv_string(updated_header, old_rows)
                     del old_rows
 
-                    upload_these.append((chunk, chunk_path, codecs.encode(new_contents, "zip"), study_object_id))
+                    upload_these.append((chunk, chunk_path, compress(new_contents), study_object_id))
                     del new_contents
                 else:
                     ensure_sorted_by_timestamp(rows)
@@ -271,7 +270,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                         "survey_id": survey_id
                     }
 
-                    upload_these.append((chunk_params, chunk_path, codecs.encode(new_contents, "zip"), study_object_id))
+                    upload_these.append((chunk_params, chunk_path, compress(new_contents), study_object_id))
             except Exception as e:
                 # Here we catch any exceptions that may have arisen, as well as the ones that we raised
                 # ourselves (e.g. HeaderMismatchException). Whichever FTP we were processing when the

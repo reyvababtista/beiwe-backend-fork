@@ -46,7 +46,11 @@
         {% for participant in participants %}
           <tr>
             <td>
-              <b><a href="/view_study/{{ study.id }}/edit_participant/{{ participant.id }}">{{ participant.patient_id }}</a></b>
+              {% if readonly %}
+                {{ participant.patient_id }}
+              {% else %}
+                <b><a href="/view_study/{{ study.id }}/edit_participant/{{ participant.id }}">{{ participant.patient_id }}</a></b>
+              {% endif %}
             </td>
             <td>
               {% if participant.device_id %}

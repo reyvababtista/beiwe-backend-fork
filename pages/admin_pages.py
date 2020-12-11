@@ -1,12 +1,11 @@
-from flask import (abort, Blueprint, flash, Markup, redirect, render_template, request,
-    session)
+from flask import (Blueprint, flash, Markup, redirect, render_template, request, session)
 
 from authentication import admin_authentication
 from authentication.admin_authentication import (authenticate_researcher_login,
     authenticate_researcher_study_access, get_researcher_allowed_studies,
     get_researcher_allowed_studies_as_query_set, researcher_is_an_admin, SESSION_NAME)
-from database.study_models import Study, StudyField
-from database.user_models import Participant, ParticipantFieldValue, Researcher
+from database.study_models import Study
+from database.user_models import Participant, Researcher
 from libs.push_notification_config import check_firebase_instance
 from libs.security import check_password_requirements
 
@@ -50,7 +49,7 @@ def view_study(study_id=None):
     # creates dicts of Custom Fields and Interventions to be easily accessed in the template
     for p in participants:
         p.field_dict = participant_tags(p)
-        p.intervention_dict = {tag.intervention.name: tag.date for tag in p.intervention_dates.all()}
+        p.intervention_diview_patient_custom_field_valuesct = {tag.intervention.name: tag.date for tag in p.intervention_dates.all()}
 
     return render_template(
         'view_study.html',
@@ -64,7 +63,7 @@ def view_study(study_id=None):
         interventions=list(study.interventions.all().values_list("name", flat=True)),
         page_location='study_landing',
         study_id=study_id,
-        push_notifications_enabled=check_firebase_instance(require_android=True) or \
+        push_notifications_enabled=check_firebase_instance(require_android=True) or
                                    check_firebase_instance(require_ios=True),
     )
 
@@ -73,43 +72,6 @@ def view_study(study_id=None):
 @authenticate_researcher_study_access
 def view_study_data_pipeline(study_id=None):
     return render_template('data-pipeline.html', study=Study.objects.get(pk=study_id))
-
-
-# TODO: delete, this end point cannot be hit, this page isn't used anymore, can delete template too
-@admin_pages.route('/view_study/<string:study_id>/patient_fields/<string:patient_id>', methods=['GET', 'POST'])
-@authenticate_researcher_study_access
-def patient_fields(study_id, patient_id=None):
-    # the study is already authenticated at this time,
-    try:
-        participant = Participant.objects.get(pk=int(patient_id))  # int coercion is sanitization
-        study = participant.study
-    except Participant.DoesNotExist:
-        return abort(404)
-
-    # safety chack
-    if study.id != study_id:
-        return abort(403)
-
-    participant.values_dict = participant_tags(participant)
-    if request.method == 'GET':
-        return render_template(
-            'view_patient_custom_field_values.html',
-            fields=study.fields.all(),
-            study=study,
-            patient=participant,
-        )
-
-    # todo: sanitize.
-    fields = list(study.fields.values_list('field_name', flat=True))
-    for key, value in request.values.items():
-        if key in fields:
-            pfv, created = ParticipantFieldValue.objects.get_or_create(
-                participant=participant, field=StudyField.objects.get(study=study, field_name=key)
-            )
-            pfv.value = value
-            pfv.save()
-
-    return redirect('/view_study/{:d}'.format(study.id))
 
 
 """########################## Login/Logoff ##################################"""

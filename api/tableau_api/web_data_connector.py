@@ -2,8 +2,9 @@ from flask import render_template
 from flask.views import MethodView
 from flask_cors import cross_origin
 
-from api.tableau_api.constants import SERIALIZABLE_FIELD_NAMES, FIELD_TYPE_MAP
+from api.tableau_api.constants import FIELD_TYPE_MAP, SERIALIZABLE_FIELD_NAMES
 from database.tableau_api_models import SummaryStatisticDaily
+
 
 class WebDataConnector(MethodView):
 
@@ -13,18 +14,19 @@ class WebDataConnector(MethodView):
         super().__init__(*args, **kwargs)
 
         # build the columns datastructure for tableau to enumerate the format of the API data
-        fields = SummaryStatisticDaily._meta.get_fields()
+        fields = (f for f in SummaryStatisticDaily._meta.fields if f.name in SERIALIZABLE_FIELD_NAMES)
         self.cols = '[\n'
+
         for field in fields:
-            if field.name in SERIALIZABLE_FIELD_NAMES:
-                for (py_type, tableau_type) in FIELD_TYPE_MAP:
-                    if isinstance(field, py_type):
-                        self.cols += f"{{id: '{field.name}', dataType: {tableau_type},}},\n"
-                        # ex line: {id: 'participant_id', dataType: tableau.dataTypeEnum.int,},
-                        break
-                else:
-                    # if the field is not recognized, supply it to tableau as a string type
-                    self.cols += f"{{id: '{field.name}', dataType: tableau.dataTypeEnum.string,}},\n"
+            for (py_type, tableau_type) in FIELD_TYPE_MAP:
+                if isinstance(field, py_type):
+                    self.cols += f"{{id: '{field.name}', dataType: {tableau_type},}},\n"
+                    # ex line: {id: 'participant_id', dataType: tableau.dataTypeEnum.int,},
+                    break
+            else:
+                # if the field is not recognized, supply it to tableau as a string type
+                self.cols += f"{{id: '{field.name}', dataType: tableau.dataTypeEnum.string,}},\n"
+
         self.cols += '];'
 
     @classmethod
@@ -38,6 +40,4 @@ class WebDataConnector(MethodView):
     def get(self, study_id):
         # for security reasons, no study_id validation occurs here, and no study info is exposed
         # there is necessarily no validation to get to this page. No information should be exposed here
-        return render_template('wdc.html',
-                               study_id=study_id,
-                               cols=self.cols)
+        return render_template('wdc.html', study_id=study_id, cols=self.cols)

@@ -46,6 +46,9 @@ SERIALIZABLE_FIELD_NAMES = [
     "total_screen_events",
     "total_unlock_events",
 ]
+
+SERIALIZABLE_FIELD_NAMES_DROPDOWN = [(f, f) for f in SERIALIZABLE_FIELD_NAMES]
+
 VALID_QUERY_PARAMETERS = [
     "end_date",
     "fields",
@@ -56,6 +59,7 @@ VALID_QUERY_PARAMETERS = [
     "start_date",
     "study_id",
 ]
+
 # maps django fields to tableau data types. All fields not included here are interpreted as string data in tableau
 # note that this process considers subclasses, so all subclasses of DateFields will appear in tableau as a data
 FIELD_TYPE_MAP = [
@@ -65,3 +69,19 @@ FIELD_TYPE_MAP = [
     (DateField, 'tableau.dataTypeEnum.date'),
     (BooleanField, 'tableau.dataTypeEnum.bool'),
 ]
+
+
+X_ACCESS_KEY_ID = "X-Access-Key-Id"
+X_ACCESS_KEY_SECRET = "X-Access-Key-Secret"
+
+# general error messages
+CREDENTIALS_NOT_VALID_ERROR_MESSAGE = "Credentials not valid"
+HEADER_IS_REQUIRED = "This header is required"
+RESOURCE_NOT_FOUND = "resource not found"
+NONSTRING_ERROR_MESSAGE = "a non string argument was supplied to a CommaSeparatedListField"
+
+# permissions errors
+APIKEY_NO_ACCESS_MESSAGE = "ApiKey does not have access to Tableau API"
+NO_STUDY_PROVIDED_MESSAGE = "No study id specified"
+NO_STUDY_FOUND_MESSAGE = "No matching study found"
+RESEARCHER_NOT_ALLOWED = "Researcher does not have permission to view that study"

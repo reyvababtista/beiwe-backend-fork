@@ -1,15 +1,18 @@
 from datetime import datetime
 
+from django.db.models import QuerySet
 from flask import abort, Blueprint, json, request, Response
 
-from authentication.data_access_authentication import (api_study_credential_check, get_api_study)
-from config.constants import (ALL_DATA_STREAMS, API_TIME_FORMAT)
-from database.data_access_models import (ChunkRegistry)
+from authentication.data_access_authentication import api_study_credential_check, get_api_study
+from config.constants import ALL_DATA_STREAMS, API_TIME_FORMAT
+from database.data_access_models import ChunkRegistry
 from database.user_models import Participant
 from libs.streaming_zip import zip_generator
 
 data_access_api = Blueprint('data_access_api', __name__)
 
+chunk_fields = ("pk", "participant_id", "data_type", "chunk_path", "time_bin", "chunk_hash",
+                "participant__patient_id", "study_id", "survey_id", "survey__object_id")
 
 @data_access_api.route("/get-data/v1", methods=['POST', "GET"])
 @api_study_credential_check(conditionally_block_test_studies=True)
@@ -30,14 +33,8 @@ def get_data():
     determine_users_for_db_query(query_args)
     determine_time_range_for_db_query(query_args)
 
-    # Do query (this is actually a generator)
-    study = get_api_study()
-    if "registry" in request.values:
-        get_these_files = handle_database_query(
-            study.pk, query_args, registry=parse_registry(request.values["registry"])
-        )
-    else:
-        get_these_files = handle_database_query(study.pk, query_args, registry=None)
+    # Do query! (this is actually a generator)
+    get_these_files = handle_database_query(get_api_study().pk, query_args, registry_dict=parse_registry())
 
     # If the request is from the web form we need to indicate that it is an attachment,
     # and don't want to create a registry file.
@@ -55,19 +52,22 @@ def get_data():
         )
 
 
-#########################################################################################
-
-
-def parse_registry(reg_dat):
+def parse_registry():
     """ Parses the provided registry.dat file and returns a dictionary of chunk
     file names and hashes.  (The registry file is just a json dictionary containing
     a list of file names and hashes.) """
+    registry = request.values.get("registry", None)
+    if registry is None:
+        return None
+
     try:
-        ret = json.loads(reg_dat)
+        ret = json.loads(registry)
     except ValueError:
         return abort(400)
+
     if not isinstance(ret, dict):
         return abort(400)
+
     return ret
 
 
@@ -84,29 +84,27 @@ def str_to_datetime(time_string):
 ############################ DB Query For Data Download #################################
 #########################################################################################
 
-def determine_data_streams_for_db_query(query):
+def determine_data_streams_for_db_query(query_dict: dict):
     """ Determines, from the html request, the data streams that should go into the database query.
     Modifies the provided query object accordingly, there is no return value
-    Throws a 404 if the data stream provided does not exist.
-    :param query: expects a dictionary object. """
+    Throws a 404 if the data stream provided does not exist. """
     if 'data_streams' in request.values:
         # the following two cases are for difference in content wrapping between
         # the CLI script and the download page.
         try:
-            query['data_types'] = json.loads(request.values['data_streams'])
+            query_dict['data_types'] = json.loads(request.values['data_streams'])
         except ValueError:
-            query['data_types'] = request.form.getlist('data_streams')
+            query_dict['data_types'] = request.form.getlist('data_streams')
 
-        for data_stream in query['data_types']:
+        for data_stream in query_dict['data_types']:
             if data_stream not in ALL_DATA_STREAMS:
                 return abort(404)
 
 
-def determine_users_for_db_query(query):
+def determine_users_for_db_query(query: dict):
     """ Determines, from the html request, the users that should go into the database query.
     Modifies the provided query object accordingly, there is no return value.
-    Throws a 404 if a user provided does not exist.
-    :param query: expects a dictionary object. """
+    Throws a 404 if a user provided does not exist. """
     if 'user_ids' in request.values:
         try:
             query['user_ids'] = [user for user in json.loads(request.values['user_ids'])]
@@ -118,46 +116,38 @@ def determine_users_for_db_query(query):
             return abort(404)
 
 
-def determine_time_range_for_db_query(query):
+def determine_time_range_for_db_query(query: dict):
     """ Determines, from the html request, the time range that should go into the database query.
     Modifies the provided query object accordingly, there is no return value.
-    Throws a 404 if a user provided does not exist.
-    :param query: expects a dictionary object. """
+    Throws a 404 if a user provided does not exist. """
     if 'time_start' in request.values:
         query['start'] = str_to_datetime(request.values['time_start'])
     if 'time_end' in request.values:
         query['end'] = str_to_datetime(request.values['time_end'])
 
 
-def handle_database_query(study_id, query, registry=None):
-    """
-    Runs the database query and returns a QuerySet.
-    """
-    chunk_fields = ["pk", "participant_id", "data_type", "chunk_path", "time_bin", "chunk_hash",
-                    "participant__patient_id", "study_id", "survey_id", "survey__object_id"]
+def handle_database_query(study_id: int, query_dict: dict, registry_dict: dict = None) -> QuerySet:
+    """ Runs the database query and returns a QuerySet. """
+    chunks = ChunkRegistry.get_chunks_time_range(study_id, **query_dict)
 
-    chunks = ChunkRegistry.get_chunks_time_range(study_id, **query)
-
-    if not registry:
+    if not registry_dict:
         return chunks.values(*chunk_fields)
 
-    # If there is a registry, we need to filter the chunks
+    # If there is a registry, we need to filter on the chunks
     else:
         # Get all chunks whose path and hash are both in the registry
         possible_registered_chunks = (
             chunks
-                .filter(chunk_path__in=registry, chunk_hash__in=registry.values())
+                .filter(chunk_path__in=registry_dict, chunk_hash__in=registry_dict.values())
                 .values('pk', 'chunk_path', 'chunk_hash')
         )
 
         # determine those chunks that we do not want present in the download
         # (get a list of pks that have hashes that don't match the database)
         registered_chunk_pks = [
-            c['pk'] for c in possible_registered_chunks if registry[c['chunk_path']] == c['chunk_hash']
+            c['pk'] for c in possible_registered_chunks
+            if registry_dict[c['chunk_path']] == c['chunk_hash']
         ]
 
         # add the exclude and return the queryset
-        unregistered_chunks = chunks.exclude(pk__in=registered_chunk_pks)
-        return unregistered_chunks.values(*chunk_fields)
-
-
+        return chunks.exclude(pk__in=registered_chunk_pks).values(*chunk_fields)

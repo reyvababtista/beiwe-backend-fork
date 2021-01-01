@@ -1,4 +1,5 @@
 from multiprocessing.pool import ThreadPool
+from typing import Tuple
 from zipfile import ZIP_STORED, ZipFile
 
 from flask import json
@@ -9,7 +10,9 @@ from database.study_models import Study
 from libs.s3 import s3_retrieve
 from libs.streaming_bytes_io import StreamingBytesIO
 
+
 class DummyError(Exception): pass
+
 
 def determine_file_name(chunk):
     """ Generates the correct file name to provide the file with in the zip file.
@@ -52,7 +55,7 @@ def determine_file_name(chunk):
                             str(chunk["time_bin"]).replace(":", "_"), extension)
 
 
-def batch_retrieve_s3(chunk):
+def batch_retrieve_s3(chunk: dict) -> Tuple[dict, bytes]:
     """ Data is returned in the form (chunk_object, file_data). """
     return chunk, s3_retrieve(
         chunk["chunk_path"],
@@ -171,7 +174,7 @@ def batch_retrieve_pipeline_s3(pipeline_upload):
 
 
 # class dummy_threadpool():
-#     def imap_unordered(self, *args, **kwargs): #the existance of that self variable is key
+#     def imap_unordered(self, *args, **kwargs): #the existence of that self variable is key
 #         # we actually want to cut off any threadpool args, which is conveniently easy because map does not use kwargs!
 #         return map(*args)
 #     def terminate(self): pass

@@ -4,7 +4,7 @@ from authentication.data_access_authentication import (api_credential_check,
     api_study_credential_check, get_api_researcher, get_api_study)
 from database.user_models import StudyRelation
 
-other_researcher_apis = Blueprint('data_access_api', __name__)
+other_researcher_apis = Blueprint('other_researcher_apis', __name__)
 
 @other_researcher_apis.route("/get-studies/v1", methods=['POST', "GET"])
 @api_credential_check

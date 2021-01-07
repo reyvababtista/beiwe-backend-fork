@@ -236,7 +236,7 @@ def register_user(OS_API=""):
     if user.os_type == 'IOS':
         ios_credentials = FileAsText.objects.filter(tag=IOS_FIREBASE_CREDENTIALS).first()
         if ios_credentials:
-            firebase_plist_data = plistlib.load(ios_credentials.text)
+            firebase_plist_data = plistlib.loads(ios_credentials.text)
     elif user.os_type == 'ANDROID':
         android_credentials = FileAsText.objects.filter(tag=ANDROID_FIREBASE_CREDENTIALS).first()
         if android_credentials:

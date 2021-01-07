@@ -9,6 +9,7 @@ from config.constants import (API_TIME_FORMAT, CHUNK_TIMESLICE_QUANTUM, CHUNKABL
 from database.models import TimestampedModel
 from database.study_models import Study
 from database.user_models import Participant
+from database.validators import LengthValidator
 from libs.s3 import s3_list_files, s3_retrieve
 from libs.security import chunk_hash
 
@@ -74,7 +75,7 @@ class ChunkRegistry(TimestampedModel):
         chunk_hash_str = chunk_hash(file_contents).decode()
         time_bin = int(time_bin) * CHUNK_TIMESLICE_QUANTUM
         time_bin = timezone.make_aware(datetime.utcfromtimestamp(time_bin), timezone.utc)
-        
+
         cls.objects.create(
             is_chunkable=True,
             chunk_path=chunk_path,
@@ -86,15 +87,15 @@ class ChunkRegistry(TimestampedModel):
             survey_id=survey_id,
             file_size=len(file_contents),
         )
-    
+
     @classmethod
     def register_unchunked_data(cls, data_type, unix_timestamp, chunk_path, study_id, participant_id,
                                 file_contents, survey_id=None):
         time_bin = timezone.make_aware(datetime.utcfromtimestamp(unix_timestamp), timezone.utc)
-        
+
         if data_type in CHUNKABLE_FILES:
             raise ChunkableDataTypeError
-        
+
         cls.objects.create(
             is_chunkable=False,
             chunk_path=chunk_path,
@@ -158,7 +159,7 @@ class FileToProcess(TimestampedModel):
     def append_file_for_processing(cls, file_path, study_object_id, **kwargs):
         # all we need is a primary key...
         study_pk = Study.objects.filter(object_id=study_object_id).values_list('pk', flat=True).get()
-        
+
         if file_path[:24] == study_object_id:
             cls.objects.create(s3_file_path=file_path, study_id=study_pk, **kwargs)
         else:
@@ -231,3 +232,22 @@ class FileToProcess(TimestampedModel):
             else:
                 print(f"Adding {fp} as a file to reprocess.")
                 cls.append_file_for_processing(fp, study_obj_id, participant=participant)
+
+
+# Everything below this line should [only] be deleting by reverting the correct commit.
+class InvalidUploadParameterError(Exception): pass
+
+
+class PipelineUpload(TimestampedModel):
+    # no related name, this is
+    object_id = models.CharField(max_length=24, unique=True, validators=[LengthValidator(24)])
+    study = models.ForeignKey(Study, related_name="pipeline_uploads", on_delete=models.PROTECT)
+    file_name = models.TextField()
+    s3_path = models.TextField()
+    file_hash = models.CharField(max_length=128)
+
+
+class PipelineUploadTags(TimestampedModel):
+    pipeline_upload = models.ForeignKey(PipelineUpload, related_name="tags", on_delete=models.CASCADE)
+    tag = models.TextField()
+

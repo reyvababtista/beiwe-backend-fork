@@ -5,9 +5,9 @@ from flask import abort, Blueprint, json, request, Response
 
 from authentication.data_access_authentication import api_study_credential_check, get_api_study
 from config.constants import ALL_DATA_STREAMS, API_TIME_FORMAT
-from database.data_access_models import ChunkRegistry
+from database.data_access_models import ChunkRegistry, PipelineUpload
 from database.user_models import Participant
-from libs.streaming_zip import zip_generator
+from libs.streaming_zip import zip_generator, zip_generator_for_pipeline
 
 data_access_api = Blueprint('data_access_api', __name__)
 
@@ -50,6 +50,28 @@ def get_data():
             zip_generator(get_these_files, construct_registry=True),
             mimetype="zip",
         )
+
+
+@data_access_api.route("/get-pipeline/v1", methods=["GET", "POST"])
+@api_study_credential_check()
+def pipeline_data_download():
+    # the following two cases are for difference in content wrapping between the CLI script and
+    # the download page.
+    study = get_api_study()
+    if 'tags' in request.values:
+        try:
+            tags = json.loads(request.values['tags'])
+        except ValueError:
+            tags = request.form.getlist('tags')
+        query = PipelineUpload.objects.filter(study__id=study.id, tags__tag__in=tags)
+    else:
+        query = PipelineUpload.objects.filter(study__id=study.id)
+
+    return Response(
+        zip_generator_for_pipeline(query),
+        mimetype="zip",
+        headers={'Content-Disposition': 'attachment; filename="data.zip"'}
+    )
 
 
 def parse_registry():

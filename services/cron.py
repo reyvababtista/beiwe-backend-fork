@@ -9,7 +9,6 @@ from sys import argv
 from cronutils import run_tasks
 from services.celery_data_processing import create_file_processing_tasks
 from services.celery_push_notifications import create_push_notification_tasks
-from pipeline import index
 
 FIVE_MINUTES = "five_minutes"
 HOURLY = "hourly"
@@ -21,11 +20,11 @@ VALID_ARGS = [FIVE_MINUTES, HOURLY, FOUR_HOURLY, DAILY, WEEKLY, MONTHLY]
 
 TASKS = {
     FIVE_MINUTES: [create_file_processing_tasks, create_push_notification_tasks],
-    HOURLY: [index.hourly],
+    HOURLY: [],
     FOUR_HOURLY: [],
-    DAILY: [index.daily],
-    WEEKLY: [index.weekly],
-    MONTHLY: [index.monthly],
+    DAILY: [],
+    WEEKLY: [],
+    MONTHLY: [],
 }
 
 TIME_LIMITS = {

@@ -1,6 +1,3 @@
-import json
-import random
-import string
 from datetime import datetime, timedelta
 
 from django.db import models
@@ -8,7 +5,7 @@ from django.utils import timezone
 from django_extensions.db.fields.json import JSONField
 
 from config.constants import (API_TIME_FORMAT, CHUNK_TIMESLICE_QUANTUM, CHUNKABLE_FILES,
-    CHUNKS_FOLDER, IDENTIFIERS, PIPELINE_FOLDER, REVERSE_UPLOAD_FILE_TYPE_MAPPING)
+    CHUNKS_FOLDER, IDENTIFIERS, REVERSE_UPLOAD_FILE_TYPE_MAPPING)
 from database.models import TimestampedModel
 from database.study_models import Study
 from database.user_models import Participant
@@ -78,7 +75,7 @@ class ChunkRegistry(TimestampedModel):
         chunk_hash_str = chunk_hash(file_contents).decode()
         time_bin = int(time_bin) * CHUNK_TIMESLICE_QUANTUM
         time_bin = timezone.make_aware(datetime.utcfromtimestamp(time_bin), timezone.utc)
-        
+
         cls.objects.create(
             is_chunkable=True,
             chunk_path=chunk_path,
@@ -90,15 +87,15 @@ class ChunkRegistry(TimestampedModel):
             survey_id=survey_id,
             file_size=len(file_contents),
         )
-    
+
     @classmethod
     def register_unchunked_data(cls, data_type, unix_timestamp, chunk_path, study_id, participant_id,
                                 file_contents, survey_id=None):
         time_bin = timezone.make_aware(datetime.utcfromtimestamp(unix_timestamp), timezone.utc)
-        
+
         if data_type in CHUNKABLE_FILES:
             raise ChunkableDataTypeError
-        
+
         cls.objects.create(
             is_chunkable=False,
             chunk_path=chunk_path,
@@ -162,7 +159,7 @@ class FileToProcess(TimestampedModel):
     def append_file_for_processing(cls, file_path, study_object_id, **kwargs):
         # all we need is a primary key...
         study_pk = Study.objects.filter(object_id=study_object_id).values_list('pk', flat=True).get()
-        
+
         if file_path[:24] == study_object_id:
             cls.objects.create(s3_file_path=file_path, study_id=study_pk, **kwargs)
         else:
@@ -237,90 +234,17 @@ class FileToProcess(TimestampedModel):
                 cls.append_file_for_processing(fp, study_obj_id, participant=participant)
 
 
-
+# Everything below this line should [only] be deleting by reverting the correct commit.
 class InvalidUploadParameterError(Exception): pass
 
 
 class PipelineUpload(TimestampedModel):
-    REQUIREDS = [
-        "study_id",
-        "tags",
-        "file_name",
-    ]
-    
     # no related name, this is
     object_id = models.CharField(max_length=24, unique=True, validators=[LengthValidator(24)])
     study = models.ForeignKey(Study, related_name="pipeline_uploads", on_delete=models.PROTECT)
     file_name = models.TextField()
     s3_path = models.TextField()
     file_hash = models.CharField(max_length=128)
-
-    @classmethod
-    def get_creation_arguments(cls, params, file_object):
-        errors = []
-
-        # ensure required are present, we don't allow falsey contents.
-        for field in PipelineUpload.REQUIREDS:
-            if not params.get(field, None):
-                errors.append('missing required parameter: "%s"' % field)
-
-        # if we escape here early we can simplify the code that requires all parameters later
-        if errors:
-            raise InvalidUploadParameterError("\n".join(errors))
-
-        # validate study_id
-        study_id_object_id = params["study_id"]
-        if not Study.objects.get(object_id=study_id_object_id):
-            errors.append(
-                'encountered invalid study_id: "%s"'
-                % params["study_id"] if params["study_id"] else None
-            )
-
-        study_id = Study.objects.get(object_id=study_id_object_id).id
-
-        if len(params['file_name']) > 256:
-            errors.append("encountered invalid file_name, file_names cannot be more than 256 characters")
-
-        if cls.objects.filter(file_name=params['file_name']).count():
-            errors.append('a file with the name "%s" already exists' % params['file_name'])
-
-        try:
-            tags = json.loads(params["tags"])
-            if not isinstance(tags, list):
-                # must be json list, can't be json dict, number, or string.
-                raise ValueError()
-            if not tags:
-                errors.append("you must provide at least one tag for your file.")
-            tags = [str(_) for _ in tags]
-        except ValueError:
-            tags = None
-            errors.append("could not parse tags, ensure that your uploaded list of tags is a json compatible array.")
-
-        if errors:
-            raise InvalidUploadParameterError("\n".join(errors))
-
-        created_on = timezone.now()
-        file_hash = chunk_hash(file_object.read())
-        file_object.seek(0)
-
-        s3_path = "%s/%s/%s/%s/%s" % (
-            PIPELINE_FOLDER,
-            params["study_id"],
-            params["file_name"],
-            created_on.isoformat(),
-            ''.join(random.choice(string.ascii_letters + string.digits) for i in range(32)),
-            # todo: file_name?
-        )
-
-        creation_arguments = {
-            "created_on": created_on,
-            "s3_path": s3_path,
-            "study_id": study_id,
-            "file_name": params["file_name"],
-            "file_hash": file_hash,
-        }
-
-        return creation_arguments, tags
 
 
 class PipelineUploadTags(TimestampedModel):

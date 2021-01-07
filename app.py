@@ -6,11 +6,11 @@ from flask import Flask, redirect, render_template
 from raven.contrib.flask import Sentry
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from api import (admin_api, copy_study_api, dashboard_api, data_access_api, data_pipeline_api,
-    mobile_api, participant_administration, push_notifications_api, study_api, survey_api)
+from api import (admin_api, copy_study_api, dashboard_api, data_access_api, mobile_api,
+    other_researcher_apis, participant_administration, push_notifications_api, study_api,
+    survey_api)
 from authentication.admin_authentication import is_logged_in
 from config.settings import SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN
-from libs.push_notification_config import FirebaseMisconfigured, update_firebase_instance
 from libs.security import set_secret_key
 from pages import (admin_pages, data_access_web_form, login_pages, mobile_pages, survey_designer,
     system_admin_pages)
@@ -36,8 +36,8 @@ app.register_blueprint(survey_api.survey_api)
 app.register_blueprint(study_api.study_api)
 app.register_blueprint(data_access_api.data_access_api)
 app.register_blueprint(data_access_web_form.data_access_web_form)
+app.register_blueprint(other_researcher_apis.other_researcher_apis)
 app.register_blueprint(copy_study_api.copy_study_api)
-app.register_blueprint(data_pipeline_api.data_pipeline_api)
 app.register_blueprint(dashboard_api.dashboard_api)
 app.register_blueprint(push_notifications_api.push_notifications_api)
 

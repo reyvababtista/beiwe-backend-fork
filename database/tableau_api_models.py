@@ -7,7 +7,7 @@ from database.user_models import Participant
 class SummaryStatisticDaily(TimestampedModel):
     participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
     study = models.ForeignKey(Study, on_delete=models.CASCADE)
-    date = models.DateField()
+    date = models.DateField(db_index=True)
     distance_diameter = models.IntegerField()
     distance_from_home = models.IntegerField()
     distance_traveled = models.IntegerField()

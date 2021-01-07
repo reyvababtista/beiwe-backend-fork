@@ -49,7 +49,7 @@ def view_study(study_id=None):
     # creates dicts of Custom Fields and Interventions to be easily accessed in the template
     for p in participants:
         p.field_dict = participant_tags(p)
-        p.intervention_diview_patient_custom_field_valuesct = {tag.intervention.name: tag.date for tag in p.intervention_dates.all()}
+        p.intervention_dict = {tag.intervention.name: tag.date for tag in p.intervention_dates.all()}
 
     return render_template(
         'view_study.html',

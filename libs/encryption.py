@@ -164,9 +164,10 @@ def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, us
         except Exception as error_orig:
             error_string = str(error_orig)
             error_count += 1
-            
+
             error_message = "There was an error in user decryption: "
-            if isinstance(error_string, IndexError):
+            if isinstance(error_orig, (Base64LengthException, PaddingException)):
+                # this case used to also catch IndexError, this probably changed after python3 upgrade
                 error_message += "Something is wrong with data padding:\n\tline: %s" % line
                 log_error(error_string, error_message)
                 create_line_error_db_entry(LineEncryptionError.PADDING_ERROR)
@@ -174,7 +175,7 @@ def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, us
                 bad_lines.append(line)
                 continue
 
-            if isinstance(error_string, TypeError) and decrypted_key is None:
+            if isinstance(error_orig, TypeError) and decrypted_key is None:
                 error_message += "The key was empty:\n\tline: %s" % line
                 log_error(error_string, error_message)
                 create_line_error_db_entry(LineEncryptionError.EMPTY_KEY)
@@ -202,7 +203,7 @@ def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, us
                 bad_lines.append(line)
                 continue
                 
-            if isinstance(error_string, InvalidData):
+            if isinstance(error_orig, InvalidData):
                 error_message += "Line contained no data, skipping: " + str(line)
                 log_error(error_string, error_message)
                 create_line_error_db_entry(LineEncryptionError.LINE_EMPTY)
@@ -210,7 +211,7 @@ def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, us
                 bad_lines.append(line)
                 continue
                 
-            if isinstance(error_string, InvalidIV):
+            if isinstance(error_orig, InvalidIV):
                 error_message += "Line contained no iv, skipping: " + str(line)
                 log_error(error_string, error_message)
                 create_line_error_db_entry(LineEncryptionError.IV_MISSING)

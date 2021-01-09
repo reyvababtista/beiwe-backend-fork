@@ -41,13 +41,14 @@ class Migration(migrations.Migration):
     dependencies = [
         ('database', '0021_auto_20190716_0057'),
     ]
-
+    # due to changes in the model structures we needed to add the default false deleted parameter
+    # after-the-fact, the for-loop in researcher_paradigm_shift would fail otherwise
     operations = [
         migrations.CreateModel(
             name='StudyRelation',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('deleted', models.BooleanField(default=False)),
+                # ('deleted', models.BooleanField(default=False)),
                 ('created_on', models.DateTimeField(auto_now_add=True)),
                 ('last_updated', models.DateTimeField(auto_now=True)),
                 ('relationship', models.CharField(max_length=32, db_index=True)),
@@ -65,6 +66,11 @@ class Migration(migrations.Migration):
             new_name='site_admin',
         ),
         migrations.RunPython(researcher_paradigm_shift),
+        migrations.AddField(
+            model_name='studyrelation',
+            name='deleted',
+            field=models.BooleanField(default=False),
+        ),
         migrations.RemoveField(
             model_name='researcher',
             name='studies',

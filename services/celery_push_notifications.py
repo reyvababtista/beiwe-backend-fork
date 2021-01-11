@@ -16,8 +16,8 @@ path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 # imports that require the path command above be executed
 from django.utils import timezone
 from django.utils.timezone import make_aware
-from firebase_admin.messaging import (AndroidConfig, AndroidNotification, Message,
-    QuotaExceededError, send, ThirdPartyAuthError, UnregisteredError)
+from firebase_admin.messaging import (AndroidConfig, Message, Notification, QuotaExceededError,
+    send, ThirdPartyAuthError, UnregisteredError)
 
 from config.constants import API_TIME_FORMAT, PUSH_NOTIFICATION_SEND_QUEUE, ScheduleTypes
 from config.study_constants import OBJECT_ID_ALLOWED_CHARS
@@ -132,7 +132,7 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str],
                         'sent_time': reference_schedule.scheduled_time.strftime(API_TIME_FORMAT),
                         'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32))
                     },
-                    notification=AndroidNotification(
+                    notification=Notification(
                         title="Beiwe",
                         body=
                         "You have a survey to take." if len(survey_obj_ids) == 1 else

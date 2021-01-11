@@ -7,7 +7,7 @@ from django.db import models
 from django.utils.timezone import is_naive, make_aware
 
 from config.constants import ScheduleTypes
-from database.common_models import TimestampedModel
+from database.common_models import TimestampedModel, UtilityModel
 from database.survey_models import Survey, SurveyArchive
 
 
@@ -252,12 +252,12 @@ class ArchivedEvent(TimestampedModel):
     response_time = models.DateTimeField(null=True, blank=True, db_index=True)
 
 
-class Intervention(models.Model):
+class Intervention(UtilityModel):
     name = models.TextField()
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='interventions')
 
 
-class InterventionDate(models.Model):
+class InterventionDate(UtilityModel):
     date = models.DateField(null=True)
     participant = models.ForeignKey('Participant', on_delete=models.CASCADE, related_name='intervention_dates')
     intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='intervention_dates')

@@ -80,6 +80,11 @@ class Study(TimestampedModel):
         ret.pop("encryption_key")
         return ret
 
+    def notification_events(self, **archived_event_filter_kwargs):
+        from database.schedule_models import ArchivedEvent
+        return ArchivedEvent.objects.filter(
+            survey_archive_id__in=self.surveys.all().values_list("archives__id", flat=True)
+        ).filter(**archived_event_filter_kwargs).order_by("-scheduled_time")
 
 class StudyField(models.Model):
     study = models.ForeignKey(Study, on_delete=models.PROTECT, related_name='fields')

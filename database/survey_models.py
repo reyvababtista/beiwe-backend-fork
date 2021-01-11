@@ -120,6 +120,12 @@ class Survey(SurveyBase):
                               num_seconds])
         return schedules
 
+    def notification_events(self, **archived_event_filter_kwargs):
+        from database.schedule_models import ArchivedEvent
+        return ArchivedEvent.objects.filter(
+            survey_archive_id__in=self.archives.values_list("id", flat=True)
+        ).filter(**archived_event_filter_kwargs).order_by("-scheduled_time")
+
     def format_survey_for_study(self):
         """
         Returns a dict with the values of the survey fields for download to the app

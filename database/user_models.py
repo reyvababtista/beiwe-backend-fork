@@ -141,6 +141,12 @@ class Participant(AbstractPasswordUser):
     def get_fcm_token(self):
         return self.fcm_tokens.latest("created_on")
 
+    def notification_events(self, **archived_event_filter_kwargs):
+        from database.schedule_models import ArchivedEvent
+        return ArchivedEvent.objects.filter(participant=self).filter(
+            **archived_event_filter_kwargs
+        ).order_by("-scheduled_time")
+
     def __str__(self):
         return '{} {} of Study {}'.format(self.__class__.__name__, self.patient_id, self.study.name)
 

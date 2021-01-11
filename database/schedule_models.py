@@ -252,12 +252,12 @@ class ArchivedEvent(TimestampedModel):
     response_time = models.DateTimeField(null=True, blank=True, db_index=True)
 
 
-class Intervention(UtilityModel):
+class Intervention(TimestampedModel):
     name = models.TextField()
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='interventions')
 
 
-class InterventionDate(UtilityModel):
+class InterventionDate(TimestampedModel):
     date = models.DateField(null=True)
     participant = models.ForeignKey('Participant', on_delete=models.CASCADE, related_name='intervention_dates')
     intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='intervention_dates')

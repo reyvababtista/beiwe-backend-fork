@@ -147,7 +147,7 @@ def participant_csv_generator(study_id, number_of_new_patients):
 
 def add_fields_and_interventions(participant: Participant, study: Study):
     """ Creates empty ParticipantFieldValue and InterventionDate objects for newly created
-     participants. """
+     participants, doesn't affect existing instances. """
     for field in study.fields.all():
         ParticipantFieldValue.objects.get_or_create(participant=participant, field=field)
     for intervention in study.interventions.all():

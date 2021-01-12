@@ -3,6 +3,7 @@ from datetime import date, datetime
 from django.db.models import ProtectedError
 from flask import abort, Blueprint, flash, redirect, render_template, request
 
+from api.participant_administration import add_fields_and_interventions
 from authentication.admin_authentication import (authenticate_researcher_study_access,
     get_researcher_allowed_studies, get_session_researcher, researcher_is_an_admin)
 from config.constants import API_DATE_FORMAT
@@ -24,15 +25,23 @@ def inject_html_params():
     }
 
 
+def study_api_read_only(study_id):
+    # common code scrap, this is pretty fast and reduced code cruft is better here than performance.
+    return True if not get_session_researcher().check_study_admin(study_id)\
+                   and not get_session_researcher().site_admin else False
+
+
 @study_api.route('/view_study/<string:study_id>/edit_participant/<string:participant_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def edit_participant(study_id, participant_id):
     try:
         participant = Participant.objects.get(pk=participant_id)
+        study = participant.study
     except Participant.DoesNotExist:
         return abort(404)
 
-    study = participant.study
+    # safety check, enforce fields and interventions to be present for both page load and edit.
+    add_fields_and_interventions(participant, study)
 
     if request.method == 'GET':
         return render_edit_participant(participant, study)
@@ -62,6 +71,7 @@ def edit_participant(study_id, participant_id):
 def render_edit_participant(participant: Participant, study: Study):
     # to reduce database queries we get all the data across 4 queries and then merge it together.
     # dicts of intervention id to intervention date string, and of field names to value
+    # (this was quite slow previously)
     intervention_dates_map = {
         intervention_id:  # this is the intervention's id, not the intervention_date's id.
             intervention_date.strftime(API_DATE_FORMAT) if isinstance(intervention_date, date) else ""
@@ -98,18 +108,16 @@ def render_edit_participant(participant: Participant, study: Study):
 @authenticate_researcher_study_access
 def interventions_page(study_id=None):
     study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
 
     if request.method == 'GET':
         return render_template(
             'study_interventions.html',
             study=study,
             interventions=study.interventions.all(),
-            readonly=readonly,
+            readonly=study_api_read_only(study_id),
         )
 
-    if readonly:
+    if study_api_read_only(study_id):
         abort(403)
 
     # slow but safe
@@ -126,12 +134,10 @@ def interventions_page(study_id=None):
 @authenticate_researcher_study_access
 def delete_intervention(study_id=None):
     """Deletes the specified Intervention. Expects intervention in the request body."""
-    study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
-    if readonly:
+    if study_api_read_only(study_id):
         return abort(403)
 
+    study = Study.objects.get(pk=study_id)
     intervention_id = request.values.get('intervention')
     if intervention_id:
         try:
@@ -154,12 +160,10 @@ def edit_intervention(study_id=None):
     Edits the name of the intervention. Expects intervention_id and edit_intervention in the
     request body
     """
-    study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
-    if readonly:
+    if study_api_read_only(study_id):
         return abort(403)
 
+    study = Study.objects.get(pk=study_id)
     intervention_id = request.values.get('intervention_id', None)
     new_name = request.values.get('edit_intervention', None)
     if intervention_id:
@@ -178,18 +182,16 @@ def edit_intervention(study_id=None):
 @authenticate_researcher_study_access
 def study_fields(study_id=None):
     study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
 
     if request.method == 'GET':
         return render_template(
             'study_custom_fields.html',
             study=study,
             fields=study.fields.all(),
-            readonly=readonly,
+            readonly=study_api_read_only(study_id),
         )
 
-    if readonly:
+    if study_api_read_only(study_id):
         return abort(403)
 
     new_field = request.values.get('new_field', None)
@@ -205,12 +207,10 @@ def study_fields(study_id=None):
 @authenticate_researcher_study_access
 def delete_field(study_id=None):
     """Deletes the specified Custom Field. Expects field in the request body."""
-    study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
-    if readonly:
+    if study_api_read_only(study_id):
         return abort(403)
 
+    study = Study.objects.get(pk=study_id)
     field = request.values.get('field', None)
     if field:
         try:
@@ -231,12 +231,7 @@ def delete_field(study_id=None):
 @authenticate_researcher_study_access
 def edit_custom_field(study_id=None):
     """Edits the name of a Custom field. Expects field_id anf edit_custom_field in request body"""
-
-    study = Study.objects.get(pk=study_id)
-    researcher = get_session_researcher()
-    readonly = True if not researcher.check_study_admin(
-        study_id) and not researcher.site_admin else False
-    if readonly:
+    if study_api_read_only(study_id):
         return abort(403)
 
     field_id = request.values.get("field_id")
@@ -250,4 +245,5 @@ def edit_custom_field(study_id=None):
             field.field_name = new_field_name
             field.save()
 
-    return redirect('/study_fields/{:d}'.format(study.id))
+    # this apparent insanity is a hopefully unnecessary confirmation of the study id
+    return redirect('/study_fields/{:d}'.format(Study.objects.get(pk=study_id).id))

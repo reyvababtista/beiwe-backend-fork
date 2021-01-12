@@ -9,7 +9,8 @@ from config.constants import API_DATE_FORMAT
 from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
 from database.user_models import Participant, ParticipantFieldValue
-from libs.push_notification_config import check_firebase_instance
+from libs.push_notification_config import (check_firebase_instance,
+    repopulate_relative_survey_schedule_events)
 
 study_api = Blueprint('study_api', __name__)
 
@@ -51,6 +52,9 @@ def edit_participant(study_id, participant_id):
         field_value.value = request.values.get(input_id, None)
         field_value.save()
 
+    for survey in study.surveys.all():
+        repopulate_relative_survey_schedule_events(survey, participant)
+
     flash('Successfully edited participant {}.'.format(participant.patient_id), 'success')
     return redirect('/view_study/{:d}/edit_participant/{:d}'.format(study.id, participant.id))
 
@@ -89,9 +93,10 @@ def render_edit_participant(participant: Participant, study: Study):
         push_notifications_enabled_for_android=check_firebase_instance(require_android=True)
     )
 
+
 @study_api.route('/interventions/<string:study_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
-def interventions(study_id=None):
+def interventions_page(study_id=None):
     study = Study.objects.get(pk=study_id)
     researcher = get_session_researcher()
     readonly = True if not researcher.check_study_admin(study_id) and not researcher.site_admin else False
@@ -107,6 +112,7 @@ def interventions(study_id=None):
     if readonly:
         abort(403)
 
+    # slow but safe
     new_intervention = request.values.get('new_intervention', None)
     if new_intervention:
         intervention, _ = Intervention.objects.get_or_create(study=study, name=new_intervention)

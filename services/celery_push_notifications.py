@@ -163,7 +163,7 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str],
             # limits are very high, this is effectively impossible, but it is possible.
             raise
 
-        except ThirdPartyAuthError:
+        except ThirdPartyAuthError as e:
             # occurs when the platform (Android or iOS) is not configured appropriately.
             raise Exception(
                 "There is a misconfiguration in your firebase push notification setup.  "
@@ -172,6 +172,8 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str],
                 "please post a bug report."
                 "\n issues: https://github.com/onnela-lab/beiwe-backend/issues"
                 "\n documentation: https://firebase.google.com/docs/admin/setup#initialize-sdk"
+                "\n\n"
+                f"original error message: '{e}'"
             )
 
         # DEBUG uncomment to print

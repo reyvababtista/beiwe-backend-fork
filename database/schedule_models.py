@@ -258,7 +258,7 @@ class Intervention(TimestampedModel):
 
 
 class InterventionDate(TimestampedModel):
-    date = models.DateField(null=True)
+    date = models.DateField(null=True, blank=True)
     participant = models.ForeignKey('Participant', on_delete=models.CASCADE, related_name='intervention_dates')
     intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='intervention_dates')
 

@@ -147,9 +147,9 @@ def api_get_validate_researcher_on_study(study: Study) -> Researcher:
     the secret key does not match.
     """
     researcher = api_get_and_validate_researcher()
-
+    # if the researcher has no relation to the study, and isn't a batch user or site admin, 403.
     # case: batch users and site admins have access to everything.
-    # case: researcher is not credentialed for this study
+    # case: researcher is not credentialed for this study.
     if (
             not StudyRelation.objects.filter(study_id=study.pk, researcher=researcher).exists()
             and not researcher.site_admin

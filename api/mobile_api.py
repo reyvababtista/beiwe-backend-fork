@@ -231,6 +231,14 @@ def register_user(OS_API=""):
     s3_upload(file_name, file_contents, study_id)
     FileToProcess.append_file_for_processing(file_name, user.study.object_id, participant=user)
 
+    # set up device.
+    user.device_id = device_id
+    user.os_type = OS_API
+    user.set_password(request.values['new_password'])  # set password saves the model
+    device_settings = user.study.device_settings.as_unpacked_native_python()
+    device_settings.pop('_id', None)
+
+    # set up FCM files
     firebase_plist_data = None
     firebase_json_data = None
     if user.os_type == 'IOS':
@@ -242,12 +250,6 @@ def register_user(OS_API=""):
         if android_credentials:
             firebase_json_data = json.loads(android_credentials.text)
 
-    # set up device.
-    user.device_id = device_id
-    user.os_type = OS_API
-    user.set_password(request.values['new_password'])  # set password saves the model
-    device_settings = user.study.device_settings.as_unpacked_native_python()
-    device_settings.pop('_id', None)
     return_obj = {
         'client_public_key': get_client_public_key_string(patient_id, study_id),
         'device_settings': device_settings,

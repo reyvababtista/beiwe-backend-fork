@@ -295,7 +295,6 @@ def create_study():
     is_test = request.form.get('is_test', "").lower() == 'true'  # 'true' -> True, 'false' -> False
     duplicate_existing_study = request.form.get('copy_existing_study', None) == 'true'
     forest_enabled = request.form.get('forest_enabled', "").lower() == 'true'
-    print(forest_enabled)
 
     if not (len(name) <= 2 ** 16) or escape(name) != name:
         raise Exception("safety check on new study name failed")
@@ -313,6 +312,23 @@ def create_study():
         for field, message in ve.message_dict.items():
             flash(f'{field}: {message[0]}', 'danger')
         return redirect('/create_study')
+
+
+@system_admin_pages.route('/toggle_study_forest_enabled/<string:study_id>', methods=['POST'])
+@authenticate_admin
+def toggle_study_forest_enabled(study_id=None):
+    # Only a SITE admin can toggle forest on a study
+    if not get_session_researcher().site_admin:
+        return abort(403)
+    study = Study.objects.get(pk=study_id)
+    study.forest_enabled = not study.forest_enabled
+    study.save()
+    if study.forest_enabled:
+        flash("Enabled Forest on '%s'" % study.name, 'success')
+    else:
+        flash("Disabled Forest on '%s'" % study.name, 'success')
+    return redirect('/edit_study/{:d}'.format(study.id))
+
 
 
 # TODO: move to api file

@@ -5,7 +5,7 @@ from flask.views import MethodView
 
 from api.tableau_api.constants import (APIKEY_NO_ACCESS_MESSAGE, HEADER_IS_REQUIRED,
     NO_STUDY_FOUND_MESSAGE, NO_STUDY_PROVIDED_MESSAGE, RESEARCHER_NOT_ALLOWED, RESOURCE_NOT_FOUND,
-    X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET)
+    STUDY_HAS_FOREST_DISABLED_MESSAGE, X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET)
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.user_models import StudyRelation
@@ -65,6 +65,9 @@ class TableauApiView(MethodView):
             raise PermissionDenied(NO_STUDY_PROVIDED_MESSAGE)
         if not Study.objects.filter(object_id=study_id).exists():
             raise PermissionDenied(NO_STUDY_FOUND_MESSAGE)
+
+        if not Study.objects.get(object_id=study_id).forest_enabled:
+            raise PermissionDenied(STUDY_HAS_FOREST_DISABLED_MESSAGE)
 
         if api_key.researcher.site_admin:
             return True

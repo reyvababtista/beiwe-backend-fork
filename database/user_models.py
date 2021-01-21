@@ -1,6 +1,7 @@
 from django.core.validators import MinLengthValidator
 from django.db import models
 from django.db.models import F, Func
+from timezone_field import TimeZoneField
 
 from config.constants import ResearcherRole
 from database.common_models import UtilityModel
@@ -91,15 +92,25 @@ class Participant(AbstractPasswordUser):
         (NULL_OS, NULL_OS),
     )
 
-    patient_id = models.CharField(max_length=8, unique=True, validators=[ID_VALIDATOR],
-                                  help_text='Eight-character unique ID with characters chosen from 1-9 and a-z')
+    patient_id = models.CharField(
+        max_length=8, unique=True, validators=[ID_VALIDATOR],
+        help_text='Eight-character unique ID with characters chosen from 1-9 and a-z'
+    )
+    device_id = models.CharField(
+        max_length=256, blank=True,
+        help_text='The ID of the device that the participant is using for the study, if any.'
+    )
+    os_type = models.CharField(
+        max_length=16, choices=OS_TYPE_CHOICES, blank=True,
+        help_text='The type of device the participant is using, if any.'
+    )
+    study = models.ForeignKey(
+        'Study', on_delete=models.PROTECT, related_name='participants', null=False
+    )
+    push_notification_unreachable = models.SmallIntegerField(default=True, null=False, blank=False)
 
-    device_id = models.CharField(max_length=256, blank=True,
-                                 help_text='The ID of the device that the participant is using for the study, if any.')
-    os_type = models.CharField(max_length=16, choices=OS_TYPE_CHOICES, blank=True,
-                               help_text='The type of device the participant is using, if any.')
+    timezone = TimeZoneField(default="America/New_York", null=False, blank=False)
 
-    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='participants', null=False)
     deleted = models.BooleanField(default=False)
 
     @classmethod

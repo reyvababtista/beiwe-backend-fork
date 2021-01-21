@@ -16,14 +16,20 @@ class Study(TimestampedModel):
     # created alongside it. If the Study is created via the researcher interface (as it
     # usually is) the researcher is immediately shown the DeviceSettings to edit. The code
     # to create the DeviceSettings object is in database.signals.populate_study_device_settings.
-    name = models.TextField(unique=True, help_text='Name of the study; can be of any length')
-    encryption_key = models.CharField(max_length=32, validators=[LengthValidator(32)],
-                                      help_text='Key used for encrypting the study data')
-    object_id = models.CharField(max_length=24, unique=True, validators=[LengthValidator(24)],
-                                 help_text='ID used for naming S3 files')
 
+    name = models.TextField(unique=True, help_text='Name of the study; can be of any length')
+    encryption_key = models.CharField(
+        max_length=32, validators=[LengthValidator(32)],
+        help_text='Key used for encrypting the study data'
+    )
+    object_id = models.CharField(
+        max_length=24, unique=True, validators=[LengthValidator(24)],
+        help_text='ID used for naming S3 files'
+    )
     is_test = models.BooleanField(default=True)
-    timezone = TimeZoneField(default="America/New_York", help_text='Timezone of the study')
+    timezone = TimeZoneField(
+        default="America/New_York", help_text='Timezone of the study', null=False, blank=False
+    )
     deleted = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):

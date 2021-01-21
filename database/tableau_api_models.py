@@ -49,3 +49,28 @@ class SummaryStatisticDaily(TimestampedModel):
     awake_onset_time = models.DateTimeField()
     sleep_duration = models.IntegerField()
     sleep_onset_time = models.DateTimeField()
+
+class ForestTracker(TimestampedModel):
+    participant = models.ForeignKey(
+        'Participant', on_delete=models.PROTECT, db_index=True
+    )
+    forest_tree = models.CharField(max_length=10)
+    date_start = models.DateField()  # inclusive
+    date_end = models.DateField()  # inclusive
+
+    file_size = models.IntegerField()
+    start_time = models.DateTimeField(null=True)
+    end_time = models.DateTimeField(null=True)
+    # celery_task_id?
+
+    status = models.CharField(max_length=10)
+    stacktrace = models.TextField(null=True)  # for logs
+    forest_version = models.CharField(max_length=10)
+    commit_hash = models.CharField(max_length=40)
+    metadata = models.TextField()  # json string, add validator?
+    metadata_hash = models.CharField(max_length=64)
+
+
+# class ForestTree(TimestampedModel):
+#     name = models.CharField(max_length=30)
+#

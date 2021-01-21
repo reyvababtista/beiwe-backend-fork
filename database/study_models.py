@@ -34,6 +34,7 @@ class Study(TimestampedModel):
         max_length=256, default="America/New_York", null=False, blank=False
     )
     deleted = models.BooleanField(default=False)
+    forest_enabled = models.BooleanField(default=False)
 
     def save(self, *args, **kwargs):
         """ Ensure there is a study device settings attached to this study. """

@@ -251,18 +251,3 @@ class PipelineUploadTags(TimestampedModel):
     pipeline_upload = models.ForeignKey(PipelineUpload, related_name="tags", on_delete=models.CASCADE)
     tag = models.TextField()
 
-class forestTracker(TimestampedModel):
-    participant = models.ForeignKey(
-        'Participant', on_delete=models.PROTECT, db_index=True
-    )
-    tree = models.ForeignKey('TODO', on_delete=models.PROTECT)
-    date_start = models.DateField() # inclusive
-    date_end = models.DateField() # inclusive
-
-    file_size = models.IntegerField()
-    start_time = models.DateTimeField(null=True)
-    end_time = models.DateTimeField(null=True)
-    # celery_task_id?
-
-    status = models.CharField(max_length=10)
-    stacktrace = models.TextField(null=True) # for logs

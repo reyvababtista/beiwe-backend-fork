@@ -294,12 +294,14 @@ def create_study():
     encryption_key = request.form.get('encryption_key', '')
     is_test = request.form.get('is_test', "").lower() == 'true'  # 'true' -> True, 'false' -> False
     duplicate_existing_study = request.form.get('copy_existing_study', None) == 'true'
+    forest_enabled = request.form.get('forest_enabled', "").lower() == 'true'
+    print(forest_enabled)
 
     if not (len(name) <= 2 ** 16) or escape(name) != name:
         raise Exception("safety check on new study name failed")
 
     try:
-        new_study = Study.create_with_object_id(name=name, encryption_key=encryption_key, is_test=is_test)
+        new_study = Study.create_with_object_id(name=name, encryption_key=encryption_key, is_test=is_test, forest_enabled=forest_enabled)
         if duplicate_existing_study:
             old_study = Study.objects.get(pk=request.form.get('existing_study_id', None))
             copy_existing_study(new_study, old_study)

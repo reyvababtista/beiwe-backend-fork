@@ -106,11 +106,12 @@ class Participant(AbstractPasswordUser):
     study = models.ForeignKey(
         'Study', on_delete=models.PROTECT, related_name='participants', null=False
     )
-    push_notification_unreachable = models.SmallIntegerField(default=True, null=False, blank=False)
 
     timezone_name = models.CharField(
         max_length=256, default="America/New_York", null=False, blank=False
     )
+
+    push_notification_unreachable_count = models.SmallIntegerField(default=True, null=False, blank=False)
 
     deleted = models.BooleanField(default=False)
 
@@ -161,6 +162,11 @@ class Participant(AbstractPasswordUser):
 
     def __str__(self):
         return '{} {} of Study {}'.format(self.__class__.__name__, self.patient_id, self.study.name)
+
+
+class ParticpantPushNotificationDisabledHistory(UtilityModel):
+    participant = models.ForeignKey(Participant, required=True, on_delete=models.PROTECT)
+    timestamp = models.DateTimeField(required=True, null=False, blank=False)
 
 
 class ParticipantFCMHistory(TimestampedModel):

@@ -3,6 +3,19 @@
 from django.db import migrations, models
 import timezone_field.fields
 
+from database.study_models import Study
+from database.user_models import Participant
+
+
+def set_default_timezone(apps, schema_editor):
+    for study in Study.objects.filter(timezone=None):
+        study.timezone = 'America/New_York'
+        study.save()
+
+    for participant in Participant.objects.filter(timezone=None):
+        participant.timezone = 'America/New_York'
+        participant.save()
+
 
 class Migration(migrations.Migration):
 
@@ -21,4 +34,5 @@ class Migration(migrations.Migration):
             name='timezone',
             field=timezone_field.fields.TimeZoneField(default='America/New_York'),
         ),
+        migrations.RunPython(set_default_timezone, reverse_code=migrations.RunPython.noop)
     ]

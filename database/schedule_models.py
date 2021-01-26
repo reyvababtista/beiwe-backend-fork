@@ -2,13 +2,15 @@ from datetime import date, datetime, time, timedelta, tzinfo
 from typing import List
 
 import pytz
+from dateutil.tz import tz
 from django.core.validators import MaxValueValidator
 from django.db import models
-from django.utils.timezone import is_naive, make_aware
+from django.utils.timezone import is_naive, localtime, make_aware
 
-from config.constants import ScheduleTypes
-from database.common_models import TimestampedModel, UtilityModel
+from config.constants import API_TIME_FORMAT_WITH_TZ, DELTA_CHAR, ScheduleTypes
+from database.common_models import TimestampedModel
 from database.survey_models import Survey, SurveyArchive
+from database.user_models import Participant
 
 
 class AbsoluteSchedule(TimestampedModel):
@@ -131,7 +133,7 @@ class WeeklySchedule(TimestampedModel):
     @classmethod
     def export_survey_timings(cls, survey: Survey) -> List[List[int]]:
         """Returns a json formatted list of weekly timings for use on the frontend"""
-        # this sort order results in nicely ordered output.
+        # this weird sort order results in correctly ordered output.
         fields_ordered = ("hour", "minute", "day_of_week")
         timings = [[], [], [], [], [], [], []]
         schedule_components = WeeklySchedule.objects.\
@@ -208,7 +210,8 @@ class ScheduledEvent(TimestampedModel):
 
     def get_schedule(self):
         number_schedules = sum((
-            self.weekly_schedule is not None, self.relative_schedule is not None,
+            self.weekly_schedule is not None,
+            self.relative_schedule is not None,
             self.absolute_schedule is not None
         ))
 
@@ -226,7 +229,7 @@ class ScheduledEvent(TimestampedModel):
 
     def archive(self):
         # for stupid reasons involving the legacy mechanism for creating a survey archive we need
-        # to handle the case where the object does not exist.
+        # to handle the case where the object does not exist so that we don't break migrations.
         try:
             survey_archive = self.survey.most_recent_archive()
         except SurveyArchive.DoesNotExist:
@@ -241,6 +244,7 @@ class ScheduledEvent(TimestampedModel):
         )
         self.delete()
 
+
 # TODO there is no code that updates the response_time field.  That should be rolled into the
 #  check-for-downloads as an optional parameter passed in.  If it doesn't get hit then there is
 #  no guarantee that the app checked in.
@@ -250,6 +254,69 @@ class ArchivedEvent(TimestampedModel):
     schedule_type = models.CharField(max_length=32, db_index=True)
     scheduled_time = models.DateTimeField(db_index=True)
     response_time = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    @property
+    def survey(self):
+        return self.survey_archive.survey
+
+    @staticmethod
+    def find_notification_events(
+            participant: Participant = None, survey: Survey or str= None, schedule_type: str = None,
+            tz: tzinfo = tz.gettz('America/New_York')
+    ):
+        assert participant is None or isinstance(participant, (Survey, Participant))
+        assert survey is None or isinstance(survey, (Survey,str))
+
+        # allow passing in just a survey - if no survey and participant is a survey
+        if not survey and isinstance(participant, Survey):
+            participant, survey = survey, participant  # I love this line...
+
+        filters = {}
+
+        try:
+            if len(survey) == 24:
+                survey = Survey.objects.get(object_id=survey)
+        except TypeError:
+            pass
+
+        if participant:
+            filters['participant'] = participant
+
+        if schedule_type:
+            filters["schedule_type"] = schedule_type
+
+        if survey:
+            filters["survey_archive__survey"] = survey
+        elif participant:  # if no survey, yes participant:
+            filters["survey_archive__survey__in"] = participant.study.surveys.all()
+
+        query = ArchivedEvent.objects.filter(**filters).order_by(
+            "participant__patient_id", "survey_archive__survey__object_id", "-created_on"
+        )
+
+        print(f"There were {query.count()} sent scheduled events matching your query.")
+        participant_name = ""
+        survey_id = ""
+        for a in query:
+            if a.participant.patient_id != participant_name:
+                print(f"participant {a.participant.patient_id}:")
+                participant_name = a.participant.patient_id
+            if a.survey_archive.survey.object_id != survey_id:
+                print(f"for {a.survey_archive.survey.survey_type} {a.survey_archive.survey.object_id}:")
+                survey_id = a.survey_archive.survey.object_id
+
+
+            sched_time = localtime(a.scheduled_time, tz)
+            sent_time = localtime(a.created_on, tz)
+            time_diff_minutes = (sent_time - sched_time).total_seconds() / 60
+            sched_time_print = datetime.strftime(sched_time, API_TIME_FORMAT_WITH_TZ).replace("T", " ", 1)
+            sent_time_print = datetime.strftime(sent_time, API_TIME_FORMAT_WITH_TZ).replace("T", " ", 1)
+            print(
+                f"\t{a.schedule_type} schedule for {sched_time_print} - "
+                f"was sent on {sent_time_print}, "
+                f"\u0394 of {time_diff_minutes:.1f} min)"
+                # \u0394 is the delta character
+            )
 
 
 class Intervention(TimestampedModel):

@@ -59,6 +59,7 @@ TIMER_VALUES = [
 # 1990-01-31T07:30:04 gets you jan 31 1990 at 7:30:04am
 # human string is YYYY-MM-DDThh:mm:ss
 API_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+API_TIME_FORMAT_WITH_TZ = "%Y-%m-%dT%H:%M:%S (%Z)"
 API_DATE_FORMAT = "%Y-%m-%d"
 
 ## Chunks
@@ -363,3 +364,5 @@ BACKEND_FIREBASE_CREDENTIALS = "backend_firebase_credentials"
 # firebase gets the default app name unless otherwise specified, so it is necessary to have
 # another name for testing that will never be used to send notifications
 FIREBASE_APP_TEST_NAME = 'FIREBASE_APP_TEST_NAME'
+
+DELTA_CHAR = "\u0394"

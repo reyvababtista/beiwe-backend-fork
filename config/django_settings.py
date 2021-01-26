@@ -54,11 +54,12 @@ SHELL_PLUS_POST_IMPORTS = [
     "json",
     ["libs.s3", ("s3_list_files",)],
     ["pprint", ("pprint",)],
-    ["datetime", ("date", "datetime", "timedelta")],
+    ["datetime", ("date", "datetime", "timedelta", "tzinfo")],
     ["collections", ("Counter", "defaultdict")],
     ["django.utils.timezone", ("localtime", "make_aware", "make_naive")],
     ["time", ("sleep",)],
     ["libs.shell_utils", "*"],
+    ["dateutil", ('tz',)]
 ]
 
 # Using the default test runner

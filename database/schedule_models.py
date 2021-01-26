@@ -261,7 +261,7 @@ class ArchivedEvent(TimestampedModel):
 
     @staticmethod
     def find_notification_events(
-            participant: Participant = None, survey: Survey or str= None, schedule_type: str = None,
+            participant: Participant = None, survey: Survey or str = None, schedule_type: str = None,
             tz: tzinfo = tz.gettz('America/New_York')
     ):
         assert participant is None or isinstance(participant, (Survey, Participant))

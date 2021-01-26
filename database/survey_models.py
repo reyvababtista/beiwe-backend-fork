@@ -95,7 +95,7 @@ class Survey(SurveyBase):
     def relative_timings(self):
         """
         Returns a json serializable object that represents the relative schedules of the survey
-        The return object is a list of lists
+        The return object is a list of lists of intervention ids, days offset, and seconds offset.
         """
         schedules = []
         for schedule in self.relative_schedules.all():
@@ -106,7 +106,7 @@ class Survey(SurveyBase):
     def absolute_timings(self):
         """
         Returns a json serializable object that represents the absolute schedules of the survey
-        The return object is a list of lists
+        The return object is a list of lists of the year, month, day and seconds within the day.
         """
         schedules = []
         for schedule in self.absolute_schedules.all():

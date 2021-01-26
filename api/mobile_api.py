@@ -196,9 +196,8 @@ def register_user(OS_API=""):
     # This value may not be returned by later versions of the beiwe app.
     mac_address = request.values.get('bluetooth_id', "none")
 
-    user = get_session_participant()
-    study_id = user.study.object_id
-    if user.device_id and user.device_id != request.values['device_id']:
+    participant = get_session_participant()
+    if participant.device_id and participant.device_id != request.values['device_id']:
         # CASE: this patient has a registered a device already and it does not match this device.
         #   They need to contact the study and unregister their their other device.  The device
         #   will receive a 405 error and should alert the user accordingly.
@@ -208,7 +207,7 @@ def register_user(OS_API=""):
         # KG: 405 is good for IOS and Android, no need to check OS_API
         return abort(405)
 
-    if user.os_type and user.os_type != OS_API:
+    if participant.os_type and participant.os_type != OS_API:
         # CASE: this patient has registered, but the user was previously registered with a
         # different device type. To keep the CSV munging code sane and data consistent (don't
         # cross the iOS and Android data streams!) we disallow it.
@@ -228,35 +227,35 @@ def register_user(OS_API=""):
                       os_version, product, brand, hardware_id, manufacturer, model,
                       beiwe_version)).encode()
 
-    s3_upload(file_name, file_contents, study_id)
-    FileToProcess.append_file_for_processing(file_name, user.study.object_id, participant=user)
+    s3_upload(file_name, file_contents, participant.study.object_id)
+    FileToProcess.append_file_for_processing(file_name, participant.study.object_id, participant=participant)
 
     # set up device.
-    user.device_id = device_id
-    user.os_type = OS_API
-    user.set_password(request.values['new_password'])  # set password saves the model
-    device_settings = user.study.device_settings.as_unpacked_native_python()
+    participant.device_id = device_id
+    participant.os_type = OS_API
+    participant.set_password(request.values['new_password'])  # set password saves the model
+    device_settings = participant.study.device_settings.as_unpacked_native_python()
     device_settings.pop('_id', None)
 
     # set up FCM files
     firebase_plist_data = None
     firebase_json_data = None
-    if user.os_type == 'IOS':
+    if participant.os_type == 'IOS':
         ios_credentials = FileAsText.objects.filter(tag=IOS_FIREBASE_CREDENTIALS).first()
         if ios_credentials:
             firebase_plist_data = plistlib.loads(ios_credentials.text.encode())
-    elif user.os_type == 'ANDROID':
+    elif participant.os_type == 'ANDROID':
         android_credentials = FileAsText.objects.filter(tag=ANDROID_FIREBASE_CREDENTIALS).first()
         if android_credentials:
             firebase_json_data = json.loads(android_credentials.text)
 
     return_obj = {
-        'client_public_key': get_client_public_key_string(patient_id, study_id),
+        'client_public_key': get_client_public_key_string(patient_id, participant.study.object_id),
         'device_settings': device_settings,
         'ios_plist': firebase_plist_data,
         'android_firebase_json': firebase_json_data,
-        'study_name': user.study.name,
-        'study_id': user.study.object_id,
+        'study_name': participant.study.name,
+        'study_id': participant.study.object_id,
     }
     return json.dumps(return_obj), 200
 

@@ -12,6 +12,7 @@ from config.constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CRE
     FIREBASE_APP_TEST_NAME, IOS_FIREBASE_CREDENTIALS)
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, ScheduledEvent,
     WeeklySchedule)
+from database.study_models import Study
 from database.survey_models import Survey
 from database.system_models import FileAsText
 from database.user_models import Participant
@@ -100,6 +101,22 @@ def set_next_weekly(participant: Participant, survey: Survey) -> None:
             absolute_schedule=None,
             scheduled_time=schedule_date,
         )
+
+
+def repopulate_all_survey_scheduled_events(study: Study, participant: Participant = None):
+    """ Runs all the survey scheduled event generations on the provided entities. """
+
+    for survey in study.surveys:
+        # remove any scheduled events on surveys that have been deleted.
+        if survey.deleted:
+            survey.scheduled_events.delete()
+            continue
+
+        repopulate_weekly_survey_schedule_events(survey, participant)
+        repopulate_absolute_survey_schedule_events(survey, participant)
+        # there are some cases where we can logically exclude relative surveys.
+        # Don't. Do. That. Just. Run. Everything. Always.
+        repopulate_relative_survey_schedule_events(survey, participant)
 
 
 def repopulate_weekly_survey_schedule_events(survey: Survey, participant: Participant = None) -> None:

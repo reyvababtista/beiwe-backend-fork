@@ -7,8 +7,7 @@ from authentication.admin_authentication import authenticate_researcher_study_ac
 from database.schedule_models import InterventionDate
 from database.study_models import Study
 from database.user_models import Participant, ParticipantFieldValue
-from libs.push_notification_config import (repopulate_absolute_survey_schedule_events,
-    repopulate_weekly_survey_schedule_events)
+from libs.push_notification_config import repopulate_all_survey_scheduled_events
 from libs.s3 import create_client_key_pair, s3_upload
 from libs.streaming_bytes_io import StreamingStringsIO
 
@@ -85,13 +84,7 @@ def create_new_participant():
     study_object_id = Study.objects.filter(pk=study_id).values_list('object_id', flat=True).get()
     s3_upload(patient_id, b"", study_object_id)
     create_client_key_pair(patient_id, study_object_id)
-
-    for survey in study.surveys.all():
-        repopulate_weekly_survey_schedule_events(survey, participant)
-        repopulate_absolute_survey_schedule_events(survey, participant)
-        # No relative schedule events can be created without any interventions set.
-        # This code behaved correctly (created no new relative schedule events) when it was written.
-        # repopulate_relative_survey_schedule_events(survey, participant)
+    repopulate_all_survey_scheduled_events(study, participant)
 
     response_string = 'Created a new patient\npatient_id: {:s}\npassword: {:s}'.format(patient_id, password)
     flash(response_string, 'success')
@@ -132,13 +125,7 @@ def participant_csv_generator(study_id, number_of_new_patients):
         # Creates an empty file on s3 indicating that this user exists
         s3_upload(patient_id, "", study.object_id)
         create_client_key_pair(patient_id, study.object_id)
-
-        for survey in study.surveys.all():
-            repopulate_weekly_survey_schedule_events(survey, participant)
-            repopulate_absolute_survey_schedule_events(survey, participant)
-            # No relative schedule events can be created without any interventions set.
-            # This code behaved correctly (created no new relative schedule events) when it was written.
-            # repopulate_relative_survey_schedule_events(survey, participant)
+        repopulate_all_survey_scheduled_events(study, participant)
 
         filewriter.writerow([patient_id, password])
         yield si.getvalue()

@@ -11,7 +11,7 @@ from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
 from database.user_models import Participant, ParticipantFieldValue
 from libs.push_notification_config import (check_firebase_instance,
-    repopulate_relative_survey_schedule_events)
+    repopulate_all_survey_scheduled_events)
 
 study_api = Blueprint('study_api', __name__)
 
@@ -61,8 +61,9 @@ def edit_participant(study_id, participant_id):
         field_value.value = request.values.get(input_id, None)
         field_value.save()
 
-    for survey in study.surveys.all():
-        repopulate_relative_survey_schedule_events(survey, participant)
+    # always call through the repopulate everything call, even though we only need to handle
+    # relative surveys, the function handles extra cases.
+    repopulate_all_survey_scheduled_events(study, participant)
 
     flash('Successfully edited participant {}.'.format(participant.patient_id), 'success')
     return redirect('/view_study/{:d}/edit_participant/{:d}'.format(study.id, participant.id))

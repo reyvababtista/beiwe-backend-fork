@@ -17,6 +17,7 @@ from database.system_models import FileAsText
 from libs.encryption import decrypt_device_file, DecryptionKeyInvalidError, HandledError
 from libs.http_utils import determine_os_api
 from libs.logging import log_error
+from libs.push_notification_config import repopulate_all_survey_scheduled_events
 from libs.s3 import get_client_private_key, get_client_public_key_string, s3_upload
 from libs.sentry import make_sentry_client
 
@@ -248,6 +249,9 @@ def register_user(OS_API=""):
         android_credentials = FileAsText.objects.filter(tag=ANDROID_FIREBASE_CREDENTIALS).first()
         if android_credentials:
             firebase_json_data = json.loads(android_credentials.text)
+
+    # ensure the survey schedules are updated for this participant.
+    repopulate_all_survey_scheduled_events(participant.study, participant)
 
     return_obj = {
         'client_public_key': get_client_public_key_string(patient_id, participant.study.object_id),

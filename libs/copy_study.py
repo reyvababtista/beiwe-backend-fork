@@ -8,8 +8,7 @@ from database.common_models import JSONTextField
 from database.schedule_models import AbsoluteSchedule, RelativeSchedule, WeeklySchedule
 from database.study_models import Study
 from database.survey_models import Survey
-from libs.push_notification_config import (repopulate_absolute_survey_schedule_events,
-    repopulate_relative_survey_schedule_events, repopulate_weekly_survey_schedule_events)
+from libs.push_notification_config import repopulate_all_survey_scheduled_events
 
 NoneType = type(None)
 
@@ -121,9 +120,7 @@ def add_new_surveys(new_survey_settings: List[Dict], study: Study, filename: str
         AbsoluteSchedule.create_absolute_schedules(absolute_schedules, survey)
         RelativeSchedule.create_relative_schedules(relative_schedules, survey)
         WeeklySchedule.create_weekly_schedules(weekly_schedules, survey)
-        repopulate_weekly_survey_schedule_events(survey)
-        repopulate_absolute_survey_schedule_events(survey)
-        repopulate_relative_survey_schedule_events(survey)
+        repopulate_all_survey_scheduled_events(survey)
 
         # count...
         surveys_added += 1 if survey.survey_type == Survey.TRACKING_SURVEY else 0

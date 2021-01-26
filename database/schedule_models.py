@@ -20,7 +20,7 @@ class AbsoluteSchedule(TimestampedModel):
         """ Creates new AbsoluteSchedule objects from a frontend-style list of dates and times"""
         survey.absolute_schedules.all().delete()
 
-        if not timings:
+        if survey.deleted or not timings:
             return False
 
         duplicated = False
@@ -64,7 +64,7 @@ class RelativeSchedule(TimestampedModel):
         Creates new RelativeSchedule objects from a frontend-style list of interventions and times
         """
         survey.relative_schedules.all().delete()
-        if not timings:
+        if survey.deleted or not timings:
             return False
 
         duplicated = False
@@ -102,7 +102,7 @@ class WeeklySchedule(TimestampedModel):
     def create_weekly_schedules(timings: List[List[int]], survey: Survey) -> bool:
         """ Creates new WeeklySchedule objects from a frontend-style list of seconds into the day. """
 
-        if not timings:
+        if survey.deleted or not timings:
             survey.weekly_schedules.all().delete()
             return False
 

@@ -30,5 +30,6 @@ PROJECT_PATH="/home/ubuntu/beiwe-backend/services"
 0 */1 * * * : hourly; cd $PROJECT_PATH; chronic python3 cron.py hourly
 30 */4 * * * : four_hourly; cd $PROJECT_PATH; chronic python3 cron.py four_hourly
 @daily : daily; cd $PROJECT_PATH; chronic python3 cron.py daily
+@daily : daily; journalctl --vacuum-time=1w
 0 2 * * 0 : weekly; cd $PROJECT_PATH; chronic python3 cron.py weekly
 29 4 * * *: pkill -HUP supervisord

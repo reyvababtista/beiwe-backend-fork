@@ -27,3 +27,4 @@
 
 # at 4:29am restart celery by restarting supervisord
 29 4 * * *: pkill -HUP supervisord
+@daily : daily; journalctl --vacuum-time=1w

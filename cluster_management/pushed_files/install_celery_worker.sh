@@ -31,7 +31,7 @@ sudo tee /etc/supervisord.conf >/dev/null <<EOL
 [supervisord]
 logfile = /home/ubuntu/supervisord.log
 logfile_maxbytes = 10MB
-logfile_backups=1
+logfile_backups = 1
 loglevel = info
 pidfile = /tmp/supervisord.pid
 nodaemon = false
@@ -56,6 +56,8 @@ command = python3 -m celery -A services.celery_data_processing worker -Q data_pr
 stdout_logfile = /home/ubuntu/celery_processing.log
 stderr_logfile = /home/ubuntu/celery_processing.log
 autostart = true
+logfile_maxbytes = 10MB
+logfile_backups = 1
 #stopwaitsecs = 30
 stopasgroup = true
 startsecs = 5
@@ -67,6 +69,8 @@ command = python3 -m celery -A services.celery_push_notifications worker -Q push
 stdout_logfile = /home/ubuntu/celery_push_send.log
 stderr_logfile = /home/ubuntu/celery_push_send.log
 autostart = true
+logfile_maxbytes = 10MB
+logfile_backups = 1
 #stopwaitsecs = 30
 stopasgroup = true
 # startsecs = 5

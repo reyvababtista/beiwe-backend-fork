@@ -1,6 +1,9 @@
+from datetime import datetime
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.db.models import F, Func
+from django.utils.timezone import localtime
 from timezone_field import TimeZoneField
 
 from config.constants import ResearcherRole
@@ -91,6 +94,11 @@ class Study(TimestampedModel):
         return ArchivedEvent.objects.filter(
             survey_archive_id__in=self.surveys.all().values_list("archives__id", flat=True)
         ).filter(**archived_event_filter_kwargs).order_by("-scheduled_time")
+
+    def now(self) -> datetime:
+        """ Returns a timezone.now() equivalence in the study's timezone. """
+        return localtime(localtime(), timezone=self.timezone)  # localtime(localtime(... saves an import... :D
+
 
 class StudyField(models.Model):
     study = models.ForeignKey(Study, on_delete=models.PROTECT, related_name='fields')

@@ -69,7 +69,7 @@ class Survey(SurveyBase):
         return survey
 
     @classmethod
-    def create_with_settings(cls, survey_type, **kwargs):
+    def create_with_settings(cls, survey_type: str, **kwargs):
         """
         Create a new Survey with the provided survey type and attached to the given Study,
         as well as any other given keyword arguments. If the Survey is audio/image and no other

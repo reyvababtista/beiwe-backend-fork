@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from json import JSONDecodeError
 
 import pytz
-from django.utils.timezone import is_aware, is_naive, make_aware
+from django.utils.timezone import is_naive, make_aware
 from firebase_admin import (delete_app as delete_firebase_instance,
     get_app as get_firebase_app, initialize_app as initialize_firebase_app)
 from firebase_admin.credentials import Certificate as FirebaseCertificate
@@ -89,7 +89,7 @@ def check_firebase_instance(require_android=False, require_ios=False) -> bool:
 
 def set_next_weekly(participant: Participant, survey: Survey) -> None:
     ''' Create a next ScheduledEvent for a survey for a particular participant. '''
-    schedule_date, schedule = get_next_weekly_event(survey)
+    schedule_date, schedule = get_next_weekly_event_and_schedule(survey)
 
     # this handles the case where the schedule was deleted. This is a corner case that shouldn't happen
     if schedule_date is not None and schedule is not None:
@@ -134,7 +134,7 @@ def repopulate_weekly_survey_schedule_events(survey: Survey, single_participant:
 
     try:
         # get_next_weekly_event forces tz-aware schedule_date datetime object
-        schedule_date, schedule = get_next_weekly_event(survey)
+        schedule_date, schedule = get_next_weekly_event_and_schedule(survey)
     except NoSchedulesException:
         return
 
@@ -250,9 +250,9 @@ def repopulate_relative_survey_schedule_events(survey: Survey, single_participan
     ScheduledEvent.objects.bulk_create(new_events)
 
 
-def get_next_weekly_event(survey: Survey) -> (datetime, WeeklySchedule):
+def get_next_weekly_event_and_schedule(survey: Survey) -> (datetime, WeeklySchedule):
     """ Determines the next time for a particular survey, provides the relevant weekly schedule. """
-    now = make_aware(datetime.utcnow(), timezone=pytz.utc)
+    now = survey.study.now()
     timing_list = []
     # our possible next weekly event may be this week, or next week; get this week if it hasn't
     # happened, next week if it has.  A survey can have many weekly schedules, grab them all.
@@ -266,9 +266,4 @@ def get_next_weekly_event(survey: Survey) -> (datetime, WeeklySchedule):
     # get the earliest next schedule_date
     timing_list.sort(key=lambda date_and_schedule: date_and_schedule[0])
     schedule_date, schedule = timing_list[0]
-
-    # FIXME: this is going to change to the participant's timezone.
-    # force the timezone to be the study timezone.
-    if not is_aware(schedule_date):
-        schedule_date = make_aware(schedule_date, survey.study.timezone)
     return schedule_date, schedule

@@ -17,7 +17,6 @@ survey_api = Blueprint('survey_api', __name__)
 @survey_api.route('/create_survey/<string:study_id>/<string:survey_type>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def create_survey(study_id=None, survey_type='tracking_survey'):
-
     new_survey = Survey.create_with_settings(study_id=study_id, survey_type=survey_type)
     return redirect('/edit_survey/{:d}'.format(new_survey.id))
 

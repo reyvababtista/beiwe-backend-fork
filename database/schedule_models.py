@@ -1,13 +1,12 @@
 from datetime import date, datetime, time, timedelta, tzinfo
 from typing import List
 
-import pytz
 from dateutil.tz import tz
 from django.core.validators import MaxValueValidator
 from django.db import models
-from django.utils.timezone import is_naive, localtime, make_aware
+from django.utils.timezone import localtime, make_aware
 
-from config.constants import API_TIME_FORMAT_WITH_TZ, DELTA_CHAR, ScheduleTypes
+from config.constants import API_TIME_FORMAT_WITH_TZ, ScheduleTypes
 from database.common_models import TimestampedModel
 from database.survey_models import Survey, SurveyArchive
 from database.user_models import Participant
@@ -144,36 +143,20 @@ class WeeklySchedule(TimestampedModel):
             timings[day].append((hour * 60 * 60) + (minute * 60))
         return timings
 
-    def get_prior_and_next_event_times(self, now: datetime=None) -> (datetime, datetime):
-        """ Identify the start of the week relative to the current time, use that to determine this
-        week's (past or present) push notification event time, and the same event for next week.
-        If now is passed in it must have a UTC timezone. """
-
-        if now is None:
-            # handle case of utc date not matching date of local time.
-            today = make_aware(datetime.utcnow(), timezone=pytz.utc).date()
-        elif isinstance(now, datetime) and not is_naive(now) and now.tzinfo.zone == "UTC":
-            # now must be a datetime with a timezone of UTC
-            today = now.date()
-        else:
-            raise TypeError(f"Datetime must be UTC and timezone aware, received {str(now)}")
+    def get_prior_and_next_event_times(self, now: datetime) -> (datetime, datetime):
+        """ Identify the start of the week relative to now, determine this week's push notification
+        moment, then add 7 days. tzinfo of input is used to populate tzinfos of return. """
+        today = now.date()
 
         # today.weekday defines Monday=0, in our schema Sunday=0 so we add 1
         start_of_this_week = today - timedelta(days=((today.weekday()+1) % 7))
 
-        event_this_week = make_aware(
-                datetime(
-                    year=start_of_this_week.year,
-                    month=start_of_this_week.month,
-                    day=start_of_this_week.day,
-                ) +
-                timedelta(
-                    days=self.day_of_week,
-                    hours=self.hour,
-                    minutes=self.minute,
-                ),
-                timezone=pytz.utc,
-        )
+        event_this_week = datetime(
+            year=start_of_this_week.year,
+            month=start_of_this_week.month,
+            day=start_of_this_week.day,
+            tzinfo=now.tzinfo,
+        ) + timedelta(days=self.day_of_week, hours=self.hour, minutes=self.minute)
         event_next_week = event_this_week + timedelta(days=7)
         return event_this_week, event_next_week
 

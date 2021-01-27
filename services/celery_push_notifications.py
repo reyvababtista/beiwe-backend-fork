@@ -39,7 +39,7 @@ def get_surveys_and_schedules(now):
     # need to filter out unregistered fcms, database schema sucks for that, do it in python. its fine.
     query = ScheduledEvent.objects.filter(
         scheduled_time__lte=now, participant__fcm_tokens__isnull=False,
-        survey__deleted=False, participant__push_notification_unreachable=False
+        # survey__deleted=False, participant__push_notification_unreachable=False
     ).values_list(
         "survey__object_id",
         "participant__fcm_tokens__token",

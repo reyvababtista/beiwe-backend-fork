@@ -106,7 +106,7 @@ def set_next_weekly(participant: Participant, survey: Survey) -> None:
 def repopulate_all_survey_scheduled_events(study: Study, participant: Participant = None):
     """ Runs all the survey scheduled event generations on the provided entities. """
 
-    for survey in study.surveys:
+    for survey in study.surveys.all():
         # remove any scheduled events on surveys that have been deleted.
         if survey.deleted:
             survey.scheduled_events.all().delete()

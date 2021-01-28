@@ -109,7 +109,7 @@ def repopulate_all_survey_scheduled_events(study: Study, participant: Participan
     for survey in study.surveys:
         # remove any scheduled events on surveys that have been deleted.
         if survey.deleted:
-            survey.scheduled_events.delete()
+            survey.scheduled_events.all().delete()
             continue
 
         repopulate_weekly_survey_schedule_events(survey, participant)

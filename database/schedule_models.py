@@ -28,7 +28,9 @@ class AbsoluteSchedule(TimestampedModel):
         for year, month, day, num_seconds in timings:
             hour = num_seconds // 3600
             minute = num_seconds % 3600 // 60
-            schedule_date = datetime(year=year, month=month, day=day, hour=hour, minute=minute)
+            schedule_date = datetime(
+                year=year, month=month, day=day, hour=hour, minute=minute, tzinfo=survey.study.timezone
+            )
             # using get_or_create to catch duplicate schedules
             _, created = AbsoluteSchedule.objects.get_or_create(survey=survey, scheduled_date=schedule_date)
             if not created:

@@ -206,10 +206,7 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
 def repopulate_relative_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:
     """ Creates new ScheduledEvents for the survey's RelativeSchedules while deleting the old
     ScheduledEvents related to the survey. """
-    study_tz = survey.study.timezone or pytz.timezone("America/New_York")
-
     # Clear out existing events.
-    # if the event is from an relative schedule, absolute and weekly schedules will be None
     events = survey.scheduled_events.filter(absolute_schedule=None, weekly_schedule=None)
     if single_participant:
         events = events.filter(participant=single_participant)
@@ -229,7 +226,7 @@ def repopulate_relative_survey_schedule_events(survey: Survey, single_participan
         for participant_id, intervention_date in interventions_query:
             # + below is correct, 'days_after' is negative or 0 for days before and day of.
             scheduled_date = intervention_date + timedelta(days=relative_schedule.days_after)
-            schedule_time = relative_schedule.scheduled_time(scheduled_date, study_tz)
+            schedule_time = relative_schedule.scheduled_time(scheduled_date, survey.study.timezone)
             # skip if already sent (archived event matching participant, survey, and schedule time)
             if ArchivedEvent.objects.filter(
                 participant_id=participant_id,

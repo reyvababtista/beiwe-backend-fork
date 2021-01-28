@@ -16,6 +16,10 @@ class AbsoluteSchedule(TimestampedModel):
     survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='absolute_schedules')
     scheduled_date = models.DateTimeField()
 
+    @property
+    def scheduled_date_with_correct_timezone(self):
+        return localtime(self.scheduled_date, self.survey.study.timezone)
+
     @staticmethod
     def create_absolute_schedules(timings: List[List[int]], survey: Survey) -> bool:
         """ Creates new AbsoluteSchedule objects from a frontend-style list of dates and times"""

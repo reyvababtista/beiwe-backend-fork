@@ -110,11 +110,9 @@ class Survey(SurveyBase):
         """
         schedules = []
         for schedule in self.absolute_schedules.all():
-            num_seconds = schedule.scheduled_date.minute * 60 + schedule.scheduled_date.hour * 3600
-            schedules.append([schedule.scheduled_date.year,
-                              schedule.scheduled_date.month,
-                              schedule.scheduled_date.day,
-                              num_seconds])
+            event_time = schedule.scheduled_date_with_correct_timezone
+            num_seconds = event_time.minute * 60 + event_time.hour * 3600
+            schedules.append([event_time.year, event_time.month, event_time.day, num_seconds])
         return schedules
 
     def notification_events(self, **archived_event_filter_kwargs):

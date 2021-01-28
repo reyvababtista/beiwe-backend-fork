@@ -164,12 +164,8 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
     events.delete()
 
     new_events = []
-    for schedule_pk, scheduled_time in survey.absolute_schedules.values_list("pk", "scheduled_date"):
-        # if the schedule is somehow not tz-aware, force update it.
-        if is_naive(scheduled_time):
-            scheduled_time = make_aware(scheduled_time, survey.study.timezone)
-            AbsoluteSchedule.objects.filter(pk=schedule_pk).update(scheduled_time=scheduled_time)
-
+    for abs_sched in survey.absolute_schedules.all():
+        scheduled_time = abs_sched.event_time
         # if one participant
         if single_participant:
             archive_exists = ArchivedEvent.objects.filter(
@@ -195,7 +191,7 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
                 survey=survey,
                 weekly_schedule=None,
                 relative_schedule=None,
-                absolute_schedule_id=schedule_pk,
+                absolute_schedule_id=abs_sched.pk,
                 scheduled_time=scheduled_time,
                 participant_id=participant_id
             ))

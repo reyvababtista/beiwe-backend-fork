@@ -18,7 +18,10 @@ ipython==7.1.1
 # Keep these dependencies up to date
 boto3
 pytz
-django-timezone-field
 django-extensions
 python-dateutil
 firebase-admin
+
+# Ug due to pytz.timezone("America/New_York") being off by 4 minutes (aka ... wrong) we had to abandon
+# this library. but we can't remove it because it is used in migrations.
+django-timezone-field==4.1.1

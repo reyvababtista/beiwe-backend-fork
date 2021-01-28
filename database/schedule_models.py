@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timedelta, tzinfo
 from typing import List
 
-from dateutil.tz import tz
+from dateutil.tz import gettz
 from django.core.validators import MaxValueValidator
 from django.db import models
 from django.utils.timezone import localtime, make_aware
@@ -14,11 +14,20 @@ from database.user_models import Participant
 
 class AbsoluteSchedule(TimestampedModel):
     survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='absolute_schedules')
-    scheduled_date = models.DateTimeField()
+    date = models.DateField(null=False, blank=False)
+    hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
+    minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
 
     @property
-    def scheduled_date_with_correct_timezone(self):
-        return localtime(self.scheduled_date, self.survey.study.timezone)
+    def event_time(self):
+        return datetime(
+            year=self.date.year,
+            month=self.date.month,
+            day=self.date.day,
+            hour=self.hour,
+            minute=self.minute,
+            tzinfo=self.survey.study.timezone
+        )
 
     @staticmethod
     def create_absolute_schedules(timings: List[List[int]], survey: Survey) -> bool:
@@ -30,13 +39,12 @@ class AbsoluteSchedule(TimestampedModel):
 
         duplicated = False
         for year, month, day, num_seconds in timings:
-            hour = num_seconds // 3600
-            minute = num_seconds % 3600 // 60
-            schedule_date = datetime(
-                year=year, month=month, day=day, hour=hour, minute=minute, tzinfo=survey.study.timezone
+            _, created = AbsoluteSchedule.objects.get_or_create(
+                survey=survey,
+                date=date(year=year, month=month, day=day),
+                hour=num_seconds // 3600,
+                minute=num_seconds % 3600 // 60
             )
-            # using get_or_create to catch duplicate schedules
-            _, created = AbsoluteSchedule.objects.get_or_create(survey=survey, scheduled_date=schedule_date)
             if not created:
                 duplicated = True
 
@@ -251,7 +259,7 @@ class ArchivedEvent(TimestampedModel):
     @staticmethod
     def find_notification_events(
             participant: Participant = None, survey: Survey or str = None, schedule_type: str = None,
-            tz: tzinfo = tz.gettz('America/New_York')
+            tz: tzinfo = gettz('America/New_York')
     ):
         assert participant is None or isinstance(participant, (Survey, Participant))
         assert survey is None or isinstance(survey, (Survey,str))
@@ -293,7 +301,6 @@ class ArchivedEvent(TimestampedModel):
             if a.survey_archive.survey.object_id != survey_id:
                 print(f"for {a.survey_archive.survey.survey_type} {a.survey_archive.survey.object_id}:")
                 survey_id = a.survey_archive.survey.object_id
-
 
             sched_time = localtime(a.scheduled_time, tz)
             sent_time = localtime(a.created_on, tz)

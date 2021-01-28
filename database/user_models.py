@@ -1,7 +1,6 @@
 from django.core.validators import MinLengthValidator
 from django.db import models
 from django.db.models import F, Func
-from timezone_field import TimeZoneField
 
 from config.constants import ResearcherRole
 from database.common_models import UtilityModel
@@ -109,7 +108,9 @@ class Participant(AbstractPasswordUser):
     )
     push_notification_unreachable = models.SmallIntegerField(default=True, null=False, blank=False)
 
-    timezone = TimeZoneField(default="America/New_York", null=False, blank=False)
+    timezone_name = models.CharField(
+        max_length=256, default="America/New_York", null=False, blank=False
+    )
 
     deleted = models.BooleanField(default=False)
 

@@ -1,10 +1,10 @@
 from datetime import datetime
 
+from dateutil.tz import gettz
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.db.models import F, Func
 from django.utils.timezone import localtime
-from timezone_field import TimeZoneField
 
 from config.constants import ResearcherRole
 from config.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT,
@@ -30,8 +30,8 @@ class Study(TimestampedModel):
         help_text='ID used for naming S3 files'
     )
     is_test = models.BooleanField(default=True)
-    timezone = TimeZoneField(
-        default="America/New_York", help_text='Timezone of the study', null=False, blank=False
+    timezone_name = models.CharField(
+        max_length=256, default="America/New_York", null=False, blank=False
     )
     deleted = models.BooleanField(default=False)
 
@@ -98,6 +98,12 @@ class Study(TimestampedModel):
     def now(self) -> datetime:
         """ Returns a timezone.now() equivalence in the study's timezone. """
         return localtime(localtime(), timezone=self.timezone)  # localtime(localtime(... saves an import... :D
+
+    @property
+    def timezone(self):
+        """ So pytz.timezone("America/New_York") provides a tzinfo-like object that is wrong by 4
+        minutes.  That's insane.  The dateutil gettz function doesn't have that fun insanity. """
+        return gettz(self.timezone_name)
 
 
 class StudyField(models.Model):

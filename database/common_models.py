@@ -4,7 +4,6 @@ from random import choice as random_choice
 from django.db import models
 from django.db.models.fields.related import RelatedField
 from flask import abort
-from timezone_field import TimeZoneField
 
 from config.study_constants import OBJECT_ID_ALLOWED_CHARS
 
@@ -115,8 +114,6 @@ class UtilityModel(models.Model):
                 field_dict[field_name] = json.loads(field_raw_val)
             elif remove_timestamps and (field_name == "created_on" or field_name == "last_updated"):
                 continue
-            elif isinstance(field, TimeZoneField):
-                field_dict[field_name] = str(getattr(self, field_name))
             else:
                 # Otherwise, just return the field's value directly
                 field_dict[field_name] = getattr(self, field_name)

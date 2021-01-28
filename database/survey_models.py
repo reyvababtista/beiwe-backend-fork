@@ -110,7 +110,7 @@ class Survey(SurveyBase):
         """
         schedules = []
         for schedule in self.absolute_schedules.all():
-            event_time = schedule.scheduled_date_with_correct_timezone
+            event_time = schedule.event_time
             num_seconds = event_time.minute * 60 + event_time.hour * 3600
             schedules.append([event_time.year, event_time.month, event_time.day, num_seconds])
         return schedules

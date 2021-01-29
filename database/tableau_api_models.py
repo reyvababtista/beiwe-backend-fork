@@ -58,13 +58,24 @@ class ForestTracker(TimestampedModel):
     date_start = models.DateField()  # inclusive
     date_end = models.DateField()  # inclusive
 
-    file_size = models.IntegerField()
+    file_size = models.IntegerField()  # what file? output?
     start_time = models.DateTimeField(null=True)
     end_time = models.DateTimeField(null=True)
     # celery_task_id?
+    # time limit?
 
-    status = models.CharField(max_length=10)
-    stacktrace = models.TextField(null=True)  # for logs
+    QUEUED_STATUS = 1
+    RUNNING_STATUS = 2
+    SUCCESS_STATUS = 3
+    ERROR_STATUS = 4
+    STATUS_CHOICES = (
+        (QUEUED_STATUS, 'queued'),
+        (RUNNING_STATUS, 'running'),
+        (SUCCESS_STATUS, 'success'),
+        (ERROR_STATUS, 'error'),
+    )
+    status = models.IntegerField(choices=STATUS_CHOICES)
+    stacktrace = models.TextField(null=True, blank=True, default=None)  # for logs
     forest_version = models.CharField(max_length=10)
     commit_hash = models.CharField(max_length=40)
     metadata = models.TextField()  # json string, add validator?

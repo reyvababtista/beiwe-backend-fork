@@ -376,6 +376,26 @@ def device_settings(study_id=None):
     return redirect('/edit_study/{:d}'.format(study.id))
 
 
+@system_admin_pages.route('/create_forest_tasks/<string:study_id>', methods=['GET', 'POST'])
+@authenticate_admin
+def create_forest_tasks(study_id=None):
+    # Only a SITE admin can queue forest tasks
+    if not get_session_researcher().site_admin:
+        return abort(403)
+
+    study = Study.objects.get(pk=study_id)
+    researcher = get_session_researcher()
+
+    if request.method == 'GET':
+        return render_template(
+            "create_forest_tasks.html",
+            study=study.as_unpacked_native_python(),
+        )
+
+
+
+
+
 ########################## FIREBASE CREDENTIALS ENDPOINTS ##################################
 # note: all of the strings passed in the following function (eg: ALERT_DECODE_ERROR_TEXT) are plain strings
 # not intended for use with .format or other potential injection vectors

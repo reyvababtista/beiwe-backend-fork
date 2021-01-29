@@ -55,7 +55,7 @@ TREE_NAME_TO_FUNCTION = {
 #      and data line. flexible, but maybe overly complex?
 
 # 2nd parameter is none or a lambda of the field value as well as the line (which contains that
-# value amoung others)
+# value among others)
 # an example minutes to second conversion: interp = lambda value, _: value * 60
 # an example using multiple fields: lambda _, line: line['a'] * line['b']
 
@@ -108,4 +108,5 @@ def construct_summary_statistics_alternative(study, participant, tree_name, csv_
             participant=participant,
             date=summary_date,
             defaults=updates
-        )
+        )  # TODO: make fields blank and null, or address the issue of missing fields here
+

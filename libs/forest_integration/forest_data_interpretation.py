@@ -7,38 +7,6 @@ from database.tableau_api_models import SummaryStatisticDaily
 from database.user_models import Participant
 
 
-def construct_summary_statistics(study, participant, tree_name, csv_string):
-    if not Participant.objects.filter(patient_id=participant, study__name=study, deleted=False):
-        raise ValueError("no participant or study associated with Forest data")
-    file = StringIO(csv_string)  # this imitates the file interface to allow reading as a CSV
-    with open(file, 'rb') as f:
-        reader = csv.DictReader(f)
-        data = list(reader)
-    interp_function = TREE_NAME_TO_FUNCTION.get(tree_name, None)
-    if interp_function is None:
-        raise NotImplementedError("no interpretation function associated with that tree")
-    interp_function(study, participant, data)
-
-
-# each of the following functions take three parameters:
-#    study, participant, data
-#    each corresponds to a tree name mapped in the TREE_NAME_TO_FUNCTION to dict for runtime lookup
-def interp_gps_output(study, participant, data):
-    for line in data:
-        summary_date = date(year=line['year'], month=line['month'], day=line['day'])
-        # change this to update_or_create django function
-        obj, created = SummaryStatisticDaily.objects.get_or_create(
-            study=study,
-            participant=participant,
-            date=summary_date
-        )
-        obj.gps_data_missing_duration = int(line['missing_time'])
-        #TODO: many more of these, and carefully
-        obj.save()
-
-TREE_NAME_TO_FUNCTION = {
-    "gps": interp_gps_output
-}
 
 # alternative architecture:
 #   no interpretation function, just a dictionary from tuples of (tree, column) to summary statistic
@@ -58,28 +26,10 @@ TREE_NAME_TO_FUNCTION = {
 # value among others)
 # an example minutes to second conversion: interp = lambda value, _: value * 60
 # an example using multiple fields: lambda _, line: line['a'] * line['b']
-
-TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS = {
-    ('gps', 'missing_time'): ('gps_data_missing_duration', None),
-    ('gps', 'home_time'): ('home_duration', None),
-    ('gps', 'max_dist_home'): ('distance_from_home', None),
-    ('gps', 'dist_traveled'): ('distance_travelled', None),
-    ('gps', 'av_flight_length'): ('flight_distance_average', None),
-    ('gps', 'sd_flight_length'): ('flight_distance_standard_deviation', None),
-    ('gps', 'av_flight_duration'): ('flight_duration_average', None),
-    ('gps', 'sd_flight_duration'): ('flight_duration_standard_deviation', None),
-    ('gps', 'diameter'): ('distance_diameter', None),
-    # ('gps', ''): ('', None),
-    # ('gps', ''): ('', None),
-    # ('gps', ''): ('', None),
-    # ('gps', ''): ('', None),
-    # ('gps', ''): ('', None),
-    # ('gps', ''): ('', None),
-
-}
+from libs.forest_integration.constants import TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS
 
 
-def construct_summary_statistics_alternative(study, participant, tree_name, csv_string):
+def construct_summary_statistics(study, participant, tree_name, csv_string):
     if not Participant.objects.filter(patient_id=participant, study__name=study, deleted=False):
         raise ValueError("no participant or study associated with Forest data")
     file = StringIO(csv_string)  # this imitates the file interface to allow reading as a CSV

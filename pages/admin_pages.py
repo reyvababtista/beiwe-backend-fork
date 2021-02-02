@@ -201,3 +201,15 @@ def disable_api_key():
     # flash("The API key %s is now disabled" % str(api_key.access_key_id), 'warning')
     return redirect("/manage_credentials")
 
+
+@admin_pages.route('/forest_status/<string:study_id>', methods=['GET'])
+@authenticate_researcher_study_access
+def forest_status(study_id=None):
+    study = Study.objects.get(pk=study_id)
+    return redirect('/edit_study/{:d}'.format(study.id))
+
+@admin_pages.route('/study_analysis_progress/<string:study_id>', methods=['GET'])
+@authenticate_researcher_study_access
+def study_analysis_progress(study_id=None):
+    study = Study.objects.get(pk=study_id)
+    return redirect('/edit_study/{:d}'.format(study.id))

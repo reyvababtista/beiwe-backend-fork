@@ -22,7 +22,7 @@ ALERT_ANDROID_VALIDATION_FAILED_TEXT = \
 ALERT_DECODE_ERROR_TEXT = \
     """
     <div class="alert alert-danger" role="alert">
-        <h3>There was an error in the reading the new credentials!</h3>
+        <h3>There was an error in the encoding of the new credentials file!</h3>
         <p>We were unable to read the uploaded file. Make sure that the credentials are saved in a plaintext format 
         with an extension like ".txt" or ".json", and not a format like ".pdf" or ".docx"</p>
     </div>
@@ -50,6 +50,7 @@ ALERT_IOS_DELETED_TEXT = \
     <h3>Stored IOS Firebase credentials have been removed if they existed!</h3>
     <p>All registered IOS apps will be updated as they connect. That process may take some time</p>
     """
+
 ALERT_IOS_SUCCESS_TEXT = \
     """
     <h3>New IOS credentials were received!</h3>
@@ -75,3 +76,10 @@ ALERT_MISC_ERROR_TEXT = \
 ALERT_SUCCESS_TEXT = \
     """<h3>New firebase credentials have been received!</h3>"""
 
+
+ALERT_SPECIFIC_ERROR_TEXT = \
+    """
+    <div class="alert alert-danger" role="alert">
+        <h3>{error_message}</h3>
+    </div>
+    """

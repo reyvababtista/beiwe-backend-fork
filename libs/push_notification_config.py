@@ -22,47 +22,28 @@ class FirebaseMisconfigured(Exception): pass
 class NoSchedulesException(Exception): pass
 
 
-def update_firebase_instance(credentials: str or None = None) -> None:
-    """ Ensure that the current firebase credentials being used reflect the state of the
-    database, including possibly removing the app if credentials have been removed. This function
-    can be called at any point to verify that a firebase connection exists. """
-    if credentials is None:
-        credentials = FileAsText.objects.filter(tag=BACKEND_FIREBASE_CREDENTIALS).first()
-        if credentials is None:  # no credentials passed in and none in the database
-            try:
-                delete_firebase_instance(get_firebase_app())
-            except ValueError:
-                # this occurs when the firebase app does not already exist, it can be safely ignored
-                pass
-            return
-        credentials_changed = False
-        credentials = credentials.text
-    else:
-        credentials_changed = True
+def get_firebase_credential_errors(credentials: str):
+    """ Wrapper to get error strings for test_firebase_credential_errors because otherwise the
+        code is gross.  Returns None if no errors occurred. """
+    try:
+        test_firebase_credential_errors(credentials)
+        return None
+    except Exception as e:
+        return str(e)
 
+
+def test_firebase_credential_errors(credentials: str) -> None:
+    """ Tests credentials by creating a temporary otherwise unused credential. """
     try:
         encoded_credentials = json.loads(credentials)
-    except JSONDecodeError as e:
-        raise FirebaseMisconfigured(e)
+    except JSONDecodeError:
+        # need clean error message
+        raise Exception("The credentials provided are not valid JSON.")
 
-    try:
-        initialize_firebase_app(FirebaseCertificate(encoded_credentials), name=FIREBASE_APP_TEST_NAME)
-    except ValueError as e:
-        raise FirebaseMisconfigured(e)
-    # this should never error because it would have been escalated above
-    delete_firebase_instance(get_firebase_app(name=FIREBASE_APP_TEST_NAME))
-
-    try:
-        delete_firebase_instance(get_firebase_app())
-    except ValueError:
-        # occurs when the firebase app does not already exist, it can be safely ignored
-        pass
-
-    # can now safely initialize the [possibly new] firebase app, and mutate the db if necessary.
-    initialize_firebase_app(FirebaseCertificate(encoded_credentials))
-    if credentials_changed:
-        FileAsText.objects.filter(tag=BACKEND_FIREBASE_CREDENTIALS).delete()
-        FileAsText.objects.create(tag=BACKEND_FIREBASE_CREDENTIALS, text=credentials)
+    # both of these raise ValueErrors, delete only fails if cert and app objects pass.
+    cert = FirebaseCertificate(encoded_credentials)
+    app = initialize_firebase_app(cert, name=FIREBASE_APP_TEST_NAME)
+    delete_firebase_instance(app)
 
 
 def check_firebase_instance(require_android=False, require_ios=False) -> bool:
@@ -72,19 +53,58 @@ def check_firebase_instance(require_android=False, require_ios=False) -> bool:
         tag__in=[BACKEND_FIREBASE_CREDENTIALS, ANDROID_FIREBASE_CREDENTIALS, IOS_FIREBASE_CREDENTIALS]
     ).values_list("tag", flat=True))
 
-    if (  # keep those parens.
+    if (    # keep those parens.
             BACKEND_FIREBASE_CREDENTIALS not in active_creds
             or (require_android and ANDROID_FIREBASE_CREDENTIALS not in active_creds)
             or (require_ios and IOS_FIREBASE_CREDENTIALS not in active_creds)
     ):
         return False
 
-    try:
-        update_firebase_instance()
-    except FirebaseMisconfigured as E:
+    credentials = FileAsText.objects.filter(tag=BACKEND_FIREBASE_CREDENTIALS).first().text
+    if get_firebase_credential_errors(credentials):
         return False
 
+    # avoid calling update so we never delete and then recreate the app (we get thrashed
+    # during push notification send from calling this, its not thread-safe), overhead is low.
+    try:
+        get_firebase_app()
+    except ValueError:
+        # we don't care about extra work inside calling update_firebase_instance, it shouldn't be
+        # hit too heavily.
+        update_firebase_instance()
+
     return True
+
+
+def update_firebase_instance() -> None:
+    """ Ensure that the current firebase credentials being used reflect the state of the
+    database, including possibly removing the app if credentials have been removed. This function
+    can be called at any point to verify that a firebase connection exists. """
+    credentials = FileAsText.objects.filter(tag=BACKEND_FIREBASE_CREDENTIALS).first().text
+
+    # this case should only be possible in bad development scenarios
+    try:
+        encoded_credentials = json.loads(credentials)
+    except JSONDecodeError as e:
+        raise FirebaseMisconfigured(e)
+
+    try:
+        delete_firebase_instance(get_firebase_app())
+    except ValueError:
+        # occurs when get_firebase_app fails, delete is only called if it succeeds.
+        pass
+
+    # can now ~safely initialize the firebase app, re-casting any errors for runime scenarios
+    try:
+        cert = FirebaseCertificate(encoded_credentials)
+    except ValueError as e:
+        raise FirebaseMisconfigured(str(e))
+
+    try:
+        initialize_firebase_app(cert)
+    except ValueError as e:
+        raise FirebaseMisconfigured(str(e))
+
 
 
 def set_next_weekly(participant: Participant, survey: Survey) -> None:

@@ -16,11 +16,13 @@ from database.system_models import FileAsText
 from database.user_models import Researcher, StudyRelation
 from libs.copy_study import copy_existing_study
 from libs.http_utils import checkbox_to_boolean, string_to_int
-from libs.push_notification_config import FirebaseMisconfigured, update_firebase_instance
+from libs.push_notification_config import (get_firebase_credential_errors,
+    update_firebase_instance)
 from pages.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID_SUCCESS_TEXT,
     ALERT_ANDROID_VALIDATION_FAILED_TEXT, ALERT_DECODE_ERROR_TEXT, ALERT_EMPTY_TEXT,
     ALERT_FIREBASE_DELETED_TEXT, ALERT_IOS_DELETED_TEXT, ALERT_IOS_SUCCESS_TEXT,
-    ALERT_IOS_VALIDATION_FAILED_TEXT, ALERT_MISC_ERROR_TEXT, ALERT_SUCCESS_TEXT)
+    ALERT_IOS_VALIDATION_FAILED_TEXT, ALERT_MISC_ERROR_TEXT, ALERT_SPECIFIC_ERROR_TEXT,
+    ALERT_SUCCESS_TEXT)
 
 system_admin_pages = Blueprint('system_admin_pages', __name__)
 SITE_ADMIN = "Site Admin"
@@ -376,24 +378,37 @@ def manage_firebase_credentials():
 @authenticate_admin
 def upload_firebase_cert():
     uploaded = request.files.get('backend_firebase_cert', None)
-    try:
-        if uploaded is None:
-            raise AssertionError("file name missing from upload")
-        cert = uploaded.read().decode()
-        if not cert:
-            raise AssertionError("unexpected empty string")
-        update_firebase_instance(cert)
-        flash(Markup(ALERT_SUCCESS_TEXT), 'info')
-    except AssertionError:
+
+    if uploaded is None:
         flash(Markup(ALERT_EMPTY_TEXT), 'error')
+        return redirect('/manage_firebase_credentials')
+
+    try:
+        cert = uploaded.read().decode()
     except UnicodeDecodeError:  # raised for an unexpected file type
         flash(Markup(ALERT_DECODE_ERROR_TEXT), 'error')
-    except AttributeError:  # raised for a missing file
+        return redirect('/manage_firebase_credentials')
+
+    if not cert:
         flash(Markup(ALERT_EMPTY_TEXT), 'error')
-    except (ValueError, ValidationError, FirebaseMisconfigured):
-        # if the error occurred when trying to initialize the firebase app, remove the faulty credentials
-        FileAsText.objects.filter(tag=BACKEND_FIREBASE_CREDENTIALS).delete()
-        flash(Markup(ALERT_MISC_ERROR_TEXT), 'error')
+        return redirect('/manage_firebase_credentials')
+
+    # except AttributeError:  # raised for a missing file
+    #     flash(Markup(ALERT_EMPTY_TEXT), 'error')
+
+    instantiation_errors = get_firebase_credential_errors(cert)
+    if instantiation_errors:
+        # noinspection StrFormat
+        # This string is sourced purely from the error message of get_firebase_credential_errors,
+        # all of which are known-safe text. (no javascript injection)
+        error_string = ALERT_SPECIFIC_ERROR_TEXT.format(error_message=instantiation_errors)
+        flash(Markup(error_string), 'error')
+        return redirect('/manage_firebase_credentials')
+
+    FileAsText.objects.filter(tag=BACKEND_FIREBASE_CREDENTIALS).delete()
+    FileAsText.objects.create(tag=BACKEND_FIREBASE_CREDENTIALS, text=cert)
+    update_firebase_instance()
+    flash(Markup(ALERT_SUCCESS_TEXT), 'info')
     return redirect('/manage_firebase_credentials')
 
 

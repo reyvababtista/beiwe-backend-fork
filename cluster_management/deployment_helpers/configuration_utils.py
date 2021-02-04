@@ -17,8 +17,10 @@ from deployment_helpers.constants import (AWS_CREDENTIALS_FILE, AWS_CREDENTIALS_
     VALIDATE_GLOBAL_CONFIGURATION_MESSAGE, WORKER_SERVER_INSTANCE_TYPE)
 from deployment_helpers.general_utils import EXIT, log, random_alphanumeric_string
 
-# Sentry changed their default DSN formatting in early 2018, we test for the old and the new.
-DSN_REGEX = re.compile('^(https://[\S]+:[\S]+@sentry\.io/[\S]+$|^https://[\S]+@sentry\.io/[\S]+$)')
+# Sentry DSNs are key_value@some.domain.com/6ish_numbers
+# Sentry has changed their DSN structure again, so I'm making the regex much weaker.
+# (still matches legacy and legacy-legacy).  \S should not be confused with \s.
+DSN_REGEX = re.compile('^https://[\S]+@[\S]+/[\S]+$')
 
 ####################################################################################################
 ################################### Reference Configs ##############################################

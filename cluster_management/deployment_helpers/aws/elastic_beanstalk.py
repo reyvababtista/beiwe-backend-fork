@@ -108,6 +108,7 @@ def get_environments_list():
     environments = create_eb_client().describe_environments()['Environments']
     return [environment['EnvironmentName'] for environment in environments]
 
+
 ##
 ## Creation Functions
 ##
@@ -127,6 +128,7 @@ def encrypt_eb_s3_bucket():
 
     log.info('Enablig encryption on S3 bucket: %s' % s3_eb_bucket)                                               
     s3_encrypt_bucket(s3_eb_bucket)
+
 
 def get_or_create_eb_service_role():
     """ This function creates the appropriate roles that apply to the elastic beanstalk environment,
@@ -267,6 +269,7 @@ def create_eb_environment(eb_environment_name, without_db=False):
 
     log.info("creating a new Elastic Beanstalk environment named %s... this will take a while." % eb_environment_name)
     eb_client = create_eb_client()
+
     env = eb_client.create_environment(
             ApplicationName=BEIWE_APPLICATION_NAME,
             EnvironmentName=eb_environment_name,

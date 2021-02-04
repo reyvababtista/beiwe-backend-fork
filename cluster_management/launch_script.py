@@ -174,7 +174,6 @@ def manager_fix():
     sudo("swapon -s")
 
 
-
 def setup_worker_cron():
     # Copy the cronjob file onto the remote server and add it to the remote crontab
     put(LOCAL_CRONJOB_WORKER_FILE_PATH, REMOTE_CRONJOB_FILE_PATH)

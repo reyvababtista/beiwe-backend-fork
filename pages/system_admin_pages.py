@@ -370,7 +370,7 @@ def manage_firebase_credentials():
         'manage_firebase_credentials.html',
         firebase_credentials_exists=FileAsText.objects.filter(tag=BACKEND_FIREBASE_CREDENTIALS).exists(),
         android_credentials_exists=FileAsText.objects.filter(tag=ANDROID_FIREBASE_CREDENTIALS).exists(),
-        ios_credentials_exists=FileAsText.objects.filter(tag=IOS_FIREBASE_CREDENTIALS).exists()
+        ios_credentials_exists=FileAsText.objects.filter(tag=IOS_FIREBASE_CREDENTIALS).exists(),
     )
 
 
@@ -393,9 +393,6 @@ def upload_firebase_cert():
         flash(Markup(ALERT_EMPTY_TEXT), 'error')
         return redirect('/manage_firebase_credentials')
 
-    # except AttributeError:  # raised for a missing file
-    #     flash(Markup(ALERT_EMPTY_TEXT), 'error')
-
     instantiation_errors = get_firebase_credential_errors(cert)
     if instantiation_errors:
         # noinspection StrFormat
@@ -405,6 +402,7 @@ def upload_firebase_cert():
         flash(Markup(error_string), 'error')
         return redirect('/manage_firebase_credentials')
 
+    # delete and recreate to get metadata timestamps
     FileAsText.objects.filter(tag=BACKEND_FIREBASE_CREDENTIALS).delete()
     FileAsText.objects.create(tag=BACKEND_FIREBASE_CREDENTIALS, text=cert)
     update_firebase_instance()

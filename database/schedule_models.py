@@ -224,7 +224,7 @@ class ScheduledEvent(TimestampedModel):
         else:
             raise Exception("ScheduledEvent had no associated schedule")
 
-    def archive(self):
+    def archive(self, delete: bool, success: bool):
         # for stupid reasons involving the legacy mechanism for creating a survey archive we need
         # to handle the case where the object does not exist so that we don't break migrations.
         try:
@@ -238,8 +238,10 @@ class ScheduledEvent(TimestampedModel):
             participant=self.participant,
             schedule_type=self.get_schedule_type(),
             scheduled_time=self.scheduled_time,
+            success=success
         )
-        self.delete()
+        if delete:
+            self.delete()
 
 
 # TODO there is no code that updates the response_time field.  That should be rolled into the
@@ -251,6 +253,7 @@ class ArchivedEvent(TimestampedModel):
     schedule_type = models.CharField(max_length=32, db_index=True)
     scheduled_time = models.DateTimeField(db_index=True)
     response_time = models.DateTimeField(null=True, blank=True, db_index=True)
+    success = models.BooleanField(null=False, blank=False)
 
     @property
     def survey(self):

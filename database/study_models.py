@@ -30,7 +30,7 @@ class Study(TimestampedModel):
         help_text='ID used for naming S3 files'
     )
     is_test = models.BooleanField(default=True)
-    timezone_name = models.CharField(
+    timezone_name = models.CharField(  # Warning: this is going to be deleted.
         max_length=256, default="America/New_York", null=False, blank=False
     )
     deleted = models.BooleanField(default=False)

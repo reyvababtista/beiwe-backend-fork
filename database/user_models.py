@@ -107,7 +107,7 @@ class Participant(AbstractPasswordUser):
         'Study', on_delete=models.PROTECT, related_name='participants', null=False
     )
 
-    timezone_name = models.CharField(
+    timezone_name = models.CharField(  # Warning: this is not used yet.
         max_length=256, default="America/New_York", null=False, blank=False
     )
 
@@ -165,8 +165,8 @@ class Participant(AbstractPasswordUser):
 
 
 class ParticpantPushNotificationDisabledHistory(UtilityModel):
-    participant = models.ForeignKey(Participant, required=True, on_delete=models.PROTECT)
-    timestamp = models.DateTimeField(required=True, null=False, blank=False)
+    participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT)
+    timestamp = models.DateTimeField(null=False, blank=False, auto_now_add=True)
 
 
 class ParticipantFCMHistory(TimestampedModel):

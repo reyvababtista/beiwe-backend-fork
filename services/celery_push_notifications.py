@@ -3,21 +3,15 @@ import json
 import random
 from collections import defaultdict
 from datetime import datetime, timedelta
-from os.path import abspath
-from sys import path
 from typing import List
 
 import pytz
-from kombu.exceptions import OperationalError
-
-# add the root of the project into the path to allow cd-ing into this folder and running the script.
-path.insert(0, abspath(__file__).rsplit('/', 2)[0])
-
 # imports that require the path command above be executed
 from django.utils import timezone
 from django.utils.timezone import make_aware
 from firebase_admin.messaging import (AndroidConfig, Message, Notification, QuotaExceededError,
     send as send_notification, ThirdPartyAuthError, UnregisteredError)
+from kombu.exceptions import OperationalError
 
 from config.constants import API_TIME_FORMAT, PUSH_NOTIFICATION_SEND_QUEUE, ScheduleTypes
 from config.study_constants import OBJECT_ID_ALLOWED_CHARS
@@ -39,10 +33,10 @@ def get_surveys_and_schedules(now):
     # schedule time is in the past, with participants that have fcm tokens.
     # need to filter out unregistered fcms, database schema sucks for that, do it in python. its fine.
     query = ScheduledEvent.objects.filter(
-        scheduled_time__lte=now, participant__fcm_tokens__isnull=False, participant__deleted=False
+        scheduled_time__lte=now, participant__fcm_tokens__isnull=False, participant__deleted=False,
 
         # 1) pre-migration, untested
-        # survey__deleted=False, participant__push_notification_unreachable=False
+        survey__deleted=False, participant__push_notification_unreachable=False
 
         # 2) post-migration, untested
         # if the participant has had push notifications disabled this timestamp will be set
@@ -139,19 +133,7 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
             failed_send_handler(participant, fcm_token)
             return
 
-        # If the query was successful archive the schedules.  Clear the fcm unregistered flag
-        # if it was set (this shouldn't happen. ever. but in case we hook in a ui element we need it.)
-        print("Push notification send succeeded.")
-        fcm_hist = ParticipantFCMHistory.objects.get(token=fcm_token)
-        if fcm_hist.unregistered is not None:
-            fcm_hist.unregistered = None
-            fcm_hist.save()
-
-        # repopulate weekly surveys, create history points for schedules.
-        for schedule in schedules:
-            schedule.archive()
-            if schedule.get_schedule_type() == ScheduleTypes.weekly:
-                set_next_weekly(fcm_hist.participant, schedule.survey)
+        success_send_handler(participant, fcm_token, schedules)
 
 
 def send_push_notification(
@@ -183,7 +165,20 @@ def send_push_notification(
     send_notification(message)
 
 
-def failed_send_handler(participant: Participant, fcm_token: str):
+def success_send_handler(participant: Participant, fcm_token: str, schedules: List[ScheduledEvent]):
+    # If the query was successful archive the schedules.  Clear the fcm unregistered flag
+    # if it was set (this shouldn't happen. ever. but in case we hook in a ui element we need it.)
+    print("Push notification send succeeded.")
+    fcm_hist = ParticipantFCMHistory.objects.get(token=fcm_token)
+    if fcm_hist.unregistered is not None:
+        fcm_hist.unregistered = None
+        fcm_hist.save()
+
+    create_archives_success(schedules, success=True)
+    enqueue_weekly_surveys(participant, schedules)
+
+
+def failed_send_handler(participant: Participant, fcm_token: str, schedules: List[ScheduledEvent]):
     """ Contains body of code for unregistering a participants push notification behavior.
         Participants get reenabled when they next touch the app checkin endpoint. """
 
@@ -198,11 +193,27 @@ def failed_send_handler(participant: Participant, fcm_token: str):
               f"disabled after several failed attempts to send.")
 
     else:
-        participant.push_notification_unreachable_count = participant.push_notification_unreachable_count + 1
+        participant.push_notification_unreachable_count += 1
         participant.save()
         print(f"Participant {participant.patient_id} has had push notifications failures "
               f"incremented to {participant.push_notification_unreachable_count}.")
         return False
+
+    create_archives_success(schedules, success=False)
+    enqueue_weekly_surveys(participant, schedules)
+
+
+def create_archives_success(schedules: List[ScheduledEvent], success: bool):
+    """ Populates event history, successes delete source ScheduledEvents. """
+    for schedule in schedules:
+        schedule.archive(delete=success, success=success)
+
+
+def enqueue_weekly_surveys(participant: Participant, schedules: List[ScheduledEvent]):
+    # set_next_weekly is idempotent until the next weekly event passes.
+    for schedule in schedules:
+        if schedule.get_schedule_type() == ScheduleTypes.weekly:
+            set_next_weekly(participant, schedule.survey)
 
 
 celery_send_push_notification.max_retries = 0

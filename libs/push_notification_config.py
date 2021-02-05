@@ -115,12 +115,12 @@ def update_firebase_instance() -> None:
 
 
 def set_next_weekly(participant: Participant, survey: Survey) -> None:
-    ''' Create a next ScheduledEvent for a survey for a particular participant. '''
+    ''' Create a next ScheduledEvent for a survey for a particular participant. Uses get_or_create. '''
     schedule_date, schedule = get_next_weekly_event_and_schedule(survey)
 
     # this handles the case where the schedule was deleted. This is a corner case that shouldn't happen
     if schedule_date is not None and schedule is not None:
-        ScheduledEvent.objects.create(
+        ScheduledEvent.objects.get_or_create(
             survey=survey,
             participant=participant,
             weekly_schedule=schedule,

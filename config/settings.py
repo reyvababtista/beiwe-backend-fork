@@ -43,4 +43,8 @@ CONCURRENT_NETWORK_OPS = getenv("CONCURRENT_NETWORK_OPS") or cpu_count() * 2
 # Used in file processing, number of files to be pulled in and processed simultaneously.
 # Mostly this changes the ram utilization of file processing, higher is more efficient,
 # but will use more memory.
-FILE_PROCESS_PAGE_SIZE = getenv("FILE_PROCESS_PAGE_SIZE") or 250
+FILE_PROCESS_PAGE_SIZE = getenv("FILE_PROCESS_PAGE_SIZE", 250)
+
+# number of attempts on sending push notifications to unreachable devices. Send attempts run every 6
+# minutes, 3 days = 24h * 3days * 10 attempts per hour = 720
+PUSH_NOTIFICATION_ATTEMPT_COUNT = getenv("PUSH_NOTIFICATION_ATTEMPT_COUNT", 720)

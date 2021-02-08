@@ -164,9 +164,12 @@ class Participant(AbstractPasswordUser):
         return '{} {} of Study {}'.format(self.__class__.__name__, self.patient_id, self.study.name)
 
 
-class ParticpantPushNotificationDisabledHistory(UtilityModel):
+class PushNotificationDisabledEvent(UtilityModel):
+    # There may be many events
+    # this is (currently) purely for record keeping.
     participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT)
-    timestamp = models.DateTimeField(null=False, blank=False, auto_now_add=True)
+    count = models.IntegerField(null=False)
+    timestamp = models.DateTimeField(null=False, blank=False, auto_now_add=True, db_index=True)
 
 
 class ParticipantFCMHistory(TimestampedModel):

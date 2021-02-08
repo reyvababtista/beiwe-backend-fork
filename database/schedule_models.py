@@ -149,7 +149,7 @@ class WeeklySchedule(TimestampedModel):
         # this weird sort order results in correctly ordered output.
         fields_ordered = ("hour", "minute", "day_of_week")
         timings = [[], [], [], [], [], [], []]
-        schedule_components = WeeklySchedule.objects.\
+        schedule_components = WeeklySchedule.objects. \
             filter(survey=survey).order_by(*fields_ordered).values_list(*fields_ordered)
 
         # get, calculate, append, dump.
@@ -183,7 +183,7 @@ class ScheduledEvent(TimestampedModel):
     absolute_schedule = models.ForeignKey('AbsoluteSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)
     scheduled_time = models.DateTimeField()
 
-    # due to import complexity right here this is the best place to stick this
+    # due to import complexity (needs those classes) this is the best place to stick the lookup dict.
     SCHEDULE_CLASS_LOOKUP = {
         ScheduleTypes.absolute: AbsoluteSchedule,
         ScheduleTypes.relative: RelativeSchedule,
@@ -224,23 +224,30 @@ class ScheduledEvent(TimestampedModel):
         else:
             raise Exception("ScheduledEvent had no associated schedule")
 
-    def archive(self, delete: bool, success: bool):
-        # for stupid reasons involving the legacy mechanism for creating a survey archive we need
-        # to handle the case where the object does not exist so that we don't break migrations.
+    def archive(
+            self, self_delete: bool, status: str, created_on: datetime = None,
+    ):
+        """ Create an ArchivedEvent from a ScheduledEvent. """
+        # We need to handle the case of no-existing-survey-archive on the referenced survey,  Could
+        # be cleaner, but there is an interaction with a  migration that will break; not worth it.
         try:
             survey_archive = self.survey.most_recent_archive()
         except SurveyArchive.DoesNotExist:
-            self.survey.archive()  # force create a survey archive
+            self.survey.archive()
             survey_archive = self.survey.most_recent_archive()
 
-        ArchivedEvent.objects.create(
+        # Args, call, conditionally self-delete
+        kwargs = dict(
             survey_archive=survey_archive,
             participant=self.participant,
             schedule_type=self.get_schedule_type(),
             scheduled_time=self.scheduled_time,
-            success=success
+            status=status
         )
-        if delete:
+        if created_on:
+            kwargs["created_on"] = created_on
+        ArchivedEvent.objects.create(**kwargs)
+        if self_delete:
             self.delete()
 
 
@@ -248,12 +255,14 @@ class ScheduledEvent(TimestampedModel):
 #  check-for-downloads as an optional parameter passed in.  If it doesn't get hit then there is
 #  no guarantee that the app checked in.
 class ArchivedEvent(TimestampedModel):
+    SUCCESS = "success"
+
     survey_archive = models.ForeignKey('SurveyArchive', on_delete=models.PROTECT, related_name='archived_events', db_index=True)
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='archived_events', db_index=True)
     schedule_type = models.CharField(max_length=32, db_index=True)
     scheduled_time = models.DateTimeField(db_index=True)
     response_time = models.DateTimeField(null=True, blank=True, db_index=True)
-    success = models.BooleanField(null=False, blank=False)
+    status = models.TextField(null=False, blank=False, db_index=True)
 
     @property
     def survey(self):

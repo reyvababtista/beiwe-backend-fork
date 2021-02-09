@@ -61,6 +61,7 @@ TIMER_VALUES = [
 API_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 API_TIME_FORMAT_WITH_TZ = "%Y-%m-%dT%H:%M:%S (%Z)"
 API_DATE_FORMAT = "%Y-%m-%d"
+DEV_TIME_FORMAT = "%Y-%m-%d %H:%M (%Z)"
 
 ## Chunks
 # This value is in seconds, it sets the time period that chunked files will be sliced into.

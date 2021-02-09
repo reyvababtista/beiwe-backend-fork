@@ -11,6 +11,27 @@ from database.user_models import Participant
 PROJECT_PATH = __file__.rsplit("/", 2)[0]
 
 
+class TxtClr:
+    BLACK = "\x1b[0m"  # "default"?
+    RED = "\x1b[31m"
+    YELLOW = "\x1b[33m"
+    GREEN = "\x1b[32m"
+    CYAN = "\x1b[96m"
+
+    @classmethod
+    def brightness_swap(cls):
+        if cls.RED != "\x1b[31m":
+            cls.RED = "\x1b[31m"
+            cls.YELLOW = "\x1b[33m"
+            cls.GREEN = "\x1b[32m"
+            cls.CYAN = "\x1b[36m"
+        else:
+            cls.RED = "\x1b[91m"
+            cls.YELLOW = "\x1b[93m"
+            cls.GREEN = "\x1b[92m"
+            cls.CYAN = "\x1b[96m"
+
+
 def disambiguate_participant_survey(func):
     """ This wrapper allows a function to take any combination of (participant, survey)
         mostly used in debugging push notifications.

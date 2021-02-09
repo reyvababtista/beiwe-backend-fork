@@ -1,9 +1,8 @@
 import json
 from datetime import datetime
 
-import pytz
 from django.core.exceptions import ValidationError
-from django.utils.timezone import make_aware
+from django.utils import timezone
 from firebase_admin import messaging
 from flask import Blueprint, request
 
@@ -29,7 +28,7 @@ def set_fcm_token():
     """
     participant = get_session_participant()
     token = request.values.get('fcm_token', "")
-    now = make_aware(datetime.utcnow(), timezone=pytz.utc)
+    now = timezone.now()
 
     # force to unregistered on success, force every not-unregistered as unregistered.
 
@@ -47,6 +46,9 @@ def set_fcm_token():
         ParticipantFCMHistory.objects.filter(
             participant=participant, unregistered=None
         ).update(unregistered=now, last_updated=now)
+
+    participant.push_notification_unreachable_count = 0
+    participant.save()
 
     return '', 204
 

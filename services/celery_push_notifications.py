@@ -4,9 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import List
 
-import pytz
 from django.utils import timezone
-from django.utils.timezone import make_aware
 from firebase_admin.messaging import (AndroidConfig, Message, Notification, QuotaExceededError,
     send as send_notification, ThirdPartyAuthError, UnregisteredError)
 from kombu.exceptions import OperationalError
@@ -15,8 +13,7 @@ from config.constants import API_TIME_FORMAT, PUSH_NOTIFICATION_SEND_QUEUE, Sche
 from config.settings import PUSH_NOTIFICATION_ATTEMPT_COUNT
 from config.study_constants import OBJECT_ID_ALLOWED_CHARS
 from database.schedule_models import ArchivedEvent, ScheduledEvent
-from database.user_models import (Participant, ParticipantFCMHistory,
-    PushNotificationDisabledEvent)
+from database.user_models import Participant, ParticipantFCMHistory, PushNotificationDisabledEvent
 from libs.celery_control import push_send_celery_app
 from libs.push_notification_config import (check_firebase_instance, FirebaseMisconfigured,
     set_next_weekly)
@@ -64,7 +61,7 @@ def get_surveys_and_schedules(now):
 def create_push_notification_tasks():
     # we reuse the high level strategy from data processing celery tasks, see that documentation.
     expiry = (datetime.utcnow() + timedelta(minutes=5)).replace(second=30, microsecond=0)
-    now = make_aware(datetime.utcnow(), timezone=pytz.utc)
+    now = timezone.now()
     surveys, schedules, patient_ids = get_surveys_and_schedules(now)
     print(surveys)
     print(schedules)

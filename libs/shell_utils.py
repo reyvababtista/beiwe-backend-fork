@@ -20,17 +20,24 @@ def as_local(dt: datetime, tz=gettz("America/New_York")):
     return localtime(dt, tz)
 
 
-def PARTICIPANT(patient_id: str):
-    return Participant.objects.filter(patient_id=patient_id)
-P = PARTICIPANT  # Pah, time.
+def PARTICIPANT(patient_id: str or int):
+    if isinstance(patient_id, int):
+        return Participant.objects.get(pk=patient_id)
+    return Participant.objects.get(patient_id=patient_id)
+
+P = PARTICIPANT  # Pah, who has time for that.
 
 
-def SURVEY(object_id: str):
-    return Survey.objects.filter(object_id=object_id)
+def SURVEY(object_id: str or int):
+    if isinstance(object_id, int):
+        return Survey.objects.get(pk=object_id)
+    return Survey.objects.get(object_id=object_id)
 
 
-def STUDY(object_id: str):
-    return Study.objects.filter(object_id=object_id)
+def STUDY(object_id: str or int):
+    if isinstance(object_id, int):
+        return Study.objects.get(pk=object_id)
+    return Study.objects.get(object_id=object_id)
 
 
 def count():

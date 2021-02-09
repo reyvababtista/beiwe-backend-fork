@@ -12,6 +12,7 @@ from api import (admin_api, copy_study_api, dashboard_api, data_access_api, mobi
 from authentication.admin_authentication import is_logged_in
 from config.settings import SENTRY_ELASTIC_BEANSTALK_DSN, SENTRY_JAVASCRIPT_DSN
 from libs.security import set_secret_key
+from libs.sentry import normalize_sentry_dsn
 from pages import (admin_pages, data_access_web_form, login_pages, mobile_pages, survey_designer,
     system_admin_pages)
 
@@ -47,7 +48,7 @@ app.jinja_env.globals['current_year'] = datetime.now().strftime('%Y')
 
 # Sentry is not required, that was too much of a hassle
 if SENTRY_ELASTIC_BEANSTALK_DSN:
-    sentry = Sentry(app, dsn=SENTRY_ELASTIC_BEANSTALK_DSN)
+    sentry = Sentry(app, dsn=normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN))
 
 
 @app.route("/<page>.html")
@@ -56,9 +57,13 @@ def strip_dot_html(page):
     return redirect("/%s" % page)
 
 
+# this would be called every page load in the context processor
+DERIVED_DSN = normalize_sentry_dsn(SENTRY_JAVASCRIPT_DSN)
+
+
 @app.context_processor
 def inject_dict_for_all_templates():
-    return {"SENTRY_JAVASCRIPT_DSN": SENTRY_JAVASCRIPT_DSN}
+    return {"SENTRY_JAVASCRIPT_DSN": DERIVED_DSN}
 
 
 # Extra Production settings

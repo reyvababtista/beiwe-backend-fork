@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django.utils.timezone import localtime
 from flask import abort, Blueprint, render_template
 
 from authentication.admin_authentication import (authenticate_researcher_study_access,
@@ -36,5 +37,6 @@ def render_edit_survey(survey_id=None):
         absolute_timings=survey.absolute_timings(),
         push_notifications_enabled=check_firebase_instance(require_android=True) or \
                                    check_firebase_instance(require_ios=True),
-        today=timezone.now().strftime('%Y-%m-%d'),
+        today=localtime(timezone.now(), survey.study.timezone).strftime('%Y-%m-%d'),
+
     )

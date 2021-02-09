@@ -73,8 +73,7 @@ def create_push_notification_tasks():
         # surveys and schedules are guaranteed to have the same keys, assembling the data structures
         # is a pain, so it is factored out. sorry, but not sorry. it was a mess.
         for fcm_token in surveys.keys():
-            print(
-                f"Queueing up push notification for user {patient_ids[fcm_token]} for {surveys[fcm_token]}")
+            print(f"Queueing up push notification for user {patient_ids[fcm_token]} for {surveys[fcm_token]}")
             safe_queue_push(
                 args=[fcm_token, surveys[fcm_token], schedules[fcm_token]],
                 max_retries=0,

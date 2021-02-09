@@ -89,7 +89,6 @@ def disambiguate_participant_survey(func):
     return _disambiguate_participant_survey
 
 
-
 def print_type(display_value=True, **kwargs):
     if display_value:
         for k, v in kwargs.items():

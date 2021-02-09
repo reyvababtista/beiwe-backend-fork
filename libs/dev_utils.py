@@ -5,7 +5,68 @@ from os.path import relpath
 from pprint import pprint
 from time import perf_counter
 
+from database.survey_models import Survey
+from database.user_models import Participant
+
 PROJECT_PATH = __file__.rsplit("/", 2)[0]
+
+
+def disambiguate_participant_survey(func):
+    """ This wrapper allows a function to take any combination of (participant, survey)
+        mostly used in debugging push notifications.
+    """
+    @functools.wraps(func)
+    def _disambiguate_participant_survey(*args, **kwargs):
+        args = list(args)  # not initially mutable
+
+        participant = args[0]  # The first parameter is positional
+        survey = args[1] if len(args) >= 2 else None
+
+        msg = "pass in a survey object, a survey's object_id key, a participant, or a participnt's patient_id"
+        assert participant is None or isinstance(participant, (Survey, Participant, str)), msg
+        assert survey is None or isinstance(survey, (Survey, str)), msg
+
+        # case: (participant: None, survey: something).  we actually handle that in reverse already!
+        if participant is None and survey is not None:
+            participant, survey = survey, participant
+
+        # allows passing in just a survey - if no survey and participant is a survey
+        if not survey and isinstance(participant, Survey):
+            participant, survey = survey, participant
+
+        # if only a participant but its an object_id
+        if isinstance(participant, str) and len(participant) == 24:
+            participant, survey = survey, participant
+
+        # string to participant
+        if isinstance(participant, str):
+            try:
+                participant = Participant.objects.get(patient_id=participant)
+            except Participant.DoesNotExist:
+                raise TypeError(f"no matching participant for '{participant}'")
+
+        # string to survey
+        if isinstance(survey, str):
+            if len(survey) == 24:
+                try:
+                    survey = Survey.objects.get(object_id=survey)
+                except Survey.DoesNotExist:
+                    pass
+            else:
+                raise TypeError(f"'{survey}' was a string, but it had the wrong length...")
+
+        # reassign and/or add
+        args[0] = participant
+        # if we swapped survey or if there was originally a parameter we treated as a survey
+        if len(args) > 1:
+            args[1] = survey
+        elif survey:
+            args.append(survey)
+
+        return func(*args, **kwargs)
+
+    return _disambiguate_participant_survey
+
 
 
 def print_type(display_value=True, **kwargs):

@@ -1,13 +1,36 @@
 from collections import Counter, defaultdict
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pprint import pprint
 from time import sleep
 
+from dateutil.tz import gettz
 from django.utils.timezone import localtime
 
 from database.data_access_models import FileToProcess
 from database.profiling_models import UploadTracking
+from database.study_models import Study
+from database.survey_models import Survey
 from database.user_models import Participant
+
+
+# Some utility functions for a quality of life.
+
+
+def as_local(dt: datetime, tz=gettz("America/New_York")):
+    return localtime(dt, tz)
+
+
+def PARTICIPANT(patient_id: str):
+    return Participant.objects.filter(patient_id=patient_id)
+P = PARTICIPANT  # Pah, time.
+
+
+def SURVEY(object_id: str):
+    return Survey.objects.filter(object_id=object_id)
+
+
+def STUDY(object_id: str):
+    return Study.objects.filter(object_id=object_id)
 
 
 def count():

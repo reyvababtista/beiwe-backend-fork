@@ -1,10 +1,5 @@
 from django import forms
-<<<<<<< HEAD
-from flask import Blueprint, flash, Markup, redirect, render_template, request, session
-=======
-from flask import abort, Blueprint, flash, Markup, redirect, render_template, request, session, url_for
-from rest_framework.renderers import JSONRenderer
->>>>>>> dff68e27... finalizes changes before merging
+from flask import Blueprint, flash, Markup, redirect, render_template, request, session, url_for
 
 from authentication import admin_authentication
 from authentication.admin_authentication import (authenticate_researcher_login,

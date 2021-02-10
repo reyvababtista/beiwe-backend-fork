@@ -7,9 +7,8 @@ from flask import (abort, Blueprint, escape, flash, Markup, redirect, render_tem
     url_for)
 
 from authentication.admin_authentication import (assert_admin, assert_researcher_under_admin,
-    authenticate_admin,
-    authenticate_researcher_study_access, get_researcher_allowed_studies, get_session_researcher,
-    researcher_is_an_admin)
+    authenticate_admin, authenticate_researcher_study_access, get_researcher_allowed_studies,
+    get_session_researcher, researcher_is_an_admin)
 from config.constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
     CHECKBOX_TOGGLES, IOS_FIREBASE_CREDENTIALS, ResearcherRole, TIMER_VALUES)
 from database.study_models import Study
@@ -20,6 +19,7 @@ from libs.copy_study import copy_existing_study
 from libs.http_utils import checkbox_to_boolean, string_to_int
 from libs.push_notification_config import (get_firebase_credential_errors,
     update_firebase_instance)
+from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
 from pages.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID_SUCCESS_TEXT,
     ALERT_ANDROID_VALIDATION_FAILED_TEXT, ALERT_DECODE_ERROR_TEXT, ALERT_EMPTY_TEXT,
     ALERT_FIREBASE_DELETED_TEXT, ALERT_IOS_DELETED_TEXT, ALERT_IOS_SUCCESS_TEXT,
@@ -84,6 +84,7 @@ def get_session_researcher_study_ids():
     else:
         return session_researcher.study_relations.filter(study__deleted=False).values_list("study__id", flat=True)
 
+
 def validate_android_credentials(credentials):
     """ Ensure basic formatting and field validation for android firebase credential json file uploads
             the credentials argument should contain a decoded string of such a file """
@@ -98,6 +99,7 @@ def validate_android_credentials(credentials):
         return False
     return True
 
+
 def validate_ios_credentials(credentials):
     """ Ensure basic formatting and field validation for ios firebase credential plist file uploads
                 the credentials argument should contain a decoded string of such a file """
@@ -110,9 +112,11 @@ def validate_ios_credentials(credentials):
     except Exception:
         return False
     return True
+
 ####################################################################################################
 ######################################## Pages #####################################################
 ####################################################################################################
+
 
 @system_admin_pages.route('/manage_researchers', methods=['GET'])
 @authenticate_admin
@@ -278,6 +282,7 @@ def edit_study(study_id=None):
         administerable_researchers=get_administerable_researchers(),
         listed_researchers=listed_researchers,
         redirect_url='/edit_study/{:s}'.format(study_id),
+        timezones=ALL_TIMEZONES_DROPDOWN,
     )
 
 

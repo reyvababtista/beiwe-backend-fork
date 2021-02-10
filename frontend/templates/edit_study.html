@@ -126,6 +126,26 @@
   <br><br><br>
 
   <div class="row">
+    <h2>Set Study Timezone</h2>
+    <form action="/set_study_timezone/{{ study.id }}" method="post">
+      <div class="col-md-10">
+        <h5>
+          This timezone provides correct date and time for push notifications when we don't have a participant's information, it is also is used to populate default dates in the survey editor.
+          (Participant timezones are under active development. Check with your system administrator if you are waiting on this feature.)
+        </h5>
+        <select class="form-control" name="new_timezone_name">
+          {% for name, value in timezones %}
+            <option value="{{ name }}" {% if name == study.timezone_name %}selected{% endif %}>{{ value }} </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-warning" type="submit">Update Timezone</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="row">
     <h2>Rename study</h2>
     <form action="/rename_study/{{ study.id }}" method="post">
       <div class="col-md-10">

@@ -1,15 +1,15 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 from json import JSONDecodeError
 
+from django.utils.timezone import localtime
 from firebase_admin import (delete_app as delete_firebase_instance,
     get_app as get_firebase_app, initialize_app as initialize_firebase_app)
 from firebase_admin.credentials import Certificate as FirebaseCertificate
 
 from config.constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
     FIREBASE_APP_TEST_NAME, IOS_FIREBASE_CREDENTIALS)
-from database.schedule_models import (ArchivedEvent, ScheduledEvent,
-    WeeklySchedule)
+from database.schedule_models import ArchivedEvent, ScheduledEvent, WeeklySchedule
 from database.study_models import Study
 from database.survey_models import Survey
 from database.system_models import FileAsText
@@ -130,7 +130,9 @@ def set_next_weekly(participant: Participant, survey: Survey) -> None:
         )
 
 
-def repopulate_all_survey_scheduled_events(study: Study, participant: Participant = None):
+def repopulate_all_survey_scheduled_events(
+        study: Study, participant: Participant = None, previous_timezone: tzinfo = None
+):
     """ Runs all the survey scheduled event generations on the provided entities. """
 
     for survey in study.surveys.all():
@@ -140,10 +142,10 @@ def repopulate_all_survey_scheduled_events(study: Study, participant: Participan
             continue
 
         repopulate_weekly_survey_schedule_events(survey, participant)
-        repopulate_absolute_survey_schedule_events(survey, participant)
+        repopulate_absolute_survey_schedule_events(survey, participant, previous_timezone)
         # there are some cases where we can logically exclude relative surveys.
         # Don't. Do. That. Just. Run. Everything. Always.
-        repopulate_relative_survey_schedule_events(survey, participant)
+        repopulate_relative_survey_schedule_events(survey, participant, previous_timezone)
 
 
 def repopulate_weekly_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:
@@ -179,7 +181,9 @@ def repopulate_weekly_survey_schedule_events(survey: Survey, single_participant:
     )
 
 
-def repopulate_absolute_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:
+def repopulate_absolute_survey_schedule_events(
+        survey: Survey, single_participant: Participant = None, previous_timezone: tzinfo = None
+) -> None:
     """
     Creates new ScheduledEvents for the survey's AbsoluteSchedules while deleting the old
     ScheduledEvents related to the survey
@@ -193,11 +197,12 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
     new_events = []
     for abs_sched in survey.absolute_schedules.all():
         scheduled_time = abs_sched.event_time
+        query_time = localtime(scheduled_time, previous_timezone) if previous_timezone else scheduled_time
         # if one participant
         if single_participant:
             archive_exists = ArchivedEvent.objects.filter(
                 survey_archive__survey=survey,
-                scheduled_time=scheduled_time,
+                scheduled_time=query_time,
                 participant_id=single_participant.pk
             ).exists()
             relevant_participants = [] if archive_exists else [single_participant.pk]
@@ -226,7 +231,9 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
     ScheduledEvent.objects.bulk_create(new_events)
 
 
-def repopulate_relative_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:
+def repopulate_relative_survey_schedule_events(
+        survey: Survey, single_participant: Participant = None, previous_timezone: tzinfo = None
+) -> None:
     """ Creates new ScheduledEvents for the survey's RelativeSchedules while deleting the old
     ScheduledEvents related to the survey. """
     # Clear out existing events.
@@ -251,10 +258,11 @@ def repopulate_relative_survey_schedule_events(survey: Survey, single_participan
             scheduled_date = intervention_date + timedelta(days=relative_schedule.days_after)
             schedule_time = relative_schedule.scheduled_time(scheduled_date, survey.study.timezone)
             # skip if already sent (archived event matching participant, survey, and schedule time)
+            query_time = localtime(schedule_time, previous_timezone) if previous_timezone else schedule_time
             if ArchivedEvent.objects.filter(
                 participant_id=participant_id,
                 survey_archive__survey_id=survey.id,
-                scheduled_time=schedule_time,
+                scheduled_time=query_time,
             ).exists():
                 continue
 

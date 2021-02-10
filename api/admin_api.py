@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from flask import abort, Blueprint, redirect, request
+from flask import abort, Blueprint, flash, redirect, request
 from flask.templating import render_template
 
 from authentication.admin_authentication import (assert_admin, assert_researcher_under_admin,
@@ -9,11 +9,36 @@ from config.constants import ResearcherRole
 from config.settings import DOMAIN_NAME, DOWNLOADABLE_APK_URL, IS_STAGING
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation
+from libs.push_notification_config import repopulate_all_survey_scheduled_events
 from libs.security import check_password_requirements
+from libs.timezone_dropdown import ALL_TIMEZONES
 
 admin_api = Blueprint('admin_api', __name__)
 
 """######################### Study Administration ###########################"""
+
+
+@admin_api.route('/set_study_timezone/<string:study_id>', methods=['POST'])
+@authenticate_admin
+def set_timezone(study_id=None):
+    """ Sets the custom timezone on a study. """
+    new_timezone = request.values.get("new_timezone_name")
+    if new_timezone not in ALL_TIMEZONES:
+        flash("The timezone chosen does not exist.", 'warning')
+        return redirect('/edit_study/{:d}'.format(study_id))
+
+    # database state has to update for correct scheduling to occur, need the previous timestamp.
+    # to identify prior successes or else relative and absolute surveys would all get rescheduled.
+    study = Study.objects.get(pk=study_id)
+    previous_timezone = study.timezone
+    study.timezone_name = new_timezone
+    study.save()
+
+    # All scheduled events for this study need to be recalculated
+    repopulate_all_survey_scheduled_events(study, previous_timezone=previous_timezone)
+
+    flash(f"Timezone {study.timezone_name} has been applied.", 'warning')
+    return redirect(f'/edit_study/{study_id}')
 
 
 @admin_api.route('/add_researcher_to_study', methods=['POST'])

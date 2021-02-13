@@ -114,8 +114,7 @@
     <form action="/set_study_timezone/{{ study.id }}" method="post">
       <div class="col-md-10">
         <h5>
-          This setting corrects date and time for push notifications when we don't have a participant's information, it is also is used to populate default dates in the survey editor.
-          (Participant timezones are under active development. Check with your system administrator if you are waiting on this feature.  Note also that, until implemented, changing this on a live survey will probably result in extra push notifications.)
+          DO NOT CHANGE THE STUDY TIMEZONE AFTER YOU HAVE ALREADY SENT SURVEYS OUT TO PARTICIPANTS.  If you change the Study Timezone, Beiwe will immediately resend all previously sent absolute-date and relative-date surveys.
         </h5>
         <select class="form-control" name="new_timezone_name">
           {% for name, value in timezones %}

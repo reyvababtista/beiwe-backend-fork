@@ -1,6 +1,7 @@
+# This file is copied from https://github.com/biblicabeebli/scraps/edit/main/README.md
+
 from collections import defaultdict
 from datetime import timedelta
-from typing import List, Tuple
 
 import pytz
 from dateutil import tz
@@ -24,8 +25,14 @@ def build_dictionary_of_timezones():
     # defaultdicts are cool.
     zones_by_offset = defaultdict(list)
 
-    # there are more timezones in pytz.all_timezones
-    for zone_name in pytz.common_timezones:
+    # (at time of development) this provides all non-deprecated timezones.
+    tzs = []
+    for _, timezones_by_country in pytz.country_timezones.items():
+        tzs.extend(timezones_by_country)
+    tzs.sort()
+
+    # pytz.common_timezones includes some deprecated tzs, pytz.all_timezones has even more.
+    for zone_name in tzs:
         # this 'tz_info' variable's type may be dependent on your platform, which is ... just insane.
         # This has been tested and works on Ubuntu and AWS Linux 1.
         tz_info: tz.tzfile = tz.gettz(zone_name)

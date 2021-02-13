@@ -27,15 +27,13 @@ def set_timezone(study_id=None):
         flash("The timezone chosen does not exist.", 'warning')
         return redirect('/edit_study/{:d}'.format(study_id))
 
-    # database state has to update for correct scheduling to occur, need the previous timestamp.
-    # to identify prior successes or else relative and absolute surveys would all get rescheduled.
     study = Study.objects.get(pk=study_id)
-    previous_timezone = study.timezone
     study.timezone_name = new_timezone
     study.save()
 
     # All scheduled events for this study need to be recalculated
-    repopulate_all_survey_scheduled_events(study, previous_timezone=previous_timezone)
+    # this causes chaos, relative and absolute surveys will be regenerated if already sent.
+    repopulate_all_survey_scheduled_events(study)
 
     flash(f"Timezone {study.timezone_name} has been applied.", 'warning')
     return redirect(f'/edit_study/{study_id}')

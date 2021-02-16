@@ -137,7 +137,6 @@ class ChunkRegistry(TimestampedModel):
 
     def update_chunk(self, data_to_hash: bytes):
         self.chunk_hash = chunk_hash(data_to_hash).decode()
-
         self.save()
 
     @classmethod
@@ -157,15 +156,29 @@ class FileToProcess(TimestampedModel):
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='files_to_process')
     deleted = models.BooleanField(default=False)
 
-    @classmethod
-    def append_file_for_processing(cls, file_path, study_object_id, **kwargs):
-        # all we need is a primary key...
-        study_pk = Study.objects.filter(object_id=study_object_id).values_list('pk', flat=True).get()
-
+    @staticmethod
+    def normalize_file_path(file_path: str, study_object_id: str):
+        """ whatever the reason for this file path transform is has been lost to the mists of time. """
         if file_path[:24] == study_object_id:
-            cls.objects.create(s3_file_path=file_path, study_id=study_pk, **kwargs)
+            return file_path
         else:
-            cls.objects.create(s3_file_path=study_object_id + '/' + file_path, study_id=study_pk, **kwargs)
+            return study_object_id + '/' + file_path
+
+    @classmethod
+    def test_file_path_exists(cls, file_path: str, study_object_id: str):
+        # identifies whether the provided file path currently exists.
+        # we get terrible performance issues in data processing when duplicate files are present
+        # in FileToProcess. We added a unique constraint and need to test the condition.
+        return cls.objects.filter(s3_file_path=cls.normalize_file_path(file_path, study_object_id)).exists()
+
+    @classmethod
+    def append_file_for_processing(cls, file_path: str, study_object_id: str, **kwargs):
+        # normalize the file path, grab the study id, passthrough kwargs to create; create.
+        cls.objects.create(
+            s3_file_path=cls.normalize_file_path(file_path, study_object_id),
+            study_id=Study.objects.filter(object_id=study_object_id).values_list('pk', flat=True).get(),
+            **kwargs
+        )
 
     @classmethod
     def reprocess_originals_from_chunk_path(cls, chunk_path):

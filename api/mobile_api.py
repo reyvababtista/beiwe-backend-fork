@@ -9,8 +9,7 @@ from werkzeug.datastructures import FileStorage
 from authentication.user_authentication import (authenticate_user, authenticate_user_registration,
     get_session_participant, minimal_validation)
 from config.constants import (ALLOWED_EXTENSIONS, ANDROID_FIREBASE_CREDENTIALS,
-    DEVICE_IDENTIFIERS_HEADER,
-    IOS_FIREBASE_CREDENTIALS)
+    DEVICE_IDENTIFIERS_HEADER, IOS_FIREBASE_CREDENTIALS)
 from database.data_access_models import FileToProcess
 from database.profiling_models import DecryptionKeyError, UploadTracking
 from database.system_models import FileAsText
@@ -75,7 +74,7 @@ def upload(OS_API=""):
         return render_template('blank.html'), 200
 
     patient_id = request.values['patient_id']
-    user = get_session_participant()
+    participant = get_session_participant()
 
     # Slightly different values for iOS vs Android behavior.
     # Android sends the file data as standard form post parameter (request.values)
@@ -99,10 +98,15 @@ def upload(OS_API=""):
     else:
         raise TypeError("uploaded_file was a %s" % type(uploaded_file))
 
+    s3_file_location = file_name.replace("_", "/")
 
-    client_private_key = get_client_private_key(patient_id, user.study.object_id)
+    # block duplicate FTPs.  Testing the upload history is too complex
+    if FileToProcess.test_file_path_exists(s3_file_location, participant.study.object_id):
+        return render_template('blank.html'), 200
+
+    client_private_key = get_client_private_key(patient_id, participant.study.object_id)
     try:
-        uploaded_file = decrypt_device_file(patient_id, uploaded_file, client_private_key, user)
+        uploaded_file = decrypt_device_file(patient_id, uploaded_file, client_private_key, participant)
     except HandledError as e:
         # when decrypting fails, regardless of why, we rely on the decryption code
         # to log it correctly and return 200 OK to get the device to delete the file.
@@ -123,19 +127,17 @@ def upload(OS_API=""):
         make_sentry_client(SentryTypes.elastic_beanstalk, tags).captureMessage("DecryptionKeyInvalidError")
         return render_template('blank.html'), 200
 
-    s3_file_location = file_name.replace("_", "/")
-
     # if uploaded data a) actually exists, B) is validly named and typed...
     if uploaded_file and file_name and contains_valid_extension(file_name):
-        s3_upload(s3_file_location, uploaded_file, user.study.object_id)
+        s3_upload(s3_file_location, uploaded_file, participant.study.object_id)
         FileToProcess.append_file_for_processing(
-            s3_file_location, user.study.object_id, participant=user
+            s3_file_location, participant.study.object_id, participant=participant
         )
         UploadTracking.objects.create(
             file_path=s3_file_location,
             file_size=len(uploaded_file),
             timestamp=timezone.now(),
-            participant=user,
+            participant=participant,
         )
         return render_template('blank.html'), 200
 

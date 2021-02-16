@@ -1,30 +1,24 @@
-# Todo:
 # we are not making them a vpc, they have to provide it.  regular vpc.  Regular internet gateways.
-# create eb
-# create sec groups for data processing servers
-# create rabbitmq server
-# create data processing servers
+
 from pprint import pprint
 from time import sleep
 
-from deployment_helpers.aws.boto_helpers import (create_iam_client,
-    create_eb_client, create_sts_client)
-from deployment_helpers.aws.elastic_beanstalk_configuration import (get_base_eb_configuration,
-    DynamicParameter)
-from deployment_helpers.aws.iam import (iam_find_role, IamEntityMissingError, iam_create_role,
-    iam_attach_role_policy, iam_find_instance_profile, PythonPlatformDiscoveryError,
-    EnvironmentDeploymentFailure, get_or_create_automation_policy)
+from deployment_helpers.aws.boto_helpers import (create_eb_client, create_iam_client,
+    create_sts_client)
+from deployment_helpers.aws.elastic_beanstalk_configuration import (DynamicParameter,
+    get_base_eb_configuration)
+from deployment_helpers.aws.iam import (EnvironmentDeploymentFailure,
+    get_or_create_automation_policy, iam_attach_role_policy, iam_create_role,
+    iam_find_instance_profile, iam_find_role, IamEntityMissingError, PythonPlatformDiscoveryError)
 from deployment_helpers.aws.rds import (add_eb_environment_to_rds_database_security_group)
-from deployment_helpers.aws.security_groups import get_security_group_by_name
-from deployment_helpers.constants import (EB_SERVICE_ROLE,
-    EB_INSTANCE_PROFILE_ROLE, BEIWE_APPLICATION_NAME, EB_INSTANCE_PROFILE_NAME,
-    EB_SEC_GRP_COUNT_ERROR, get_elasticbeanstalk_assume_role_policy_document,
-    get_instance_assume_role_policy_document, AWS_EB_SERVICE, AWS_EB_ENHANCED_HEALTH,
-    AWS_EB_MULTICONTAINER_DOCKER, AWS_EB_WEB_TIER, AWS_EB_WORKER_TIER, get_global_config,
-    get_server_configuration_file,
-    get_finalized_environment_variables)
-from deployment_helpers.general_utils import retry, log, current_time_string
 from deployment_helpers.aws.s3 import s3_encrypt_bucket
+from deployment_helpers.aws.security_groups import get_security_group_by_name, open_tcp_port
+from deployment_helpers.constants import (AWS_EB_ENHANCED_HEALTH, AWS_EB_MULTICONTAINER_DOCKER,
+    AWS_EB_SERVICE, AWS_EB_WEB_TIER, AWS_EB_WORKER_TIER, BEIWE_APPLICATION_NAME,
+    EB_INSTANCE_PROFILE_NAME, EB_INSTANCE_PROFILE_ROLE, EB_SEC_GRP_COUNT_ERROR, EB_SERVICE_ROLE,
+    get_elasticbeanstalk_assume_role_policy_document, get_finalized_environment_variables,
+    get_global_config, get_instance_assume_role_policy_document, get_server_configuration_file)
+from deployment_helpers.general_utils import current_time_string, log, retry
 
 
 def construct_eb_environment_variables(eb_environment_name):
@@ -219,31 +213,41 @@ def get_or_create_eb_application():
 def get_environment(eb_environment_name):
     eb_client = create_eb_client()
     return eb_client.describe_configuration_settings(
-            ApplicationName="beiwe-application",
-            EnvironmentName=eb_environment_name
-            )['ConfigurationSettings'][0]
+        ApplicationName="beiwe-application",
+        EnvironmentName=eb_environment_name
+    )['ConfigurationSettings'][0]
 
 
 def get_eb_instance_security_group_identifier(eb_environment_name):
-    for o in get_environment(eb_environment_name)['OptionSettings']:
-        if (o['OptionName'] == 'SecurityGroups' and
-            o['Namespace'] == 'aws:autoscaling:launchconfiguration' and
-            o['ResourceName'] == 'AWSEBAutoScalingLaunchConfiguration'):
-            grps = o['Value'].split(",")
-            if len(grps) > 1:
+    for option in get_environment(eb_environment_name)['OptionSettings']:
+        if (
+                option['OptionName'] == 'SecurityGroups' and
+                option['Namespace'] == 'aws:autoscaling:launchconfiguration' and
+                option['ResourceName'] == 'AWSEBAutoScalingLaunchConfiguration'
+        ):
+            groups = option['Value'].split(",")
+            if len(groups) > 1:
                 raise Exception(EB_SEC_GRP_COUNT_ERROR % eb_environment_name)
-            return o['Value']
+            return option['Value']
 
 
 def get_eb_load_balancer_security_group_identifier(eb_environment_name):
-    for o in get_environment(eb_environment_name)['OptionSettings']:
-        if (o['OptionName'] == 'SecurityGroups' and
-            o['Namespace'] == 'aws:elb:loadbalancer' and
-            o['ResourceName'] == 'AWSEBLoadBalancer'):
-            grps = o['Value'].split(",")
-            if len(grps) > 1:
+    for option in get_environment(eb_environment_name)['OptionSettings']:
+        if (
+                option['OptionName'] == 'SecurityGroups' and
+                option['Namespace'] == 'aws:elb:loadbalancer' and
+                option['ResourceName'] == 'AWSEBLoadBalancer'
+        ):
+            groups = option['Value'].split(",")
+            if len(groups) > 1:
                 raise Exception(EB_SEC_GRP_COUNT_ERROR % eb_environment_name)
-            return o['Value']
+            return option['Value']
+
+
+def allow_443_traffic_to_load_balancer(eb_environment_name):
+    """ Opens port 443 on the load balancer (this was missing for a while... oops.) """
+    sec_grp_id = get_eb_load_balancer_security_group_identifier(eb_environment_name)
+    open_tcp_port(sec_grp_id, 443)
 
 
 def allow_eb_environment_database_access(eb_environment_name):
@@ -321,6 +325,7 @@ def create_eb_environment(eb_environment_name, without_db=False):
 
     encrypt_eb_s3_bucket()
     allow_eb_environment_database_access(eb_environment_name)
+    allow_443_traffic_to_load_balancer(eb_environment_name)
     return env
 
 

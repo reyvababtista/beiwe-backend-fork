@@ -6,11 +6,12 @@ from database.data_access_models import ChunkRegistry
 from libs.file_processing.utility_functions_simple import decompress
 from libs.s3 import s3_upload
 
+
 # from datetime import datetime
 # GLOBAL_TIMESTAMP = datetime.now().isoformat()
 
 
-def batch_upload(upload: Tuple[ChunkRegistry, str, bytes, str]):
+def batch_upload(upload: Tuple[ChunkRegistry or dict, str, bytes, str]):
     """ Used for mapping an s3_upload function.  the tuple is unpacked, can only have one parameter. """
     ret = {'exception': None, 'traceback': None}
     try:
@@ -29,23 +30,14 @@ def batch_upload(upload: Tuple[ChunkRegistry, str, bytes, str]):
 
         s3_upload(chunk_path, new_contents, study_object_id, raw_path=True)
 
-        if chunk.pk and chunk.pk != 0:
+        # if the chunk object is a chunk registry then we are updating an old one,
+        # otherwise we are creating a new one.
+        if isinstance(chunk, ChunkRegistry):
             # If the contents are being appended to an existing ChunkRegistry object
             chunk.file_size = len(new_contents)
             chunk.update_chunk(new_contents)
-
         else:
-            # We actually have some complex stuff to do to instantiate, so we pass variables
-            # into the specialized constructor rather than use the object directly.  (weird)
-            ChunkRegistry.register_chunked_data(
-                chunk.data_type,
-                chunk.time_bin,
-                chunk.chunk_path,
-                new_contents,
-                chunk.study.pk,
-                chunk.participant.pk,
-                chunk.survey.pk,
-            )
+            ChunkRegistry.register_chunked_data(**chunk, file_contents=new_contents)
 
     # it broke. print stacktrace for debugging
     except Exception as e:

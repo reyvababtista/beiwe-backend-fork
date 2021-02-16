@@ -1,17 +1,18 @@
-import gc
 from collections import defaultdict
 from datetime import datetime
 from multiprocessing.pool import ThreadPool
 from typing import DefaultDict
 
 from botocore.exceptions import ReadTimeoutError
-from cronutils.error_handler import NullErrorHandler as ErrorHandler
+from cronutils.error_handler import ErrorHandler
 from django.core.exceptions import ValidationError
 
-from config.constants import (ACCELEROMETER, ANDROID_LOG_FILE, CALL_LOG,
-    CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER, IDENTIFIERS, SURVEY_DATA_FILES, SURVEY_TIMINGS, WIFI)
+from config.constants import (ACCELEROMETER, ANDROID_LOG_FILE, CALL_LOG, CHUNK_TIMESLICE_QUANTUM,
+    CHUNKS_FOLDER, IDENTIFIERS, SURVEY_DATA_FILES, SURVEY_TIMINGS, WIFI)
 from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
 from database.data_access_models import ChunkRegistry, FileToProcess
+from database.study_models import Study
+from database.survey_models import Survey
 from database.system_models import FileProcessLock
 from database.user_models import Participant
 from libs.file_processing.batched_network_operations import batch_upload
@@ -22,8 +23,8 @@ from libs.file_processing.exceptions import (BadTimecodeError, ChunkFailedToExis
 from libs.file_processing.file_for_processing import FileForProcessing
 from libs.file_processing.utility_functions_csvs import (clean_java_timecode, construct_csv_string,
     csv_to_list, unix_time_to_string)
-from libs.file_processing.utility_functions_simple import (binify_from_timecode,
-    compress, convert_unix_to_human_readable_timestamps, ensure_sorted_by_timestamp,
+from libs.file_processing.utility_functions_simple import (binify_from_timecode, compress,
+    convert_unix_to_human_readable_timestamps, ensure_sorted_by_timestamp,
     resolve_survey_id_from_file_name)
 from libs.s3 import s3_retrieve
 
@@ -129,9 +130,9 @@ def do_process_user_file_chunks(
 
     # ordering by path results in files grouped by type and chronological order, which is perfect
     # for efficiency.
-    # Fixme: does this break the skipping of items that failed to process? solution: exclude ids?
+    # Fixme: does this order_by break the skipping of items that failed to process? solution: exclude ids?
     files_to_process = participant.files_to_process \
-        .exclude(deleted=True).order_by("s3_file_path", "created_on")
+        .exclude(deleted=True)  #.order_by("s3_file_path", "created_on")
 
     # This pool pulls in data for each FileForProcessing on a background thread and instantiates it.
     # Instantiating a FileForProcessing object queries S3 for the File's data. (network request))
@@ -282,12 +283,15 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
                     if data_type in SURVEY_DATA_FILES:
                         # We need to keep a mapping of files to survey ids, that is handled here.
                         survey_id_hash = study_object_id, user_id, data_type, original_header
-                        survey_id = survey_id_dict[survey_id_hash]
+                        survey_id = Survey.objects.filter(
+                            object_id=survey_id_dict[survey_id_hash]).values_list("pk", flat=True).get()
                     else:
                         survey_id = None
+
+                    # this object will eventually get **kwarg'd into ChunkRegistry.register_chunked_data
                     chunk_params = {
-                        "study_id": study_object_id,
-                        "user_id": user_id,
+                        "study_id": Study.objects.filter(object_id=study_object_id).values_list("pk", flat=True).get(),
+                        "participant_id": Participant.objects.filter(patient_id=user_id).values_list("pk", flat=True).get(),
                         "data_type": data_type,
                         "chunk_path": chunk_path,
                         "time_bin": time_bin,

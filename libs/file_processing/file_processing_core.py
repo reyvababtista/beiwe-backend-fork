@@ -133,70 +133,94 @@ def do_process_user_file_chunks(
     files_to_process = participant.files_to_process \
         .exclude(deleted=True).order_by("s3_file_path", "created_on")
 
+    # This pool pulls in data for each FileForProcessing on a background thread and instantiates it.
     # Instantiating a FileForProcessing object queries S3 for the File's data. (network request))
-    # chunksize
-    for file_for_processing in pool.map(FileForProcessing,
-                                        files_to_process[position: position + page_size],
-                                        chunksize=1):
+    files_for_processing = pool.map(
+        FileForProcessing, files_to_process[position: position + page_size], chunksize=1
+    )
 
+    for file_for_processing in files_for_processing:
         with error_handler:
-            if file_for_processing.exception:
-                file_for_processing.raise_data_processing_error()
-
-            if file_for_processing.chunkable:
-                # case: chunkable data files
-                newly_binified_data, survey_id_hash = process_csv_data(file_for_processing)
-                if file_for_processing.data_type in SURVEY_DATA_FILES:
-                    survey_id_dict[survey_id_hash] = resolve_survey_id_from_file_name(file_for_processing.file_to_process.s3_file_path)
-
-                if newly_binified_data:
-                    append_binified_csvs(all_binified_data, newly_binified_data, file_for_processing.file_to_process)
-                else:  # delete empty files from FilesToProcess
-                    ftps_to_remove.add(file_for_processing.file_to_process.id)
-                continue
-            else:
-                # case: unchunkable data file
-                timestamp = clean_java_timecode(file_for_processing.file_to_process.s3_file_path.rsplit("/", 1)[-1][:-4])
-                # Since we aren't binning the data by hour, just create a ChunkRegistry that
-                # points to the already existing S3 file.
-                try:
-                    ChunkRegistry.register_unchunked_data(
-                        file_for_processing.data_type,
-                        timestamp,
-                        file_for_processing.file_to_process.s3_file_path,
-                        file_for_processing.file_to_process.study.pk,
-                        file_for_processing.file_to_process.participant.pk,
-                        file_for_processing.file_contents,
-                    )
-                    ftps_to_remove.add(file_for_processing.file_to_process.id)
-                except ValidationError as ve:
-                    if len(ve.messages) != 1:
-                        # case: the error case (below) is very specific, we only want that singular error.
-                        raise
-
-                    # case: an unchunkable file was re-uploaded, causing a duplicate file path collision
-                    # we detect this specific case and update the registry with the new file size
-                    # (hopefully it doesn't actually change)
-                    if 'Chunk registry with this Chunk path already exists.' in ve.messages:
-                        ChunkRegistry.update_registered_unchunked_data(
-                            file_for_processing.data_type,
-                            file_for_processing.file_to_process.s3_file_path,
-                            file_for_processing.file_contents,
-                        )
-                        ftps_to_remove.add(file_for_processing.file_to_process.id)
-                    else:
-                        # any other errors, add
-                        raise
-
+            process_one_file(
+                file_for_processing, survey_id_dict, all_binified_data, ftps_to_remove
+            )
     pool.close()
     pool.terminate()
-    more_ftps_to_remove, number_bad_files = upload_binified_data(all_binified_data, error_handler, survey_id_dict)
+
+    # there are several failure modes and success modes, information for what to do with different
+    # files percolates back to here.  Delete various database objects accordingly.
+    more_ftps_to_remove, number_bad_files = upload_binified_data(
+        all_binified_data, error_handler, survey_id_dict
+    )
     ftps_to_remove.update(more_ftps_to_remove)
+
     # Actually delete the processed FTPs from the database
     FileToProcess.objects.filter(pk__in=ftps_to_remove).delete()
-    # Garbage collect to free up memory
-    gc.collect()
     return number_bad_files
+
+
+def process_one_file(
+        file_for_processing: FileForProcessing, survey_id_dict: dict, all_binified_data: DefaultDict,
+        ftps_to_remove: set
+):
+    """ This function is the inner loop of the chunking process. """
+
+    if file_for_processing.exception:
+        file_for_processing.raise_data_processing_error()
+
+    # there are two cases: chunkable data that can be stuck into "time bins" for each hour, and
+    # files that do not need to be "binified" and pretty much just go into the ChunkRegistry unmodified.
+    if file_for_processing.chunkable:
+        newly_binified_data, survey_id_hash = process_csv_data(file_for_processing)
+
+        # survey answers store the survey id in the file name (truly ancient design decision).
+        if file_for_processing.data_type in SURVEY_DATA_FILES:
+            survey_id_dict[survey_id_hash] = resolve_survey_id_from_file_name(
+                file_for_processing.file_to_process.s3_file_path)
+
+        if newly_binified_data:
+            append_binified_csvs(
+                all_binified_data, newly_binified_data, file_for_processing.file_to_process
+            )
+        else:  # delete empty files from FilesToProcess
+            ftps_to_remove.add(file_for_processing.file_to_process.id)
+        return
+
+    else:
+        # case: unchunkable data file
+        timestamp = clean_java_timecode(
+            file_for_processing.file_to_process.s3_file_path.rsplit("/", 1)[-1][:-4]
+        )
+        # Since we aren't binning the data by hour, just create a ChunkRegistry that
+        # points to the already existing S3 file.
+        try:
+            ChunkRegistry.register_unchunked_data(
+                file_for_processing.data_type,
+                timestamp,
+                file_for_processing.file_to_process.s3_file_path,
+                file_for_processing.file_to_process.study.pk,
+                file_for_processing.file_to_process.participant.pk,
+                file_for_processing.file_contents,
+            )
+            ftps_to_remove.add(file_for_processing.file_to_process.id)
+        except ValidationError as ve:
+            if len(ve.messages) != 1:
+                # case: the error case (below) is very specific, we only want that singular error.
+                raise
+
+            # case: an unchunkable file was re-uploaded, causing a duplicate file path collision
+            # we detect this specific case and update the registry with the new file size
+            # (hopefully it doesn't actually change)
+            if 'Chunk registry with this Chunk path already exists.' in ve.messages:
+                ChunkRegistry.update_registered_unchunked_data(
+                    file_for_processing.data_type,
+                    file_for_processing.file_to_process.s3_file_path,
+                    file_for_processing.file_contents,
+                )
+                ftps_to_remove.add(file_for_processing.file_to_process.id)
+            else:
+                # any other errors, add
+                raise
 
 
 def upload_binified_data(binified_data, error_handler, survey_id_dict):
@@ -352,7 +376,6 @@ def append_binified_csvs(old_binified_rows: DefaultDict[tuple, list],
 
 # TODO: stick on FileForProcessing
 def process_csv_data(file_for_processing: FileForProcessing):
-    # In order to reduce memory overhead this function takes a dictionary instead of args
     """ Constructs a binified dict of a given list of a csv rows,
         catches csv files with known problems and runs the correct logic.
         Returns None If the csv has no data in it. """
@@ -412,5 +435,3 @@ def process_csv_data(file_for_processing: FileForProcessing):
         )
     else:
         return None, None
-
-

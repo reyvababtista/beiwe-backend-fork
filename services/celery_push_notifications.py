@@ -17,7 +17,7 @@ from database.user_models import Participant, ParticipantFCMHistory, PushNotific
 from libs.celery_control import push_send_celery_app
 from libs.push_notification_config import (check_firebase_instance, FirebaseMisconfigured,
     set_next_weekly)
-from libs.sentry import make_error_sentry
+from libs.sentry import make_error_sentry, SentryTypes
 
 
 ################################################################E###############
@@ -66,7 +66,7 @@ def create_push_notification_tasks():
     print(surveys)
     print(schedules)
     print(patient_ids)
-    with make_error_sentry('data'):
+    with make_error_sentry(sentry_type=SentryTypes.data_processing):
         if not check_firebase_instance():
             raise FirebaseMisconfigured("Firebase is not configured, cannot queue notifications.")
 
@@ -90,7 +90,7 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
     patient_id = ParticipantFCMHistory.objects.filter(token=fcm_token) \
         .values_list("participant__patient_id", flat=True).get()
 
-    with make_error_sentry("data"):
+    with make_error_sentry(sentry_type=SentryTypes.data_processing):
         if not check_firebase_instance():
             raise FirebaseMisconfigured(
                 "You have not provided credentials for Firebase, notifications cannot be sent."

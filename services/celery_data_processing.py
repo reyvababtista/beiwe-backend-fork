@@ -7,7 +7,7 @@ from config.settings import FILE_PROCESS_PAGE_SIZE
 from database.user_models import Participant
 from libs.celery_control import get_processing_active_job_ids, processing_celery_app
 from libs.file_processing.file_processing_core import do_process_user_file_chunks
-from libs.sentry import make_error_sentry
+from libs.sentry import make_error_sentry, SentryTypes
 
 
 ################################################################################
@@ -29,7 +29,7 @@ def create_file_processing_tasks():
     # 6 minutely cron task. This way all tasks will be revoked at the same, and well-known, instant.
     expiry = (datetime.utcnow() + timedelta(minutes=5)).replace(second=30, microsecond=0)
 
-    with make_error_sentry('data'):
+    with make_error_sentry(sentry_type=SentryTypes.data_processing):
         participant_set = set(
             Participant.objects.filter(files_to_process__isnull=False)
                 .distinct()
@@ -72,7 +72,7 @@ def celery_process_file_chunks(participant_id):
 
         number_bad_files = 0
         tags = {'user_id': participant.patient_id}
-        error_sentry = make_error_sentry('data', tags=tags)
+        error_sentry = make_error_sentry(sentry_type=SentryTypes.data_processing)
         print("processing files for %s" % participant.patient_id)
 
         while True:

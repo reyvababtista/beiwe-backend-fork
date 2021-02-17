@@ -343,6 +343,7 @@ DATA_PROCESSING_CELERY_QUEUE = "data_processing"
 PUSH_NOTIFICATION_SEND_SERVICE = "services.push_notification_send"
 PUSH_NOTIFICATION_SEND_QUEUE = "push_notifications"
 
+
 class ScheduleTypes(object):
     absolute = "absolute"
     relative = "relative"

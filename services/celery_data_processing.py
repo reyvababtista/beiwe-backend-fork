@@ -81,9 +81,9 @@ def celery_process_file_chunks(participant_id):
 
             print("%s processing %s, %s files remaining" % (datetime.now(), participant.patient_id, starting_length))
             number_bad_files += do_process_user_file_chunks(
-                    count=FILE_PROCESS_PAGE_SIZE,
+                    page_size=FILE_PROCESS_PAGE_SIZE,
                     error_handler=error_sentry,
-                    skip_count=number_bad_files,
+                    position=number_bad_files,
                     participant=participant,
             )
             # If no files were processed, quit processing
@@ -101,7 +101,10 @@ def celery_process_file_chunks(participant_id):
                     break
 
     finally:
-        print("ignore 'ConnectionResetError: [Errno 104] Connection reset by peer' error.  We exit the process in order to fix a memory leak that so far defies analysis, celery complains.")
+        print(
+            "IGNORE 'ConnectionResetError: [Errno 104] Connection reset by peer'\n"
+            "WE EXIT IN ORDER TO FIX A MEMORY LEAK THAT SO FAR DEFIES ANALYSIS. CELERY COMPLAINS."
+        )
         exit(0)
 
 

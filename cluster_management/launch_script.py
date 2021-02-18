@@ -164,9 +164,9 @@ def manager_fix():
     # block for exceptionally long periods, even when a timeout value is provided. (This behavior
     # has other triggers too, this is just a reliable way to trigger it.)
     try_sudo("shutdown -r now")
-    log.warning("rebooting server to avoid a race condition...")
+    log.warning("rebooting server to fix rabbitmq bugs...")
     sleep(5)
-    retry(run, "# waiting for server to reboot, this will take a while.")
+    retry(run, "# waiting for server to reboot, this might take a while.")
 
     # we need to re-enable the swap after the reboot, then we can finally start supervisor without
     # creating zombie celery threads.

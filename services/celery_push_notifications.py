@@ -68,7 +68,8 @@ def create_push_notification_tasks():
     print(patient_ids)
     with make_error_sentry(sentry_type=SentryTypes.data_processing):
         if not check_firebase_instance():
-            raise FirebaseMisconfigured("Firebase is not configured, cannot queue notifications.")
+            print("Firebase is not configured, cannot queue notifications.")
+            return
 
         # surveys and schedules are guaranteed to have the same keys, assembling the data structures
         # is a pain, so it is factored out. sorry, but not sorry. it was a mess.

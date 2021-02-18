@@ -19,7 +19,7 @@ from libs.http_utils import determine_os_api
 from libs.logging import log_error
 from libs.push_notification_config import repopulate_all_survey_scheduled_events
 from libs.s3 import get_client_private_key, get_client_public_key_string, s3_upload
-from libs.sentry import make_sentry_client
+from libs.sentry import make_sentry_client, SentryTypes
 
 ################################################################################
 ############################# GLOBALS... #######################################
@@ -120,7 +120,7 @@ def upload(OS_API=""):
             "DecryptionKeyError id": str(DecryptionKeyError.objects.last().id),
             "file_name": file_name,
         }
-        make_sentry_client('eb', tags).captureMessage("DecryptionKeyInvalidError")
+        make_sentry_client(SentryTypes.elastic_beanstalk, tags).captureMessage("DecryptionKeyInvalidError")
         return render_template('blank.html'), 200
 
     s3_file_location = file_name.replace("_", "/")
@@ -157,7 +157,7 @@ def upload(OS_API=""):
             error_message += "AN UNKNOWN ERROR OCCURRED."
 
         tags = {"upload_error": "upload error", "user_id": patient_id}
-        sentry_client = make_sentry_client('eb', tags)
+        sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
         sentry_client.captureMessage(error_message)
 
         return abort(400)

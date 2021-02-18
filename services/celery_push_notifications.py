@@ -92,9 +92,8 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
 
     with make_error_sentry(sentry_type=SentryTypes.data_processing):
         if not check_firebase_instance():
-            raise FirebaseMisconfigured(
-                "You have not provided credentials for Firebase, notifications cannot be sent."
-            )
+            print("Firebase credentials are not configured.")
+            return
 
         # use the earliest timed schedule as our reference for the sent_time parameter.  (why?)
         participant = Participant.objects.get(patient_id=patient_id)

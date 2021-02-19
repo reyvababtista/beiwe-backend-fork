@@ -120,7 +120,7 @@ def encrypt_eb_s3_bucket():
     s3_eb_bucket = 'elasticbeanstalk-{}-{}'.format(global_config['AWS_REGION'],
                                                    account_id)
 
-    log.info('Enablig encryption on S3 bucket: %s' % s3_eb_bucket)                                               
+    log.info('Enabling encryption on S3 bucket: %s' % s3_eb_bucket)
     s3_encrypt_bucket(s3_eb_bucket)
 
 

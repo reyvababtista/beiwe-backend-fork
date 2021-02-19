@@ -120,7 +120,7 @@ def add_new_surveys(new_survey_settings: List[Dict], study: Study, filename: str
         AbsoluteSchedule.create_absolute_schedules(absolute_schedules, survey)
         RelativeSchedule.create_relative_schedules(relative_schedules, survey)
         WeeklySchedule.create_weekly_schedules(weekly_schedules, survey)
-        repopulate_all_survey_scheduled_events(survey)
+        repopulate_all_survey_scheduled_events(study)
 
         # count...
         surveys_added += 1 if survey.survey_type == Survey.TRACKING_SURVEY else 0

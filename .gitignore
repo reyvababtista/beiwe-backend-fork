@@ -16,3 +16,6 @@ private/*
 *~
 *.pem
 .directory
+
+# Celery local config
+manager_ip

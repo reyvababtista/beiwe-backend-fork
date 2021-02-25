@@ -25,12 +25,6 @@ def inject_html_params():
     }
 
 
-def study_api_read_only(study_id):
-    # common code scrap, this is pretty fast and reduced code cruft is better here than performance.
-    return True if not get_session_researcher().check_study_admin(study_id)\
-                   and not get_session_researcher().site_admin else False
-
-
 @study_api.route('/view_study/<string:study_id>/edit_participant/<string:participant_id>', methods=['GET', 'POST'])
 @authenticate_researcher_study_access
 def edit_participant(study_id, participant_id):
@@ -115,11 +109,7 @@ def interventions_page(study_id=None):
             'study_interventions.html',
             study=study,
             interventions=study.interventions.all(),
-            readonly=study_api_read_only(study_id),
         )
-
-    if study_api_read_only(study_id):
-        abort(403)
 
     # slow but safe
     new_intervention = request.values.get('new_intervention', None)
@@ -135,9 +125,6 @@ def interventions_page(study_id=None):
 @authenticate_researcher_study_access
 def delete_intervention(study_id=None):
     """Deletes the specified Intervention. Expects intervention in the request body."""
-    if study_api_read_only(study_id):
-        return abort(403)
-
     study = Study.objects.get(pk=study_id)
     intervention_id = request.values.get('intervention')
     if intervention_id:
@@ -161,9 +148,6 @@ def edit_intervention(study_id=None):
     Edits the name of the intervention. Expects intervention_id and edit_intervention in the
     request body
     """
-    if study_api_read_only(study_id):
-        return abort(403)
-
     study = Study.objects.get(pk=study_id)
     intervention_id = request.values.get('intervention_id', None)
     new_name = request.values.get('edit_intervention', None)
@@ -189,11 +173,7 @@ def study_fields(study_id=None):
             'study_custom_fields.html',
             study=study,
             fields=study.fields.all(),
-            readonly=study_api_read_only(study_id),
         )
-
-    if study_api_read_only(study_id):
-        return abort(403)
 
     new_field = request.values.get('new_field', None)
     if new_field:
@@ -208,9 +188,6 @@ def study_fields(study_id=None):
 @authenticate_researcher_study_access
 def delete_field(study_id=None):
     """Deletes the specified Custom Field. Expects field in the request body."""
-    if study_api_read_only(study_id):
-        return abort(403)
-
     study = Study.objects.get(pk=study_id)
     field = request.values.get('field', None)
     if field:
@@ -232,9 +209,6 @@ def delete_field(study_id=None):
 @authenticate_researcher_study_access
 def edit_custom_field(study_id=None):
     """Edits the name of a Custom field. Expects field_id anf edit_custom_field in request body"""
-    if study_api_read_only(study_id):
-        return abort(403)
-
     field_id = request.values.get("field_id")
     new_field_name = request.values.get("edit_custom_field")
     if field_id:

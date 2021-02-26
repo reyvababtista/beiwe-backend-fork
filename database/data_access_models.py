@@ -157,8 +157,9 @@ class FileToProcess(TimestampedModel):
     deleted = models.BooleanField(default=False)
 
     @staticmethod
-    def normalize_file_path(file_path: str, study_object_id: str):
-        """ whatever the reason for this file path transform is has been lost to the mists of time. """
+    def normalize_s3_file_path(file_path: str, study_object_id: str):
+        """ whatever the reason for this file path transform is has been lost to the mists of time.
+            We force the start of the path to the object id string of the study. """
         if file_path[:24] == study_object_id:
             return file_path
         else:
@@ -169,13 +170,15 @@ class FileToProcess(TimestampedModel):
         # identifies whether the provided file path currently exists.
         # we get terrible performance issues in data processing when duplicate files are present
         # in FileToProcess. We added a unique constraint and need to test the condition.
-        return cls.objects.filter(s3_file_path=cls.normalize_file_path(file_path, study_object_id)).exists()
+        return cls.objects.filter(
+            s3_file_path=cls.normalize_s3_file_path(file_path, study_object_id)
+        ).exists()
 
     @classmethod
     def append_file_for_processing(cls, file_path: str, study_object_id: str, **kwargs):
         # normalize the file path, grab the study id, passthrough kwargs to create; create.
         cls.objects.create(
-            s3_file_path=cls.normalize_file_path(file_path, study_object_id),
+            s3_file_path=cls.normalize_s3_file_path(file_path, study_object_id),
             study_id=Study.objects.filter(object_id=study_object_id).values_list('pk', flat=True).get(),
             **kwargs
         )

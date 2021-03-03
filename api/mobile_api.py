@@ -25,6 +25,12 @@ from libs.sentry import make_sentry_client, SentryTypes
 ################################################################################
 mobile_api = Blueprint('mobile_api', __name__)
 
+DECRYPTION_KEY_ERROR_MESSAGE = (
+    "This file did not contain a valid decryption key and could not be processed."
+)
+DECRYPTION_KEY_ADDITIONAL_MESSAGE = (
+    "This is an open bug: github.com/onnela-lab/beiwe-backend/issues/186"
+)
 
 ################################################################################
 ################################ UPLOADS #######################################
@@ -123,8 +129,10 @@ def upload(OS_API=""):
             "operating system": "ios" if "ios" in request.path.lower() else "android",
             "DecryptionKeyError id": str(DecryptionKeyError.objects.last().id),
             "file_name": file_name,
+            "bug_report": DECRYPTION_KEY_ADDITIONAL_MESSAGE,
         }
-        make_sentry_client(SentryTypes.elastic_beanstalk, tags).captureMessage("DecryptionKeyInvalidError")
+        sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
+        sentry_client.captureMessage(DECRYPTION_KEY_ERROR_MESSAGE)
         return render_template('blank.html'), 200
 
     # if uploaded data a) actually exists, B) is validly named and typed...

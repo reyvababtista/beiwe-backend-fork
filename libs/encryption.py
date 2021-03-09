@@ -141,6 +141,8 @@ def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, us
     try:
         base64_key = private_key_cipher.decrypt(decoded_key)
         decrypted_key = decode_base64(base64_key)
+        if not decrypted_key:
+            raise TypeError(f"decoded key was '{decrypted_key}'")
     except (TypeError, IndexError, PaddingException, Base64LengthException) as decr_error:
         create_decryption_key_error(traceback.format_exc())
         raise DecryptionKeyInvalidError("invalid decryption key. %s" % decr_error)
@@ -182,6 +184,15 @@ def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, us
                 error_types.append(LineEncryptionError.EMPTY_KEY)
                 bad_lines.append(line)
                 continue
+
+            # untested, error should be caught as a decryption key error above
+            # if isinstance(error_orig, ValueError) and "Key cannot be the null string" in error_string:
+            #     error_message += "The key was the null string:\n\tline: %s" % line
+            #     log_error(error_string, error_message)
+            #     create_line_error_db_entry(LineEncryptionError.EMPTY_KEY)
+            #     error_types.append(LineEncryptionError.EMPTY_KEY)
+            #     bad_lines.append(line)
+            #     continue
 
             ################### skip these errors ##############################
             if "unpack" in error_string:

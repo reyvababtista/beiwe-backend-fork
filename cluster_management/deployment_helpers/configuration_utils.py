@@ -137,6 +137,9 @@ def validate_beiwe_environment_config(eb_environment_name):
     # Validate the data
     
     sysadmin_email = global_config.get('SYSTEM_ADMINISTRATOR_EMAIL', "")
+    if "," in sysadmin_email:
+        errors.append('(Global Configuration) You can only have one item in SYSTEM_ADMINISTRATOR_EMAIL: {}'.format(sysadmin_email))
+
     if not sysadmin_email:
         errors.append('(Global Configuration) System administrator email cannot be empty.')
     else:

@@ -5,7 +5,7 @@ from django.db import models
 from database.common_models import TimestampedModel
 from database.user_models import Researcher
 from database.validators import STANDARD_BASE_64_VALIDATOR, URL_SAFE_BASE_64_VALIDATOR
-from libs.security import generate_random_string, generate_hash_and_salt, compare_password
+from libs.security import compare_password, generate_hash_and_salt, generate_random_string
 
 
 class ApiKey(TimestampedModel):
@@ -66,6 +66,4 @@ class ApiKey(TimestampedModel):
             self.access_key_secret_salt.encode(),
             self.access_key_secret.encode(),
         )
-
-
 

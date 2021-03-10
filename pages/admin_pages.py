@@ -4,18 +4,22 @@ from flask import Blueprint, flash, Markup, redirect, render_template, request, 
 from authentication import admin_authentication
 from authentication.admin_authentication import (authenticate_researcher_login,
     authenticate_researcher_study_access, get_researcher_allowed_studies,
-    get_researcher_allowed_studies_as_query_set, get_session_researcher,
-    researcher_is_an_admin,
+    get_researcher_allowed_studies_as_query_set, get_session_researcher, researcher_is_an_admin,
     SESSION_NAME)
+from constants.admin_pages import (DisableApiKeyForm, NEW_API_KEY_MESSAGE, NewApiKeyForm,
+    RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE)
 from database.security_models import ApiKey
 from database.study_models import Study
-from database.user_models import Participant, Researcher
+from database.user_models import Researcher
 from libs.push_notification_config import check_firebase_instance
 from libs.security import check_password_requirements
 from libs.serilalizers import ApiKeySerializer
 
 admin_pages = Blueprint('admin_pages', __name__)
 
+####################################################################################################
+############################################# Basics ###############################################
+####################################################################################################
 
 @admin_pages.context_processor
 def inject_html_params():
@@ -26,21 +30,29 @@ def inject_html_params():
     }
 
 
+@admin_pages.route("/logout")
+def logout():
+    admin_authentication.logout_researcher()
+    return redirect("/")
+
+####################################################################################################
+###################################### Endpoints ###################################################
+####################################################################################################
+
+
 @admin_pages.route('/choose_study', methods=['GET'])
 @authenticate_researcher_login
 def choose_study():
     allowed_studies = get_researcher_allowed_studies_as_query_set()
 
-    # If the admin is authorized to view exactly 1 study, redirect to that study
+    # If the admin is authorized to view exactly 1 study, redirect to that study,
+    # Otherwise, show the "Choose Study" page
     if allowed_studies.count() == 1:
         return redirect('/view_study/{:d}'.format(allowed_studies.values_list('pk', flat=True).get()))
-
-    # Otherwise, show the "Choose Study" page
 
     return render_template(
         'choose_study.html',
         studies=[obj.as_unpacked_native_python() for obj in allowed_studies],
-        allowed_studies=get_researcher_allowed_studies(),
         is_admin=researcher_is_an_admin()
     )
 
@@ -53,7 +65,7 @@ def view_study(study_id=None):
 
     # creates dicts of Custom Fields and Interventions to be easily accessed in the template
     for p in participants:
-        p.field_dict = participant_tags(p)
+        p.field_dict = {tag.field.field_name: tag.value for tag in p.field_values.all()}
         p.intervention_dict = {tag.intervention.name: tag.date for tag in p.intervention_dates.all()}
 
     return render_template(
@@ -73,23 +85,15 @@ def view_study(study_id=None):
     )
 
 
-"""########################## Login/Logoff ##################################"""
-
-
-@admin_pages.route("/logout")
-def logout():
-    admin_authentication.logout_researcher()
-    return redirect("/")
-
-
 @admin_pages.route('/manage_credentials')
 @authenticate_researcher_login
 def manage_credentials():
     serializer = ApiKeySerializer(ApiKey.objects.filter(researcher=get_session_researcher()), many=True)
-    return render_template('manage_credentials.html',
-                           allowed_studies=get_researcher_allowed_studies(),
-                           is_admin=researcher_is_an_admin(),
-                           api_keys=sorted(serializer.data, reverse=True, key=lambda x: x['created_on']))
+    return render_template(
+        'manage_credentials.html',
+        is_admin=researcher_is_an_admin(),
+        api_keys=sorted(serializer.data, reverse=True, key=lambda x: x['created_on']),
+    )
 
 
 @admin_pages.route('/reset_admin_password', methods=['POST'])
@@ -120,33 +124,8 @@ def reset_admin_password():
 def reset_download_api_credentials():
     researcher = Researcher.objects.get(username=session[SESSION_NAME])
     access_key, secret_key = researcher.reset_access_credentials()
-
-    msg = """<h3>Your Data-Download API access credentials have been reset!</h3>
-        <p>Your new <b>Access Key</b> is:
-          <div class="container-fluid">
-            <textarea rows="1" cols="85" readonly="readonly" onclick="this.focus();this.select()">%s</textarea></p>
-          </div>
-        <p>Your new <b>Secret Key</b> is:
-          <div class="container-fluid">
-            <textarea rows="1" cols="85" readonly="readonly" onclick="this.focus();this.select()">%s</textarea></p>
-          </div>
-        <p>Please record these somewhere; they will not be shown again!</p>""" \
-          % (access_key, secret_key)
-    flash(Markup(msg), 'warning')
+    flash(Markup(RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE % (access_key, secret_key)), 'warning')
     return redirect("/manage_credentials")
-
-
-def participant_tags(p: Participant):
-    return {tag.field.field_name: tag.value for tag in p.field_values.all()}
-
-
-class NewApiKeyForm(forms.Form):
-    readable_name = forms.CharField(required=False)
-
-    def clean(self):
-        super().clean()
-        self.cleaned_data['tableau_api_permission'] = True
-
 
 
 @admin_pages.route('/new_api_key', methods=['POST'])
@@ -156,23 +135,16 @@ def new_api_key():
     if not form.is_valid():
         return redirect(url_for("admin_pages.manage_credentials"))
     researcher = Researcher.objects.get(username=session[SESSION_NAME])
-    api_key = ApiKey.generate(researcher=researcher, has_tableau_api_permissions=form.cleaned_data['tableau_api_permission'], readable_name=form.cleaned_data['readable_name'])
-    msg = f"""<h3>New Data-Download API credentials have been generated for you!</h3>
-        <p>Your new <b>Access Key</b> is:
-          <div class="container-fluid">
-            <textarea rows="1" cols="85" readonly="readonly" onclick="this.focus();this.select()">{api_key.access_key_id}</textarea></p>
-          </div>
-        <p>Your new <b>Secret Key</b> is:
-          <div class="container-fluid">
-            <textarea rows="1" cols="85" readonly="readonly" onclick="this.focus();this.select()">{api_key.access_key_secret_plaintext}</textarea></p>
-          </div>
-        <p>Please record these somewhere; This secret key will not be shown again!</p>"""
+
+    api_key = ApiKey.generate(
+        researcher=researcher,
+        has_tableau_api_permissions=form.cleaned_data['tableau_api_permission'],
+        readable_name=form.cleaned_data['readable_name'],
+    )
+    # noinspection StrFormat
+    msg = NEW_API_KEY_MESSAGE % (api_key.access_key_id, api_key.access_key_secret_plaintext)
     flash(Markup(msg), 'warning')
     return redirect(url_for("admin_pages.manage_credentials"))
-
-
-class DisableApiKeyForm(forms.Form):
-    api_key_id = forms.CharField()
 
 
 @admin_pages.route('/disable_api_key', methods=['POST'])
@@ -202,6 +174,7 @@ def disable_api_key():
 def forest_status(study_id=None):
     study = Study.objects.get(pk=study_id)
     return redirect('/edit_study/{:d}'.format(study.id))
+
 
 @admin_pages.route('/study_analysis_progress/<string:study_id>', methods=['GET'])
 @authenticate_researcher_study_access

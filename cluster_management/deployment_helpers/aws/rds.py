@@ -66,7 +66,7 @@ def write_rds_credentials(eb_environment_name, credentials, test_for_existing_fi
     db_credentials_path = get_db_credentials_file_path(eb_environment_name)
     if test_for_existing_files and os.path.exists(db_credentials_path):
         msg = "Encountered a file at %s, aborting." % db_credentials_path
-        log.error("Encountered a file at %s, aborting.")
+        log.error(msg)
         raise Exception(msg)
 
     with open(db_credentials_path, 'w') as f:

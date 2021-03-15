@@ -2,6 +2,7 @@ import calendar
 import plistlib
 import time
 
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from flask import abort, Blueprint, json, render_template, request
 from werkzeug.datastructures import FileStorage
@@ -9,7 +10,10 @@ from werkzeug.datastructures import FileStorage
 from authentication.user_authentication import (authenticate_user, authenticate_user_registration,
     get_session_participant, minimal_validation)
 from config.constants import (ALLOWED_EXTENSIONS, ANDROID_FIREBASE_CREDENTIALS,
-    DEVICE_IDENTIFIERS_HEADER, IOS_FIREBASE_CREDENTIALS)
+    IOS_FIREBASE_CREDENTIALS)
+from constants.mobile_api import (DECRYPTION_KEY_ADDITIONAL_MESSAGE, DECRYPTION_KEY_ERROR_MESSAGE,
+    DEVICE_IDENTIFIERS_HEADER, EMPTY_FILE_ERROR, INVALID_EXTENSION_ERROR, NO_FILE_ERROR,
+    S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR, UNKNOWN_ERROR)
 from database.data_access_models import FileToProcess
 from database.profiling_models import DecryptionKeyError, UploadTracking
 from database.system_models import FileAsText
@@ -20,17 +24,7 @@ from libs.push_notification_config import repopulate_all_survey_scheduled_events
 from libs.s3 import get_client_private_key, get_client_public_key_string, s3_upload
 from libs.sentry import make_sentry_client, SentryTypes
 
-################################################################################
-############################# GLOBALS... #######################################
-################################################################################
 mobile_api = Blueprint('mobile_api', __name__)
-
-DECRYPTION_KEY_ERROR_MESSAGE = (
-    "This file did not contain a valid decryption key and could not be processed."
-)
-DECRYPTION_KEY_ADDITIONAL_MESSAGE = (
-    "This is an open bug: github.com/onnela-lab/beiwe-backend/issues/186"
-)
 
 ################################################################################
 ################################ UPLOADS #######################################
@@ -138,9 +132,22 @@ def upload(OS_API=""):
     # if uploaded data a) actually exists, B) is validly named and typed...
     if uploaded_file and file_name and contains_valid_extension(file_name):
         s3_upload(s3_file_location, uploaded_file, participant.study.object_id)
-        FileToProcess.append_file_for_processing(
-            s3_file_location, participant.study.object_id, participant=participant
-        )
+
+        # race condition: multiple _concurrent_ uploads with same file path. Behavior without
+        # try-except is correct, but we don't care about reporting it. Just send the device a 500
+        # error so it skips the file, the followup attempt receives 200 code and deletes the file.
+        try:
+            FileToProcess.append_file_for_processing(
+                s3_file_location, participant.study.object_id, participant=participant
+            )
+        except ValidationError as e:
+            # Real error is a second validation inside e.error_dict["s3_file_path"].
+            # Ew; just test for this string instead...
+            if S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR in str(e):
+                return abort(500)
+            else:
+                raise
+
         UploadTracking.objects.create(
             file_path=s3_file_location,
             file_size=len(uploaded_file),
@@ -150,27 +157,31 @@ def upload(OS_API=""):
         return render_template('blank.html'), 200
 
     else:
-        error_message = "an upload has failed " + patient_id + ", " + file_name + ", "
-        if not uploaded_file:
-            # it appears that occasionally the app creates some spurious files
-            # with a name like "rList-org.beiwe.app.LoadingActivity"
-            error_message += "there was no/an empty file, returning 200 OK so device deletes bad file."
-            log_error(Exception("upload error"), error_message)
-            return render_template('blank.html'), 200
+        return upload_error_report(uploaded_file, patient_id, file_name)
 
-        elif not file_name:
-            error_message += "there was no provided file name, this is an app error."
-        elif file_name and not contains_valid_extension(file_name):
-            error_message += "contains an invalid extension, it was interpreted as "
-            error_message += grab_file_extension(file_name)
-        else:
-            error_message += "AN UNKNOWN ERROR OCCURRED."
 
-        tags = {"upload_error": "upload error", "user_id": patient_id}
-        sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
-        sentry_client.captureMessage(error_message)
+def upload_error_report(uploaded_file: bytes, patient_id: str, file_name: str):
+    error_message = "an upload has failed " + patient_id + ", " + file_name + ", "
+    if not uploaded_file:
+        # it appears that occasionally the app creates some spurious files
+        # with a name like "rList-org.beiwe.app.LoadingActivity"
+        error_message += EMPTY_FILE_ERROR
+        log_error(Exception("upload error"), error_message)
+        return render_template('blank.html'), 200
 
-        return abort(400)
+    elif not file_name:
+        error_message += NO_FILE_ERROR
+    elif file_name and not contains_valid_extension(file_name):
+        error_message += INVALID_EXTENSION_ERROR
+        error_message += grab_file_extension(file_name)
+    else:
+        error_message += UNKNOWN_ERROR
+
+    tags = {"upload_error": "upload error", "user_id": patient_id}
+    sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
+    sentry_client.captureMessage(error_message)
+
+    return abort(400)
 
 
 ################################################################################

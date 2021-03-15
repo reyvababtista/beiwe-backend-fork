@@ -312,8 +312,6 @@ UPPERCASE_REGEX = "[A-Z]"
 NUMBER_REGEX = "[0-9]"
 PASSWORD_REQUIREMENT_REGEX_LIST = [SYMBOL_REGEX, LOWERCASE_REGEX, UPPERCASE_REGEX, NUMBER_REGEX]
 
-DEVICE_IDENTIFIERS_HEADER = "patient_id,MAC,phone_number,device_id,device_os,os_version,product,brand,hardware_id,manufacturer,model,beiwe_version\n"
-
 # Encryption constants
 ASYMMETRIC_KEY_LENGTH = 2048  # length of private/public keys
 ITERATIONS = 1000  # number of SHA iterations in password hashing

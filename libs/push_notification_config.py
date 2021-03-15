@@ -82,7 +82,7 @@ def check_firebase_instance(require_android=False, require_ios=False) -> bool:
     return True
 
 
-def update_firebase_instance() -> None:
+def update_firebase_instance(rucur_depth=3) -> None:
     """ Creates or destroys the firebase app, handling basic credential errors. """
     junk_creds = False
     encoded_credentials = None  # IDE complains
@@ -111,7 +111,13 @@ def update_firebase_instance() -> None:
     try:
         initialize_firebase_app(cert)
     except ValueError as e:
-        raise FirebaseMisconfigured(str(e))
+        # occasionally we do hit a race condition, handle that with 3 tries, comment in error message.
+        if rucur_depth >= 0:
+            return update_firebase_instance(rucur_depth - 1)
+        raise FirebaseMisconfigured(
+            "This error is usually caused by a race condition, please report it if this happens frequently: "
+            + str(e)
+        )
 
 
 def set_next_weekly(participant: Participant, survey: Survey) -> None:

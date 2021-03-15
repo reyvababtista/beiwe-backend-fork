@@ -1,5 +1,6 @@
 from django import forms
-from flask import Blueprint, flash, Markup, redirect, render_template, request, session, url_for
+from flask import (abort, Blueprint, flash, Markup, redirect, render_template, request, session,
+    url_for)
 
 from authentication import admin_authentication
 from authentication.admin_authentication import (authenticate_researcher_login,

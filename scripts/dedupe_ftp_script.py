@@ -1,3 +1,5 @@
+# this script is deprecated, the database key that caused this now has a unique constraint
+
 # add the root of the project into the path to allow cd-ing into this folder and running the script.
 from os.path import abspath
 from sys import path

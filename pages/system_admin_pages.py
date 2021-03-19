@@ -19,6 +19,7 @@ from libs.copy_study import copy_existing_study
 from libs.http_utils import checkbox_to_boolean, string_to_int
 from libs.push_notification_config import (get_firebase_credential_errors,
     update_firebase_instance)
+from libs.sentry import make_error_sentry, SentryTypes
 from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
 from pages.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID_SUCCESS_TEXT,
     ALERT_ANDROID_VALIDATION_FAILED_TEXT, ALERT_DECODE_ERROR_TEXT, ALERT_EMPTY_TEXT,
@@ -303,8 +304,15 @@ def create_study():
     duplicate_existing_study = request.form.get('copy_existing_study', None) == 'true'
     forest_enabled = request.form.get('forest_enabled', "").lower() == 'true'
 
-    if not (len(name) <= 2 ** 16) or escape(name) != name:
-        raise Exception("safety check on new study name failed")
+    if len(name) > 5000:
+        with make_error_sentry(SentryTypes.elastic_beanstalk):
+            raise Exception("Someone tried to create a study with a suspiciously long name.")
+        return abort(400)
+
+    if escape(name) != name:
+        with make_error_sentry(SentryTypes.elastic_beanstalk):
+            raise Exception("Someone tried to create a study with unsafe characters in its name.")
+        return abort(400)
 
     try:
         new_study = Study.create_with_object_id(name=name, encryption_key=encryption_key, is_test=is_test, forest_enabled=forest_enabled)

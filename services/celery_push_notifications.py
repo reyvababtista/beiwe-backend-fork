@@ -109,7 +109,6 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
         except UnregisteredError as e:
             # is an internal 404 http response, it means the token used was wrong.
             # mark the fcm history as out of date.
-
             return
 
         except QuotaExceededError:
@@ -124,6 +123,15 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
             if str(e) != "Auth error from APNS or Web Push Service":
                 raise
             return
+
+        except ValueError as e:
+            # This case occurs ever? is tested for in check_firebase_instance... weird race condition?
+            # Error should be transient, and like all other cases we enqueue the next weekly surveys regardless.
+            if "The default Firebase app does not exist" in str(e):
+                enqueue_weekly_surveys(participant, schedules)
+                return
+            else:
+                raise
 
         success_send_handler(participant, fcm_token, schedules)
 

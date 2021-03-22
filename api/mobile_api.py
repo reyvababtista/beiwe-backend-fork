@@ -84,6 +84,11 @@ def upload(OS_API=""):
     s3_file_location = file_name.replace("_", "/")
     participant = get_session_participant()
 
+    if participant.unregistered:
+        # in this case, return a 200 response to avoid the client device filling with undeletable
+        # data files
+        return render_template('blank.html'), 200
+
     # block duplicate FTPs.  Testing the upload history is too complex
     if FileToProcess.test_file_path_exists(s3_file_location, participant.study.object_id):
         return render_template('blank.html'), 200

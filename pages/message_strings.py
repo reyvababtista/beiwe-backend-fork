@@ -14,8 +14,7 @@ ALERT_ANDROID_VALIDATION_FAILED_TEXT = \
     """
     <div class="alert alert-danger" role="alert">
         <h3>There was an error in the processing the new android credentials!</h3>
-        <p>We are expecting a json file with a "project_info" field containing at least a "storage_bucket", 
-        "firebase_url", and "project_id"</p>
+        <p>We are expecting a json file with a "project_info" field and "project_id"</p>
     </div>
     """
 
@@ -61,8 +60,7 @@ ALERT_IOS_VALIDATION_FAILED_TEXT = \
     """
     <div class="alert alert-danger" role="alert">
         <h3>There was an error in the processing the new IOS credentials!</h3>
-        <p>We are expecting a plist file with at least the following keys: "STORAGE_BUCKET", "API_KEY" and 
-        "DATABASE_URL"</p>
+        <p>We are expecting a plist file with at least the "API_KEY" present.</p>
     </div>
     """
 

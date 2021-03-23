@@ -87,14 +87,13 @@ def get_session_researcher_study_ids():
 
 
 def validate_android_credentials(credentials):
-    """ Ensure basic formatting and field validation for android firebase credential json file uploads
-            the credentials argument should contain a decoded string of such a file """
+    """Ensure basic formatting and field validation for android firebase credential json file uploads
+    the credentials argument should contain a decoded string of such a file"""
     try:
         json_obj = json.dumps(credentials)
-        if ("project_info" not in json_obj or
-                "storage_bucket" not in json_obj or
-                "firebase_url" not in json_obj or
-                "project_id" not in json_obj):
+        # keys are inconsistent in presence, but these should be present in all.  (one is structure,
+        # one is a critical data point.)
+        if "project_info" not in json_obj or "project_id" not in json_obj:
             return False
     except Exception:
         return False
@@ -102,13 +101,13 @@ def validate_android_credentials(credentials):
 
 
 def validate_ios_credentials(credentials):
-    """ Ensure basic formatting and field validation for ios firebase credential plist file uploads
-                the credentials argument should contain a decoded string of such a file """
+    """Ensure basic formatting and field validation for ios firebase credential plist file uploads
+    the credentials argument should contain a decoded string of such a file"""
     try:
         plist_obj = plistlib.loads(str.encode(credentials))
-        if ("STORAGE_BUCKET" not in plist_obj or
-                "API_KEY" not in plist_obj or
-                "DATABASE_URL" not in plist_obj):
+        # ios has different key values than android, and they are somewhat opaque and inconsistently
+        # present when generated. Just test for API_KEY
+        if "API_KEY" not in plist_obj:
             return False
     except Exception:
         return False

@@ -30,7 +30,6 @@ mobile_api = Blueprint('mobile_api', __name__)
 ################################ UPLOADS #######################################
 ################################################################################
 
-
 @mobile_api.route('/upload', methods=['POST'])
 @mobile_api.route('/upload/ios/', methods=['GET', 'POST'])
 @determine_os_api
@@ -88,29 +87,7 @@ def upload(OS_API=""):
     if FileToProcess.test_file_path_exists(s3_file_location, participant.study.object_id):
         return render_template('blank.html'), 200
 
-    # Slightly different values for iOS vs Android behavior.
-    # Android sends the file data as standard form post parameter (request.values)
-    # iOS sends the file as a multipart upload (so ends up in request.files)
-    # if neither is found, consider the "body" of the post the file
-    # ("body" post is not currently used by any client, only here for completeness)
-    if "file" in request.files:
-        uploaded_file = request.files['file']
-    elif "file" in request.values:
-        uploaded_file = request.values['file']
-    else:
-        uploaded_file = request.data
-
-    # force the file to the correct object type.
-    if isinstance(uploaded_file, FileStorage):
-        uploaded_file = uploaded_file.read()
-    elif isinstance(uploaded_file, str):
-        uploaded_file = uploaded_file.encode()
-    elif isinstance(uploaded_file, bytes):
-        # not current behavior on any app
-        pass
-    else:
-        raise TypeError("uploaded_file was a %s" % type(uploaded_file))
-
+    uploaded_file = get_uploaded_file()
     client_private_key = get_client_private_key(patient_id, participant.study.object_id)
     try:
         uploaded_file = decrypt_device_file(patient_id, uploaded_file, client_private_key, participant)
@@ -189,6 +166,33 @@ def upload_error_report(uploaded_file: bytes, patient_id: str, file_name: str):
     sentry_client.captureMessage(error_message)
 
     return abort(400)
+
+
+def get_uploaded_file():
+    # Slightly different values for iOS vs Android behavior.
+    # Android sends the file data as standard form post parameter (request.values)
+    # iOS sends the file as a multipart upload (so ends up in request.files)
+    # if neither is found, consider the "body" of the post the file
+    # ("body" post is not currently used by any client, only here for completeness)
+    if "file" in request.files:
+        uploaded_file = request.files['file']
+    elif "file" in request.values:
+        uploaded_file = request.values['file']
+    else:
+        uploaded_file = request.data
+
+    # force the file to the correct object type.
+    if isinstance(uploaded_file, FileStorage):
+        uploaded_file = uploaded_file.read()
+    elif isinstance(uploaded_file, str):
+        uploaded_file = uploaded_file.encode()
+    elif isinstance(uploaded_file, bytes):
+        # not current behavior on any app
+        pass
+    else:
+        raise TypeError("uploaded_file was a %s" % type(uploaded_file))
+
+    return uploaded_file
 
 
 ################################################################################

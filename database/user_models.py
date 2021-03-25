@@ -161,8 +161,8 @@ class Participant(AbstractPasswordUser):
         ).order_by("-scheduled_time")
 
     def get_private_key(self):
-        from libs.s3 import get_client_private_key
-        get_client_private_key(self.patient_id, self.study.object_id)
+        from libs.s3 import get_client_private_key  # weird import triangle
+        return get_client_private_key(self.patient_id, self.study.object_id)
 
     def __str__(self):
         return '{} {} of Study {}'.format(self.__class__.__name__, self.patient_id, self.study.name)

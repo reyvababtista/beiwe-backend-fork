@@ -11,20 +11,21 @@ from authentication.user_authentication import (authenticate_user, authenticate_
     get_session_participant, minimal_validation)
 from config.constants import (ALLOWED_EXTENSIONS, ANDROID_FIREBASE_CREDENTIALS,
     IOS_FIREBASE_CREDENTIALS)
+from config.settings import REPORT_DECRYPTION_KEY_ERRORS
 from constants.mobile_api import (DECRYPTION_KEY_ADDITIONAL_MESSAGE, DECRYPTION_KEY_ERROR_MESSAGE,
-    DEVICE_IDENTIFIERS_HEADER, EMPTY_FILE_ERROR, INVALID_EXTENSION_ERROR, NO_FILE_ERROR,
+    DEVICE_IDENTIFIERS_HEADER, INVALID_EXTENSION_ERROR, NO_FILE_ERROR,
     S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR, UNKNOWN_ERROR)
 from database.data_access_models import FileToProcess
 from database.profiling_models import DecryptionKeyError, UploadTracking
 from database.system_models import FileAsText
 from libs.encryption import decrypt_device_file, DecryptionKeyInvalidError, HandledError
 from libs.http_utils import determine_os_api
-from libs.logging import log_error
 from libs.push_notification_config import repopulate_all_survey_scheduled_events
-from libs.s3 import get_client_private_key, get_client_public_key_string, s3_upload
+from libs.s3 import get_client_public_key_string, s3_upload
 from libs.sentry import make_sentry_client, SentryTypes
 
 mobile_api = Blueprint('mobile_api', __name__)
+
 
 ################################################################################
 ################################ UPLOADS #######################################
@@ -74,13 +75,11 @@ def upload(OS_API=""):
     file_name = request.values['file_name']
     if (
         file_name.startswith("rList")
-        or "crashlog" in file_name.lower()
         or file_name.startswith("PersistedInstallation")
     ):
         return render_template('blank.html'), 200
 
     s3_file_location = file_name.replace("_", "/")
-    patient_id = request.values['patient_id']
     participant = get_session_participant()
 
     # block duplicate FTPs.  Testing the upload history is too complex
@@ -88,32 +87,26 @@ def upload(OS_API=""):
         return render_template('blank.html'), 200
 
     uploaded_file = get_uploaded_file()
-    client_private_key = get_client_private_key(patient_id, participant.study.object_id)
     try:
-        uploaded_file = decrypt_device_file(patient_id, uploaded_file, client_private_key, participant)
-    except HandledError as e:
-        # when decrypting fails, regardless of why, we rely on the decryption code
-        # to log it correctly and return 200 OK to get the device to delete the file.
-        # We do not want emails on these types of errors, so we use log_error explicitly.
-        # this log statement hasn't been valuable since 2015, turning it off.
-        # log_error(e, "%s; %s; %s" % (patient_id, file_name, e))
+        uploaded_file = decrypt_device_file(uploaded_file, participant)
+    except HandledError:
         return render_template('blank.html'), 200
-
     except DecryptionKeyInvalidError:
         # when the decryption key is invalid the file is lost.  Nothing we can do.
         # record the event, send the device a 200 so it can clear out the file.
-        tags = {
-            "participant": patient_id,
-            "operating system": "ios" if "ios" in request.path.lower() else "android",
-            "DecryptionKeyError id": str(DecryptionKeyError.objects.last().id),
-            "file_name": file_name,
-            "bug_report": DECRYPTION_KEY_ADDITIONAL_MESSAGE,
-        }
-        sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
-        sentry_client.captureMessage(DECRYPTION_KEY_ERROR_MESSAGE)
+        if REPORT_DECRYPTION_KEY_ERRORS:
+            tags = {
+                "participant": participant.patient_id,
+                "operating system": "ios" if "ios" in request.path.lower() else "android",
+                "DecryptionKeyError id": str(DecryptionKeyError.objects.last().id),
+                "file_name": file_name,
+                "bug_report": DECRYPTION_KEY_ADDITIONAL_MESSAGE,
+            }
+            sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
+            sentry_client.captureMessage(DECRYPTION_KEY_ERROR_MESSAGE)
         return render_template('blank.html'), 200
 
-    # if uploaded data a) actually exists, B) is validly named and typed...
+    # if uploaded data actually exists, and has a valid extension
     if uploaded_file and file_name and contains_valid_extension(file_name):
         s3_upload(s3_file_location, uploaded_file, participant.study.object_id)
 
@@ -128,6 +121,7 @@ def upload(OS_API=""):
             # Real error is a second validation inside e.error_dict["s3_file_path"].
             # Ew; just test for this string instead...
             if S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR in str(e):
+                # this tells the device to just move on to the next file, try again later.
                 return abort(500)
             else:
                 raise
@@ -140,34 +134,15 @@ def upload(OS_API=""):
         )
         return render_template('blank.html'), 200
 
-    else:
-        return upload_error_report(uploaded_file, patient_id, file_name)
-
-
-def upload_error_report(uploaded_file: bytes, patient_id: str, file_name: str):
-    error_message = "an upload has failed " + patient_id + ", " + file_name + ", "
-    if not uploaded_file:
-        # it appears that occasionally the app creates some spurious files
-        # with a name like "rList-org.beiwe.app.LoadingActivity"
-        error_message += EMPTY_FILE_ERROR
-        log_error(Exception("upload error"), error_message)
+    elif not uploaded_file:
+        # if the file turns out to be empty, delete it, we simply do not care.
         return render_template('blank.html'), 200
-
-    elif not file_name:
-        error_message += NO_FILE_ERROR
-    elif file_name and not contains_valid_extension(file_name):
-        error_message += INVALID_EXTENSION_ERROR
-        error_message += grab_file_extension(file_name)
     else:
-        error_message += UNKNOWN_ERROR
-
-    tags = {"upload_error": "upload error", "user_id": patient_id}
-    sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
-    sentry_client.captureMessage(error_message)
-
-    return abort(400)
+        return make_upload_error_report(participant.patient_id, file_name)
 
 
+# todo: this function exists to handle some ancient behavior, it definitely has details
+#  that can be removed, and an error case that can probably go too.
 def get_uploaded_file():
     # Slightly different values for iOS vs Android behavior.
     # Android sends the file data as standard form post parameter (request.values)
@@ -193,6 +168,23 @@ def get_uploaded_file():
         raise TypeError("uploaded_file was a %s" % type(uploaded_file))
 
     return uploaded_file
+
+
+def make_upload_error_report(patient_id: str, file_name: str):
+    """ Does the work of packaging up a useful error message. """
+    error_message = "an upload has failed " + patient_id + ", " + file_name + ", "
+    if not file_name:
+        error_message += NO_FILE_ERROR
+    elif file_name and not contains_valid_extension(file_name):
+        error_message += INVALID_EXTENSION_ERROR
+        error_message += grab_file_extension(file_name)
+    else:
+        error_message += UNKNOWN_ERROR
+
+    tags = {"upload_error": "upload error", "user_id": patient_id}
+    sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
+    sentry_client.captureMessage(error_message)
+    return abort(400)
 
 
 ################################################################################

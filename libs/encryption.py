@@ -7,10 +7,11 @@ from Cryptodome.Cipher import AES
 from flask import request
 
 from config.constants import ASYMMETRIC_KEY_LENGTH
-from config.settings import IS_STAGING
+from config.settings import IS_STAGING, STORE_DECRYPTION_KEY_ERRORS
 from database.profiling_models import (DecryptionKeyError, EncryptionErrorMetadata,
     LineEncryptionError)
 from database.study_models import Study
+from database.user_models import Participant
 from libs.logging import log_error
 from libs.security import Base64LengthException, decode_base64, encode_base64, PaddingException
 
@@ -87,16 +88,15 @@ def decrypt_server(data: bytes, study_object_id: str) -> bytes:
         object_id=study_object_id
     ).values_list('encryption_key', flat=True).get().encode()
     iv = data[:16]
-    data = data[16:]
+    data = data[16:]  # gr arg, memcopy operation...
     return AES.new(encryption_key, AES.MODE_CFB, segment_size=8, IV=iv).decrypt(data)
 
 
 ########################### User/Device Decryption #############################
 
 
-def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, user) -> bytes:
-    """ Runs the line-by-line decryption of a file encrypted by a device.
-    This function is a special handler for iOS file uploads. """
+def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes:
+    """ Runs the line-by-line decryption of a file encrypted by a device.  """
 
     def create_line_error_db_entry(error_type):
         # declaring this inside decrypt device file to access its function-global variables
@@ -107,26 +107,32 @@ def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, us
                 line=encode_base64(line),
                 prev_line=encode_base64(file_data[i - 1] if i > 0 else ''),
                 next_line=encode_base64(file_data[i + 1] if i < len(file_data) - 1 else ''),
-                participant=user,
+                participant=participant,
             )
 
     def create_decryption_key_error(an_traceback):
-        DecryptionKeyError.objects.create(
-                file_path=request.values['file_name'],
-                contents=original_data.decode(),
-                traceback=an_traceback,
-                participant=user,
-        )
+        if STORE_DECRYPTION_KEY_ERRORS:
+            DecryptionKeyError.objects.create(
+                    file_path=request.values['file_name'],
+                    contents=original_data.decode(),
+                    traceback=an_traceback,
+                    participant=participant,
+            )
     
     bad_lines = []
     error_types = []
     error_count = 0
     good_lines = []
+
+    # don't refactor to pop the decryption key line out of the file_data list, this list
+    # can be thousands of lines.  Also, this line is a 2x memcopy with N new bytes objects.
     file_data = [line for line in original_data.split(b'\n') if line != b""]
     
     if not file_data:
         raise HandledError("The file had no data in it.  Return 200 to delete file from device.")
-    
+
+    private_key_cipher = participant.get_private_key()
+
     # The following code is strange because of an unfortunate design design decision made quite
     # some time ago: the decryption key is encoded as base64 twice, once wrapping the output of the
     # RSA encryption, and once wrapping the AES decryption key.
@@ -162,7 +168,7 @@ def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, us
             continue
             
         try:
-            good_lines.append(decrypt_device_line(patient_id, decrypted_key, line))
+            good_lines.append(decrypt_device_line(participant.patient_id, decrypted_key, line))
         except Exception as error_orig:
             error_string = str(error_orig)
             error_count += 1
@@ -201,7 +207,7 @@ def decrypt_device_file(patient_id, original_data: bytes, private_key_cipher, us
                 create_line_error_db_entry(LineEncryptionError.MALFORMED_CONFIG)
                 error_types.append(LineEncryptionError.MALFORMED_CONFIG)
                 bad_lines.append(line)
-                #the config is not colon separated correctly, this is a single
+                # the config is not colon separated correctly, this is a single
                 # line error, we can just drop it.
                 # implies an interrupted write operation (or read)
                 continue

@@ -1,6 +1,7 @@
 import json
 import traceback
 from os import urandom
+from typing import List
 
 from Crypto.PublicKey import RSA
 from Cryptodome.Cipher import AES
@@ -12,7 +13,6 @@ from database.profiling_models import (DecryptionKeyError, EncryptionErrorMetada
     LineEncryptionError)
 from database.study_models import Study
 from database.user_models import Participant
-from libs.logging import log_error
 from libs.security import Base64LengthException, decode_base64, encode_base64, PaddingException
 
 
@@ -103,20 +103,11 @@ def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes
         if IS_STAGING:
             LineEncryptionError.objects.create(
                 type=error_type,
-                base64_decryption_key=private_key_cipher.decrypt(decoded_key),
+                base64_decryption_key=encode_base64(aes_decryption_key),
                 line=encode_base64(line),
                 prev_line=encode_base64(file_data[i - 1] if i > 0 else ''),
                 next_line=encode_base64(file_data[i + 1] if i < len(file_data) - 1 else ''),
                 participant=participant,
-            )
-
-    def create_decryption_key_error(an_traceback):
-        if STORE_DECRYPTION_KEY_ERRORS:
-            DecryptionKeyError.objects.create(
-                    file_path=request.values['file_name'],
-                    contents=original_data.decode(),
-                    traceback=an_traceback,
-                    participant=participant,
             )
     
     bad_lines = []
@@ -127,31 +118,12 @@ def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes
     # don't refactor to pop the decryption key line out of the file_data list, this list
     # can be thousands of lines.  Also, this line is a 2x memcopy with N new bytes objects.
     file_data = [line for line in original_data.split(b'\n') if line != b""]
-    
+
     if not file_data:
         raise HandledError("The file had no data in it.  Return 200 to delete file from device.")
 
     private_key_cipher = participant.get_private_key()
-
-    # The following code is strange because of an unfortunate design design decision made quite
-    # some time ago: the decryption key is encoded as base64 twice, once wrapping the output of the
-    # RSA encryption, and once wrapping the AES decryption key.
-    # The second of the two except blocks likely means that the device failed to write the encryption
-    # key as the first line of the file, but it may be a valid (but undecryptable) line of the file.
-    try:
-        decoded_key = decode_base64(file_data[0])
-    except (TypeError, IndexError, PaddingException, Base64LengthException) as decode_error:
-        create_decryption_key_error(traceback.format_exc())
-        raise DecryptionKeyInvalidError("invalid decryption key. %s" % decode_error)
-
-    try:
-        base64_key = private_key_cipher.decrypt(decoded_key)
-        decrypted_key = decode_base64(base64_key)
-        if not decrypted_key:
-            raise TypeError(f"decoded key was '{decrypted_key}'")
-    except (TypeError, IndexError, PaddingException, Base64LengthException) as decr_error:
-        create_decryption_key_error(traceback.format_exc())
-        raise DecryptionKeyInvalidError("invalid decryption key. %s" % decr_error)
+    aes_decryption_key = extract_aes_key(file_data, participant, private_key_cipher, original_data)
 
     for i, line in enumerate(file_data):
         # we need to skip the first line (the decryption key), but need real index values in i
@@ -168,7 +140,7 @@ def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes
             continue
             
         try:
-            good_lines.append(decrypt_device_line(participant.patient_id, decrypted_key, line))
+            good_lines.append(decrypt_device_line(participant.patient_id, aes_decryption_key, line))
         except Exception as error_orig:
             error_string = str(error_orig)
             error_count += 1
@@ -177,24 +149,22 @@ def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes
             if isinstance(error_orig, (Base64LengthException, PaddingException)):
                 # this case used to also catch IndexError, this probably changed after python3 upgrade
                 error_message += "Something is wrong with data padding:\n\tline: %s" % line
-                log_error(error_string, error_message)
                 create_line_error_db_entry(LineEncryptionError.PADDING_ERROR)
                 error_types.append(LineEncryptionError.PADDING_ERROR)
                 bad_lines.append(line)
                 continue
 
-            if isinstance(error_orig, TypeError) and decrypted_key is None:
-                error_message += "The key was empty:\n\tline: %s" % line
-                log_error(error_string, error_message)
-                create_line_error_db_entry(LineEncryptionError.EMPTY_KEY)
-                error_types.append(LineEncryptionError.EMPTY_KEY)
-                bad_lines.append(line)
-                continue
+            # case not reachable, decryption key has validation logic.
+            # if isinstance(error_orig, TypeError) and aes_decryption_key is None:
+            #     error_message += "The key was empty:\n\tline: %s" % line
+            #     create_line_error_db_entry(LineEncryptionError.EMPTY_KEY)
+            #     error_types.append(LineEncryptionError.EMPTY_KEY)
+            #     bad_lines.append(line)
+            #     continue
 
-            # untested, error should be caught as a decryption key error above
+            # untested, error should be caught as a decryption key error
             # if isinstance(error_orig, ValueError) and "Key cannot be the null string" in error_string:
             #     error_message += "The key was the null string:\n\tline: %s" % line
-            #     log_error(error_string, error_message)
             #     create_line_error_db_entry(LineEncryptionError.EMPTY_KEY)
             #     error_types.append(LineEncryptionError.EMPTY_KEY)
             #     bad_lines.append(line)
@@ -203,7 +173,6 @@ def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes
             ################### skip these errors ##############################
             if "unpack" in error_string:
                 error_message += "malformed line of config, dropping it and continuing."
-                log_error(error_string, error_message)
                 create_line_error_db_entry(LineEncryptionError.MALFORMED_CONFIG)
                 error_types.append(LineEncryptionError.MALFORMED_CONFIG)
                 bad_lines.append(line)
@@ -214,7 +183,6 @@ def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes
                 
             if "Input strings must be a multiple of 16 in length" in error_string:
                 error_message += "Line was of incorrect length, dropping it and continuing."
-                log_error(error_string, error_message)
                 create_line_error_db_entry(LineEncryptionError.INVALID_LENGTH)
                 error_types.append(LineEncryptionError.INVALID_LENGTH)
                 bad_lines.append(line)
@@ -222,7 +190,6 @@ def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes
                 
             if isinstance(error_orig, InvalidData):
                 error_message += "Line contained no data, skipping: " + str(line)
-                log_error(error_string, error_message)
                 create_line_error_db_entry(LineEncryptionError.LINE_EMPTY)
                 error_types.append(LineEncryptionError.LINE_EMPTY)
                 bad_lines.append(line)
@@ -230,23 +197,28 @@ def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes
                 
             if isinstance(error_orig, InvalidIV):
                 error_message += "Line contained no iv, skipping: " + str(line)
-                log_error(error_string, error_message)
                 create_line_error_db_entry(LineEncryptionError.IV_MISSING)
                 error_types.append(LineEncryptionError.IV_MISSING)
                 bad_lines.append(line)
                 continue
-                
-            ##################### flip out on these errors #####################
-            if 'AES key' in error_string:
-                error_message += "AES key has bad length."
-                create_line_error_db_entry(LineEncryptionError.AES_KEY_BAD_LENGTH)
-                error_types.append(LineEncryptionError.AES_KEY_BAD_LENGTH)
-                bad_lines.append(line)
+
             elif 'IV must be' in error_string:
+                # shifted this to an okay-to-proceed line error March 2021.
                 error_message += "iv has bad length."
                 create_line_error_db_entry(LineEncryptionError.IV_BAD_LENGTH)
                 error_types.append(LineEncryptionError.IV_BAD_LENGTH)
                 bad_lines.append(line)
+                continue
+
+            # Give up on these errors:
+            # should be handled in decryption key validation.
+            # if 'AES key' in error_string:
+            #     error_message += "AES key has bad length."
+            #     create_line_error_db_entry(LineEncryptionError.AES_KEY_BAD_LENGTH)
+            #     error_types.append(LineEncryptionError.AES_KEY_BAD_LENGTH)
+            #     bad_lines.append(line)
+            #     raise HandledError(error_message)
+
             elif 'Incorrect padding' in error_string:
                 error_message += "base64 padding error, config is truncated."
                 create_line_error_db_entry(LineEncryptionError.MP4_PADDING)
@@ -256,12 +228,11 @@ def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes
                 #  upload during write operation.
                 #  broken base64 conversion in the app
                 #  some unanticipated error in the file upload
+                raise HandledError(error_message)
             else:
                 # If none of the above errors happened, raise the error raw
                 raise
-            raise HandledError(error_message)
-            # if any of them did happen, raise a HandledError to cease execution.
-    
+
     if error_count:
         EncryptionErrorMetadata.objects.create(
             file_name=request.values['file_name'],
@@ -270,11 +241,81 @@ def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes
             # generator comprehension:
             error_lines=json.dumps( (str(line for line in bad_lines)) ),
             error_types=json.dumps(error_types),
-            participant=user,
+            participant=participant,
         )
 
     # join should be rather well optimized and not cause O(n^2) total memory copies
     return b"\n".join(good_lines)
+
+
+def extract_aes_key(
+        file_data: List[bytes], participant: Participant, private_key_cipher, original_data: bytes
+) -> bytes:
+
+    # The following code is ... strange because of an unfortunate design design decision made
+    # quite some time ago: the decryption key is encoded as base64 twice, once wrapping the
+    # output of the RSA encryption, and once wrapping the AES decryption key.  This happened
+    # because I was not an experienced developer at the time, python2's unified string-bytes
+    # class didn't exactly help, and java io is... java io.
+    urlsafe_base64_characters = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+
+    def create_decryption_key_error(an_traceback):
+        # helper function with local variable access.
+        # do not refactor to include raising the error in this function, that obfuscates the source.
+        if STORE_DECRYPTION_KEY_ERRORS:
+            DecryptionKeyError.objects.create(
+                    file_path=request.values['file_name'],
+                    contents=original_data.decode(),
+                    traceback=an_traceback,
+                    participant=participant,
+            )
+
+    try:
+        key_base64_raw: bytes = file_data[0]
+    except IndexError:
+        # probably not reachable due to test for emptiness prior in code; keep just in case...
+        create_decryption_key_error(traceback.format_exc())
+        raise DecryptionKeyInvalidError("There was no decryption key.")
+
+    # I hereby acknowledge that the below code is gross; leave it.
+    for c in key_base64_raw:
+        if c not in urlsafe_base64_characters:
+            # need a stack trace....
+            try:
+                raise DecryptionKeyInvalidError(f"Decryption key not base64 encoded: {key_base64_raw}")
+            except DecryptionKeyInvalidError:
+                create_decryption_key_error(traceback.format_exc())
+                raise
+
+    # handle the various cases that can occur when extracting from base64.
+    try:
+        decoded_key: bytes = decode_base64(key_base64_raw)
+    except (TypeError, PaddingException, Base64LengthException) as decode_error:
+        create_decryption_key_error(traceback.format_exc())
+        raise DecryptionKeyInvalidError(f"Invalid decryption key: {decode_error}")
+
+    # If the decoded bits of the key is not exactly 128 bits (16 bytes) that probably means that
+    # the RSA encryption failed - this occurs when the first byte of the encrypted blob is all
+    # zeros.  Apps require an update to solve this (in a future rewrite we should use a padding
+    # algorithm).
+    if len(decoded_key) != 16:
+        # need a stack trace....
+        try:
+            raise DecryptionKeyInvalidError(f"Decryption key not 128 bits: {decoded_key}")
+        except DecryptionKeyInvalidError:
+            create_decryption_key_error(traceback.format_exc())
+            raise
+
+    try:
+        base64_key = private_key_cipher.decrypt(decoded_key)
+        decrypted_key = decode_base64(base64_key)
+        if not decrypted_key:
+            raise TypeError(f"decoded key was '{decrypted_key}'")
+    except (TypeError, IndexError, PaddingException, Base64LengthException) as decr_error:
+        create_decryption_key_error(traceback.format_exc())
+        raise DecryptionKeyInvalidError(f"Invalid decryption key: {decr_error}")
+
+    return decrypted_key
 
 
 def decrypt_device_line(patient_id, key, data: bytes) -> bytes:

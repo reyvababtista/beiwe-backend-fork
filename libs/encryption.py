@@ -9,6 +9,7 @@ from flask import request
 
 from config.constants import ASYMMETRIC_KEY_LENGTH
 from config.settings import IS_STAGING, STORE_DECRYPTION_KEY_ERRORS
+from constants.mobile_api import URLSAFE_BASE64_CHARACTERS
 from database.profiling_models import (DecryptionKeyError, EncryptionErrorMetadata,
     LineEncryptionError)
 from database.study_models import Study
@@ -251,18 +252,17 @@ def decrypt_device_file(original_data: bytes, participant: Participant) -> bytes
 def extract_aes_key(
         file_data: List[bytes], participant: Participant, private_key_cipher, original_data: bytes
 ) -> bytes:
-
     # The following code is ... strange because of an unfortunate design design decision made
     # quite some time ago: the decryption key is encoded as base64 twice, once wrapping the
     # output of the RSA encryption, and once wrapping the AES decryption key.  This happened
     # because I was not an experienced developer at the time, python2's unified string-bytes
     # class didn't exactly help, and java io is... java io.
-    urlsafe_base64_characters = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
 
     def create_decryption_key_error(an_traceback):
         # helper function with local variable access.
         # do not refactor to include raising the error in this function, that obfuscates the source.
         if STORE_DECRYPTION_KEY_ERRORS:
+
             DecryptionKeyError.objects.create(
                     file_path=request.values['file_name'],
                     contents=original_data.decode(),
@@ -272,14 +272,16 @@ def extract_aes_key(
 
     try:
         key_base64_raw: bytes = file_data[0]
+        # print(f"key_base64_raw: {key_base64_raw}")
     except IndexError:
         # probably not reachable due to test for emptiness prior in code; keep just in case...
         create_decryption_key_error(traceback.format_exc())
         raise DecryptionKeyInvalidError("There was no decryption key.")
 
-    # I hereby acknowledge that the below code is gross; leave it.
+    # Test that every "character" (they are 8 bit bytes) in the byte-string of the raw key is
+    # a valid url-safe base64 character, this will cut out certain junk files too.
     for c in key_base64_raw:
-        if c not in urlsafe_base64_characters:
+        if c not in URLSAFE_BASE64_CHARACTERS:
             # need a stack trace....
             try:
                 raise DecryptionKeyInvalidError(f"Decryption key not base64 encoded: {key_base64_raw}")
@@ -290,30 +292,34 @@ def extract_aes_key(
     # handle the various cases that can occur when extracting from base64.
     try:
         decoded_key: bytes = decode_base64(key_base64_raw)
+        # print(f"decoded_key: {decoded_key}")
     except (TypeError, PaddingException, Base64LengthException) as decode_error:
         create_decryption_key_error(traceback.format_exc())
         raise DecryptionKeyInvalidError(f"Invalid decryption key: {decode_error}")
 
-    # If the decoded bits of the key is not exactly 128 bits (16 bytes) that probably means that
-    # the RSA encryption failed - this occurs when the first byte of the encrypted blob is all
-    # zeros.  Apps require an update to solve this (in a future rewrite we should use a padding
-    # algorithm).
-    if len(decoded_key) != 16:
-        # need a stack trace....
-        try:
-            raise DecryptionKeyInvalidError(f"Decryption key not 128 bits: {decoded_key}")
-        except DecryptionKeyInvalidError:
-            create_decryption_key_error(traceback.format_exc())
-            raise
-
     try:
         base64_key = private_key_cipher.decrypt(decoded_key)
+        # print(f"base64_key: {len(base64_key)} {base64_key}")
         decrypted_key = decode_base64(base64_key)
+        # print(f"decrypted_key: {len(decrypted_key)} {decrypted_key}")
         if not decrypted_key:
             raise TypeError(f"decoded key was '{decrypted_key}'")
     except (TypeError, IndexError, PaddingException, Base64LengthException) as decr_error:
         create_decryption_key_error(traceback.format_exc())
         raise DecryptionKeyInvalidError(f"Invalid decryption key: {decr_error}")
+
+    # If the decoded bits of the key is not exactly 128 bits (16 bytes) that probably means that
+    # the RSA encryption failed - this occurs when the first byte of the encrypted blob is all
+    # zeros.  Apps require an update to solve this (in a future rewrite we should use a padding
+    # algorithm).
+    if len(decrypted_key) != 16:
+        # print(len(decrypted_key))
+        # need a stack trace....
+        try:
+            raise DecryptionKeyInvalidError(f"Decryption key not 128 bits: {decrypted_key}")
+        except DecryptionKeyInvalidError:
+            create_decryption_key_error(traceback.format_exc())
+            raise
 
     return decrypted_key
 

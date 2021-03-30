@@ -13,3 +13,6 @@ NO_FILE_ERROR = "there was no provided file name, this is an app error."
 EMPTY_FILE_ERROR = "there was no/an empty file, returning 200 OK so device deletes bad file."
 
 DEVICE_IDENTIFIERS_HEADER = "patient_id,MAC,phone_number,device_id,device_os,os_version,product,brand,hardware_id,manufacturer,model,beiwe_version\n"
+
+# this is a set of integers (bytes, technically), it is faster than testing bytes
+URLSAFE_BASE64_CHARACTERS = set(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-=")

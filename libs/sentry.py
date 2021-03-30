@@ -5,7 +5,6 @@ from raven.transport import HTTPTransport
 
 from config.settings import (SENTRY_DATA_PROCESSING_DSN, SENTRY_ELASTIC_BEANSTALK_DSN,
     SENTRY_JAVASCRIPT_DSN)
-from libs.logging import log_error
 
 
 class SentryTypes:
@@ -60,8 +59,7 @@ def make_error_sentry(sentry_type:str, tags:dict=None, null:bool=False):
             sentry_client_kwargs={'tags': tags, 'transport': HTTPTransport},
             sentry_report_limit=10
         )
-    except InvalidDsn as e:
-        log_error(e)
+    except InvalidDsn:
         if null:
             return NullErrorHandler()
         else:

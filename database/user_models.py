@@ -115,6 +115,7 @@ class Participant(AbstractPasswordUser):
 
     deleted = models.BooleanField(default=False)
 
+    # "Unregistered" means the participant is blocked from uploading further data.
     unregistered = models.BooleanField(default=False)
 
     @classmethod

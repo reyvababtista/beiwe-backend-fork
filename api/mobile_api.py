@@ -85,8 +85,10 @@ def upload(OS_API=""):
     participant = get_session_participant()
 
     if participant.unregistered:
-        # in this case, return a 200 response to avoid the client device filling with undeletable
-        # data files
+        # "Unregistered" participants are blocked from uploading further data.
+        # If the participant is unregistered, throw away the data file, but
+        # return a 200 "OK" status to the phone so the phone decides it can
+        # safely delete the file.
         return render_template('blank.html'), 200
 
     # block duplicate FTPs.  Testing the upload history is too complex

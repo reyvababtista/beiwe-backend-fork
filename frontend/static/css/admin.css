@@ -62,3 +62,8 @@ td.custom-field-value:hover span.custom-field-edit-link {
 .oneline {
     display: inline-block;
 }
+
+table>tbody>tr>td.viewParticipantTable {
+    padding-top: 15px;
+    padding-bottom: 15px;
+}

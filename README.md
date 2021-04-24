@@ -1,5 +1,5 @@
 <p align="left">
-  <img width="352" height="132" src="https://github.com/onnela-lab/beiwe-backend/blob/master/beiwe-logo-color.png">
+  <img width="299" height="112" src="https://github.com/onnela-lab/beiwe-backend/blob/master/beiwe-logo-color.png">
 </p>
 
 

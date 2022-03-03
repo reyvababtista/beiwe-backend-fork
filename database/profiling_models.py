@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import Dict, List
 
 from django.db import models
 from django.utils import timezone
@@ -90,12 +91,14 @@ class UploadTracking(TimestampedModel):
     def re_add_files_to_process(cls, number=100):
         """ Re-adds the most recent [number] files that have been uploaded recently to FiletToProcess.
             (this is fairly optimized because it is part of debugging file processing) """
+        
         from database.data_access_models import FileToProcess
         uploads = cls.objects.order_by("-created_on").values_list(
             "file_path", "participant__study_id", "participant_id"
         )[:number]
-        new_ftps = []
-        participant_cache = {}  # uhg need to cache participants...
+        new_ftps: List[FileToProcess] = []
+        participant: Participant
+        participant_cache: Dict[Participant] = {}  # uhg need to cache participants...
         for i, (file_path, study_id, participant_id) in enumerate(uploads):
             if participant_id in participant_cache:
                 participant = participant_cache[participant_id]
@@ -113,7 +116,8 @@ class UploadTracking(TimestampedModel):
             new_ftps.append(FileToProcess(
                 s3_file_path=file_path,
                 study_id=study_id,
-                participant=participant
+                participant=participant,
+                os_type=participant.os_type,
             ))
         FileToProcess.objects.bulk_create(
             new_ftps
@@ -194,7 +198,7 @@ class UploadTracking(TimestampedModel):
         for i, (file_path, file_size, participant) in enumerate(query):
             # global stats
             data["totals"]["total_count"] += 1
-            data["totals"]["total_megabytes"] += file_size/ 1024. / 1024.
+            data["totals"]["total_megabytes"] += file_size / 1024. / 1024.
             data["totals"]["users"].add(participant)
             
             # get data stream type from file_path (woops, ios log broke this code, fixed)
@@ -204,7 +208,7 @@ class UploadTracking(TimestampedModel):
             
             file_type = UPLOAD_FILE_TYPE_MAPPING[path_extraction]
             # update per-data-stream information
-            data[file_type]["megabytes"] += file_size/ 1024. / 1024.
+            data[file_type]["megabytes"] += file_size / 1024. / 1024.
             data[file_type]["count"] += 1
             
             if get_usernames:

@@ -1,6 +1,7 @@
 import functools
 from typing import Tuple
 
+from django.http import UnreadablePostError
 from django.http.request import HttpRequest
 
 from constants.security_constants import BASE64_GENERIC_ALLOWED_CHARACTERS, OBJECT_ID_ALLOWED_CHARS
@@ -110,8 +111,11 @@ def api_check_researcher_study_access(request: ResearcherRequest, block_test_stu
 
 def api_get_and_validate_credentials(request: HttpRequest) -> Tuple[str, str]:
     """ Sanitize access and secret keys from request """
-    access_key = request.POST.get("access_key", None)
-    secret_key = request.POST.get("secret_key", None)
+    try:
+        access_key = request.POST.get("access_key", None)
+        secret_key = request.POST.get("secret_key", None)
+    except UnreadablePostError:
+        return abort(500)
     
     # reject empty strings and value-not-present cases
     if not access_key or not secret_key:
@@ -159,9 +163,12 @@ def api_get_study_confirm_exists(request: ResearcherRequest) -> Study:
     Study object id malformed (not 24 characters) causes 400 error.
     Study does not exist in our database causes 404 error.
     """
-    study_object_id = request.POST.get('study_id', None)
-    study_pk = request.POST.get('study_pk', None)
-    
+    try:
+        study_object_id = request.POST.get('study_id', None)
+        study_pk = request.POST.get('study_pk', None)
+    except UnreadablePostError:
+        return abort(500)
+
     if study_object_id is not None:
         
         # If the ID is incorrectly sized, we return a 400

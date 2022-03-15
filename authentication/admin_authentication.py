@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 from django.contrib import messages
+from django.http import UnreadablePostError
 from django.http.request import HttpRequest
 from django.shortcuts import redirect
 from django.utils import timezone
@@ -170,9 +171,12 @@ def authenticate_researcher_study_access(some_function):
 
         populate_session_researcher(request)
 
-        # first get from kwargs, then from the POST request, either one is fine
-        survey_id = kwargs.get('survey_id', request.POST.get('survey_id', None))
-        study_id = kwargs.get('study_id', request.POST.get('study_id', None))
+        try:
+            # first get from kwargs, then from the POST request, either one is fine
+            survey_id = kwargs.get('survey_id', request.POST.get('survey_id', None))
+            study_id = kwargs.get('study_id', request.POST.get('study_id', None))
+        except UnreadablePostError:
+            return abort(500)
 
         # Check proper usage
         if survey_id is None and study_id is None:

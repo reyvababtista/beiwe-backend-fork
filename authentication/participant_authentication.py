@@ -23,9 +23,8 @@ def validate_post(request: HttpRequest, require_password: bool, validate_device_
     try:
         rp = request.POST
     except UnreadablePostError:
-        log("request probably had network failure.")
-        return abort(400)
-        
+        return abort(500)
+    
     if "patient_id" not in rp or "password" not in rp or "device_id" not in rp:
         log("missing parameters entirely.")
         log("patient_id:", "patient_id" in rp)
@@ -43,16 +42,21 @@ def validate_post(request: HttpRequest, require_password: bool, validate_device_
     except Participant.DoesNotExist:
         log("invalid patient_id")
         return False
+    except UnreadablePostError:
+        return abort(500)
     
-    if require_password:
-        if not session_participant.validate_password(request.POST['password']):
-            log("incorrect password")
-            return False
-    
-    if validate_device_id:
-        if not session_participant.device_id == request.POST['device_id']:
-            log("incorrect device_id")
-            return False
+    try:
+        if require_password:
+            if not session_participant.validate_password(request.POST['password']):
+                log("incorrect password")
+                return False
+        
+        if validate_device_id:
+            if not session_participant.device_id == request.POST['device_id']:
+                log("incorrect device_id")
+                return False
+    except UnreadablePostError:
+        return abort(500)
     
     # attach session participant to request object, defining the ParticipantRequest class.
     request.session_participant = session_participant
@@ -155,9 +159,13 @@ def correct_for_basic_auth(request: ParticipantRequest):
         
         if not auth[0].lower() == "basic":
             raise Exception(f"wrong basic auth format: {str(auth)}")
-            
+        
         username_parts, password = auth[1].split(':')
         patient_id, device_id = username_parts.split('@')
-        request.POST['patient_id'] = patient_id
-        request.POST['device_id'] = device_id
-        request.POST['password'] = password
+        
+        try:
+            request.POST['patient_id'] = patient_id
+            request.POST['device_id'] = device_id
+            request.POST['password'] = password
+        except UnreadablePostError:
+            return abort(500)

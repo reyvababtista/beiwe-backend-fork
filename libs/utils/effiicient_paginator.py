@@ -6,7 +6,7 @@ from database.common_models import UtilityModel
 class EfficientPaginator():
     """ Queries for the PKs and retrieves results using them.
     The result is a minimal memory overhead database query.  """
-
+    
     def __init__(self,
         model: UtilityModel,
         page_size: int,
@@ -16,6 +16,9 @@ class EfficientPaginator():
         values_list: List[str] = None,
         flat=True
     ):
+        filter_kwargs = filter_kwargs or {}
+        order_args = order_args or []
+        
         # setup efficient-as-possibly query for database PKs
         # using iterator allows quick initial query, but paging may be inconsistent in time.
         self.page_size = page_size
@@ -29,7 +32,7 @@ class EfficientPaginator():
         
         if values and values_list:
             raise Exception("one of values and values_list")
-
+        
         # pass params intelligently
         if values:
             self.real_query = model.objects.values(*values)

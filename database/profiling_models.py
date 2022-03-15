@@ -29,7 +29,7 @@ class LineEncryptionError(TimestampedModel):
     MALFORMED_CONFIG = "MALFORMED_CONFIG"
     MP4_PADDING = "MP4_PADDING"
     PADDING_ERROR = "PADDING_ERROR"
-
+    
     ERROR_TYPE_CHOICES = (
         (AES_KEY_BAD_LENGTH, AES_KEY_BAD_LENGTH),
         (EMPTY_KEY, EMPTY_KEY),
@@ -42,7 +42,7 @@ class LineEncryptionError(TimestampedModel):
         (MALFORMED_CONFIG, MALFORMED_CONFIG),
         (PADDING_ERROR, PADDING_ERROR),
     )
-
+    
     type = models.CharField(max_length=32, choices=ERROR_TYPE_CHOICES)
     line = models.TextField(blank=True)
     base64_decryption_key = models.TextField()
@@ -56,7 +56,7 @@ class DecryptionKeyError(TimestampedModel):
     contents = models.TextField()
     traceback = models.TextField(null=True)
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='decryption_key_errors')
-
+    
     def decode(self):
         return decode_base64(self.contents)
     
@@ -180,41 +180,41 @@ class UploadTracking(TimestampedModel):
             data = {filetype: {"megabytes": 0., "count": 0, "users": set()} for filetype in ALL_FILETYPES}
         else:
             data = {filetype: {"megabytes": 0., "count": 0} for filetype in ALL_FILETYPES}
-
+        
         data["totals"] = {}
         data["totals"]["total_megabytes"] = 0
         data["totals"]["total_count"] = 0
         data["totals"]["users"] = set()
         days_delta = timezone.now() - timedelta(days=days)
         # .values is a huge speedup, .iterator isn't but it does let us print progress realistically
-        query = UploadTracking.objects.filter(timestamp__gte=days_delta).values(
+        query = UploadTracking.objects.filter(timestamp__gte=days_delta).values_list(
                 "file_path", "file_size", "participant"
         ).iterator()
-
-        for i, upload in enumerate(query):
+        
+        for i, (file_path, file_size, participant) in enumerate(query):
             # global stats
             data["totals"]["total_count"] += 1
-            data["totals"]["total_megabytes"] += upload["file_size"]/ 1024. / 1024.
-            data["totals"]["users"].add(upload["participant"])
-
+            data["totals"]["total_megabytes"] += file_size/ 1024. / 1024.
+            data["totals"]["users"].add(participant)
+            
             # get data stream type from file_path (woops, ios log broke this code, fixed)
-            path_extraction = upload["file_path"].split("/", 2)[1]
+            path_extraction = file_path.split("/", 2)[1]
             if path_extraction == "ios":
                 path_extraction = "ios_log"
-
+            
             file_type = UPLOAD_FILE_TYPE_MAPPING[path_extraction]
             # update per-data-stream information
-            data[file_type]["megabytes"] += upload["file_size"]/ 1024. / 1024.
+            data[file_type]["megabytes"] += file_size/ 1024. / 1024.
             data[file_type]["count"] += 1
-
+            
             if get_usernames:
-                data[file_type]["users"].add(upload["participant"])
+                data[file_type]["users"].add(participant)
             if i % 10000 == 0:
                 print("processed %s uploads..." % i)
-
+        
         data["totals"]["user_count"] = len(data["totals"]["users"])
-
+        
         if not get_usernames:  # purge usernames if we don't need them.
             del data["totals"]["users"]
-
+        
         return data

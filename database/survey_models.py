@@ -191,5 +191,5 @@ class Survey(SurveyBase):
 
 class SurveyArchive(SurveyBase):
     """ All fields declared in abstract survey are copied whenever a change is made to a survey """
-    archive_start = models.DateTimeField()
+    archive_start = models.DateTimeField(db_index=True)
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='archives', db_index=True)

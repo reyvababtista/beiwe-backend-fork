@@ -43,7 +43,7 @@ def test_firebase_credential_errors(credentials: str) -> None:
     except JSONDecodeError:
         # need clean error message
         raise Exception("The credentials provided are not valid JSON.")
-
+    
     # both of these raise ValueErrors, delete only fails if cert and app objects pass.
     cert = FirebaseCertificate(encoded_credentials)
     app = initialize_firebase_app(cert, name=FIREBASE_APP_TEST_NAME)
@@ -53,21 +53,21 @@ def test_firebase_credential_errors(credentials: str) -> None:
 def check_firebase_instance(require_android=False, require_ios=False) -> bool:
     """ Test the database state for the various creds. If creds are present determine whether
     the firebase app is already instantiated, if not call update_firebase_instance. """
-
+    
     active_creds = list(FileAsText.objects.filter(
         tag__in=[BACKEND_FIREBASE_CREDENTIALS, ANDROID_FIREBASE_CREDENTIALS, IOS_FIREBASE_CREDENTIALS]
     ).values_list("tag", flat=True))
-
+    
     if (    # keep those parens.
             BACKEND_FIREBASE_CREDENTIALS not in active_creds
             or (require_android and ANDROID_FIREBASE_CREDENTIALS not in active_creds)
             or (require_ios and IOS_FIREBASE_CREDENTIALS not in active_creds)
     ):
         return False
-
+    
     if get_firebase_credential_errors(safely_get_db_credential(BACKEND_FIREBASE_CREDENTIALS)):
         return False
-
+    
     # avoid calling update so we never delete and then recreate the app (we get thrashed
     # during push notification send from calling this, its not thread-safe), overhead is low.
     try:
@@ -76,42 +76,42 @@ def check_firebase_instance(require_android=False, require_ios=False) -> bool:
         # we don't care about extra work inside calling update_firebase_instance, it shouldn't be
         # hit too heavily.
         update_firebase_instance()
-
+    
     return True
 
 
-def update_firebase_instance(rucur_depth=3) -> None:
+def update_firebase_instance(recur_depth=3) -> None:
     """ Creates or destroys the firebase app, handling basic credential errors. """
     junk_creds = False
     encoded_credentials = None  # IDE complains
-
+    
     try:
         encoded_credentials = json.loads(safely_get_db_credential(BACKEND_FIREBASE_CREDENTIALS))
     except (JSONDecodeError, TypeError):
         junk_creds = True
-
+    
     try:
         delete_firebase_instance(get_firebase_app())
     except ValueError:
         # occurs when get_firebase_app() fails, delete_firebase_instance is only called if it succeeds.
         pass
-
+    
     if junk_creds:
         return
-
+    
     # can now ~safely initialize the firebase app, re-casting any errors for runime scenarios
     # errors at this point should only occur if the app has somehow gotten broken credentials.
     try:
         cert = FirebaseCertificate(encoded_credentials)
     except ValueError as e:
         raise FirebaseMisconfigured(str(e))
-
+    
     try:
         initialize_firebase_app(cert)
     except ValueError as e:
         # occasionally we do hit a race condition, handle that with 3 tries, comment in error message.
-        if rucur_depth >= 0:
-            return update_firebase_instance(rucur_depth - 1)
+        if recur_depth >= 0:
+            return update_firebase_instance(recur_depth - 1)
         raise FirebaseMisconfigured(
             "This error is usually caused by a race condition, please report it if this happens frequently: "
             + str(e)

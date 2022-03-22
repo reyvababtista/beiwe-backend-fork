@@ -134,6 +134,11 @@ path('create_many_patients/<str:study_id>', participant_administration.create_ma
 path('set_fcm_token', push_notifications_api.set_fcm_token)
 path('test_notification', push_notifications_api.developer_send_test_notification)
 path('send_survey_notification', push_notifications_api.developer_send_survey_notification)
+path(
+    '<int:study_id>/send_survey_notification/<str:patient_id>',
+    push_notifications_api.resend_push_notification
+)
+
 
 # other researcher apis
 path("get-studies/v1", other_researcher_apis.get_studies)

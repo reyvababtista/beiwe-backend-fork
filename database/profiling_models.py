@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from constants.data_stream_constants import (DATA_STREAM_TO_S3_FILE_NAME_STRING,
     UPLOAD_FILE_TYPE_MAPPING)
+from database.common_models import UtilityModel
 from database.models import JSONTextField, Participant, TimestampedModel
 from libs.security import decode_base64, encode_base64
 
@@ -81,7 +82,7 @@ class DecryptionKeyError(TimestampedModel):
             )
 
 
-class UploadTracking(TimestampedModel):
+class UploadTracking(UtilityModel):
     file_path = models.CharField(max_length=256)
     file_size = models.PositiveIntegerField()
     timestamp = models.DateTimeField()

@@ -19,7 +19,7 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
 from database.tableau_api_models import ForestParam, ForestTask
-from database.user_models import Participant, Researcher, StudyRelation
+from database.user_models import Participant, ParticipantFCMHistory, Researcher, StudyRelation
 from libs.security import generate_easy_alphanumeric_string
 
 
@@ -225,6 +225,15 @@ class ReferenceObjectMixin:
         participant.set_password(self.DEFAULT_PARTICIPANT_PASSWORD)  # saves
         return participant
     
+    def generate_fcm_token(self, participant: Participant, unregistered_datetime: datetime = None):
+        token = ParticipantFCMHistory(
+            participant=participant,
+            token="token-" + generate_easy_alphanumeric_string(),
+            unregistered=unregistered_datetime,
+        )
+        token.save()
+        return token
+
     @property
     def default_populated_intervention_date(self) -> InterventionDate:
         return self.generate_intervention_date(self.default_participant, self.default_intervention)

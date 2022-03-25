@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+import random
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -7,13 +8,18 @@ from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from firebase_admin import messaging
 from firebase_admin.exceptions import FirebaseError
+from firebase_admin.messaging import AndroidConfig, Message, Notification, send as send_push_notification
 
 from authentication.admin_authentication import authenticate_researcher_study_access
 from authentication.participant_authentication import authenticate_participant
+from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
 from constants.datetime_constants import API_TIME_FORMAT
+from constants.message_strings import (BAD_DEVICE_OS, BAD_PARTICPANT_OS,
+    DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_PREFIX, MESSAGE_SEND_FAILED_UNKNOWN,
+    PUSH_NOTIFICATIONS_NOT_CONFIGURED, RESEND_CLICKED, SUCCESSFULLY_SENT_NOTIFICATION_PREFIX)
 from constants.participant_constants import ANDROID_API, IOS_API
+from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from database.schedule_models import ArchivedEvent
 from database.study_models import Study
 from database.survey_models import Survey
@@ -42,7 +48,6 @@ def set_fcm_token(request: ParticipantRequest):
     participant = request.session_participant
     token = request.POST.get('fcm_token', "")
     now = timezone.now()
-    
     # force to unregistered on success, force every not-unregistered as unregistered.
     
     # need to get_or_create rather than catching DoesNotExist to handle if two set_fcm_token
@@ -71,14 +76,11 @@ def developer_send_test_notification(request: ParticipantRequest):
     """ Sends a push notification to the participant, used ONLY for testing.
     Expects a patient_id in the request body. """
     print(check_firebase_instance())
-    message = messaging.Message(
-        data={
-            'type': 'fake',
-            'content': 'hello good sir',
-        },
-        token=request.session_participant.get_fcm_token().token,
+    message = Message(
+        data={'type': 'fake', 'content': 'hello good sir'},
+        token=request.session_participant.get_valid_fcm_token().token,
     )
-    response = messaging.send(message)
+    response = send_push_notification(message)
     print('Successfully sent notification message:', response)
     return HttpResponse(status=204)
 
@@ -87,21 +89,21 @@ def developer_send_test_notification(request: ParticipantRequest):
 @authenticate_participant
 def developer_send_survey_notification(request: ParticipantRequest):
     """ Sends a push notification to the participant with survey data, used ONLY for testing
-    Expects a patient_id in the request body """
+    Expects a patient_id in the request body. """
     participant = request.session_participant
     survey_ids = list(
         participant.study.surveys.filter(deleted=False).exclude(survey_type="image_survey")
             .values_list("object_id", flat=True)[:4]
     )
-    message = messaging.Message(
+    message = Message(
         data={
             'type': 'survey',
             'survey_ids': json.dumps(survey_ids),
             'sent_time': datetime.now().strftime(API_TIME_FORMAT),
         },
-        token=participant.get_fcm_token().token,
+        token=participant.get_valid_fcm_token().token,
     )
-    response = messaging.send(message)
+    response = send_push_notification(message)
     print('Successfully sent survey message:', response)
     return HttpResponse(status=204)
 
@@ -118,9 +120,12 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
     study = get_object_or_404(Study, pk=study_id)  # rejection should also be handled in decorator
     survey = get_object_or_404(Survey, pk=survey_id, deleted=False)
     participant = get_object_or_404(Participant, patient_id=patient_id, study=study)
-    fcm_token = participant.get_fcm_token()
-    p_os = participant.os_type  # "participant os"
+    fcm_token = participant.get_valid_fcm_token()
     now = timezone.now()
+    firebase_check_kwargs = {
+        "require_android": participant.os_type == ANDROID_API,
+        "require_ios": participant.os_type == IOS_API,
+    }
     
     # setup exit details
     error_message = f'Could not send notification to {participant.patient_id}'
@@ -135,22 +140,44 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
         schedule_type=f"manual - {request.session_researcher.username}"[:32],  # max length of field
         scheduled_time=now,
         response_time=None,
-        status="resend clicked",
+        status=RESEND_CLICKED,
     )
     unscheduled_event.save()
     
     # failures
     if fcm_token is None:
-        unscheduled_event.update(status="device has no registered token")
+        unscheduled_event.update(status=DEVICE_HAS_NO_REGISTERED_TOKEN)
         messages.error(request, error_message)
         return return_redirect
     
-    if not check_firebase_instance(require_android=p_os==ANDROID_API, require_ios=p_os==IOS_API):
-        unscheduled_event.update(status="Push notifications not configured for participant device type")
+    # "participant os"
+    if not check_firebase_instance(firebase_check_kwargs):
+        unscheduled_event.update(status=PUSH_NOTIFICATIONS_NOT_CONFIGURED)
         messages.error(request, error_message)
         return return_redirect
     
-    message = messaging.Message(
+    data_kwargs = {
+        'type': 'survey',
+        'survey_ids': json.dumps([survey.object_id]),
+        'sent_time': now.strftime(API_TIME_FORMAT),\
+        'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32)),
+    }
+    if participant.os_type == ANDROID_API:
+        message = Message(
+            android=AndroidConfig(data=data_kwargs, priority='high'), token=fcm_token,
+        )
+    elif participant.os_type == IOS_API:
+        message = Message(
+            data=data_kwargs,
+            token=fcm_token,
+            notification=Notification(title="Beiwe", body="You have a survey to take."),
+        )
+    else:
+        unscheduled_event.update(status=f"{MESSAGE_SEND_FAILED_PREFIX} {BAD_DEVICE_OS}")
+        messages.error(request, BAD_PARTICPANT_OS)
+        return return_redirect
+    
+    message = Message(
         data={
             'type': 'survey',
             'survey_ids': json.dumps([survey.object_id]),
@@ -161,18 +188,21 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
     
     # real error cases (raised directly when running locally, reported to sentry on a server)
     try:
-        _response = messaging.send(message)
+        _response = send_push_notification(message)
         unscheduled_event.update(status=ArchivedEvent.SUCCESS)
-        messages.success(request, f'Successfully sent notification to {participant.patient_id}.')
+        messages.success(
+            request, f'{SUCCESSFULLY_SENT_NOTIFICATION_PREFIX} {participant.patient_id}.'
+        )
     except FirebaseError as e:
-        unscheduled_event.update(status=f"message send failed: {str(e)}")
+        unscheduled_event.update(status=f"{MESSAGE_SEND_FAILED_PREFIX} {str(e)}")
         messages.error(request, error_message)
-        with make_error_sentry(SentryTypes.elastic_beanstalk):
-            raise
+        if not RUNNING_TEST_OR_IN_A_SHELL:
+            with make_error_sentry(SentryTypes.elastic_beanstalk):
+                raise
     except Exception:
-        unscheduled_event.update(status="message send failed: unknown")  # presumably a bug
+        unscheduled_event.update(status=MESSAGE_SEND_FAILED_UNKNOWN)  # presumably a bug
         messages.error(request, error_message)
-        with make_error_sentry(SentryTypes.elastic_beanstalk):
-            raise
-    
+        if not RUNNING_TEST_OR_IN_A_SHELL:
+            with make_error_sentry(SentryTypes.elastic_beanstalk):
+                raise
     return return_redirect

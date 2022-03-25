@@ -197,7 +197,7 @@ def success_send_handler(participant: Participant, fcm_token: str, schedules: Li
     print(f"Push notification send succeeded for {participant.patient_id}.")
     
     # this condition shouldn't occur.  Leave in, this case would be super stupid to diagnose.
-    fcm_hist = ParticipantFCMHistory.objects.get(token=fcm_token)
+    fcm_hist: ParticipantFCMHistory = ParticipantFCMHistory.objects.get(token=fcm_token)
     if fcm_hist.unregistered is not None:
         fcm_hist.unregistered = None
         fcm_hist.save()
@@ -217,7 +217,7 @@ def failed_send_handler(
     
     if participant.push_notification_unreachable_count >= PUSH_NOTIFICATION_ATTEMPT_COUNT:
         now = timezone.now()
-        fcm_hist = ParticipantFCMHistory.objects.get(token=fcm_token)
+        fcm_hist: ParticipantFCMHistory = ParticipantFCMHistory.objects.get(token=fcm_token)
         fcm_hist.unregistered = now
         fcm_hist.save()
         

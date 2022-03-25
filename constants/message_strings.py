@@ -112,3 +112,13 @@ INVALID_EXTENSION_ERROR = "contains an invalid extension, it was interpreted as 
 NO_FILE_ERROR = "there was no provided file name, this is an app error."
 EMPTY_FILE_ERROR = "there was no/an empty file, returning 200 OK so device deletes bad file."
 DEVICE_IDENTIFIERS_HEADER = "patient_id,MAC,phone_number,device_id,device_os,os_version,product,brand,hardware_id,manufacturer,model,beiwe_version\n"
+
+## manual push notification failures
+RESEND_CLICKED = "resend clicked"
+DEVICE_HAS_NO_REGISTERED_TOKEN = "device has no registered token"
+PUSH_NOTIFICATIONS_NOT_CONFIGURED = "Push notifications not configured for participant device type"
+MESSAGE_SEND_FAILED_PREFIX = "message send failed:"
+MESSAGE_SEND_FAILED_UNKNOWN = "message send failed: unknown"
+SUCCESSFULLY_SENT_NOTIFICATION_PREFIX = "Successfully sent notification to"
+BAD_DEVICE_OS = "bad device OS"
+BAD_PARTICPANT_OS = "This participant is not properly registered and cannot be sent push notifications until the re-register."

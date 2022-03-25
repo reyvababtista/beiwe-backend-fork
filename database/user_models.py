@@ -138,8 +138,11 @@ class Participant(AbstractPasswordUser):
     def assign_fcm_token(self, fcm_instance_id: str):
         ParticipantFCMHistory.objects.create(participant=self, token=fcm_instance_id)
     
-    def get_fcm_token(self):
-        return self.fcm_tokens.latest("created_on")
+    def get_valid_fcm_token(self):
+        try:
+            return self.fcm_tokens.get(unregistered__isnull=True)
+        except ParticipantFCMHistory.DoesNotExist:
+            return None
     
     def notification_events(self, **archived_event_filter_kwargs):
         from database.schedule_models import ArchivedEvent

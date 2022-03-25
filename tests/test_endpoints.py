@@ -20,15 +20,16 @@ from constants.common_constants import BEIWE_PROJECT_ROOT
 from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT
 from constants.data_stream_constants import ACCELEROMETER, ALL_DATA_STREAMS, SURVEY_TIMINGS
 from constants.datetime_constants import API_DATE_FORMAT
-from constants.message_strings import (NEW_PASSWORD_8_LONG, NEW_PASSWORD_MISMATCH,
-    NEW_PASSWORD_RULES_FAIL, PASSWORD_RESET_SUCCESS, TABLEAU_API_KEY_IS_DISABLED,
+from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_PREFIX, MESSAGE_SEND_FAILED_UNKNOWN, NEW_PASSWORD_8_LONG, NEW_PASSWORD_MISMATCH,
+    NEW_PASSWORD_RULES_FAIL, PASSWORD_RESET_SUCCESS, PUSH_NOTIFICATIONS_NOT_CONFIGURED, RESEND_CLICKED, SUCCESSFULLY_SENT_NOTIFICATION_PREFIX, TABLEAU_API_KEY_IS_DISABLED,
     TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
+from constants.participant_constants import IOS_API
 from constants.researcher_constants import ALL_RESEARCHER_TYPES, ResearcherRole
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT, ResearcherRole)
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.profiling_models import DecryptionKeyError
-from database.schedule_models import Intervention
+from database.schedule_models import ArchivedEvent, Intervention
 from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
@@ -418,7 +419,7 @@ class TestDashboardPatientDisplay(ResearcherSessionTest):
     
     def test_five_participants_with_data(self):
         self.set_session_study_relation()
-
+        
         for i in range(10):
             self.generate_chunkregistry(
                 self.session_study,
@@ -427,7 +428,7 @@ class TestDashboardPatientDisplay(ResearcherSessionTest):
                 file_size=123456,
                 time_bin=timezone.localtime().replace(hour=i, minute=0, second=0, microsecond=0),
             )
-
+        
         # need to be post and get requests, it was just built that way
         html1 = self.smart_get_status_code(
             200, self.session_study.id, self.default_participant.patient_id).content
@@ -2648,6 +2649,75 @@ class TestPushNotificationSetFCMToken(ParticipantSessionTest):
         self.assertNotEqual(first_time, second_time)
 
 
+class TestPushNotificationSetFCMToken(ResearcherSessionTest):
+    ENDPOINT_NAME = "push_notifications_api.resend_push_notification"
+    
+    def do_post(self):
+        # the post operation that all the tests use...
+        return self.smart_post_status_code(
+            302,
+            self.session_study.pk,
+            self.default_participant.patient_id,
+            survey_id=self.default_survey.pk
+        )
+    
+    def test_bad_fcm_token(self):# check_firebase_instance: MagicMock):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        token = self.generate_fcm_token(self.default_participant)
+        token.update(unregistered=timezone.now())
+        self.assertEqual(self.default_participant.fcm_tokens.count(), 1)
+        self.do_post()
+        self.assertEqual(self.default_participant.fcm_tokens.count(), 1)
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertEqual(archived_event.status, DEVICE_HAS_NO_REGISTERED_TOKEN)
+    
+    def test_no_fcm_token(self):# check_firebase_instance: MagicMock):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.assertEqual(self.default_participant.fcm_tokens.count(), 0)
+        self.do_post()
+        self.assertEqual(self.default_participant.fcm_tokens.count(), 0)
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertEqual(archived_event.status, DEVICE_HAS_NO_REGISTERED_TOKEN)
+    
+    def test_no_firebase_creds(self):# check_firebase_instance: MagicMock):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertEqual(archived_event.status, PUSH_NOTIFICATIONS_NOT_CONFIGURED)
+    
+    @patch("api.push_notifications_api.check_firebase_instance")
+    def test_mocked_generic_error(self, check_firebase_instance: MagicMock):
+        # by failing to patch messages.send we trigger a valueerror because firebase creds aren't
+        #  present is not configured.
+        check_firebase_instance.return_value = True
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertEqual(MESSAGE_SEND_FAILED_UNKNOWN, archived_event.status)
+    
+    @patch("api.push_notifications_api.check_firebase_instance")
+    @patch("api.push_notifications_api.send_push_notification")
+    def test_mocked_success(self, check_firebase_instance: MagicMock, messaging: MagicMock):
+        check_firebase_instance.return_value = True
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertIn(ArchivedEvent.SUCCESS, archived_event.status)
+
+    @patch("api.push_notifications_api.check_firebase_instance")
+    @patch("api.push_notifications_api.send_push_notification")
+    def test_mocked_success_ios(self, check_firebase_instance: MagicMock, messaging: MagicMock):
+        check_firebase_instance.return_value = True
+        self.default_participant.update(os_type=IOS_API)  # the default os type is android
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertIn(ArchivedEvent.SUCCESS, archived_event.status)
+
 # FIXME: make a real test...
 class TestForestAnalysisProgress(ResearcherSessionTest):
     ENDPOINT_NAME = "forest_pages.analysis_progress"
@@ -2658,7 +2728,7 @@ class TestForestAnalysisProgress(ResearcherSessionTest):
         for _ in range(10):
             self.generate_participant(self.session_study)
         # print(Participant.objects.count())
-        # print(self.smart_get(self.session_study.id))
+        self.smart_get(self.session_study.id)
 
 
 # class TestForestCreateTasks(ResearcherSessionTest):

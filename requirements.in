@@ -1,12 +1,12 @@
 # core libraries
-Django==2.2.27
+Django==3.2.12
 firebase-admin==4.5.1
-Jinja2==3.0.2
+Jinja2==3.1.1
 zstd==1.5.0.4  # This one seems to require manual pinning, version 1.5+ contains performance improvements
 
 # various extensions
-djangorestframework==3.12.4
-django-extensions==3.1.3
+djangorestframework==3.13.1
+django-extensions==3.1.5
 
 python-dateutil==2.8.2
 
@@ -25,7 +25,7 @@ bleach>=4.1.0
 
 # server requirement
 # You have to upgrade django to greater than 2.2 (apparently) in order to upgrade psycopg2 to 2.9.x
-psycopg2==2.8.6
+psycopg2==2.9.3
 
 # ipython can exhibit weird issues that make it look like the codebase is broken.  Most issues
 # are resolved by forcing this relatively new version of ipython.

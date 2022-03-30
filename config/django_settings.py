@@ -12,6 +12,7 @@ from libs.sentry import normalize_sentry_dsn
 # SECRET KEY is required by the django management commands, using the flask key is fine because
 # we are not actually using it in any server runtime capacity.
 SECRET_KEY = FLASK_SECRET_KEY
+
 if DB_MODE == DB_MODE_SQLITE:
     DATABASES = {
         'default': {
@@ -31,11 +32,16 @@ elif DB_MODE == DB_MODE_POSTGRES:
             'CONN_MAX_AGE': None,
             'OPTIONS': {'sslmode': 'require'},
             "ATOMIC_REQUESTS": True,  # default is True, just being explicit
+            'TEST': {
+                'MIGRATE': True,
+            }
         },
     }
 else:
     raise ImproperlyConfigured("server not running as expected, could not find environment variable DJANGO_DB_ENV")
 
+# database primary key setting
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
 DEBUG = 'localhost' in DOMAIN_NAME or '127.0.0.1' in DOMAIN_NAME or '::1' in DOMAIN_NAME
 
@@ -133,10 +139,12 @@ TEMPLATES = [
 
 
 # json serializer crashes with module object does not have attribute .dumps
-# or it cannot serialize a datitime object.
+# or it cannot serialize a datetime object.
 # SESSION_SERIALIZER = "django.core.serializers.json.DjangoJSONEncoder"
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
 
+# https-only
+# SESSION_COOKIE_SECURE = True
 
 # Changing this causes a runtime warning, but has no effect. Enabling this feature is not equivalent
 # to the feature in urls.py.

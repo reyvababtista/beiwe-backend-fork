@@ -26,11 +26,11 @@ class ForestParam(TimestampedModel):
     ForestMetadata objects with the default metadata for the new tree. This way, all existing
     ForestTasks are still associated to the same ForestMetadata object and we don't have to give a
     warning to users that the metadata have changed. """
-    # Note: making a NullBooleanField unique=True allows us to ensure only one object can have
+    # Note: making a BooleanField null=True unique=True allows us to ensure only one object can have
     # default=True at any time (null is considered unique). This means this field should be consumed
     # as True or falsy (null is false), as the value should never be actually set to `False`.
     # (Warning: the above property depends on the database backend.)
-    default = models.NullBooleanField(unique=True)
+    default = models.BooleanField(unique=True, null=True)
     notes = models.TextField(blank=True)
     name = models.TextField(blank=True)
     
@@ -65,7 +65,7 @@ class ForestTask(TimestampedModel):
     process_end_time = models.DateTimeField(null=True, blank=True)
     
     # Whether or not there was any data output by Forest (None indicates unknown)
-    forest_output_exists = models.NullBooleanField()
+    forest_output_exists = models.BooleanField(null=True)
     
     status = models.TextField(choices=ForestTaskStatus.choices())
     stacktrace = models.TextField(null=True, blank=True, default=None)  # for logs

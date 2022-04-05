@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Dict
 
 from django.contrib import messages
-from django.core.paginator import EmptyPage
+from django.core.paginator import EmptyPage, Paginator
 from django.db.models import F
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
@@ -18,8 +18,6 @@ from libs.http_utils import easy_url
 from libs.internal_types import ArchivedEventQuerySet, ResearcherRequest
 from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
 from middleware.abort_middleware import abort
-
-from django.core.paginator import Paginator
 
 
 @require_GET
@@ -95,19 +93,18 @@ def participant_page(request: ResearcherRequest, study_id: int, patient_id: str)
         "participant_pages.participant_page", study_id=study_id, patient_id=patient_id
     ))
 
-
 def render_participant_page(request: ResearcherRequest, participant: Participant, study: Study):
     # to reduce database queries we get all the data across 4 queries and then merge it together.
     # dicts of intervention id to intervention date string, and of field names to value
     # (this was quite slow previously)
     intervention_dates_map = {
-        intervention_id:  # this is the intervention's id, not the intervention_date's id.
-            intervention_date.strftime(API_DATE_FORMAT) if isinstance(intervention_date, date) else ""
+        # this is the intervention's id, not the intervention_date's id.
+        intervention_id: format_date_or_none(intervention_date)
         for intervention_id, intervention_date in
         participant.intervention_dates.values_list("intervention_id", "date")
     }
     participant_fields_map = {
-        name: value for name, value in 
+        name: value for name, value in
         participant.field_values.values_list("field__field_name", "value")
     }
     
@@ -119,12 +116,13 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
     # list of tuples of field name, value.
     field_data = [
         (field_id, field_name, participant_fields_map.get(field_name, ""))
-        for field_id, field_name 
+        for field_id, field_name
         in study.fields.order_by("field_name").values_list('id', "field_name")
     ]
+    
     # dictionary structured for page rendering
     latest_notification_attempt = get_notification_details(
-        query_values_for_notification_history(participant.id).last(),
+        query_values_for_notification_history(participant.id).first(),
         study.timezone,
         get_survey_names_dict(study)
     )
@@ -140,7 +138,7 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
             notification_attempts_count=participant.archived_events.count(),
             latest_notification_attempt=latest_notification_attempt,
             push_notifications_enabled_for_ios=check_firebase_instance(require_ios=True),
-            push_notifications_enabled_for_android=check_firebase_instance(require_android=True)
+            push_notifications_enabled_for_android=check_firebase_instance(require_android=True),
         )
     )
 
@@ -148,7 +146,7 @@ def query_values_for_notification_history(participant_id) -> ArchivedEventQueryS
     return (
         ArchivedEvent.objects
         .filter(participant_id=participant_id)
-        .order_by('-scheduled_time')
+        .order_by('-created_on')
         .annotate(
             survey_id=F('survey_archive__survey'), survey_version=F('survey_archive__archive_start')
         )
@@ -188,3 +186,8 @@ def get_notification_details(archived_event: Dict, study_timezone: str, survey_n
         notification['status'] = archived_event['status']
     
     return notification
+
+
+def format_date_or_none(d: date) -> str:
+    # tiny function that broke scanability of the real code....
+    return d.strftime(API_DATE_FORMAT) if isinstance(d, date) else ""

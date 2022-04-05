@@ -138,7 +138,7 @@ class Participant(AbstractPasswordUser):
     def assign_fcm_token(self, fcm_instance_id: str):
         ParticipantFCMHistory.objects.create(participant=self, token=fcm_instance_id)
     
-    def get_valid_fcm_token(self):
+    def get_valid_fcm_token(self) -> ParticipantFCMHistory:
         try:
             return self.fcm_tokens.get(unregistered__isnull=True)
         except ParticipantFCMHistory.DoesNotExist:

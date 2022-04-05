@@ -7,11 +7,12 @@ from django.db import models
 from django.db.models import F, Func
 from django.db.models.query import QuerySet
 
-from constants.participant_constants import OS_TYPE_CHOICES
+from constants.participant_constants import ANDROID_API, IOS_API, OS_TYPE_CHOICES
 from constants.researcher_constants import ResearcherRole
 from database.common_models import UtilityModel
 from database.models import TimestampedModel
 from database.validators import ID_VALIDATOR, STANDARD_BASE_64_VALIDATOR, URL_SAFE_BASE_64_VALIDATOR
+from libs.firebase_config import check_firebase_instance
 from libs.security import (compare_password, device_hash, generate_easy_alphanumeric_string,
     generate_hash_and_salt, generate_random_string, generate_user_hash_and_salt)
 
@@ -153,6 +154,13 @@ class Participant(AbstractPasswordUser):
     def get_private_key(self):
         from libs.s3 import get_client_private_key  # weird import triangle
         return get_client_private_key(self.patient_id, self.study.object_id)
+    
+    @property
+    def participant_push_enabled(self) -> bool:
+        return (
+            self.os_type == ANDROID_API and check_firebase_instance(require_android=True) or
+            self.os_type == IOS_API and check_firebase_instance(require_ios=True)
+        )
     
     def __str__(self):
         return f'{self.patient_id} of Study "{self.study.name}"'

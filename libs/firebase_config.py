@@ -10,6 +10,9 @@ from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FI
 from database.system_models import FileAsText
 
 
+MANUALLY_DISABLE_FIREBASE = False
+
+
 class FirebaseMisconfigured(Exception): pass
 
 #
@@ -18,7 +21,11 @@ class FirebaseMisconfigured(Exception): pass
 #
 
 def safely_get_db_credential(credential_type: str) -> str or None:
-    """ just a wrapper to handle ugly code """
+    """ If this function returns None then checks for push notification enablement will all fail. 
+       Set MANUALLY_DISABLE_FIREBASE to True to force-disable push notifications. """
+    if MANUALLY_DISABLE_FIREBASE:
+        return None
+    
     credentials = FileAsText.objects.filter(tag=credential_type).first()
     if credentials:
         return credentials.text

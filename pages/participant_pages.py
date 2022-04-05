@@ -148,7 +148,7 @@ def query_values_for_notification_history(participant_id) -> ArchivedEventQueryS
     return (
         ArchivedEvent.objects
         .filter(participant_id=participant_id)
-        .order_by('-created_on')
+        .order_by('-scheduled_time')
         .annotate(
             survey_id=F('survey_archive__survey'), survey_version=F('survey_archive__archive_start')
         )

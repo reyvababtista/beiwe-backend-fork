@@ -159,32 +159,23 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
     data_kwargs = {
         'type': 'survey',
         'survey_ids': json.dumps([survey.object_id]),
-        'sent_time': now.strftime(API_TIME_FORMAT),\
+        'sent_time': now.strftime(API_TIME_FORMAT),
         'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32)),
     }
     if participant.os_type == ANDROID_API:
         message = Message(
-            android=AndroidConfig(data=data_kwargs, priority='high'), token=fcm_token,
+            android=AndroidConfig(data=data_kwargs, priority='high'), token=fcm_token.token,
         )
     elif participant.os_type == IOS_API:
         message = Message(
             data=data_kwargs,
-            token=fcm_token,
+            token=fcm_token.token,
             notification=Notification(title="Beiwe", body="You have a survey to take."),
         )
     else:
         unscheduled_event.update(status=f"{MESSAGE_SEND_FAILED_PREFIX} {BAD_DEVICE_OS}")
         messages.error(request, BAD_PARTICPANT_OS)
         return return_redirect
-    
-    message = Message(
-        data={
-            'type': 'survey',
-            'survey_ids': json.dumps([survey.object_id]),
-            'sent_time': now.strftime(API_TIME_FORMAT),
-        },
-        token=fcm_token.token,
-    )
     
     # real error cases (raised directly when running locally, reported to sentry on a server)
     try:

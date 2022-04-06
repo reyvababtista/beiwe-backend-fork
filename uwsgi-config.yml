@@ -26,6 +26,8 @@ uwsgi:
   http-timeout: 120
   # ah, "harakiri" is seppuku; this is the thread recycle timeout.
   harakiri: 120
+  # log us when we commit harakiri
+  harakiri-verbose: true
 
   # wsgi logging is only useful for specific debugging scenarios, we already have request logging
   # from apache and print statements from python.

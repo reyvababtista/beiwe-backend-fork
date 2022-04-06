@@ -29,7 +29,6 @@ conn: BaseClient = boto3.client(
 )
 
 
-<<<<<<< HEAD
 def smart_get_study_encryption_key(obj: StrOrParticipantOrStudy) -> bytes:
     if isinstance(obj, Participant):
         return obj.study.encryption_key.encode()
@@ -114,17 +113,11 @@ def _do_retrieve(bucket_name: str, key_path: str, number_retries=3):
         raise
 
 
-<<<<<<< HEAD
+
 def s3_list_files(prefix: str, as_generator=False) -> List[str]:
     """ Lists s3 keys matching prefix. as generator returns a generator instead of a list.
     WARNING: passing in an empty string can be dangerous. """
     assert S3_BUCKET is not Exception, "libs.s3.s3_list_files called inside test"
-=======
-def s3_list_files(prefix, as_generator=False) -> List[str]:
-    """ Method fetches a list of filenames with prefix.
-        note: entering the empty string into this search without later calling
-        the object results in a truncated/paginated view."""
->>>>>>> 9836e549 ([backup-access-logs] fixes dumb mistakes, cleanups and additions to s3.)
     return _do_list_files(S3_BUCKET, prefix, as_generator=as_generator)
 
 

@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 
-import sys
 import os
+import sys
+
+# initialize django
+import database  # noqa
 
 scripts = [path[:-3] for path in os.listdir("./scripts")
            if path.endswith(".py") and not path.startswith("__")]

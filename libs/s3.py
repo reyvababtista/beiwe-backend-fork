@@ -29,6 +29,7 @@ conn: BaseClient = boto3.client(
 )
 
 
+<<<<<<< HEAD
 def smart_get_study_encryption_key(obj: StrOrParticipantOrStudy) -> bytes:
     if isinstance(obj, Participant):
         return obj.study.encryption_key.encode()
@@ -55,7 +56,8 @@ def s3_construct_study_key_path(key_path: str, obj: StrOrParticipantOrStudy):
 def s3_upload(
     key_path: str, data_string: bytes, obj: StrOrParticipantOrStudy, raw_path=False
 ) -> None:
-    """ uploads the provided file data to the provided S3 key path, failures raise exceptions. """
+    """ Uploads a bytes object as a file, encrypted using the encryption key of the study it is
+    associated with. Intelligently accepts a string, Participant, or Study object as needed. """
     if not raw_path:
         key_path = s3_construct_study_key_path(key_path, obj)
     data = encrypt_for_server(data_string, smart_get_study_encryption_key(obj))
@@ -90,12 +92,16 @@ def s3_retrieve(key_path: str, study_object_id: str, raw_path:bool=False, number
     return decrypt_server(encrypted_data, smart_get_study_encryption_key(obj))
 
 
+def s3_retrieve_plaintext(key_path: str, number_retries=3) -> bytes:
+    """ Retrieves a file as-is as bytes. """
+    return _do_retrieve(S3_BUCKET, key_path, number_retries=number_retries)['Body'].read()
+
+
 def _do_retrieve(bucket_name: str, key_path: str, number_retries=3):
     """ Run-logic to do a data retrieval for a file in an S3 bucket."""
     assert S3_BUCKET is not Exception, "libs.s3._s3_retrieve(!!!) called inside test"
     try:
         return conn.get_object(Bucket=bucket_name, Key=key_path, ResponseContentType='string')
-    
     except Exception as boto_error_unknowable_type:
         # Some error types cannot be imported because they are generated at runtime through a factory
         if boto_error_unknowable_type.__class__.__name__ == "NoSuchKey":
@@ -108,10 +114,17 @@ def _do_retrieve(bucket_name: str, key_path: str, number_retries=3):
         raise
 
 
+<<<<<<< HEAD
 def s3_list_files(prefix: str, as_generator=False) -> List[str]:
     """ Lists s3 keys matching prefix. as generator returns a generator instead of a list.
     WARNING: passing in an empty string can be dangerous. """
     assert S3_BUCKET is not Exception, "libs.s3.s3_list_files called inside test"
+=======
+def s3_list_files(prefix, as_generator=False) -> List[str]:
+    """ Method fetches a list of filenames with prefix.
+        note: entering the empty string into this search without later calling
+        the object results in a truncated/paginated view."""
+>>>>>>> 9836e549 ([backup-access-logs] fixes dumb mistakes, cleanups and additions to s3.)
     return _do_list_files(S3_BUCKET, prefix, as_generator=as_generator)
 
 

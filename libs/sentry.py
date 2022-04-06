@@ -51,12 +51,12 @@ def make_sentry_client(sentry_type: str, tags=None):
     return SentryClient(dsn=dsn, tags=tags, transport=HTTPTransport)
 
 
-def make_error_sentry(sentry_type:str, tags:dict=None):
+def make_error_sentry(sentry_type:str, tags:dict=None, force_null_error_handler=False):
     """ Creates an ErrorSentry, defaults to error limit 10.
     If the applicable sentry DSN is missing will return an ErrorSentry,
     but if null truthy a NullErrorHandler will be returned instead. """
     
-    if RUNNING_TEST_OR_IN_A_SHELL:
+    if RUNNING_TEST_OR_IN_A_SHELL or force_null_error_handler:
         return null_error_handler
     
     tags = tags or {}

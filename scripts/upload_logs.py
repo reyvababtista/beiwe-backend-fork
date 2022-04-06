@@ -21,4 +21,4 @@ with make_error_sentry(SentryTypes.data_processing):
     hostname = check_output("hostname").strip().decode()
     
     # file name should sort by hostname then date
-    s3_upload_plaintext(f"LOGS/auth_log/{hostname}-{now}.log")
+    s3_upload_plaintext(f"LOGS/auth_log/{hostname}-{now}.log", auth_log)

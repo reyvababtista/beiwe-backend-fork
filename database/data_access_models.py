@@ -2,9 +2,9 @@ from collections import Counter
 from datetime import datetime, timedelta
 from typing import Dict
 
+import pytz
 from django.db import models
 from django.utils import timezone
-from django_extensions.db.fields.json import JSONField
 
 from constants.data_processing_constants import CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER
 from constants.data_stream_constants import (CHUNKABLE_FILES, IDENTIFIERS,
@@ -131,6 +131,11 @@ class ChunkRegistry(TimestampedModel):
         return cls.objects.filter(
             study=study, last_updated__gte=date_of_last_activity
         ).values_list("participant__patient_id", flat=True).distinct()
+    
+    @classmethod
+    def exclude_bad_time_bins(cls):
+        # roughly one month before beiwe launch date
+        return cls.objects.exclude(time_bin__lt=datetime(year=2014, month=8, day=1, tzinfo=pytz.utc))
 
 
 class FileToProcess(TimestampedModel):

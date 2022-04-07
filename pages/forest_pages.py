@@ -190,27 +190,18 @@ def download_task_data(request: ResearcherRequest, study_id, forest_task_externa
     return f
 
 
-def stream_forest_task_log_csv(forest_tasks):
-    buffer = CSVBuffer()
-    writer = csv.DictWriter(buffer, fieldnames=ForestTaskCsvSerializer.Meta.fields)
-    writer.writeheader()
-    yield buffer.read()
-    
-    for forest_task in forest_tasks:
-        writer.writerow(ForestTaskCsvSerializer(forest_task).data)
-        yield buffer.read()
-
-
 def render_create_tasks(request: ResearcherRequest, study: Study):
     participants = Participant.objects.filter(study=study)
-    try:
-        start_date = ChunkRegistry.objects.filter(participant__in=participants).earliest("time_bin")
-        end_date = ChunkRegistry.objects.filter(participant__in=participants).latest("time_bin")
-        start_date = start_date.time_bin.date()
-        end_date = end_date.time_bin.date()
-    except ChunkRegistry.DoesNotExist:
-        start_date = study.created_on.date()
-        end_date = timezone.now().date()
+    # this is the fastest way to get earliest and latest time bins, even for large numbers of
+    # matches. use of .earliest and .latest are unreasonably slow.
+    time_bins = list(
+        ChunkRegistry.exclude_bad_time_bins()
+        .filter(participant__in=participants)
+        .order_by("time_bin")
+        .values_list("time_bin", flat=True)
+    )
+    start_date = time_bins[0] if time_bins else study.created_on.date()
+    end_date = time_bins[-1] if time_bins else timezone.now().date()
     return render(
         request,
         "forest/create_tasks.html",
@@ -224,6 +215,17 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
             end_date=end_date.strftime('%Y-%m-%d')
         )
     )
+
+
+def stream_forest_task_log_csv(forest_tasks):
+    buffer = CSVBuffer()
+    writer = csv.DictWriter(buffer, fieldnames=ForestTaskCsvSerializer.Meta.fields)
+    writer.writeheader()
+    yield buffer.read()
+    
+    for forest_task in forest_tasks:
+        writer.writerow(ForestTaskCsvSerializer(forest_task).data)
+        yield buffer.read()
 
 
 class CSVBuffer:

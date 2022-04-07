@@ -30,7 +30,7 @@ class ForestParam(TimestampedModel):
     # default=True at any time (null is considered unique). This means this field should be consumed
     # as True or falsy (null is false), as the value should never be actually set to `False`.
     # (Warning: the above property depends on the database backend.)
-    default = models.BooleanField(unique=True, null=True)
+    default = models.BooleanField(unique=True, null=True, blank=True)
     notes = models.TextField(blank=True)
     name = models.TextField(blank=True)
     
@@ -65,7 +65,7 @@ class ForestTask(TimestampedModel):
     process_end_time = models.DateTimeField(null=True, blank=True)
     
     # Whether or not there was any data output by Forest (None indicates unknown)
-    forest_output_exists = models.BooleanField(null=True)
+    forest_output_exists = models.BooleanField(null=True, blank=True)
     
     status = models.TextField(choices=ForestTaskStatus.choices())
     stacktrace = models.TextField(null=True, blank=True, default=None)  # for logs

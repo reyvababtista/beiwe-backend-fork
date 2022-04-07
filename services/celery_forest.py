@@ -93,12 +93,8 @@ def celery_run_forest(forest_task_id):
         max_datetime = datetime.combine(task.data_date_end, datetime.max.time()) + timedelta(hours=14)
         log("min_datetime: ", min_datetime.isoformat())
         log("max_datetime: ", max_datetime.isoformat())
-        chunks = (
-            ChunkRegistry
-                .objects
-                .filter(participant=participant)
-                .filter(time_bin__gte=min_datetime)
-                .filter(time_bin__lte=max_datetime)
+        chunks = ChunkRegistry.objects.filter(
+            participant=participant, time_bin__gte=min_datetime, time_bin__lte=max_datetime
         )
         file_size = chunks.aggregate(Sum('file_size')).get('file_size__sum')
         if file_size is None:

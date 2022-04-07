@@ -2,10 +2,10 @@ from collections import Counter
 from datetime import datetime, timedelta
 from typing import Dict
 
-import pytz
 from django.db import models
 from django.utils import timezone
 
+from constants.common_constants import EARLIEST_POSSIBLE_DATA_DATETIME
 from constants.data_processing_constants import CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER
 from constants.data_stream_constants import (CHUNKABLE_FILES, IDENTIFIERS,
     REVERSE_UPLOAD_FILE_TYPE_MAPPING)
@@ -135,7 +135,7 @@ class ChunkRegistry(TimestampedModel):
     @classmethod
     def exclude_bad_time_bins(cls):
         # roughly one month before beiwe launch date
-        return cls.objects.exclude(time_bin__lt=datetime(year=2014, month=8, day=1, tzinfo=pytz.utc))
+        return cls.objects.exclude(time_bin__lt=EARLIEST_POSSIBLE_DATA_DATETIME)
 
 
 class FileToProcess(TimestampedModel):

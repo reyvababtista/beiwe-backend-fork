@@ -10,11 +10,12 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from authentication.admin_authentication import (authenticate_admin,
     authenticate_researcher_study_access, forest_enabled)
+from constants.common_constants import EARLIEST_POSSIBLE_DATA_DATE
 from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import ForestTaskStatus, ForestTree
 from database.data_access_models import ChunkRegistry
 from database.study_models import Study
-from database.tableau_api_models import ForestTask
+from database.tableau_api_models import ForestTask, SummaryStatisticDaily
 from database.user_models import Participant
 from forms.django_forms import CreateTasksForm
 from libs.http_utils import easy_url
@@ -191,16 +192,18 @@ def download_task_data(request: ResearcherRequest, study_id, forest_task_externa
 
 
 def render_create_tasks(request: ResearcherRequest, study: Study):
-    # this is the fastest way to get earliest and latest time bins, even for large numbers of
-    # matches. use of .earliest and .latest are unreasonably slow.
-    time_bins = list(
-        ChunkRegistry.exclude_bad_time_bins()
-        .filter(study=study)
-        .order_by("time_bin")
-        .values_list("time_bin", flat=True)
+    # this is the fastest way to get earliest and latest dates, even for large numbers of matches.
+    # SummaryStatisticDaily is orders of magnitude smaller than ChunkRegistry.
+    dates = list(
+        SummaryStatisticDaily.objects
+        .exclude(date__gte=EARLIEST_POSSIBLE_DATA_DATE)
+        .filter(participant__in=study.participants.all())
+        .order_by("date")
+        .values_list("date", flat=True)
     )
-    start_date = time_bins[0] if time_bins else study.created_on.date()
-    end_date = time_bins[-1] if time_bins else timezone.now().date()
+    
+    start_date = dates[0] if dates else study.created_on.date()
+    end_date = dates[-1] if dates else timezone.now().date()
     return render(
         request,
         "forest/create_tasks.html",

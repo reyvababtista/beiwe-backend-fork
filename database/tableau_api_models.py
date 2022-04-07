@@ -133,7 +133,10 @@ class ForestTask(TimestampedModel):
     def clean_up_files(self):
         """ Delete temporary input and output files from this Forest run. """
         for i in range(10):
-            shutil.rmtree(self.data_base_path)
+            try:
+                shutil.rmtree(self.data_base_path)
+            except FileNotFoundError:
+                pass
             sleep(0.5)
             if not os.path.exists(self.data_base_path):
                 return

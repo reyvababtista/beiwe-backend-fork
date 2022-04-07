@@ -52,9 +52,9 @@ class CreateTasksForm(forms.Form):
         cleaned_data = super().clean()
         # handle cases of missing fields.
         if "date_end" not in cleaned_data:
-            self.add_error("date_end"), "date end was not provided."
+            self.add_error("date_end", "date end was not provided.")
         if "date_start" not in cleaned_data:
-            self.add_error("date_start"), "date start was not provided."
+            self.add_error("date_start", "date start was not provided.")
         if "date_end" not in cleaned_data or "date_start" not in cleaned_data:
             return
 

@@ -32,3 +32,4 @@ uwsgi:
   disable-logging: true
 
   reload-mercy: 5
+  worker-reload-mercy: 5

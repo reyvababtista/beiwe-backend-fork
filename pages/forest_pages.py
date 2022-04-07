@@ -191,12 +191,11 @@ def download_task_data(request: ResearcherRequest, study_id, forest_task_externa
 
 
 def render_create_tasks(request: ResearcherRequest, study: Study):
-    participants = Participant.objects.filter(study=study)
     # this is the fastest way to get earliest and latest time bins, even for large numbers of
     # matches. use of .earliest and .latest are unreasonably slow.
     time_bins = list(
         ChunkRegistry.exclude_bad_time_bins()
-        .filter(participant__in=participants)
+        .filter(study=study)
         .order_by("time_bin")
         .values_list("time_bin", flat=True)
     )

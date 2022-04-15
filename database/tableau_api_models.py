@@ -1,4 +1,3 @@
-import csv
 import datetime
 import json
 import os
@@ -9,15 +8,11 @@ from time import sleep
 
 from django.db import models
 
-from constants.forest_constants import (ForestTaskStatus, ForestTree,
-    TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS)
+from constants.forest_constants import ForestTaskStatus, ForestTree
 from database.common_models import TimestampedModel
 from database.user_models import Participant
 from libs.utils.date_utils import datetime_to_list
 
-
-class BadForestField(Exception): pass
-YEAR_MONTH_DAY = ('year', 'month', 'day')
 
 class ForestParam(TimestampedModel):
     """ Model for tracking params used in Forest analyses. There is one object for all trees.
@@ -77,59 +72,6 @@ class ForestTask(TimestampedModel):
     # non-fields
     _tmp_parent_folder_exists = False
     
-    def construct_summary_statistics(self):
-        """ Construct summary statistics from forest output, returning whether or not any
-        SummaryStatisticDaily has potentially been created or updated. """
-        # retain as a local import, don't want to import service unnecessarily
-        from services.celery_forest import log
-        
-        if not os.path.exists(self.forest_results_path):
-            log("path does not exist:", self.forest_results_path)
-            return False
-        
-        if self.forest_tree == ForestTree.jasmine:
-            task_attribute = "jasmine_task"
-        elif self.forest_tree == ForestTree.willow:
-            task_attribute = "willow_task"
-        else:
-            raise Exception("Unknown tree")
-        log("tree:", task_attribute)
-        
-        with open(self.forest_results_path, "r") as f:
-            reader = csv.DictReader(f)
-            has_data = False
-            log("opened file...")
-            
-            for line in reader:
-                has_data = True
-                summary_date = datetime.date(
-                    int(float(line['year'])), int(float(line['month'])), int(float(line['day'])),
-                )
-                # if timestamp is outside of desired range, skip.
-                if not (self.data_date_start < summary_date < self.data_date_end):
-                    continue
-                
-                updates = {task_attribute: self}
-                for column_name, value in line.items():
-                    if column_name in TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS:
-                        # look up column translation, coerce empty strings to Nones
-                        summary_stat_field = TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS[column_name]
-                        updates[summary_stat_field] = value if value != '' else None
-                    elif column_name in YEAR_MONTH_DAY:
-                        continue
-                    else:
-                        raise BadForestField(column_name)
-                
-                data = {
-                    "date": summary_date,
-                    "defaults": updates,
-                    "participant": self.participant,
-                }
-                log("creating SummaryStatisticDaily:", data)
-                SummaryStatisticDaily.objects.update_or_create(**data)
-        
-        return has_data
-    
     def clean_up_files(self):
         """ Delete temporary input and output files from this Forest run. """
         for i in range(10):
@@ -137,6 +79,7 @@ class ForestTask(TimestampedModel):
                 shutil.rmtree(self.data_base_path)
             except FileNotFoundError:
                 pass
+            # file system can be slightly slow, we need to sleep. (this code never executes on frontend)
             sleep(0.5)
             if not os.path.exists(self.data_base_path):
                 return
@@ -161,6 +104,7 @@ class ForestTask(TimestampedModel):
     
     def get_all_bv_set_dict(self):
         """ Return the unpickled all_bv_set dict. """
+        # FIXME: rename
         if not self.all_bv_set_s3_key:
             return None  # Forest expects None if it doesn't exist
         from libs.s3 import s3_retrieve
@@ -169,6 +113,7 @@ class ForestTask(TimestampedModel):
     
     def get_all_memory_dict_dict(self):
         """ Return the unpickled all_memory_dict dict. """
+        # FIXME: rename
         if not self.all_memory_dict_s3_key:
             return None  # Forest expects None if it doesn't exist
         from libs.s3 import s3_retrieve
@@ -246,10 +191,12 @@ class ForestTask(TimestampedModel):
     
     @property
     def all_bv_set_path(self):
+        # FIXME: this is part of Willow maybe? rename.
         return os.path.join(self.data_output_path, "all_BV_set.pkl")
     
     @property
     def all_memory_dict_path(self):
+        # FIXME: this is part of Jasmine  maybe? rename.
         return os.path.join(self.data_output_path, "all_memory_dict.pkl")
     
     def generate_all_bv_set_s3_key(self):

@@ -28,6 +28,9 @@ class ForestTaskStatus:
         return [cls.queued, cls.running, cls.success, cls.error, cls.cancelled]
 
 
+YEAR_MONTH_DAY = ('year', 'month', 'day')
+
+
 # the following dictionary is a mapping of output CSV fields from various Forest Trees to their
 # summary statistic names.  Note that this data structure is imported and used in tableau constants.
 
@@ -64,7 +67,7 @@ TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS = {
     "text_reciprocity_outgoing": "willow_outgoing_text_reciprocity",
     "num_mms_s": "willow_outgoing_MMS_count",
     "num_mms_r": "willow_incoming_MMS_count",
-
+    
     # willow, calls
     "num_in_call": "willow_incoming_call_count",
     "num_in_caller": "willow_incoming_call_degree",
@@ -75,3 +78,7 @@ TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS = {
     "num_mis_call": "willow_missed_call_count",
     "num_mis_caller": "willow_missed_callers",
 }
+
+
+NO_DATA_ERROR = 'No chunked data found for participant for the dates specified.'
+FOREST_ERROR_LOCATION_KEY = "forest_error_location"

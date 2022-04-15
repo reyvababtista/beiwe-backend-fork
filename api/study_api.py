@@ -191,13 +191,9 @@ def edit_custom_field(request: ResearcherRequest, study_id=None):
 
 
 def get_values_for_participants_table(
-            study: Study,
-            start: int,
-            length: int,
-            sort_by_column_index: int,
-            sort_in_descending_order: bool,
-            contains_string: str
-    ):
+    study: Study, start: int, length: int, sort_by_column_index: int,
+    sort_in_descending_order: bool, contains_string: str
+):
     """ Logic to get paginated information of the participant list on a study. """
     # If we need to optimize this function that probably requires the set up of a lookup
     # dictionary instead of querying the database for every participant's field values.
@@ -209,12 +205,17 @@ def get_values_for_participants_table(
     # for participant_id, field_name, value in x:
     #     participant_field_values[participant_id][field_name] = value
     
+    # TODO: this code can be substantially simplified. Move sorting to python, ExpressionWrapper is
+    #   needlessly complex and may be using the incorrect field (unclear, the names got screwed up
+    #   from their original meanings), convert to values_list, drop the prefetch entirely and make
+    #   the intervention dates a separate query into a lookup dict.
+    
     basic_columns = ['created_on', 'patient_id', 'registered', 'os_type']
     sort_by_column = basic_columns[sort_by_column_index]
     sort_by_column = f"-{sort_by_column}" if sort_in_descending_order else sort_by_column
     
     # ~ is the not operator
-    participant_unregistered_expression = \
+    no_device_id = \
         ExpressionWrapper(~Q(device_id=''), output_field=BooleanField())
     
     # since field names may not be populated, we need a reference list of all field names
@@ -223,12 +224,16 @@ def get_values_for_participants_table(
         study.fields.values_list("field_name", flat=True).order_by(Lower('field_name'))
     )
     
-    # Prefetch intervention dates, sorted case-insensitively by name
-    query = study.filtered_participants(contains_string).order_by(sort_by_column) \
-            .annotate(registered=participant_unregistered_expression) \
-            .prefetch_related(
-               Prefetch('intervention_dates',
-                        queryset=InterventionDate.objects.order_by(Lower('intervention__name'))))
+    # Prefetch intervention dates, sorted case-insensitively by_b name
+    query = study.filtered_participants(contains_string)
+    query = query.annotate(registered=no_device_id)
+    query = query.order_by(sort_by_column)  # must be after the annotate to allow registered sorting
+    query = query.prefetch_related(
+        Prefetch(
+            'intervention_dates',
+            queryset=InterventionDate.objects.order_by(Lower('intervention__name'))
+        )
+    )
     
     # Get the list of the basic columns that are present in every study, convert the created_on
     # into a string in YYYY-MM-DD format, then add intervention dates (sorted in prefetch).

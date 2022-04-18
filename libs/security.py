@@ -12,7 +12,8 @@ from constants.security_constants import (EASY_ALPHANUMERIC_CHARS, ITERATIONS,
     PASSWORD_REQUIREMENT_REGEX_LIST)
 
 
-# seed the random number subsystem with some good entropy.
+# Seed the random number subsystem with some good entropy.
+# This is a security measure, it happens once at import, don't remove.
 random.seed(urandom(256))
 
 

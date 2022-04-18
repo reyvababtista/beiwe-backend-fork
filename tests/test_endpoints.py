@@ -37,7 +37,7 @@ from database.survey_models import Survey
 from database.system_models import FileAsText
 from database.user_models import Participant, ParticipantFCMHistory, Researcher
 from libs.copy_study import format_study
-from libs.encryption import get_RSA_cipher
+from libs.rsa import get_RSA_cipher
 from libs.security import generate_easy_alphanumeric_string
 from tests.common import (BasicSessionTestCase, CommonTestCase, DataApiTest, ParticipantSessionTest,
     RedirectSessionApiTest, ResearcherSessionTest, SmartRequestsTestCase)

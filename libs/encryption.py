@@ -9,7 +9,9 @@ from Cryptodome.Cipher import AES
 from Cryptodome.PublicKey import RSA
 
 from config.settings import STORE_DECRYPTION_KEY_ERRORS, STORE_DECRYPTION_LINE_ERRORS
+from constants.participant_constants import IOS_API
 from constants.security_constants import ASYMMETRIC_KEY_LENGTH, URLSAFE_BASE64_CHARACTERS
+from database.data_access_models import IOSEDecryptionKey
 from database.profiling_models import (DecryptionKeyError, EncryptionErrorMetadata,
     LineEncryptionError)
 from database.study_models import Study
@@ -65,9 +67,9 @@ def get_RSA_cipher(key: bytes) -> old_RSA._RSAobj:
 
 
 # pycryptodome: the following is correct for PKCS1_OAEP.
-    # RSA_key = RSA.importKey(key)
-    # cipher = PKCS1_OAEP.new(RSA_key)
-    # return cipher
+# RSA_key = RSA.importKey(key)
+# cipher = PKCS1_OAEP.new(RSA_key)
+# return cipher
 
 # This function is only for use in debugging.
 # def encrypt_rsa(blob, private_key):
@@ -314,7 +316,7 @@ def extract_aes_key(
         raise DecryptionKeyInvalidError(f"Invalid decryption key: {decode_error}")
     
     try:
-        base64_key = private_key_cipher.decrypt(decoded_key)
+        base64_key: bytes = private_key_cipher.decrypt(decoded_key)
         # print(f"base64_key: {len(base64_key)} {base64_key}")
         decrypted_key = decode_base64(base64_key)
         # print(f"decrypted_key: {len(decrypted_key)} {decrypted_key}")
@@ -336,6 +338,16 @@ def extract_aes_key(
         except DecryptionKeyInvalidError:
             create_decryption_key_error(traceback.format_exc())
             raise
+    
+    # iOS has a bug where the file gets split into two uploads, so the second one is missing a
+    # decryption key. We store iOS decryption keys. and use them for those files - because the ios
+    # app "resists analysis" (its bad. its just bad.)
+    if participant.os_type == IOS_API:
+        IOSEDecryptionKey.objects.create(
+            s3_file_path=file_name.replace("_", "/"),  # mimic naming convention for FileToProcess
+            base64_encryption_key=base64_key.decode(),
+            participant=participant,
+        )
     
     return decrypted_key
 

@@ -14,7 +14,6 @@ from constants.participant_constants import OS_TYPE_CHOICES
 from database.models import TimestampedModel
 from database.study_models import Study
 from database.user_models import Participant
-from libs.s3 import s3_list_files, s3_retrieve
 from libs.security import chunk_hash
 
 
@@ -47,6 +46,7 @@ class ChunkRegistry(TimestampedModel):
     )
     
     def s3_retrieve(self):
+        from libs.s3 import s3_retrieve
         return s3_retrieve(self.chunk_path, self.study.object_id, raw_path=True)
     
     @classmethod
@@ -180,6 +180,7 @@ class FileToProcess(TimestampedModel):
         This is mostly a utility function, it was originally part of a script, but it is
         quite complex to accomplish, and worth holding on to.
         Contains print statements. """
+        from libs.s3 import s3_list_files
         path_components = chunk_path.split("/")
         if len(path_components) != 5:
             raise Exception("chunked file paths contain exactly 5 components separated by a slash.")
@@ -251,5 +252,10 @@ class FileToProcess(TimestampedModel):
         )
 
 
-# Everything below this line should [only] be deleting by reverting the correct commit.
-class InvalidUploadParameterError(Exception): pass
+class IOSEDecryptionKey(TimestampedModel):
+    """ This model exists in order to solve an ios implementation bug where files would be
+    split and a section would get uploaded without the decryption key, but the decryption key is
+    present in the original upload """
+    s3_file_path = models.CharField(max_length=256, blank=False, unique=True, db_index=True)
+    base64_encryption_key = models.CharField(max_length=256, blank=False)
+    participant = models.ForeignKey("Participant", on_delete=models.CASCADE)

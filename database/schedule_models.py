@@ -1,5 +1,5 @@
 from datetime import date, datetime, time, timedelta, tzinfo
-from typing import List
+from typing import List, Tuple
 
 from dateutil.tz import gettz
 from django.core.validators import MaxValueValidator
@@ -157,7 +157,7 @@ class WeeklySchedule(TimestampedModel):
             timings[day].append((hour * 60 * 60) + (minute * 60))
         return timings
 
-    def get_prior_and_next_event_times(self, now: datetime) -> (datetime, datetime):
+    def get_prior_and_next_event_times(self, now: datetime) -> Tuple[datetime, datetime]:
         """ Identify the start of the week relative to now, determine this week's push notification
         moment, then add 7 days. tzinfo of input is used to populate tzinfos of return. """
         today = now.date()

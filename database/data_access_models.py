@@ -252,6 +252,7 @@ class FileToProcess(TimestampedModel):
         )
 
 
+# omg I typoed the name of this...
 class IOSEDecryptionKey(TimestampedModel):
     """ This model exists in order to solve an ios implementation bug where files would be
     split and a section would get uploaded without the decryption key, but the decryption key is

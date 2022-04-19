@@ -21,7 +21,7 @@ from constants.participant_constants import IOS_API
 from database.data_access_models import FileToProcess
 from database.profiling_models import DecryptionKeyError, UploadTracking
 from database.system_models import FileAsText
-from libs.encryption import decrypt_device_file, DecryptionKeyInvalidError, HandledError
+from libs.encryption import DecryptionKeyInvalidError, DeviceDataDecryptor, HandledError
 from libs.http_utils import determine_os_api
 from libs.internal_types import ParticipantRequest
 from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
@@ -97,7 +97,7 @@ def upload(request: ParticipantRequest, OS_API=""):
     
     uploaded_file = get_uploaded_file(request)
     try:
-        uploaded_file = decrypt_device_file(file_name, uploaded_file, participant)
+        uploaded_file = DeviceDataDecryptor(file_name, uploaded_file, participant).file_data
     except HandledError:
         return HttpResponse(status=200)
     except DecryptionKeyInvalidError:

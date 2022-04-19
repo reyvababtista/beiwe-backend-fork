@@ -14,7 +14,6 @@ from constants.testing_constants import ALL_ROLE_PERMUTATIONS, REAL_ROLES, Resea
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation
-from libs import s3
 from libs.internal_types import StrOrBytes
 from libs.security import device_hash
 from tests.helpers import ReferenceObjectMixin, render_test_html_file
@@ -29,8 +28,9 @@ VERBOSE_2_OR_3 = ("-v2" in argv or "-v3" in argv) and "-v1" not in argv
 VERBOSE_3 = "-v3" in argv and "-v2" not in argv and "-v1" not in argv
 
 
-# force disable potentially active s3 connections
-s3.S3_BUCKET = None  # must retain import stucture to function.
+from libs import s3;  # (the ; and this comment blocks automatic reformatting of imports
+s3.S3_BUCKET = Exception   # force disable potentially active s3 connections.
+
 
 # extra printout of calls to the messages library
 if VERBOSE_2_OR_3:
@@ -321,7 +321,6 @@ class RedirectSessionApiTest(PopulatedResearcherSessionTestCase, SmartRequestsTe
         self.assertIsInstance(response, HttpResponseRedirect)
         self.assertEqual(resolve(response.url).url_name, self.REDIRECT_ENDPOINT_NAME)
         return response
-    
     
     def get_redirect_content(self, *args, **kwargs) -> bytes:
         # Tests for this class usually need a page to test for content messages.  This method loads

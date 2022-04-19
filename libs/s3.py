@@ -4,7 +4,7 @@ from Cryptodome.PublicKey import RSA
 
 from config.settings import (BEIWE_SERVER_AWS_ACCESS_KEY_ID, BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
     S3_BUCKET, S3_REGION_NAME)
-from libs.encryption import decrypt_server, encrypt_for_server
+from libs.aes import decrypt_server, encrypt_for_server
 from libs.rsa import generate_key_pairing, get_RSA_cipher, prepare_X509_key_for_java
 
 
@@ -32,16 +32,20 @@ conn: BaseClient = boto3.client(
     's3',
     aws_access_key_id=BEIWE_SERVER_AWS_ACCESS_KEY_ID,
     aws_secret_access_key=BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
-    region_name=S3_REGION_NAME
+    region_name=S3_REGION_NAME,
 )
 
 
+# NOTE: the S3_BUCKET variable is patched during tests to be the Exception class
+
+
 def s3_upload(key_path: str, data_string: bytes, study_object_id: str, raw_path=False) -> None:
+    """ uploads the provided file data to the provided S3 key path. """
     if not raw_path:
-        key_path = study_object_id + "/" + key_path
-    
+        key_path = study_object_id + "/" + key_path    
     data = encrypt_for_server(data_string, study_object_id)
-    conn.put_object(Body=data, Bucket=S3_BUCKET, Key=key_path)#, ContentType='string')
+    assert S3_BUCKET is not Exception, "libs.s3.s3_upload called inside test"
+    conn.put_object(dy=data, Bucket=S3_BUCKET, Key=key_path)
 
 
 def s3_retrieve(key_path: str, study_object_id: str, raw_path:bool=False, number_retries=3) -> bytes:
@@ -51,11 +55,13 @@ def s3_retrieve(key_path: str, study_object_id: str, raw_path:bool=False, number
     if not raw_path:
         key_path = study_object_id + "/" + key_path
     encrypted_data = _do_retrieve(S3_BUCKET, key_path, number_retries=number_retries)['Body'].read()
+    assert S3_BUCKET is not Exception, "libs.s3.s3_retrieve called inside test"
     return decrypt_server(encrypted_data, study_object_id)
 
 
 def _do_retrieve(bucket_name, key_path, number_retries=3):
     """ Run-logic to do a data retrieval for a file in an S3 bucket."""
+    assert S3_BUCKET is not Exception, "libs.s3._s3_retrieve(!!!) called inside test"
     try:
         return conn.get_object(Bucket=bucket_name, Key=key_path, ResponseContentType='string')
     
@@ -75,6 +81,7 @@ def s3_list_files(prefix, as_generator=False):
     """ Method fetches a list of filenames with prefix.
         note: entering the empty string into this search without later calling
         the object results in a truncated/paginated view."""
+    assert S3_BUCKET is not Exception, "libs.s3.s3_list_files called inside test"
     return _do_list_files(S3_BUCKET, prefix, as_generator=as_generator)
 
 
@@ -92,6 +99,7 @@ def s3_list_versions(prefix, allow_multiple_matches=False):
     """
     
     paginator = conn.get_paginator('list_object_versions')
+    assert S3_BUCKET is not Exception, "libs.s3.s3_list_versions called inside test"
     page_iterator = paginator.paginate(Bucket=S3_BUCKET, Prefix=prefix)
     
     versions = []
@@ -112,6 +120,7 @@ def s3_list_versions(prefix, allow_multiple_matches=False):
 
 def _do_list_files(bucket_name, prefix, as_generator=False):
     paginator = conn.get_paginator('list_objects_v2')
+    assert S3_BUCKET is not Exception, "libs.s3.__s3_list_files(!!!) called inside test"
     page_iterator = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
     if as_generator:
         return _do_list_files_generator(page_iterator)

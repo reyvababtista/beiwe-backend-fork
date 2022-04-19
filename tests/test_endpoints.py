@@ -1592,7 +1592,6 @@ class TestResetDevice(RedirectSessionApiTest):
         self.assertEqual(self.default_participant.device_id, "")
 
 
-
 class TestUnregisterParticipant(RedirectSessionApiTest):
     ENDPOINT_NAME = "participant_administration.unregister_participant"
     REDIRECT_ENDPOINT_NAME = "admin_pages.view_study"
@@ -1950,7 +1949,7 @@ class TestGetData(DataApiTest):
     
     def test_s3_patch_present(self):
         from libs import s3
-        self.assertIsNone(s3.S3_BUCKET)
+        self.assertIs(s3.S3_BUCKET, Exception)
     
     ENDPOINT_NAME = "data_access_api.get_data"
     
@@ -2441,6 +2440,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
 
 
 class TestMobileUpload(ParticipantSessionTest):
+    # FIXME: This test needs better coverage
     ENDPOINT_NAME = "mobile_api.upload"
     
     @classmethod
@@ -2469,7 +2469,6 @@ class TestMobileUpload(ParticipantSessionTest):
     def check_decryption_key_error(self, error_shibboleth):
         self.assertEqual(DecryptionKeyError.objects.count(), 1)
         traceback = DecryptionKeyError.objects.first().traceback
-        # print(traceback)
         self.assertIn(error_shibboleth, traceback)
         self.assertIn(error_shibboleth, traceback.splitlines()[-1])
     
@@ -2515,7 +2514,11 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assert_one_file_to_process
     
     @patch("libs.encryption.STORE_DECRYPTION_KEY_ERRORS")  # Variable's boolean value becomes True
-    def test_no_file_content(self, STORE_DECRYPTION_KEY_ERRORS: MagicMock):
+    @patch("database.user_models.Participant.get_private_key")
+    def test_no_file_content(
+        self, get_private_key: MagicMock, STORE_DECRYPTION_KEY_ERRORS: MagicMock
+    ):
+        get_private_key.return_value = self.PRIVATE_KEY
         # this test will fail with the s3 invalid bucket
         self.smart_post_status_code(200, file_name="whatever.csv", file="")
         self.assertEqual(DecryptionKeyError.objects.count(), 0)
@@ -2707,7 +2710,7 @@ class TestPushNotificationSetFCMToken(ResearcherSessionTest):
         self.do_post()
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertIn(ArchivedEvent.SUCCESS, archived_event.status)
-
+    
     @patch("api.push_notifications_api.check_firebase_instance")
     @patch("api.push_notifications_api.send_push_notification")
     def test_mocked_success_ios(self, check_firebase_instance: MagicMock, messaging: MagicMock):

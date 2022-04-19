@@ -215,3 +215,5 @@ if not DEBUG and SENTRY_ELASTIC_BEANSTALK_DSN:
                 },
             },
     }
+
+TEST_RUNNER = "redgreenunittest.django.runner.RedGreenDiscoverRunner"

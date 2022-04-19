@@ -27,7 +27,7 @@ from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_S
 from constants.participant_constants import IOS_API
 from constants.researcher_constants import ALL_RESEARCHER_TYPES, ResearcherRole
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
-    IOS_CERT, ResearcherRole)
+    IOS_CERT)
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.profiling_models import DecryptionKeyError
 from database.schedule_models import ArchivedEvent, Intervention
@@ -357,11 +357,11 @@ class TestDashboardStream(ResearcherSessionTest):
     def test_one_participant_no_data(self):
         self.do_data_stream_test(create_chunkregistries=False, number_participants=1)
     
-    def test_one_participant_no_data(self):
+    def test_three_participants_no_data(self):
         self.do_data_stream_test(create_chunkregistries=False, number_participants=3)
     
     def test_five_participants_with_data(self):
-        self.do_data_stream_test(create_chunkregistries=True, number_participants=3)
+        self.do_data_stream_test(create_chunkregistries=True, number_participants=5)
     
     def do_data_stream_test(self, create_chunkregistries=False, number_participants=1):
         # self.default_participant  < -- breaks, collision with default name.
@@ -371,7 +371,7 @@ class TestDashboardStream(ResearcherSessionTest):
             for i in range(number_participants)
         ]
         
-        # create all the participnats we need
+        # create all the participants we need
         if create_chunkregistries:
             for i, participant in enumerate(participants, start=0):
                 self.generate_chunkregistry(
@@ -408,6 +408,7 @@ class TestDashboardStream(ResearcherSessionTest):
             if not participants or not create_chunkregistries:
                 self.assert_present(f"There is no data currently available for {title}", html1)
                 self.assert_present(f"There is no data currently available for {title}", html2)
+
 
 # FIXME: this page renders with almost no data
 class TestDashboardPatientDisplay(ResearcherSessionTest):
@@ -1172,7 +1173,7 @@ class TestDeleteResearcher(ResearcherSessionTest):
     def _test(self, status_code: int, relation: str, success: bool):
         self.set_session_study_relation(relation)
         r2 = self.generate_researcher()
-        resp = self.smart_get_status_code(status_code, r2.id)
+        self.smart_get_status_code(status_code, r2.id)
         self.assertEqual(Researcher.objects.filter(id=r2.id).count(), 0 if success else 1)
 
 
@@ -1423,7 +1424,7 @@ class TestImportStudySettingsFile(RedirectSessionApiTest):
         # self.assert_present("Copied 0 Surveys and 0 Audio Surveys", resp.content)
     
     def test_bad_filename(self):
-        resp = self._test(True, True, ".exe", success=False)
+        self._test(True, True, ".exe", success=False)
         # FIXME: this is not present in the html, it should be
         # self.assert_present("You can only upload .json files.", resp.content)
     
@@ -1691,7 +1692,7 @@ class CreateManyParticipant(ResearcherSessionTest):
         
         self.assertEqual(i, 10)
         self.assertEqual(Participant.objects.count(), 10)
-        for patient_id in Participant.objects.values_list("patient_id", flat=True                                                                                                                                                                                                                                               ):
+        for patient_id in Participant.objects.values_list("patient_id", flat=True):
             self.assert_present(patient_id, output_file)
 
 
@@ -1711,7 +1712,7 @@ class TestAPIGetStudies(DataApiTest):
     
     def test_multiple_studies_one_relation(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        study2 = self.generate_study("study2")
+        self.generate_study("study2")
         resp = self.smart_post_status_code(200)
         self.assertEqual(
             json.loads(resp.content), {self.session_study.object_id: self.DEFAULT_STUDY_NAME}
@@ -2062,8 +2063,8 @@ class TestGetData(DataApiTest):
             if str(e) != literal_string_of_error_message:
                 raise Exception(
                     f"\n'{literal_string_of_error_message}'\nwas not equal to\n'{str(e)}'\n"
-                     "\n  You have changed something that is possibly related to "
-                     "threading via a ThreadPool or DummyThreadPool"
+                    "\n  You have changed something that is possibly related to "
+                    "threading via a ThreadPool or DummyThreadPool"
                 )
     
     def _test_basics(self, as_site_admin: bool):
@@ -2369,7 +2370,7 @@ class TestParticipantSetPassword(ParticipantSessionTest):
         self.assertFalse(self.session_participant.validate_password(self.DEFAULT_PARTICIPANT_PASSWORD))
         self.assertTrue(self.session_participant.debug_validate_password(self.DEFAULT_PARTICIPANT_PASSWORD))
     
-    def test_no_paramaters(self):
+    def test_correct_paramater(self):
         self.smart_post_status_code(200, new_password="jeff")
         self.session_participant.refresh_from_db()
         # participant passwords are weird there's some hashing
@@ -2610,7 +2611,7 @@ class TestPushNotificationSetFCMToken(ParticipantSessionTest):
         self.assertEqual(ParticipantFCMHistory.objects.count(), 0)
     
     def test_unregister_existing(self):
-        # create a new "valid" registration token (not unregistred)
+        # create a new "valid" registration token (not unregistered)
         token_1 = ParticipantFCMHistory(
             participant=self.session_participant, token="some_value", unregistered=None
         )
@@ -2623,7 +2624,7 @@ class TestPushNotificationSetFCMToken(ParticipantSessionTest):
         self.assertIsNone(token_2.unregistered)
     
     def test_reregister_existing_valid(self):
-        # create a new "valid" registration token (not unregistred)
+        # create a new "valid" registration token (not unregistered)
         token = ParticipantFCMHistory(
             participant=self.session_participant, token="some_value", unregistered=None
         )
@@ -2638,7 +2639,7 @@ class TestPushNotificationSetFCMToken(ParticipantSessionTest):
         self.assertNotEqual(first_time, second_time)
     
     def test_reregister_existing_unregister(self):
-        # create a new "valid" registration token (not unregistred)
+        # create a new "valid" registration token (not unregistered)
         token = ParticipantFCMHistory(
             participant=self.session_participant, token="some_value", unregistered=timezone.now()
         )
@@ -2646,14 +2647,14 @@ class TestPushNotificationSetFCMToken(ParticipantSessionTest):
         # test only the one token exists
         first_time = token.last_updated
         self.smart_post(fcm_token="some_value")
-        # test is to longer unregistred, and was updated
+        # test is to longer unregistered, and was updated
         token.refresh_from_db()
         second_time = token.last_updated
         self.assertIsNone(token.unregistered)
         self.assertNotEqual(first_time, second_time)
 
 
-class TestPushNotificationSetFCMToken(ResearcherSessionTest):
+class TestResendPushNotifications(ResearcherSessionTest):
     ENDPOINT_NAME = "push_notifications_api.resend_push_notification"
     
     def do_post(self):
@@ -2721,6 +2722,7 @@ class TestPushNotificationSetFCMToken(ResearcherSessionTest):
         self.do_post()
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertIn(ArchivedEvent.SUCCESS, archived_event.status)
+
 
 # FIXME: make a real test...
 class TestForestAnalysisProgress(ResearcherSessionTest):

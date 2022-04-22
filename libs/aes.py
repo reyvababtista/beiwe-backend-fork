@@ -5,24 +5,21 @@ from Cryptodome.Cipher import AES
 from database.study_models import Study
 
 
-def encrypt_for_server(input_string: bytes, study_object_id: str) -> bytes:
+def encrypt_for_server(input_string: bytes, encryption_key: bytes) -> bytes:
     """ Encrypts config using the ENCRYPTION_KEY, prepends the generated initialization vector.
     Use this function on an entire file (as a string). """
-    if not isinstance(study_object_id, str):
-        raise Exception(f"received non-string object {study_object_id}")
-    encryption_key: bytes = Study.objects.get(object_id=study_object_id) \
-        .values_list("encryption_key", flat=True).get().encode()  # bytes
+    if not isinstance(encryption_key, bytes):
+        raise Exception(f"received non-bytes object {type(encryption_key)}")
+    if len(encryption_key) != 32:
+        raise Exception(f"received encryption key with bad length: {len(encryption_key)}")
     iv: bytes = urandom(16)  # bytes
     return iv + AES.new(encryption_key, AES.MODE_CFB, segment_size=8, IV=iv).encrypt(input_string)
 
 
-def decrypt_server(data: bytes, study_object_id: str) -> bytes:
+def decrypt_server(data: bytes, encryption_key: bytes) -> bytes:
     """ Decrypts config encrypted by the encrypt_for_server function. """
-    if not isinstance(study_object_id, str):
-        raise TypeError(f"received non-string object {study_object_id}")
-    
-    encryption_key = Study.objects.filter(object_id=study_object_id) \
-        .values_list('encryption_key', flat=True).get().encode()
+    if not isinstance(encryption_key, bytes):
+        raise Exception(f"received non-bytes object {type(encryption_key)}")
     iv = data[:16]
     data = data[16:]  # gr arg, memcopy operation...
     return AES.new(encryption_key, AES.MODE_CFB, segment_size=8, IV=iv).decrypt(data)

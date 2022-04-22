@@ -1,10 +1,14 @@
+from typing import Generator, List, Union
 import boto3
 from botocore.client import BaseClient
 from Cryptodome.PublicKey import RSA
 
 from config.settings import (BEIWE_SERVER_AWS_ACCESS_KEY_ID, BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
     S3_BUCKET, S3_REGION_NAME)
+from database.study_models import Study
+from database.user_models import Participant
 from libs.aes import decrypt_server, encrypt_for_server
+from libs.internal_types import StrOrParticipantOrStudy
 from libs.rsa import generate_key_pairing, get_RSA_cipher, prepare_X509_key_for_java
 
 
@@ -37,26 +41,55 @@ conn: BaseClient = boto3.client(
 
 
 # NOTE: the S3_BUCKET variable is patched during tests to be the Exception class
+def smart_get_study_encryption_key(obj: StrOrParticipantOrStudy) -> bytes:
+    if isinstance(obj, Participant):
+        return obj.study.encryption_key.encode()
+    elif isinstance(obj, Study):
+        return obj.encryption_key.encode()
+    elif isinstance(obj, str) and len(obj) == 24:
+        return Study.objects.values_list("encryption_key", flat=True).get(object_id=obj).encode()
+    else:
+        raise TypeError(f"expected Study, Participant, or str, received '{type(obj)}'")
 
 
-def s3_upload(key_path: str, data_string: bytes, study_object_id: str, raw_path=False) -> None:
-    """ uploads the provided file data to the provided S3 key path. """
+def s3_construct_study_key_path(key_path: str, obj: StrOrParticipantOrStudy):
+    if isinstance(obj, Participant):
+        study_object_id = obj.study.object_id
+    elif isinstance(obj, Study):
+        study_object_id = obj.study_object_id
+    elif isinstance(obj, str) and len(obj) == 24:
+        study_object_id = obj
+    else:
+        raise TypeError(f"expected Study, Participant, or 24 char str, received '{type(obj)}'")
+    return study_object_id + "/" + key_path
+
+
+# def s3_construct_participant_key_path(key_path: str, study_object_id: str, patient_id: str):
+# return study_object_id + "/" + patient_id + "/" + key_path
+
+
+def s3_upload(
+    key_path: str, data_string: bytes, obj: StrOrParticipantOrStudy, raw_path=False
+) -> None:
+    """ uploads the provided file data to the provided S3 key path, failures raise exceptions. """
     if not raw_path:
-        key_path = study_object_id + "/" + key_path    
-    data = encrypt_for_server(data_string, study_object_id)
+        key_path = s3_construct_study_key_path(key_path, obj)
+    data = encrypt_for_server(data_string, smart_get_study_encryption_key(obj))
     assert S3_BUCKET is not Exception, "libs.s3.s3_upload called inside test"
-    conn.put_object(dy=data, Bucket=S3_BUCKET, Key=key_path)
+    conn.put_object(Body=data, Bucket=S3_BUCKET, Key=key_path)
 
 
-def s3_retrieve(key_path: str, study_object_id: str, raw_path:bool=False, number_retries=3) -> bytes:
+def s3_retrieve(
+    key_path: str, obj: StrOrParticipantOrStudy, raw_path:bool=False, number_retries=3
+) -> bytes:
     """ Takes an S3 file path (key_path), and a study ID.  Takes an optional argument, raw_path,
     which defaults to false.  When set to false the path is prepended to place the file in the
     appropriate study_id folder. """
     if not raw_path:
-        key_path = study_object_id + "/" + key_path
+        key_path = s3_construct_study_key_path(key_path, obj)
     encrypted_data = _do_retrieve(S3_BUCKET, key_path, number_retries=number_retries)['Body'].read()
     assert S3_BUCKET is not Exception, "libs.s3.s3_retrieve called inside test"
-    return decrypt_server(encrypted_data, study_object_id)
+    return decrypt_server(encrypted_data, smart_get_study_encryption_key(obj))
 
 
 def _do_retrieve(bucket_name, key_path, number_retries=3):
@@ -77,12 +110,17 @@ def _do_retrieve(bucket_name, key_path, number_retries=3):
         raise
 
 
-def s3_list_files(prefix, as_generator=False):
+def s3_list_files(prefix, as_generator=False) -> List[str]:
     """ Method fetches a list of filenames with prefix.
         note: entering the empty string into this search without later calling
         the object results in a truncated/paginated view."""
     assert S3_BUCKET is not Exception, "libs.s3.s3_list_files called inside test"
     return _do_list_files(S3_BUCKET, prefix, as_generator=as_generator)
+
+
+def smart_s3_list_study_files(prefix: str, obj: StrOrParticipantOrStudy):
+    assert S3_BUCKET is not Exception, "libs.s3.smart_s3_list_study_files called inside test"
+    return s3_list_files(s3_construct_study_key_path(prefix, obj))
 
 
 def s3_list_versions(prefix, allow_multiple_matches=False):
@@ -118,7 +156,7 @@ def s3_list_versions(prefix, allow_multiple_matches=False):
     return versions
 
 
-def _do_list_files(bucket_name, prefix, as_generator=False):
+def _do_list_files(bucket_name, prefix, as_generator=False) -> List[str]:
     paginator = conn.get_paginator('list_objects_v2')
     assert S3_BUCKET is not Exception, "libs.s3.__s3_list_files(!!!) called inside test"
     page_iterator = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
@@ -147,6 +185,7 @@ def s3_delete(key_path):
 ################################################################################
 ######################### Client Key Management ################################
 ################################################################################
+
 
 def create_client_key_pair(patient_id, study_id):
     """Generate key pairing, push to database, return sanitized key for client."""

@@ -35,3 +35,6 @@ uwsgi:
 
   reload-mercy: 5
   worker-reload-mercy: 5
+
+  # this setting should speed up deploys, eb expects term to kill the procfile process
+  die-on-term: true

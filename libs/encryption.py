@@ -3,11 +3,12 @@ import traceback
 from typing import List
 
 from Cryptodome.Cipher import AES
+from django.forms import ValidationError
 
 from config.settings import STORE_DECRYPTION_KEY_ERRORS, STORE_DECRYPTION_LINE_ERRORS
-from constants.participant_constants import IOS_API
+from constants.participant_constants import ANDROID_API, IOS_API
 from constants.security_constants import URLSAFE_BASE64_CHARACTERS
-from database.data_access_models import IOSEDecryptionKey
+from database.data_access_models import IOSDecryptionKey
 from database.profiling_models import (DecryptionKeyError, EncryptionErrorMetadata,
     LineEncryptionError)
 from database.user_models import Participant
@@ -15,12 +16,12 @@ from libs.security import Base64LengthException, decode_base64, encode_base64, P
 
 
 class DecryptionKeyInvalidError(Exception): pass
-class HandledError(Exception): pass
-# class UnHandledError(Exception): pass  # for debugging
+class RemoteDeleteFileScenario(Exception): pass
+class UnHandledError(Exception): pass  # for debugging
 class InvalidIV(Exception): pass
 class InvalidData(Exception): pass
 class DefinitelyInvalidFile(Exception): pass
-
+class UncatchableError(Exception): pass
 
 # TODO: there is a circular import due to the database imports in this file and this file being
 # imported in s3, forcing local s3 imports in various files.  Refactor and fix.
@@ -41,31 +42,66 @@ class DeviceDataDecryptor():
         self.bad_lines: List[bytes] = []
         self.error_types: List[str] = []
         self.good_lines: List[bytes] = []
-        self.error_count = 0
+        self.error_count: int = 0
+        self.line_index = None  # line index is index to files_list variable of the current line
         
         # decryption key extraction
         self.private_key_cipher = self.participant.get_private_key()
-        self.file_data = self.split_file()
+        self.file_lines = self.split_file()
+        
+        # error management includes external assets, attribute needs to be populated.
+        # DON'T pre-populate self.decrypted_file
+        self.used_ios_decryption_key_cache = False
+        
+        # os determination and go
+        if participant.os_type == ANDROID_API:
+            self.do_android_decryption()
+        elif participant.os_type == IOS_API:
+            self.do_ios_decryption()
+    
+    def do_android_decryption(self):
+        """ Android has no exciting features, errors are raised as normal. """
         self.aes_decryption_key = self.extract_aes_key()
+        self.decrypt_device_file()
+        # join is optimized and does not cause O(n^2) total memory copies.
+        self.decrypted_file = b"\n".join(self.good_lines)
+    
+    def do_ios_decryption(self):
+        """ iOS can upload identically named files that were split in half (or more)? due to a bug
+        (the iOS app is bad.) We stash keys of all uploaded ios data, and use them to decrypt these
+        "duplicate" files. """
+        try:
+            self.aes_decryption_key = self.extract_aes_key()
+        except DecryptionKeyInvalidError:
+            self.aes_decryption_key = self.get_backup_encryption_key()
+            self.used_ios_decryption_key_cache = True
         
-        # join should be rather well optimized and not cause O(n^2) total memory copies
-        self.file_data = b"\n".join(self.good_lines)
+        self.decrypt_device_file()
+        # join is optimized and does not cause O(n^2) total memory copies.
+        self.decrypted_file = b"\n".join(self.good_lines)
+    
+    def get_backup_encryption_key(self):
+        try:
+            decryption_key = IOSDecryptionKey.objects.get(file_name=self.file_name)
+        except IOSDecryptionKey.DoesNotExist:
+            self.create_decryption_key_error(traceback.format_exc())
+            raise DecryptionKeyInvalidError(
+                f"ios decryption key for '{self.file_name}' could not be found.")
         
-        # line index is index to files_list variable of the current line
-        self.line_index = None
+        return decode_base64(decryption_key.base64_encryption_key.encode())
     
     def split_file(self) -> List[bytes]:
         # don't refactor to pop the decryption key line out of the file_data list, this list
         # can be thousands of lines.  Also, this line is a 2x memcopy with N new bytes objects.
         file_data = [line for line in self.original_data.split(b'\n') if line != b""]
         if not file_data:
-            raise HandledError("The file had no data in it.  Return 200 to delete file from device.")
+            raise RemoteDeleteFileScenario("The file had no data in it.  Return 200 to delete file from device.")
         return file_data
     
     def decrypt_device_file(self) -> bytes:
         """ Runs the line-by-line decryption of a file encrypted by a device. """
-        # we need to skip the first line (the decryption key), but need real index values in i
-        lines = enumerate(self.file_data)
+        # we need to skip the first line (the decryption key), but need real index values
+        lines = enumerate(self.file_lines)
         next(lines)
         for line_index, line in lines:
             self.line_index = line_index
@@ -82,27 +118,24 @@ class DeviceDataDecryptor():
         self.create_metadata_error()
     
     def extract_aes_key(self) -> bytes:
-        # The following code is ... strange because of an unfortunate design design decision made
-        # quite some time ago: the decryption key is encoded as base64 twice, once wrapping the
-        # output of the RSA encryption, and once wrapping the AES decryption key.  This happened
-        # because I was not an experienced developer at the time, python2's unified string-bytes
-        # class didn't exactly help, and java io is... java io.
+        """ The following code is a bit dumb. The decryption key is encoded as base64 twice,
+        once to wrap output of the RSA encryption, and once wrapping the AES decryption key. 
+        Code factoring is weird due to the need to create and preserve legible stack traces.
+        ( traceback.format_exc() gets the current stack trace if there is an error.) """
         
         try:
-            key_base64_raw: bytes = self.file_data[0]
-            # print(f"key_base64_raw: {key_base64_raw}")
+            key_base64_raw: bytes = self.file_lines[0]
         except IndexError:
-            # probably not reachable due to test for emptiness prior in code; keep just in case...
+            # shouldn't be reachable due to test for emptiness prior in code, keep around anyway.
             self.create_decryption_key_error(traceback.format_exc())
             raise DecryptionKeyInvalidError("There was no decryption key.")
         
-        # Test that every "character" (they are 8 bit bytes) in the byte-string of the raw key is
-        # a valid url-safe base64 character, this will cut out certain junk files too.
+        # Test that every byte in the byte-string of the raw key is a valid url-safe base64
+        # character this also cuts down some junk files.
         for c in key_base64_raw:
             if c not in URLSAFE_BASE64_CHARACTERS:
-                # need a stack trace....
                 try:
-                    raise DecryptionKeyInvalidError(f"Decryption key not base64 encoded: {key_base64_raw}")
+                    raise DecryptionKeyInvalidError(f"Key not base64 encoded: {key_base64_raw}")
                 except DecryptionKeyInvalidError:
                     self.create_decryption_key_error(traceback.format_exc())
                     raise
@@ -110,16 +143,14 @@ class DeviceDataDecryptor():
         # handle the various cases that can occur when extracting from base64.
         try:
             decoded_key: bytes = decode_base64(key_base64_raw)
-            # print(f"decoded_key: {decoded_key}")
         except (TypeError, PaddingException, Base64LengthException) as decode_error:
             self.create_decryption_key_error(traceback.format_exc())
             raise DecryptionKeyInvalidError(f"Invalid decryption key: {decode_error}")
         
+        # run RSA decryption
         try:
             base64_key: bytes = self.private_key_cipher.decrypt(decoded_key)
-            # print(f"base64_key: {len(base64_key)} {base64_key}")
-            decrypted_key = decode_base64(base64_key)
-            # print(f"decrypted_key: {len(decrypted_key)} {decrypted_key}")
+            decrypted_key: bytes = decode_base64(base64_key)
             if not decrypted_key:
                 raise TypeError(f"decoded key was '{decrypted_key}'")
         except (TypeError, IndexError, PaddingException, Base64LengthException) as decr_error:
@@ -128,28 +159,50 @@ class DeviceDataDecryptor():
         
         # If the decoded bits of the key is not exactly 128 bits (16 bytes) that probably means that
         # the RSA encryption failed - this occurs when the first byte of the encrypted blob is all
-        # zeros.  Apps require an update to solve this (in a future rewrite we should use a padding
-        # algorithm).
+        # zeros.  Apps require an update to solve this (in a future rewrite we should use a correct
+        # padding algorithm).
         if len(decrypted_key) != 16:
-            # print(len(decrypted_key))
-            # need a stack trace....
             try:
                 raise DecryptionKeyInvalidError(f"Decryption key not 128 bits: {decrypted_key}")
             except DecryptionKeyInvalidError:
                 self.create_decryption_key_error(traceback.format_exc())
                 raise
         
-        # iOS has a bug where the file gets split into two uploads, so the second one is missing a
-        # decryption key. We store iOS decryption keys. and use them for those files - because the
-        # ios app "resists analysis" (its bad. its just bad.)
         if self.participant.os_type == IOS_API:
-            IOSEDecryptionKey.objects.create(
-                s3_file_path=self.file_name.replace("_", "/"),  # mimic naming convention for FileToProcess
-                base64_encryption_key=base64_key.decode(),
+            self.populate_ios_decryption_key(base64_key)
+        return decrypted_key
+    
+    def populate_ios_decryption_key(self, base64_key: bytes):
+        """ iOS has a bug where the file gets split into two uploads, so the second one is missing a
+        decryption key. We store iOS decryption keys. and use them for those files - because the ios
+        app "resists analysis" (its bad. its just bad.)
+        
+        We also have to handle the case of double uploads leading to violating the unique database,
+        constraint. (again, the ios app is bad.) """
+        base64_str: str = base64_key.decode()
+        
+        try:
+            IOSDecryptionKey.objects.create(
+                file_name=self.file_name,
+                base64_encryption_key=base64_str,
                 participant=self.participant,
             )
-        
-        return decrypted_key
+            return
+        except ValidationError as e:
+            print(f"ios key creation FAILED for '{self.file_name}'")
+            # don't fail on other validation errors
+            if "already exists" not in str(e):
+                raise
+            
+            extant_key: IOSDecryptionKey = IOSDecryptionKey.objects.get(file_name=self.file_name)
+            # assert both keys are identical.
+            if extant_key.base64_encryption_key != base64_str:
+                print("ios key creation unknown error 2")
+                raise UnHandledError(
+                    f"Two files, same name, two keys: '{extant_key.file_name}': "
+                    f"extant key: '{extant_key.base64_encryption_key}', '"
+                    f"new key: '{base64_str}'"
+                )
     
     def decrypt_device_line(self, base64_data: bytes) -> bytes:
         """ Config (the file and its iv; why I named it that is a mystery) is expected to be 3 colon
@@ -159,35 +212,35 @@ class DeviceDataDecryptor():
             value 3 is the config, encrypted using AES CBC, with the provided key and iv. """
         iv, base64_data = base64_data.split(b":")
         iv = decode_base64(iv)
-        data = decode_base64(data)
+        raw_data = decode_base64(base64_data)
         
         # handle cases of no data, and less than 16 bytes of data, which is an equivalent scenario.
-        if not data or len(data) < 16:
+        if not raw_data or len(raw_data) < 16:
             raise InvalidData()
         if not iv or len(iv) < 16:
             raise InvalidIV()
         
         # CBC data encryption requires alignment to a 16 bytes, we lose any data that overflows that length.
-        overflow_bytes = len(data) % 16
+        overflow_bytes = len(raw_data) % 16
         
         if overflow_bytes:
             # print("\n\nFOUND OVERFLOWED DATA\n\n")
             # print("device os:", self.participant.os_type)
             # print("\n\n")
-            data = data[:-overflow_bytes]
+            raw_data = raw_data[:-overflow_bytes]
         
         try:
             decipherer = AES.new(self.aes_decryption_key, mode=AES.MODE_CBC, IV=iv)
-            decrypted = decipherer.decrypt(data)
+            decrypted = decipherer.decrypt(raw_data)
         except Exception:
             if iv is None:
                 len_iv = "None"
             else:
                 len_iv = len(iv)
-            if data is None:
+            if raw_data is None:
                 len_data = "None"
             else:
-                len_data = len(data)
+                len_data = len(raw_data)
             if self.aes_decryption_key is None:
                 len_key = "None"
             else:
@@ -208,7 +261,7 @@ class DeviceDataDecryptor():
         return decrypted
     
     def handle_line_error(self, line: bytes, error: Exception):
-        error_string: str(error)
+        error_string = str(error)
         this_error_message = "There was an error in user decryption: "
         self.error_count += 1
         
@@ -245,7 +298,7 @@ class DeviceDataDecryptor():
             self.append_line_encryption_error(line, LineEncryptionError.MP4_PADDING)
             # this is only seen in mp4 files. possibilities: upload during write operation. broken
             #  base64 conversion in the app some unanticipated error in the file upload
-            raise HandledError(this_error_message)
+            raise RemoteDeleteFileScenario(this_error_message)
         else:
             # If none of the above errors happened, raise the error raw
             raise error
@@ -262,8 +315,8 @@ class DeviceDataDecryptor():
                 type=error_type,
                 base64_decryption_key=encode_base64(self.aes_decryption_key),
                 line=encode_base64(line),
-                prev_line=self.file_data[i - 1] if i > 0 else '',
-                next_line=self.file_data[i + 1] if i < len(self.file_data) - 1 else '',
+                prev_line=self.file_lines[i - 1] if i > 0 else '',
+                next_line=self.file_lines[i + 1] if i < len(self.file_lines) - 1 else '',
                 participant=self.participant,
             )
     
@@ -271,7 +324,7 @@ class DeviceDataDecryptor():
         if self.error_count:
             EncryptionErrorMetadata.objects.create(
                 file_name=self.file_name,
-                total_lines=len(self.file_data),
+                total_lines=len(self.file_lines),
                 number_errors=self.error_count,
                 # generator comprehension:
                 error_lines=json.dumps((str(line for line in self.bad_lines))),

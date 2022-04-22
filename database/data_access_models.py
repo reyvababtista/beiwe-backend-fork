@@ -139,6 +139,7 @@ class ChunkRegistry(TimestampedModel):
 
 
 class FileToProcess(TimestampedModel):
+    # todo: this should have a max length of 66 characters on audio recordings
     s3_file_path = models.CharField(max_length=256, blank=False, unique=True)
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='files_to_process')
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='files_to_process')
@@ -164,12 +165,13 @@ class FileToProcess(TimestampedModel):
         ).exists()
     
     @classmethod
-    def append_file_for_processing(cls, file_path: str, study_object_id: str, **kwargs):
+    def append_file_for_processing(cls, file_path: str, participant: Participant):
         # normalize the file path, grab the study id, passthrough kwargs to create; create.
         cls.objects.create(
-            s3_file_path=cls.normalize_s3_file_path(file_path, study_object_id),
-            study_id=Study.objects.filter(object_id=study_object_id).values_list('pk', flat=True).get(),
-            **kwargs
+            s3_file_path=cls.normalize_s3_file_path(file_path, participant.study.object_id),
+            participant=participant,
+            study=participant.study,
+            os_type=participant.os_type,
         )
     
     @classmethod
@@ -239,9 +241,7 @@ class FileToProcess(TimestampedModel):
                 continue
             else:
                 print(f"Adding {fp} as a file to reprocess.")
-                cls.append_file_for_processing(
-                    fp, study_obj_id, participant=participant, os_type=participant.os_type
-                )
+                cls.append_file_for_processing(fp, participant)
     
     @classmethod
     def report(cls, *args, **kwargs) -> Dict[str, int]:
@@ -252,11 +252,12 @@ class FileToProcess(TimestampedModel):
         )
 
 
-# omg I typoed the name of this...
-class IOSEDecryptionKey(TimestampedModel):
+class IOSDecryptionKey(TimestampedModel):
     """ This model exists in order to solve an ios implementation bug where files would be
     split and a section would get uploaded without the decryption key, but the decryption key is
     present in the original upload """
-    s3_file_path = models.CharField(max_length=256, blank=False, unique=True, db_index=True)
-    base64_encryption_key = models.CharField(max_length=256, blank=False)
+    # based on several days of running, the longest file names are 66 character audio files.
+    # encryption keys are 128 bits base64 encoded, so 24 characters
+    file_name = models.CharField(max_length=80, blank=False, unique=True, db_index=True)
+    base64_encryption_key = models.CharField(max_length=24, blank=False)
     participant = models.ForeignKey("Participant", on_delete=models.CASCADE)

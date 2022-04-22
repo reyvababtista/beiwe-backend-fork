@@ -43,14 +43,14 @@ class ParticipantRequest(HttpRequest):
     session_participant: Participant
 
 
-class TableauRequest(HttpRequest):
-    pass
+class TableauRequest(HttpRequest): pass
 
 #
 ## Other classes
 #
 
 StrOrBytes = Union[str, bytes]
+StrOrParticipantOrStudy = Union[str, Participant, Study]
 
 
 # Generated with scripts/generate_typing_hax.py on 2022-02-13

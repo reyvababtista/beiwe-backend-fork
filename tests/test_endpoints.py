@@ -2500,14 +2500,14 @@ class TestMobileUpload(ParticipantSessionTest):
         self.smart_post_status_code(200, file_name="whatever.csv")
         self.assert_no_files_to_process
     
-    def test_file_already_present(self):
+    def test_file_already_present_as_ftp(self):
         # there is a ~complex file name test, this value will match and cause that test to succeed,
         # which makes the endpoint return early.  This test will crash with the S3 invalid bucket
         # failure mode if there is no match.
         normalized_file_name = f"{self.session_study.object_id}/whatever.csv"
         self.smart_post_status_code(400, file_name=normalized_file_name)
         ftp = self.generate_file_to_process(normalized_file_name)
-        self.smart_post_status_code(200, file_name=normalized_file_name, file=object())
+        self.smart_post_status_code(400, file_name=normalized_file_name, file=object())
         self.assert_one_file_to_process
         should_be_identical = FileToProcess.objects.first()
         self.assertEqual(ftp.id, should_be_identical.id)
@@ -2573,7 +2573,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertEqual(DecryptionKeyError.objects.count(), 1)
         # This construction gets us our special padding error
         self.check_decryption_key_error(
-            "libs.encryption.DecryptionKeyInvalidError: Decryption key not base64 encoded:"
+            "libs.encryption.DecryptionKeyInvalidError: Key not base64 encoded:"
         )
         self.assert_no_files_to_process
 

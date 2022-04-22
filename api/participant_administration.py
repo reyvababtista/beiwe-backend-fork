@@ -170,7 +170,7 @@ def participant_csv_generator(study_id, number_of_new_patients):
         participant = Participant.objects.get(patient_id=patient_id)
         add_fields_and_interventions(participant, Study.objects.get(id=study_id))
         # Creates an empty file on s3 indicating that this user exists
-        s3_upload(patient_id, b"", study.object_id)
+        s3_upload(patient_id, b"", study)
         create_client_key_pair(patient_id, study.object_id)
         repopulate_all_survey_scheduled_events(study, participant)
         

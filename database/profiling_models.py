@@ -54,6 +54,7 @@ class LineEncryptionError(TimestampedModel):
 
 
 class DecryptionKeyError(TimestampedModel):
+    # FIXME: longest file name should be 66 character media files
     file_path = models.CharField(max_length=256)
     contents = models.TextField()
     traceback = models.TextField(null=True)

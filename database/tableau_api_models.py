@@ -195,7 +195,7 @@ class ForestTask(TimestampedModel):
         s3_upload(
             self.generate_all_bv_set_s3_key(),
             all_bv_set_bytes,
-            self.participant.study.object_id,
+            self.participant,
             raw_path=True,
         )
         self.all_bv_set_s3_key = self.generate_all_bv_set_s3_key()
@@ -206,7 +206,7 @@ class ForestTask(TimestampedModel):
         s3_upload(
             self.generate_all_memory_dict_s3_key(),
             all_memory_dict_bytes,
-            self.participant.study.object_id,
+            self.participant,
             raw_path=True,
         )
         self.all_memory_dict_s3_key = self.generate_all_memory_dict_s3_key()

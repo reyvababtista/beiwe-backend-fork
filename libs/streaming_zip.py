@@ -59,7 +59,7 @@ def batch_retrieve_s3(chunk: dict) -> Tuple[dict, bytes]:
     """ Data is returned in the form (chunk_object, file_data). """
     return chunk, s3_retrieve(
         chunk["chunk_path"],
-        study_object_id=Study.objects.get(id=chunk["study_id"]).object_id,
+        Study.objects.get(id=chunk["study_id"]).object_id,
         raw_path=True,
     )
 

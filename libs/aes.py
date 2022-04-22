@@ -2,8 +2,6 @@ from os import urandom
 
 from Cryptodome.Cipher import AES
 
-from database.study_models import Study
-
 
 def encrypt_for_server(input_string: bytes, encryption_key: bytes) -> bytes:
     """ Encrypts config using the ENCRYPTION_KEY, prepends the generated initialization vector.

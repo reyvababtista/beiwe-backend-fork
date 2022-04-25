@@ -56,7 +56,7 @@ def s3_construct_study_key_path(key_path: str, obj: StrOrParticipantOrStudy):
     if isinstance(obj, Participant):
         study_object_id = obj.study.object_id
     elif isinstance(obj, Study):
-        study_object_id = obj.study_object_id
+        study_object_id = obj.object_id
     elif isinstance(obj, str) and len(obj) == 24:
         study_object_id = obj
     else:

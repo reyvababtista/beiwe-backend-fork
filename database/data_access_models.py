@@ -146,6 +146,10 @@ class FileToProcess(TimestampedModel):
     os_type = models.CharField(max_length=16, choices=OS_TYPE_CHOICES, blank=True, null=False, default="")
     deleted = models.BooleanField(default=False)
     
+    def s3_retrieve(self):
+        from libs.s3 import s3_retrieve
+        return s3_retrieve(self.s3_file_path, self.study, raw_path=True)
+
     @staticmethod
     def normalize_s3_file_path(file_path: str, study_object_id: str):
         """ whatever the reason for this file path transform is has been lost to the mists of time.

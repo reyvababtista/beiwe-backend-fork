@@ -305,7 +305,7 @@ class DeviceDataDecryptor():
             # If none of the above errors happened, raise the error raw
             raise error
     
-    def append_line_encryption_error(self, line: bytes, error_type: str, index):
+    def append_line_encryption_error(self, line: bytes, error_type: str):
         # handle creating line orrers
         self.error_types.append(error_type)
         self.bad_lines.append(line)

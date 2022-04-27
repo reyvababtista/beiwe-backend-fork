@@ -2,15 +2,17 @@ from typing import Dict, List, Set, Tuple
 
 from botocore.exceptions import ReadTimeoutError
 from cronutils import ErrorHandler
-from constants.data_processing_constants import CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER
 
+from constants.data_processing_constants import (CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER,
+    REFERENCE_CHUNKREGISTRY_HEADERS)
 from constants.data_stream_constants import SURVEY_DATA_FILES
 from database.data_access_models import ChunkRegistry
 from database.study_models import Study
 from database.survey_models import Survey
 from database.user_models import Participant
-from libs.file_processing.exceptions import ChunkFailedToExist, HeaderMismatchException
-from libs.file_processing.utility_functions_csvs import construct_csv_string, csv_to_list, unix_time_to_string
+from libs.file_processing.exceptions import BadHeaderException, ChunkFailedToExist
+from libs.file_processing.utility_functions_csvs import (construct_csv_string, csv_to_list,
+    unix_time_to_string)
 from libs.file_processing.utility_functions_simple import (compress,
     convert_unix_to_human_readable_timestamps, ensure_sorted_by_timestamp)
 from libs.s3 import s3_retrieve
@@ -19,7 +21,12 @@ from libs.s3 import s3_retrieve
 class CsvMerger:
     """ This class is consumes binified data and  """
     
-    def __init__(self, binified_data: Dict, error_handler: ErrorHandler, survey_id_dict: Dict):
+    def __init__(
+        self, binified_data: Dict, error_handler: ErrorHandler, survey_id_dict: Dict,
+        participant: Participant
+    ):
+        self.participant = participant
+        
         self.failed_ftps = set()
         self.ftps_to_retire = set()
         
@@ -44,14 +51,20 @@ class CsvMerger:
     def iterate(self):
         # this function is the core loop. we iterate over all binified data and merge data into new
         # chunks, then handle ChunkRegistry parameter setup for the next stage of processing.
+        ftp_list: List[int]
         for data_bin, (data_rows_list, ftp_list) in self.binified_data.items():
             with self.error_handler:
                 self.inner_iterate(data_bin, data_rows_list, ftp_list)
     
-    def inner_iterate(self, data_bin, data_rows_list, ftp_list):
-        """  """
+    def inner_iterate(self, data_bin, data_rows_list, ftp_list: List[int]):
+        study_object_id: str
+        patient_id: str
+        data_stream: str
+        time_bin: int
+        original_header: bytes
+        
         try:
-            study_object_id, user_id, data_type, time_bin, original_header = data_bin
+            study_object_id, patient_id, data_stream, time_bin, original_header = data_bin
             # Update earliest and latest time bins
             if self.earliest_time_bin is None or time_bin < self.earliest_time_bin:
                 self.earliest_time_bin = time_bin
@@ -62,14 +75,16 @@ class CsvMerger:
             updated_header = convert_unix_to_human_readable_timestamps(
                 original_header, data_rows_list
             )
-            chunk_path = construct_s3_chunk_path(study_object_id, user_id, data_type, time_bin)
+            chunk_path = construct_s3_chunk_path(study_object_id, patient_id, data_stream, time_bin)
             
             # two core cases
             if ChunkRegistry.objects.filter(chunk_path=chunk_path).exists():
-                self.chunk_exists_case(chunk_path, study_object_id, updated_header, data_rows_list)
+                self.chunk_exists_case(
+                    chunk_path, study_object_id, updated_header, data_rows_list, data_stream
+                )
             else:
                 self.chunk_not_exists_case(
-                    chunk_path, study_object_id, updated_header, user_id, data_type,
+                    chunk_path, study_object_id, updated_header, patient_id, data_stream,
                     original_header, time_bin, data_rows_list
                 )
         
@@ -81,12 +96,12 @@ class CsvMerger:
             print(e)
             try:
                 print(
-                    f"FAILED TO UPDATE: study_id:{study_object_id}, user_id:{user_id}, "
-                    f"data_type:{data_type}, time_bin:{time_bin}, header:{updated_header}"
+                    f"FAILED TO UPDATE: study_id:{study_object_id}, patient_id:{patient_id}, "
+                    f"data_stream:{data_stream}, time_bin:{time_bin}, header:{updated_header}"
                 )
             except UnboundLocalError:
                 # print something different if a variable is not defined yet
-                for k in ("study_object_id", "user_id", "data_type", "time_bin", "updated_header"):
+                for k in ("study_object_id", "patient_id", "data_stream", "time_bin", "updated_header"):
                     if k not in locals():
                         print(f"variable {k} was not defined")
             raise
@@ -97,14 +112,15 @@ class CsvMerger:
             self.ftps_to_retire.update(ftp_list)
     
     def chunk_not_exists_case(
-        self, chunk_path: str, study_object_id: str, updated_header: str, user_id: str,
-        data_type: str, original_header: bytes, time_bin: int, rows: List[bytes]
+        self, chunk_path: str, study_object_id: str, updated_header: str, patient_id: str,
+        data_stream: str, original_header: bytes, time_bin: int, rows: List[bytes]
     ):
         ensure_sorted_by_timestamp(rows)
-        new_contents = construct_csv_string(updated_header, rows)
-        if data_type in SURVEY_DATA_FILES:
+        final_header = self.validate_one_header(updated_header, data_stream)
+        new_contents = construct_csv_string(final_header, rows)
+        if data_stream in SURVEY_DATA_FILES:
             # We need to keep a mapping of files to survey ids, that is handled here.
-            survey_id_hash = study_object_id, user_id, data_type, original_header
+            survey_id_hash = study_object_id, patient_id, data_stream, original_header
             survey_id = Survey.objects.filter(
                 object_id=self.survey_id_dict[survey_id_hash]
             ).values_list("pk", flat=True).get()
@@ -114,8 +130,8 @@ class CsvMerger:
         # this object will eventually get **kwarg'd into ChunkRegistry.register_chunked_data
         chunk_params = {
             "study_id": Study.objects.filter(object_id=study_object_id).values_list("pk", flat=True).get(),
-            "participant_id": Participant.objects.filter(patient_id=user_id).values_list("pk", flat=True).get(),
-            "data_type": data_type,
+            "participant_id": Participant.objects.filter(patient_id=patient_id).values_list("pk", flat=True).get(),
+            "data_type": data_stream,
             "chunk_path": chunk_path,
             "time_bin": time_bin,
             "survey_id": survey_id
@@ -125,7 +141,10 @@ class CsvMerger:
             (chunk_params, chunk_path, compress(new_contents), study_object_id)
         )
     
-    def chunk_exists_case(self, chunk_path: str, study_object_id: str, updated_header: str, rows):
+    def chunk_exists_case(
+        self, chunk_path: str, study_object_id: str, updated_header: str, rows: List[bytes],
+        data_stream: str
+    ):
         chunk = ChunkRegistry.objects.get(chunk_path=chunk_path)
         
         try:
@@ -146,34 +165,74 @@ class CsvMerger:
             raise  # Raise original error if not 404 s3 error
         
         old_header, old_rows = csv_to_list(s3_file_data)
-        
-        if old_header != updated_header:
-            # To handle the case where a file was on an hour boundary and placed in
-            # two separate chunks we need to raise an error in order to retire this file. If this
-            # happens AND ONE of the files DOES NOT have a header mismatch this may (
-            # will?) cause data duplication in the chunked file whenever the file
-            # processing occurs run.
-            raise HeaderMismatchException(f'{old_header}\nvs.\n{updated_header}\nin\n{chunk_path}')
+        final_header = self.validate_two_headers(old_header, updated_header)
         
         old_rows = list(old_rows)
         old_rows.extend(rows)
         ensure_sorted_by_timestamp(old_rows)
-        new_contents = construct_csv_string(updated_header, old_rows)
+        new_contents = construct_csv_string(final_header, old_rows)
         
         self.upload_these.append((chunk, chunk_path, compress(new_contents), study_object_id))
+    
+    def validate_one_header(self, header: bytes, data_stream: str) -> bytes:
+        real_header: bytes = REFERENCE_CHUNKREGISTRY_HEADERS[data_stream][self.participant.os_type]
+        if header == real_header:
+            return real_header
+        raise BadHeaderException(
+            f"header was \n'{header.decode()}'\n expected\n'{real_header.decode()}'"
+        )
+    
+    def validate_two_headers(self, header_a: bytes, header_b: bytes, data_stream: str) -> bytes:
+        # if headers are the same run the single header logic
+        if header_a == header_b:
+            return self.validate_one_header(header_a, data_stream)
+        
+        real_header: bytes = REFERENCE_CHUNKREGISTRY_HEADERS[data_stream][self.participant]
+        
+        # compare to reference
+        # NOTE: this solves for the case where a participant changed their device os.
+        if header_a == real_header or header_b == real_header:
+            return real_header
+        
+        # ok, we know we have two bad headers...
+        raise BadHeaderException(
+            f"headers were \n'{header_a.decode()}'\n and \n'{header_b.decode()}'\n expected\n'{real_header.decode()}'"
+        )
+
+
+# unused, result of brainstorming how to validate a header as viable.
+# def try_validate_header(header: bytes, reference_comma_count: int):
+#     """ In order to resolve potential header mismatches and preserve valid lines of data """
+#     # all headers start with a timestamp
+#     # we force "timestamp," as the first element of the header on wifi log, identifiers, and android log
+#     looks_ok = header.startswith(b"timestamp,")
+#     count = header.count(b",")
+#     comma_count_okay = count == reference_comma_count
+
+#     if count == 0:
+#         # if it has no commas it is horribly broken
+#         return False, False, False
+
+#     possible_timecode, _ = header.split(b",", 1)
+#     try:
+#         int(possible_timecode)
+#         int_first_element = True
+#     except ValueError:
+#         int_first_element = False
+#     return comma_count_okay, looks_ok, int_first_element
 
 
 def construct_s3_chunk_path(
-    study_id: bytes, user_id: bytes, data_type: bytes, time_bin: int
+    study_id: bytes, patient_id: bytes, data_stream: bytes, time_bin: int
 ) -> str:
     """ S3 file paths for chunks are of this form:
-        CHUNKED_DATA/study_id/user_id/data_type/time_bin.csv """
+        CHUNKED_DATA/study_id/patient_id/data_stream/time_bin.csv """
     
     study_id = study_id.decode() if isinstance(study_id, bytes) else study_id
-    user_id = user_id.decode() if isinstance(user_id, bytes) else user_id
-    data_type = data_type.decode() if isinstance(data_type, bytes) else data_type
+    patient_id = patient_id.decode() if isinstance(patient_id, bytes) else patient_id
+    data_stream = data_stream.decode() if isinstance(data_stream, bytes) else data_stream
     
     return "%s/%s/%s/%s/%s.csv" % (
-        CHUNKS_FOLDER, study_id, user_id, data_type,
+        CHUNKS_FOLDER, study_id, patient_id, data_stream,
         unix_time_to_string(time_bin * CHUNK_TIMESLICE_QUANTUM).decode()
     )

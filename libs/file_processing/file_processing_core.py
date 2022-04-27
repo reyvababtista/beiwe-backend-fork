@@ -147,7 +147,7 @@ def do_process_user_file_chunks(
     # there are several failure modes and success modes, information for what to do with different
     # files percolates back to here.  Delete various database objects accordingly.
     more_ftps_to_remove, number_bad_files, earliest_time_bin, latest_time_bin = upload_binified_data(
-        all_binified_data, error_handler, survey_id_dict
+        all_binified_data, error_handler, survey_id_dict, participant
     )
     ftps_to_remove.update(more_ftps_to_remove)
     
@@ -235,7 +235,7 @@ def process_unchunkable_file(file_for_processing: FileForProcessing, ftps_to_rem
             raise
 
 
-def upload_binified_data(binified_data, error_handler, survey_id_dict):
+def upload_binified_data(binified_data, error_handler, survey_id_dict, participant):
     """ Takes in binified csv data and handles uploading/downloading+updating
         older data to/from S3 for each chunk.
         Returns a set of concatenations that have succeeded and can be removed.
@@ -249,7 +249,7 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict):
     # # Track the earliest and latest time bins, to return them at the end of the function
     # earliest_time_bin = None
     # latest_time_bin = None
-    uploads = CsvMerger(binified_data, error_handler, survey_id_dict)
+    uploads = CsvMerger(binified_data, error_handler, survey_id_dict, participant)
     
     pool = ThreadPool(CONCURRENT_NETWORK_OPS)
     errors = pool.map(batch_upload, uploads.upload_these, chunksize=1)

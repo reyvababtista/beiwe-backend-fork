@@ -4,7 +4,6 @@ import plistlib
 import time
 from datetime import datetime, timedelta
 
-import pytz
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile

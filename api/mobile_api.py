@@ -34,7 +34,7 @@ from libs.sentry import make_sentry_client, SentryTypes
 from middleware.abort_middleware import abort
 
 
-UPLOAD_LOGGING_ENABLED = True
+UPLOAD_LOGGING_ENABLED = False
 
 def log(*args, **kwargs):
     if UPLOAD_LOGGING_ENABLED:

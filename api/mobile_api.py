@@ -29,12 +29,18 @@ from libs.http_utils import determine_os_api
 from libs.internal_types import ParticipantRequest
 from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
 from libs.s3 import get_client_public_key_string, s3_retrieve, s3_upload, smart_s3_list_study_files
+from libs.security import generate_easy_alphanumeric_string
 from libs.sentry import make_sentry_client, SentryTypes
 from middleware.abort_middleware import abort
 
 
-EARLIEST_POSSIBLE_IOS_RECOVERY = datetime(2022, 4, 11, 0, 0, 0, 0)
+UPLOAD_LOGGING_ENABLED = True
 
+def log(*args, **kwargs):
+    if UPLOAD_LOGGING_ENABLED:
+        print(*args, **kwargs)
+
+EARLIEST_POSSIBLE_IOS_RECOVERY = datetime(2022, 4, 11, 0, 0, 0, 0)
 ALLOWED_EXTENSIONS = {'csv', 'json', 'mp4', "wav", 'txt', 'jpg'}
 
 ################################################################################
@@ -75,22 +81,25 @@ def upload(request: ParticipantRequest, OS_API=""):
     participant = request.session_participant
     
     if participant.unregistered:  # "Unregistered" participant uploads should delete their data.
+        log(200, "participant unregistered.")
         return HttpResponse(status=200)
     
     # iOS can upload identically named files with different content (and missing decryption keys) so
     # we need to return a 400 to back off. The device can try again later when the extant FTP has
     # been processed. (ios files with bad decryption keys fail and don't create new FTPs.)
     if FileToProcess.test_file_path_exists(s3_file_location, participant.study.object_id):
+        log("400, FileToProcess.test_file_path_exists")
         return HttpResponse(status=400)
     
     # get_uploaded_file failure modes always aborts or errors
     try:
         decryptor = DeviceDataDecryptor(s3_file_location, get_uploaded_file(request), participant)
     except RemoteDeleteFileScenario:
+        log(200, RemoteDeleteFileScenario)
         # this class of error occurs we delete the  file on the device
         return HttpResponse(status=200)
     
-    except DecryptionKeyInvalidError:
+    except DecryptionKeyInvalidError as e:
         # when the decryption key is invalid the file is lost.  Nothing we can do.
         # record the event, send the device a 200 so it can clear out the file.
         if REPORT_DECRYPTION_KEY_ERRORS:
@@ -103,15 +112,19 @@ def upload(request: ParticipantRequest, OS_API=""):
             }
             with make_sentry_client(SentryTypes.elastic_beanstalk, tags):
                 raise
+        
+        log(f"{400 if OS_API == IOS_API else 200} ({OS_API}) decryption key failure: {str(e)}")
         # iOS has a bug where a file can get split, we can recover those files. (200 would delete)
         return abort(400) if OS_API == IOS_API else HttpResponse(status=200)  # NOQA:
     
-    except IosDecryptionKeyNotFoundError:
+    except IosDecryptionKeyNotFoundError as e:
         file_timestamp = convert_filename_to_datetime(file_name)
-        if (file_timestamp < EARLIEST_POSSIBLE_IOS_RECOVERY 
+        if (file_timestamp < EARLIEST_POSSIBLE_IOS_RECOVERY
             or file_timestamp < (datetime.now() - timedelta(days=21))):
+            log(200, "IosDecryptionKeyNotFoundError", str(e))
             return HttpResponse(status=200)
         else:
+            log(400, "IosDecryptionKeyNotFoundError", str(e))
             return abort(400)
     
     # if uploaded data actually exists, and has a valid extension
@@ -130,14 +143,19 @@ def upload_and_log(
     # test if the file exists on s3, handle ios duplicate file merge.
     if not smart_s3_list_study_files(s3_file_location, participant):
         s3_upload(s3_file_location, decryptor.decrypted_file, participant)
+    
     elif decryptor.used_ios_decryption_key_cache:
+        # if the upload required the ios key cache that means we have a split file and need to merge them.
         s3_upload(
             s3_file_location,
             b"\n".join([s3_retrieve(s3_file_location, participant), decryptor.decrypted_file]),
             participant,
         )
     else:
-        raise NotImplementedError("true duplicate upload handling on os: {participant.os_type}")
+        old_file_location = s3_file_location
+        s3_file_location = s3_duplicate_name(s3_file_location)
+        log(f"renamed duplicate '{old_file_location}' to '{s3_file_location}'")
+        s3_upload(s3_file_location, decryptor.decrypted_file, participant)
     
     # race condition: multiple _concurrent_ uploads with same file path. Behavior without try-except
     # is correct, but we don't care about reporting it. Just send the device a 500 error so it skips
@@ -151,7 +169,7 @@ def upload_and_log(
             or S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR_2 in str(e)
         ):
             # don't abort 500, we want to limit 500 errors on the ELB in production (uhg)
-            print("backoff for duplicate race condition.")
+            log("backoff for duplicate race condition.", str(e))
             return abort(400)
     
     # record that an upload occurred
@@ -175,6 +193,7 @@ def get_uploaded_file(request: ParticipantRequest) -> bytes:
     elif "file" in request.POST:
         uploaded_file = request.POST['file']  # android
     else:
+        log("get_uploaded_file, file not present")
         return abort(400)  # no uploaded file, bad request.
     
     # okay for some reason we get different file-like types in different scenarios?
@@ -203,6 +222,7 @@ def make_upload_error_report(patient_id: str, file_name: str):
     tags = {"upload_error": "upload error", "user_id": patient_id}
     sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
     sentry_client.captureMessage(error_message)
+    log(400, error_message, "(upload error report)")
     return abort(400)
 
 
@@ -335,6 +355,7 @@ def set_password(request: ParticipantRequest, OS_API=""):
 ################################################################################
 
 def convert_filename_to_datetime(file_name: str):
+    # "file_name" has underscores, "s3_file_path" has slashes
     should_be_numbers = file_name.split("_")[-1][:-4]
     if not should_be_numbers.isnumeric():
         raise Exception(f"bad numbers in '{file_name}': {should_be_numbers}")
@@ -356,6 +377,10 @@ def contains_valid_extension(file_name: str):
     """ Checks if string has a recognized file extension, this is not necessarily limited to 4 characters. """
     return '.' in file_name and grab_file_extension(file_name) in ALLOWED_EXTENSIONS
 
+
+def s3_duplicate_name(s3_file_path: str):
+    """ when duplicates occur we add this string onto the end and try to proceed as normal. """
+    return s3_file_path + "-duplicate-" + generate_easy_alphanumeric_string(10)
 
 ################################################################################
 ################################# DOWNLOAD #####################################

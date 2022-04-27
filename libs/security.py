@@ -125,14 +125,14 @@ def generate_admin_password_and_salt() -> (bytes, bytes, bytes):
 ############################### Random #########################################
 ################################################################################
 
-def generate_easy_alphanumeric_string() -> str:
+def generate_easy_alphanumeric_string(length: int = 8) -> str:
     """
     Generates an "easy" alphanumeric (lower case) string of length 8 without the 0 (zero)
     character. This is a design decision, because users will have to type in the "easy"
     string on mobile devices, so we have made this a string that is easy to type and
     easy to distinguish the characters of (e.g. no I/l, 0/o/O confusion).
     """
-    return ''.join(random.choice(EASY_ALPHANUMERIC_CHARS) for _ in range(8))
+    return ''.join(random.choice(EASY_ALPHANUMERIC_CHARS) for _ in range(length))
 
 
 def generate_random_string() -> bytes:

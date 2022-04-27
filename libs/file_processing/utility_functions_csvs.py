@@ -68,6 +68,7 @@ def construct_csv_string(header: bytes, rows_list: List[bytes]) -> bytes:
     # as long as it did as a += operation, I knew that was slow because of repeated calls to alloc.
     return header + b"\n" + b"\n".join(rows)
 
+
 def clean_java_timecode(java_time_code_string: bytes or str) -> int:
     """ converts millisecond time (string) to an integer normal unix time. """
     try:

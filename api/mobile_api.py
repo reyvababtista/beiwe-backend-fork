@@ -2,7 +2,9 @@ import calendar
 import json
 import plistlib
 import time
+from datetime import datetime, timedelta
 
+import pytz
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
@@ -22,7 +24,8 @@ from database.data_access_models import FileToProcess
 from database.profiling_models import DecryptionKeyError, UploadTracking
 from database.system_models import FileAsText
 from database.user_models import Participant
-from libs.encryption import DecryptionKeyInvalidError, DeviceDataDecryptor, RemoteDeleteFileScenario
+from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
+    IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
 from libs.http_utils import determine_os_api
 from libs.internal_types import ParticipantRequest
 from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
@@ -30,6 +33,8 @@ from libs.s3 import get_client_public_key_string, s3_retrieve, s3_upload, smart_
 from libs.sentry import make_sentry_client, SentryTypes
 from middleware.abort_middleware import abort
 
+
+EARLIEST_POSSIBLE_IOS_RECOVERY = datetime(2022, 4, 11, 0, 0, 0, 0)
 
 ALLOWED_EXTENSIONS = {'csv', 'json', 'mp4', "wav", 'txt', 'jpg'}
 
@@ -102,10 +107,16 @@ def upload(request: ParticipantRequest, OS_API=""):
         # iOS has a bug where a file can get split, we can recover those files. (200 would delete)
         return abort(400) if OS_API == IOS_API else HttpResponse(status=200)  # NOQA:
     
+    except IosDecryptionKeyNotFoundError:
+        file_timestamp = convert_filename_to_datetime(file_name)
+        if (file_timestamp < EARLIEST_POSSIBLE_IOS_RECOVERY 
+            or file_timestamp < (datetime.now() - timedelta(days=21))):
+            return HttpResponse(status=200)
+        else:
+            return abort(400)
+    
     # if uploaded data actually exists, and has a valid extension
     if decryptor.decrypted_file and file_name and contains_valid_extension(file_name):
-        
-        
         return upload_and_log(s3_file_location, participant, decryptor)
     elif not decryptor.decrypted_file:
         # if the file turns out to be empty, delete it, we simply do not care.
@@ -324,13 +335,25 @@ def set_password(request: ParticipantRequest, OS_API=""):
 ########################## FILE NAME FUNCTIONALITY #############################
 ################################################################################
 
+def convert_filename_to_datetime(file_name: str):
+    should_be_numbers = file_name.split("_")[-1][:-4]
+    if not should_be_numbers.isnumeric():
+        raise Exception(f"bad numbers in '{file_name}': {should_be_numbers}")
+    
+    if len(should_be_numbers) == 13:
+        should_be_numbers = should_be_numbers[:-3]
+    elif len(should_be_numbers) != 10:
+        raise Exception(f"bad digit count in {file_name}: {should_be_numbers}")
+    
+    return datetime.utcfromtimestamp(int(should_be_numbers))
 
-def grab_file_extension(file_name):
+
+def grab_file_extension(file_name: str):
     """ grabs the chunk of text after the final period. """
     return file_name.rsplit('.', 1)[1]
 
 
-def contains_valid_extension(file_name):
+def contains_valid_extension(file_name: str):
     """ Checks if string has a recognized file extension, this is not necessarily limited to 4 characters. """
     return '.' in file_name and grab_file_extension(file_name) in ALLOWED_EXTENSIONS
 

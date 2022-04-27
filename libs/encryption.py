@@ -16,6 +16,7 @@ from libs.security import Base64LengthException, decode_base64, encode_base64, P
 
 
 class DecryptionKeyInvalidError(Exception): pass
+class IosDecryptionKeyNotFoundError(Exception): pass
 class RemoteDeleteFileScenario(Exception): pass
 class UnHandledError(Exception): pass  # for debugging
 class InvalidIV(Exception): pass
@@ -85,8 +86,9 @@ class DeviceDataDecryptor():
             decryption_key = IOSDecryptionKey.objects.get(file_name=self.file_name)
         except IOSDecryptionKey.DoesNotExist:
             self.create_decryption_key_error(traceback.format_exc())
-            raise DecryptionKeyInvalidError(
-                f"ios decryption key for '{self.file_name}' could not be found.")
+            raise IosDecryptionKeyNotFoundError(
+                f"ios decryption key for '{self.file_name}' could not be found."
+            )
         
         return decode_base64(decryption_key.base64_encryption_key.encode())
     

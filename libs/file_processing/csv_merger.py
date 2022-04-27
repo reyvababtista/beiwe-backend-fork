@@ -2,6 +2,7 @@ from typing import Dict, List, Set, Tuple
 
 from botocore.exceptions import ReadTimeoutError
 from cronutils import ErrorHandler
+from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
 
 from constants.data_processing_constants import (CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER,
     REFERENCE_CHUNKREGISTRY_HEADERS)
@@ -165,7 +166,7 @@ class CsvMerger:
             raise  # Raise original error if not 404 s3 error
         
         old_header, old_rows = csv_to_list(s3_file_data)
-        final_header = self.validate_two_headers(old_header, updated_header)
+        final_header = self.validate_two_headers(old_header, updated_header, data_stream)
         
         old_rows = list(old_rows)
         old_rows.extend(rows)
@@ -178,26 +179,41 @@ class CsvMerger:
         real_header: bytes = REFERENCE_CHUNKREGISTRY_HEADERS[data_stream][self.participant.os_type]
         if header == real_header:
             return real_header
-        raise BadHeaderException(
-            f"header was \n'{header.decode()}'\n expected\n'{real_header.decode()}'"
-        )
+        
+        message = f"header was \n'{header.decode()}'\n expected\n'{real_header.decode()}'"
+        self.report_error(BadHeaderException(message))
+        return real_header
     
     def validate_two_headers(self, header_a: bytes, header_b: bytes, data_stream: str) -> bytes:
         # if headers are the same run the single header logic
         if header_a == header_b:
             return self.validate_one_header(header_a, data_stream)
         
-        real_header: bytes = REFERENCE_CHUNKREGISTRY_HEADERS[data_stream][self.participant]
+        real_header: bytes = REFERENCE_CHUNKREGISTRY_HEADERS[data_stream][self.participant.os_type]
         
         # compare to reference
         # NOTE: this solves for the case where a participant changed their device os.
         if header_a == real_header or header_b == real_header:
             return real_header
         
-        # ok, we know we have two bad headers...
-        raise BadHeaderException(
+        error = BadHeaderException(
             f"headers were \n'{header_a.decode()}'\n and \n'{header_b.decode()}'\n expected\n'{real_header.decode()}'"
         )
+        self.report_error(error)
+        return real_header
+    
+    def report_error(self, e: Exception):
+        # okay we do have to inspect the stack trace a bit more with this but that's ok.
+        # for now I want this reported to sentry as an error.
+        if RUNNING_TEST_OR_IN_A_SHELL:
+            print()
+            print(type(e), str(e))
+            print()
+        else:
+            with self.error_handler:
+                raise e
+
+
 
 
 # unused, result of brainstorming how to validate a header as viable.

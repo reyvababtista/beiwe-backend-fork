@@ -95,37 +95,25 @@ def upload(request: ParticipantRequest, OS_API=""):
     try:
         decryptor = DeviceDataDecryptor(s3_file_location, get_uploaded_file(request), participant)
     except RemoteDeleteFileScenario:
-        log(200, RemoteDeleteFileScenario)
-        # this class of error occurs we delete the  file on the device
+        log(200, "RemoteDeleteFileScenario")  # errors were unrecoverable, delete the file.
         return HttpResponse(status=200)
     
     except DecryptionKeyInvalidError as e:
         # when the decryption key is invalid the file is lost.  Nothing we can do.
         # record the event, send the device a 200 so it can clear out the file.
-        if REPORT_DECRYPTION_KEY_ERRORS:
-            tags = {
-                "participant": participant.patient_id,
-                "operating system": participant.os_type,
-                "DecryptionKeyError id": str(DecryptionKeyError.objects.last().id),
-                "file_name": file_name,
-                "bug_report": DECRYPTION_KEY_ADDITIONAL_MESSAGE,
-            }
-            with make_sentry_client(SentryTypes.elastic_beanstalk, tags):
-                raise
-        
+        report_decryption_key_error(participant, file_name, e)
         log(f"{400 if OS_API == IOS_API else 200} ({OS_API}) decryption key failure: {str(e)}")
         # iOS has a bug where a file can get split, we can recover those files. (200 would delete)
         return abort(400) if OS_API == IOS_API else HttpResponse(status=200)  # NOQA:
     
     except IosDecryptionKeyNotFoundError as e:
-        file_timestamp = convert_filename_to_datetime(file_name)
-        if (file_timestamp < EARLIEST_POSSIBLE_IOS_RECOVERY
-            or file_timestamp < (datetime.now() - timedelta(days=21))):
-            log(200, "IosDecryptionKeyNotFoundError", str(e))
-            return HttpResponse(status=200)
-        else:
-            log(400, "IosDecryptionKeyNotFoundError", str(e))
-            return abort(400)
+        # IOS has a complex issue where it splits files into multiple segments, but the key is only
+        # present on the first section. We wait 3 weeks for ios to upload with a key, eventually
+        # we tell the device to delete the file.
+        t = convert_filename_to_datetime(file_name)
+        do_delete = t < EARLIEST_POSSIBLE_IOS_RECOVERY or t < (datetime.now() - timedelta(days=21))
+        log(200 if do_delete else 400, "IosDecryptionKeyNotFoundError", str(e))
+        return HttpResponse(status=200) if do_delete else abort(400)
     
     # if uploaded data actually exists, and has a valid extension
     if decryptor.decrypted_file and file_name and contains_valid_extension(file_name):
@@ -224,6 +212,20 @@ def make_upload_error_report(patient_id: str, file_name: str):
     sentry_client.captureMessage(error_message)
     log(400, error_message, "(upload error report)")
     return abort(400)
+
+
+def report_decryption_key_error(participant: Participant, file_name: str, e: DecryptionKeyError):
+    # conditionally send a sentry error if enabled
+    if REPORT_DECRYPTION_KEY_ERRORS:
+        tags = {
+            "participant": participant.patient_id,
+            "operating system": participant.os_type,
+            "DecryptionKeyError id": str(DecryptionKeyError.objects.last().id),
+            "file_name": file_name,
+            "bug_report": DECRYPTION_KEY_ADDITIONAL_MESSAGE,
+        }
+        with make_sentry_client(SentryTypes.elastic_beanstalk, tags):
+            raise e
 
 
 ################################################################################

@@ -212,6 +212,7 @@ class DeviceDataDecryptor():
             value 1 is the symmetric key, encrypted with the patient's public key.
             value 2 is the initialization vector for the AES CBC cipher.
             value 3 is the config, encrypted using AES CBC, with the provided key and iv. """
+        # this can fail if the line is missing or has extra :'s, the case is handled as line error
         iv, base64_data = base64_data.split(b":")
         iv = decode_base64(iv)
         raw_data = decode_base64(base64_data)
@@ -271,39 +272,44 @@ class DeviceDataDecryptor():
             # this case used to also catch IndexError, this probably changed after python3 upgrade
             this_error_message += "Something is wrong with data padding:\n\tline: %s" % line
             self.append_line_encryption_error(line, LineEncryptionError.PADDING_ERROR)
+            return
         # TODO: untested, error should be caught as a decryption key error
-        elif isinstance(error, ValueError) and "Key cannot be the null string" in error_string:
-            this_error_message += "The key was the null string:\n\tline: %s" % line
-            self.append_line_encryption_error(line, LineEncryptionError.EMPTY_KEY)
-        
+        # elif isinstance(error, ValueError) and "Key cannot be the null string" in error_string:
+        #     this_error_message += "The key was the null string:\n\tline: %s" % line
+        #     self.append_line_encryption_error(line, LineEncryptionError.EMPTY_KEY)
+        #     return
         ################### skip these errors ##############################
-        elif "unpack" in error_string:
+        if "values to unpack" in error_string:
             # the config is not colon separated correctly, this is a single line error, we can just
             # drop it. implies an interrupted write operation (or read)
             this_error_message += "malformed line of config, dropping it and continuing."
             self.append_line_encryption_error(line, LineEncryptionError.MALFORMED_CONFIG)
-        elif isinstance(error, InvalidData):
+            return
+        if isinstance(error, InvalidData):
             this_error_message += "Line contained no data, skipping: " + str(line)
             self.append_line_encryption_error(line, LineEncryptionError.LINE_EMPTY)
+            return
         
-        # this break in the error catching is preserved. why do we do this? multiple errors in one pass?>
         if isinstance(error, InvalidIV):
             this_error_message += "Line contained no iv, skipping: " + str(line)
             self.append_line_encryption_error(line, LineEncryptionError.IV_MISSING)
+            return
         elif "Incorrect IV length" in error_string or 'IV must be' in error_string:
             # shifted this to an okay-to-proceed line error March 2021
             # Jan 2022: encountered pycryptodome form: "Incorrect IV length"
             this_error_message += "iv has bad length."
             self.append_line_encryption_error(line, LineEncryptionError.IV_BAD_LENGTH)
+            return
         elif 'Incorrect padding' in error_string:
             this_error_message += "base64 padding error, config is truncated."
             self.append_line_encryption_error(line, LineEncryptionError.MP4_PADDING)
             # this is only seen in mp4 files. possibilities: upload during write operation. broken
             #  base64 conversion in the app some unanticipated error in the file upload
-            raise RemoteDeleteFileScenario(this_error_message)
-        else:
-            # If none of the above errors happened, raise the error raw
-            raise error
+            if not self.file_name.endswith(".csv"):
+                raise RemoteDeleteFileScenario(this_error_message)
+        
+        # If none of the above cases returned or errors, raise the error raw.
+        raise error
     
     def append_line_encryption_error(self, line: bytes, error_type: str):
         # handle creating line orrers

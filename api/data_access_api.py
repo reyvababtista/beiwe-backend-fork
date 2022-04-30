@@ -8,9 +8,9 @@ from django.utils.timezone import make_aware
 from django.views.decorators.http import require_http_methods
 
 from authentication.data_access_authentication import api_study_credential_check
+from constants.common_constants import API_TIME_FORMAT
 from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.data_stream_constants import ALL_DATA_STREAMS
-from constants.datetime_constants import API_TIME_FORMAT
 from database.data_access_models import ChunkRegistry
 from database.user_models import Participant
 from libs.internal_types import ApiStudyResearcherRequest

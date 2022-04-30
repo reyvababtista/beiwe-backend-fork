@@ -7,9 +7,9 @@ import pytz
 from django.shortcuts import get_object_or_404, render
 
 from authentication.admin_authentication import authenticate_researcher_study_access
+from constants.common_constants import API_DATE_FORMAT
 from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT
 from constants.data_stream_constants import ALL_DATA_STREAMS
-from constants.datetime_constants import API_DATE_FORMAT
 from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
 from database.data_access_models import ChunkRegistry
 from database.study_models import Study

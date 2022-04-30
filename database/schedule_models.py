@@ -7,7 +7,7 @@ from django.db import models
 from django.utils.timezone import localtime, make_aware
 
 from constants.celery_constants import ScheduleTypes
-from constants.datetime_constants import DEV_TIME_FORMAT
+from constants.common_constants import DEV_TIME_FORMAT
 from database.common_models import TimestampedModel
 from database.survey_models import Survey, SurveyArchive
 from database.user_models import Participant

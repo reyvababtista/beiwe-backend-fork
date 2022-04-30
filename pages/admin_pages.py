@@ -6,7 +6,7 @@ from markupsafe import Markup
 from authentication.admin_authentication import (authenticate_researcher_login,
     authenticate_researcher_study_access, get_researcher_allowed_studies_as_query_set,
     logout_researcher)
-from constants.datetime_constants import DISPLAY_TIME_FORMAT
+from constants.common_constants import DISPLAY_TIME_FORMAT
 from constants.message_strings import (NEW_API_KEY_MESSAGE, NEW_PASSWORD_MISMATCH,
     PASSWORD_RESET_SUCCESS, RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE, TABLEAU_API_KEY_IS_DISABLED,
     TABLEAU_API_KEY_NOW_DISABLED, TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)

@@ -1,9 +1,8 @@
 import json
 
-from django.urls import reverse
 from rest_framework import serializers
 
-from constants.datetime_constants import DEV_TIME_FORMAT
+from constants.common_constants import DEV_TIME_FORMAT
 from database.tableau_api_models import ForestTask
 from libs.http_utils import easy_url
 

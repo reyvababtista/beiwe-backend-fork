@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Generator, List, Tuple
 
-from constants.datetime_constants import API_TIME_FORMAT
+from constants.common_constants import API_TIME_FORMAT
 from libs.file_processing.exceptions import BadTimecodeError
 
 

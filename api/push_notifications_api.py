@@ -1,6 +1,6 @@
 import json
-from datetime import datetime
 import random
+from datetime import datetime
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -9,12 +9,12 @@ from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from firebase_admin.exceptions import FirebaseError
-from firebase_admin.messaging import AndroidConfig, Message, Notification, send as send_push_notification
+from firebase_admin.messaging import (AndroidConfig, Message, Notification,
+    send as send_push_notification)
 
 from authentication.admin_authentication import authenticate_researcher_study_access
 from authentication.participant_authentication import authenticate_participant
-from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
-from constants.datetime_constants import API_TIME_FORMAT
+from constants.common_constants import API_TIME_FORMAT, RUNNING_TEST_OR_IN_A_SHELL
 from constants.message_strings import (BAD_DEVICE_OS, BAD_PARTICPANT_OS,
     DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_PREFIX, MESSAGE_SEND_FAILED_UNKNOWN,
     PUSH_NOTIFICATIONS_NOT_CONFIGURED, RESEND_CLICKED, SUCCESSFULLY_SENT_NOTIFICATION_PREFIX)

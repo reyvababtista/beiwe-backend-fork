@@ -16,10 +16,9 @@ from api.tableau_api import FINAL_SERIALIZABLE_FIELD_NAMES
 from config.jinja2 import easy_url
 from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
     IOS_FIREBASE_CREDENTIALS)
-from constants.common_constants import BEIWE_PROJECT_ROOT
+from constants.common_constants import API_DATE_FORMAT, BEIWE_PROJECT_ROOT
 from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT
 from constants.data_stream_constants import ACCELEROMETER, ALL_DATA_STREAMS, SURVEY_TIMINGS
-from constants.datetime_constants import API_DATE_FORMAT
 from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_UNKNOWN,
     NEW_PASSWORD_8_LONG, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_RULES_FAIL, PASSWORD_RESET_SUCCESS,
     PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY,
@@ -2666,7 +2665,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
             survey_id=self.default_survey.pk
         )
     
-    def test_bad_fcm_token(self):# check_firebase_instance: MagicMock):
+    def test_bad_fcm_token(self):  # check_firebase_instance: MagicMock):
         self.set_session_study_relation(ResearcherRole.researcher)
         token = self.generate_fcm_token(self.default_participant)
         token.update(unregistered=timezone.now())
@@ -2676,7 +2675,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertEqual(archived_event.status, DEVICE_HAS_NO_REGISTERED_TOKEN)
     
-    def test_no_fcm_token(self):# check_firebase_instance: MagicMock):
+    def test_no_fcm_token(self):  # check_firebase_instance: MagicMock):
         self.set_session_study_relation(ResearcherRole.researcher)
         self.assertEqual(self.default_participant.fcm_tokens.count(), 0)
         self.do_post()
@@ -2684,7 +2683,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertEqual(archived_event.status, DEVICE_HAS_NO_REGISTERED_TOKEN)
     
-    def test_no_firebase_creds(self):# check_firebase_instance: MagicMock):
+    def test_no_firebase_creds(self):  # check_firebase_instance: MagicMock):
         self.set_session_study_relation(ResearcherRole.researcher)
         self.generate_fcm_token(self.default_participant)
         self.do_post()

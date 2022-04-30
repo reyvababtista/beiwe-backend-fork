@@ -1,4 +1,3 @@
-import json
 
 from django.contrib import messages
 from django.db.models import ProtectedError
@@ -12,7 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from authentication.admin_authentication import authenticate_researcher_study_access
-from constants.datetime_constants import API_DATE_FORMAT
+from constants.common_constants import API_DATE_FORMAT
 from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
 from database.user_models import Participant, ParticipantFieldValue

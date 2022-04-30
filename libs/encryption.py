@@ -181,7 +181,14 @@ class DeviceDataDecryptor():
         
         We also have to handle the case of double uploads leading to violating the unique database,
         constraint. (again, the ios app is bad.) """
-        base64_str: str = base64_key.decode()
+        # case: the base64 encoding can come in garbled, but still pass through decode_base64 as an
+        # un-unicodeable 256 byte(?!) binary blob, but it base64 decodes into a 16 byte key. The fix
+        # is to decode_base64 -> encode_base64, which magically creates the correct base64 blob. wtf
+        try:
+            base64_str: str = base64_key.decode()
+        except UnicodeDecodeError:
+            # this error case makes no sense
+            base64_str: str = encode_base64(decode_base64(base64_key)).decode()
         
         try:
             IOSDecryptionKey.objects.create(

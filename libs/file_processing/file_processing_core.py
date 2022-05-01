@@ -1,24 +1,22 @@
 from collections import defaultdict
-from datetime import datetime
 from multiprocessing.pool import ThreadPool
 from typing import DefaultDict
 
 from cronutils.error_handler import ErrorHandler
 from django.core.exceptions import ValidationError
 
-from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
+from config.settings import CONCURRENT_NETWORK_OPS
 from constants.data_stream_constants import (ACCELEROMETER, ANDROID_LOG_FILE, CALL_LOG, IDENTIFIERS,
     SURVEY_DATA_FILES, SURVEY_TIMINGS, WIFI)
 from constants.participant_constants import ANDROID_API
 from database.data_access_models import ChunkRegistry, FileToProcess
-from database.system_models import FileProcessLock
 from database.user_models import Participant
 from libs.file_processing.batched_network_operations import batch_upload
 from libs.file_processing.csv_merger import CsvMerger
 from libs.file_processing.data_fixes import (fix_app_log_file, fix_call_log_csv, fix_identifier_csv,
     fix_survey_timings, fix_wifi_csv)
 from libs.file_processing.data_qty_stats import calculate_data_quantity_stats
-from libs.file_processing.exceptions import BadTimecodeError, ProcessingOverlapError
+from libs.file_processing.exceptions import BadTimecodeError
 from libs.file_processing.file_for_processing import FileForProcessing
 from libs.file_processing.utility_functions_csvs import clean_java_timecode, csv_to_list
 from libs.file_processing.utility_functions_simple import (binify_from_timecode,
@@ -38,59 +36,10 @@ from libs.file_processing.utility_functions_simple import (binify_from_timecode,
 #     def __init__(self, *args,**kwargs): pass
 
 
-def process_file_chunks():
-    """
-    This is the function that is called from the command line.  It runs through all new files
-    that have been uploaded and 'chunks' them. Handles logic for skipping bad files, raising
-    errors appropriately.
-    This is primarily called manually during testing and debugging.
-    """
-    # Initialize the process and ensure there is no other process running at the same time
-    error_handler = ErrorHandler()
-    if FileProcessLock.islocked():
-        raise ProcessingOverlapError("Data processing overlapped with a previous data indexing run.")
-    FileProcessLock.lock()
-    
-    try:
-        number_bad_files = 0
-        
-        # Get the list of participants with open files to process
-        participants = Participant.objects.filter(files_to_process__isnull=False).distinct()
-        print("processing files for the following users: %s" % ",".join(participants.values_list('patient_id', flat=True)))
-        
-        for participant in participants:
-            while True:
-                previous_number_bad_files = number_bad_files
-                starting_length = participant.files_to_process.exclude(deleted=True).count()
-                
-                print("%s processing %s, %s files remaining" % (datetime.now(), participant.patient_id, starting_length))
-                
-                # Process the desired number of files and calculate the number of unprocessed files
-                number_bad_files += do_process_user_file_chunks(
-                        page_size=FILE_PROCESS_PAGE_SIZE,
-                        error_handler=error_handler,
-                        position=number_bad_files,
-                        participant=participant,
-                )
-                
-                # If no files were processed, quit processing
-                if (participant.files_to_process.exclude(deleted=True).count() == starting_length
-                        and previous_number_bad_files == number_bad_files):
-                    # Cases:
-                    #   every file broke, might as well fail here, and would cause infinite loop otherwise.
-                    #   no new files.
-                    break
-    finally:
-        FileProcessLock.unlock()
-    
-    error_handler.raise_errors()
-
-
 def do_process_user_file_chunks(
         page_size: int, error_handler: ErrorHandler, position: int, participant: Participant
 ):
-    """
-    Run through the files to process, pull their data, put it into s3 bins. Run the file through
+    """Run through the files to process, pull their data, put it into s3 bins. Run the file through
     the appropriate logic path based on file type.
 
     If a file is empty put its ftp object to the empty_files_list, we can't delete objects

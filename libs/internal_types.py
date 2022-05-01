@@ -4,7 +4,7 @@ from django.db.models import Manager, QuerySet
 from django.http.request import HttpRequest
 
 from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
-from database.data_access_models import (ChunkRegistry, FileToProcess)
+from database.data_access_models import ChunkRegistry, FileToProcess
 from database.profiling_models import (DecryptionKeyError, EncryptionErrorMetadata,
     LineEncryptionError, UploadTracking)
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention,
@@ -12,7 +12,7 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
 from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey, SurveyArchive, SurveyBase
-from database.system_models import FileAsText, FileProcessLock
+from database.system_models import FileAsText
 from database.tableau_api_models import ForestParam, ForestTask, SummaryStatisticDaily
 from database.user_models import (AbstractPasswordUser, Participant, ParticipantFCMHistory,
     ParticipantFieldValue, PushNotificationDisabledEvent, Researcher, StudyRelation)
@@ -66,8 +66,6 @@ DecryptionKeyErrorQuerySet = Union[QuerySet, List[DecryptionKeyError]]
 DeviceSettingsQuerySet = Union[QuerySet, List[DeviceSettings]]
 EncryptionErrorMetadataQuerySet = Union[QuerySet, List[EncryptionErrorMetadata]]
 FileAsTextQuerySet = Union[QuerySet, List[FileAsText]]
-FileProcessLockQuerySet = Union[QuerySet, List[FileProcessLock]]
-FileToProcessQuerySet = Union[QuerySet, List[FileToProcess]]
 ForestParamQuerySet = Union[QuerySet, List[ForestParam]]
 ForestTaskQuerySet = Union[QuerySet, List[ForestTask]]
 InterventionDateQuerySet = Union[QuerySet, List[InterventionDate]]

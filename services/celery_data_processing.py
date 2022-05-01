@@ -82,10 +82,10 @@ def celery_process_file_chunks(participant_id):
             
             print(f"{datetime.now()} processing {participant.patient_id}, {starting_length} files remaining")
             number_bad_files += do_process_user_file_chunks(
-                    page_size=FILE_PROCESS_PAGE_SIZE,
-                    error_handler=error_sentry,
-                    position=number_bad_files,
-                    participant=participant,
+                page_size=FILE_PROCESS_PAGE_SIZE,
+                error_handler=error_sentry,
+                position=number_bad_files,
+                participant=participant,
             )
             # If no files were processed, quit processing
             if participant.files_to_process.exclude(deleted=True).count() == starting_length:

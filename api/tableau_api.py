@@ -11,7 +11,7 @@ from constants.tableau_api_constants import FIELD_TYPE_MAP, SERIALIZABLE_FIELD_N
 from database.tableau_api_models import SummaryStatisticDaily
 from forms.django_forms import ApiQueryForm
 from libs.internal_types import TableauRequest
-from libs.utils.effiicient_paginator import EfficientPaginator
+from libs.utils.effiicient_paginator import EfficientQueryPaginator
 
 
 FINAL_SERIALIZABLE_FIELD_NAMES = (
@@ -32,7 +32,7 @@ def get_tableau_daily(request: TableauRequest, study_object_id: str = None):
         query_fields=query_fields,
         **form.cleaned_data,  # already cleaned and validated
     )
-    return StreamingHttpResponse(paginator.stream_orjson_paginate, content_type="application/json")
+    return StreamingHttpResponse(paginator.stream_orjson_paginate(), content_type="application/json")
 
 
 @require_GET
@@ -55,6 +55,7 @@ def web_data_connector(request: TableauRequest, study_object_id: str):
             # if the field is not recognized, supply it to tableau as a string type
             columns.append(f"{{id: '{field.name}', dataType: tableau.dataTypeEnum.string,}},\n")
     
+    
     columns = "".join(columns) + '];'
     return render(request, 'wdc.html', context=dict(study_object_id=study_object_id, cols=columns))
 
@@ -73,7 +74,7 @@ def tableau_query_database(
     order_by="date", order_direction="descending",      # sort
     query_fields: List[str] = None,
     **_   # Because Whimsy is important.                # ignore everything else
-) -> EfficientPaginator:
+) -> EfficientQueryPaginator:
     """ Args:
         study_object_id (str): study in which to find data
         end_date (optional[date]): last date to include in search
@@ -87,6 +88,7 @@ def tableau_query_database(
     if not query_fields:
         raise Exception("invalid usage")
     
+    # Set up filter, order_by, and annotation quargs
     filter_kwargs = {}
     filter_kwargs["participant__study__object_id"] = study_object_id
     if participant_ids:
@@ -99,20 +101,16 @@ def tableau_query_database(
     if order_direction == "descending":
         order_by = "-" + order_by
     
-    if not limit:
-        limit = 0
-    
     annotate_kwargs = {}
-    if "participant_id" in query_fields:
-        annotate_kwargs["participant_id"] = F("participant__patient_id")
+    if "patient_id" in query_fields:
+        annotate_kwargs["patient_id"] = F("participant__patient_id")
     if "study_id" in query_fields:
         annotate_kwargs["study_id"] = F("participant__study__object_id")
     
-    return EfficientPaginator(
-        SummaryStatisticDaily,
-        10000,  # page size
-        filter_kwargs=filter_kwargs,
-        order_args=(order_by,),
-        limit=limit,
-        annotate_kwargs=annotate_kwargs
-    )
+    # construct query, apply limit if any, pass to paginator with large page size and return.
+    query = SummaryStatisticDaily.objects \
+        .annotate(**annotate_kwargs).order_by(order_by).filter(**filter_kwargs)
+    if limit:
+        query = query[:limit]
+    
+    return EfficientQueryPaginator(query, 10000, values=query_fields,)

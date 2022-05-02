@@ -46,7 +46,10 @@ class TestGetTableauDaily(TableauAPITest):
         # unpack the raw headers like this, they magically just work because http language is weird
         resp = self.smart_get(self.session_study.object_id, **self.raw_headers)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.content, b'[]')
+        response_content = b""
+        for x in resp.streaming_content:
+            response_content = response_content + x  # x should be bytes
+        self.assertEqual(response_content, b'[]')
 
 
 class TableauApiAuthTests(TableauAPITest):
@@ -108,8 +111,3 @@ class TableauApiAuthTests(TableauAPITest):
             check_tableau_permissions(
                 self.default_header, study_object_id=self.session_study.object_id
             )
-    
-    def test_summary_statistic_daily_serializer(self):
-        serializer = SummaryStatisticDailySerializer()
-        self.assertFalse("created_on" in serializer.fields)
-        self.assertFalse("last_updated" in serializer.fields)

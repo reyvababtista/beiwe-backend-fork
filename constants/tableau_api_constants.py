@@ -7,7 +7,7 @@ from constants.forest_constants import TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS
 SERIALIZABLE_FIELD_NAMES = [
     # Metadata
     "date",
-    "patient_id",
+    "participant_id",
     "study_id",
     
     # Data quantities

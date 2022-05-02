@@ -5,6 +5,7 @@ from django.db.models import F
 from django.http import StreamingHttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
+from orjson import dumps as orjson_dumps
 
 from authentication.tableau_authentication import authenticate_tableau
 from constants.tableau_api_constants import FIELD_TYPE_MAP, SERIALIZABLE_FIELD_NAMES
@@ -17,6 +18,23 @@ from libs.utils.effiicient_paginator import EfficientQueryPaginator
 FINAL_SERIALIZABLE_FIELD_NAMES = (
     f for f in SummaryStatisticDaily._meta.fields if f.name in SERIALIZABLE_FIELD_NAMES
 )
+
+
+class FrustratinglySpecificPaginator(EfficientQueryPaginator):
+    
+    def stream_orjson_paginate(self):
+        """ we need to rename the patient_id field, because we can't annotate our way out of this
+        one due to a Django limitation. """
+        # if "participant_id" not in self.values:
+        #     return super().stream_orjson_paginate()
+        
+        yield b"["
+        for page in self.paginate():
+            for values_dict in page:
+                values_dict["participant_id"] = values_dict.pop("patient_id")
+            yield orjson_dumps(page)[1:-1]
+        yield b"]"
+
 
 @require_GET
 @authenticate_tableau
@@ -55,7 +73,6 @@ def web_data_connector(request: TableauRequest, study_object_id: str):
             # if the field is not recognized, supply it to tableau as a string type
             columns.append(f"{{id: '{field.name}', dataType: tableau.dataTypeEnum.string,}},\n")
     
-    
     columns = "".join(columns) + '];'
     return render(request, 'wdc.html', context=dict(study_object_id=study_object_id, cols=columns))
 
@@ -74,7 +91,7 @@ def tableau_query_database(
     order_by="date", order_direction="descending",      # sort
     query_fields: List[str] = None,
     **_   # Because Whimsy is important.                # ignore everything else
-) -> EfficientQueryPaginator:
+) -> FrustratinglySpecificPaginator:
     """ Args:
         study_object_id (str): study in which to find data
         end_date (optional[date]): last date to include in search
@@ -102,7 +119,7 @@ def tableau_query_database(
         order_by = "-" + order_by
     
     annotate_kwargs = {}
-    if "patient_id" in query_fields:
+    if "participant_id" in query_fields:
         annotate_kwargs["patient_id"] = F("participant__patient_id")
     if "study_id" in query_fields:
         annotate_kwargs["study_id"] = F("participant__study__object_id")
@@ -112,5 +129,4 @@ def tableau_query_database(
         .annotate(**annotate_kwargs).order_by(order_by).filter(**filter_kwargs)
     if limit:
         query = query[:limit]
-    
-    return EfficientQueryPaginator(query, 10000, values=query_fields,)
+    return FrustratinglySpecificPaginator(query, 10000, values=query_fields)

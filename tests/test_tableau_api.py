@@ -3,7 +3,6 @@ from authentication.tableau_authentication import (check_tableau_permissions,
 from constants.tableau_api_constants import X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET
 from database.security_models import ApiKey
 from database.user_models import StudyRelation
-from serializers.tableau_serializers import SummaryStatisticDailySerializer
 from tests.common import ResearcherSessionTest, TableauAPITest
 
 

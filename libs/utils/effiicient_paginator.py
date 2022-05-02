@@ -1,9 +1,7 @@
-from typing import Any, Dict, List
+from typing import List
 
 from django.db.models import QuerySet
 from orjson import dumps as orjson_dumps
-
-from database.common_models import UtilityModel
 
 
 class DjangoQueryPaginatorBase:

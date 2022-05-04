@@ -122,9 +122,11 @@ class EfficientQueryPaginator(DjangoQueryPaginatorBase):
         # pass params intelligently
         if values:
             self.value_query = filtered_query.values(*values)
+            self.values = values
         elif values_list:
             self.value_query = filtered_query.values_list(
                 *values_list, flat=flat and len(values_list) == 1
             )
+            self.values_list = values_list
         elif not values and not values_list:
             self.value_query = filtered_query

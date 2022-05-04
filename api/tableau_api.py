@@ -28,12 +28,15 @@ class FrustratinglySpecificPaginator(EfficientQueryPaginator):
         # if "participant_id" not in self.values:
         #     return super().stream_orjson_paginate()
         
-        yield b"["
-        for page in self.paginate():
-            for values_dict in page:
-                values_dict["participant_id"] = values_dict.pop("patient_id")
-            yield orjson_dumps(page)[1:-1]
-        yield b"]"
+        if "patient_id" in self.values:
+            yield b"["
+            for page in self.paginate():
+                for values_dict in page:
+                    values_dict["participant_id"] = values_dict.pop("patient_id")
+                yield orjson_dumps(page)[1:-1]
+            yield b"]"
+        else:
+            return super().stream_orjson_paginate()
 
 
 @require_GET

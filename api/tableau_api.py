@@ -5,46 +5,24 @@ from django.db.models import F
 from django.http import StreamingHttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
-from orjson import dumps as orjson_dumps
 
 from authentication.tableau_authentication import authenticate_tableau
 from constants.tableau_api_constants import FIELD_TYPE_MAP, SERIALIZABLE_FIELD_NAMES
 from database.tableau_api_models import SummaryStatisticDaily
 from forms.django_forms import ApiQueryForm
 from libs.internal_types import TableauRequest
-from libs.utils.effiicient_paginator import EfficientQueryPaginator
+from libs.utils.effiicient_paginator import TableauApiPaginator
 
 
 FINAL_SERIALIZABLE_FIELD_NAMES = (
     f for f in SummaryStatisticDaily._meta.fields if f.name in SERIALIZABLE_FIELD_NAMES
 )
 
-class FrustratinglySpecificPaginator(EfficientQueryPaginator):
-    """ This class handles a compatibility issue and some weird python behavior. """
-    def stream_orjson_paginate(self):
-        """ we need to rename the patient_id field, because we can't annotate our way out of this
-        one due to a Django limitation. """
-        
-        if "patient_id" in self.values:
-            yield b"["
-            for page in self.paginate():
-                for values_dict in page:
-                    values_dict["participant_id"] = values_dict.pop("patient_id")
-                yield orjson_dumps(page)[1:-1]
-            yield b"]"
-        else:
-            # For some reason we can't call the super implementation, so I have copy-pasted.
-            # return super().stream_orjson_paginate()  # This doesn't work. >_O
-            yield b"["
-            for page in self.paginate():
-                yield orjson_dumps(page)[1:-1]
-            yield b"]"
-
 
 @require_GET
 @authenticate_tableau
 def get_tableau_daily(request: TableauRequest, study_object_id: str = None):
-    form = ApiQueryForm(data=request.POST)
+    form = ApiQueryForm(data=request.GET)
     if not form.is_valid():
         return format_errors(form.errors.get_json_data())
     
@@ -55,7 +33,9 @@ def get_tableau_daily(request: TableauRequest, study_object_id: str = None):
         query_fields=query_fields,
         **form.cleaned_data,  # already cleaned and validated
     )
-    return StreamingHttpResponse(paginator.stream_orjson_paginate(), content_type="application/json")
+    return StreamingHttpResponse(
+        paginator.stream_orjson_paginate(), content_type="application/json"
+    )
 
 
 @require_GET
@@ -64,9 +44,10 @@ def web_data_connector(request: TableauRequest, study_object_id: str):
     # study_id and participant_id are not part of the SummaryStatisticDaily model, so they aren't
     # populated. They are also related fields that both are proxies for a unique identifier field
     # that has a different name, so we do it manually.
-    columns = ['[\n',
-               "{id: 'study_id', dataType: tableau.dataTypeEnum.string,},\n",
-               "{id: 'participant_id', dataType: tableau.dataTypeEnum.string,},\n"]
+    columns = [
+        '[\n', "{id: 'study_id', dataType: tableau.dataTypeEnum.string,},\n",
+        "{id: 'participant_id', dataType: tableau.dataTypeEnum.string,},\n"
+    ]
     
     for field in FINAL_SERIALIZABLE_FIELD_NAMES:
         for (python_type, tableau_type) in FIELD_TYPE_MAP:
@@ -95,8 +76,8 @@ def tableau_query_database(
     end_date=None, start_date=None,                     # time
     order_by="date", order_direction="descending",      # sort
     query_fields: List[str] = None,
-    **_   # Because Whimsy is important.                # ignore everything else
-) -> FrustratinglySpecificPaginator:
+    **_  # Because Whimsy is important.                 # ignore everything else
+) -> TableauApiPaginator:
     """ Args:
         study_object_id (str): study in which to find data
         end_date (optional[date]): last date to include in search
@@ -130,6 +111,5 @@ def tableau_query_database(
     # construct query, apply limit if any, pass to paginator with large page size and return.
     query = SummaryStatisticDaily.objects \
         .annotate(**annotate_kwargs).order_by(order_by).filter(**filter_kwargs)
-    if limit:
-        query = query[:limit]
-    return FrustratinglySpecificPaginator(query, 10000, values=query_fields)
+    
+    return TableauApiPaginator(query, 10000, values=query_fields, limit=limit)

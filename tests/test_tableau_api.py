@@ -1,5 +1,5 @@
-from datetime import date
-
+from datetime import date, timedelta
+from django.http import StreamingHttpResponse
 import orjson
 
 from authentication.tableau_authentication import (check_tableau_permissions,
@@ -46,22 +46,18 @@ class TestDisableTableauAPIKey(TableauAPITest):
 
 class TestGetTableauDaily(TableauAPITest):
     ENDPOINT_NAME = "tableau_api.get_tableau_daily"
-    
+    yesterday = date.today() - timedelta(days=1)
     # parameters are
     # end_date, start_date, limit, order_by, order_direction, participant_ids, fields
     
     # helpers
     @property
-    def post_params_all_fields(self):
-        headers = self.raw_headers
-        headers["fields"] = ",".join(SERIALIZABLE_FIELD_NAMES)
-        return headers
+    def params_all_fields(self):
+        return {"fields": ",".join(SERIALIZABLE_FIELD_NAMES)}
     
     @property
-    def post_params_all_defaults(self):
-        headers = self.post_params_all_fields
-        headers['participant_ids'] = self.default_participant.patient_id
-        return headers
+    def params_all_defaults(self):
+        return {'participant_ids': self.default_participant.patient_id, **self.params_all_fields}
     
     @property
     def full_response_dict(self):
@@ -71,26 +67,56 @@ class TestGetTableauDaily(TableauAPITest):
         defaults["study_id"] = self.session_study.object_id
         return defaults
     
+    def smart_get_200_auto_headers(self, **kwargs) -> StreamingHttpResponse:
+        return self.smart_get_status_code(
+            200, self.session_study.object_id, data=kwargs, **self.raw_headers
+        )
+    
     def test_summary_statistics_daily_no_params_empty_db(self):
         # unpack the raw headers like this, they magically just work because http language is weird
-        resp = self.smart_get_status_code(200, self.session_study.object_id, **self.raw_headers)
+        resp = self.smart_get_200_auto_headers()
         response_content = b"".join(resp.streaming_content)
         self.assertEqual(response_content, b'[]')
     
     def test_summary_statistics_daily_all_params_empty_db(self):
-        headers = self.post_params_all_fields
-        resp = self.smart_get_status_code(200, self.session_study.object_id, **headers)
+        resp = self.smart_get_200_auto_headers(**self.params_all_fields)
         response_content = b"".join(resp.streaming_content)
         self.assertEqual(response_content, b'[]')
     
     def test_summary_statistics_daily_all_params_all_populated(self):
-        headers = self.post_params_all_defaults
         self.generate_summary_statistic_daily()
-        resp = self.smart_get_status_code(200, self.session_study.object_id, **headers)
-        response_content = b"".join(resp.streaming_content)
-        response_json = orjson.loads(response_content)
-        self.assertEqual(len(response_json), 1)
-        assert compare_dictionaries(response_json[0], self.full_response_dict)
+        resp = self.smart_get_200_auto_headers(**self.params_all_defaults)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 1)
+        assert compare_dictionaries(response_object[0], self.full_response_dict)
+    
+    def test_summary_statistics_daily_all_params_dates_all_populated(self):
+        self.generate_summary_statistic_daily()
+        params = {"end_date": date.today(), "start_date": date.today(), **self.params_all_defaults}
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 1)
+        assert compare_dictionaries(response_object[0], self.full_response_dict)
+    
+    def test_summary_statistics_daily_all_params_2_results_all_populated(self):
+        self.generate_summary_statistic_daily()
+        self.generate_summary_statistic_daily(a_date=self.yesterday)
+        resp = self.smart_get_200_auto_headers(**self.params_all_defaults)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        compare_me = self.full_response_dict
+        assert compare_dictionaries(response_object[0], compare_me)
+        compare_me['date'] = self.yesterday.isoformat()
+        assert compare_dictionaries(response_object[1], compare_me)
+    
+    def test_summary_statistics_daily_limit_param(self):
+        self.generate_summary_statistic_daily()
+        self.generate_summary_statistic_daily(a_date=self.yesterday)
+        params = {"limit": 1, **self.params_all_defaults}
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 1)
+        assert compare_dictionaries(response_object[0], self.full_response_dict)
 
 
 class TableauApiAuthTests(TableauAPITest):

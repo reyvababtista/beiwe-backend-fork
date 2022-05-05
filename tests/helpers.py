@@ -2,6 +2,7 @@ import subprocess
 from datetime import date, datetime
 from typing import List
 
+from django.db.models import AutoField, DateField, FloatField, ForeignKey, IntegerField, TextField
 from django.http.response import HttpResponse
 from django.utils import timezone
 
@@ -18,7 +19,7 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
     InterventionDate, RelativeSchedule, WeeklySchedule)
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
-from database.tableau_api_models import ForestParam, ForestTask
+from database.tableau_api_models import ForestParam, ForestTask, SummaryStatisticDaily
 from database.user_models import Participant, ParticipantFCMHistory, Researcher, StudyRelation
 from libs.security import generate_easy_alphanumeric_string
 
@@ -233,7 +234,7 @@ class ReferenceObjectMixin:
         )
         token.save()
         return token
-
+    
     @property
     def default_populated_intervention_date(self) -> InterventionDate:
         return self.generate_intervention_date(self.default_participant, self.default_intervention)
@@ -412,6 +413,38 @@ class ReferenceObjectMixin:
         )
         chunk_reg.save()
         return chunk_reg
+    
+    def default_summary_statistic_daily_cheatsheet(self):
+        # this is used to populate default values in a SummaryStatisticDaily
+        field_dict = {}
+        for i, field in enumerate(SummaryStatisticDaily._meta.fields):
+            if isinstance(field, (ForeignKey, DateField, AutoField)):
+                continue
+            elif isinstance(field, IntegerField):
+                field_dict[field.name] = i
+            elif isinstance(field, FloatField):
+                field_dict[field.name] = float(i)
+            elif isinstance(field, TextField):
+                field_dict[field.name] = str(i)
+            else:
+                raise TypeError(f"encountered unhandled SummaryStatisticDaily type: {type(field)}")
+        return field_dict
+    
+    def generate_summary_statistic_daily(self, a_date: date = None, participant: Participant = None):
+        field_dict = self.default_summary_statistic_daily_cheatsheet()
+        params = {}
+        for field in SummaryStatisticDaily._meta.fields:
+            if field.name in ["id", "created_on", "last_updated", "jasmine_task", "willow_task"]:
+                continue
+            elif field.name == "participant":
+                params[field.name] = participant or self.default_participant
+            elif field.name == "date":
+                params[field.name] = a_date or date.today()
+            else:
+                params[field.name] = field_dict[field.name]
+        stats = SummaryStatisticDaily(**params)
+        stats.save()
+        return stats
 
 
 def compare_dictionaries(reference, comparee, ignore=None):

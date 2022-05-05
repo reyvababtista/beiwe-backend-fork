@@ -19,14 +19,11 @@ FINAL_SERIALIZABLE_FIELD_NAMES = (
     f for f in SummaryStatisticDaily._meta.fields if f.name in SERIALIZABLE_FIELD_NAMES
 )
 
-
 class FrustratinglySpecificPaginator(EfficientQueryPaginator):
-    
+    """ This class handles a compatibility issue and some weird python behavior. """
     def stream_orjson_paginate(self):
         """ we need to rename the patient_id field, because we can't annotate our way out of this
         one due to a Django limitation. """
-        # if "participant_id" not in self.values:
-        #     return super().stream_orjson_paginate()
         
         if "patient_id" in self.values:
             yield b"["
@@ -36,7 +33,12 @@ class FrustratinglySpecificPaginator(EfficientQueryPaginator):
                 yield orjson_dumps(page)[1:-1]
             yield b"]"
         else:
-            return super().stream_orjson_paginate()
+            # For some reason we can't call the super implementation, so I have copy-pasted.
+            # return super().stream_orjson_paginate()  # This doesn't work. >_O
+            yield b"["
+            for page in self.paginate():
+                yield orjson_dumps(page)[1:-1]
+            yield b"]"
 
 
 @require_GET
@@ -121,11 +123,9 @@ def tableau_query_database(
     if order_direction == "descending":
         order_by = "-" + order_by
     
-    annotate_kwargs = {}
+    annotate_kwargs = {"study_id": F("participant__study__object_id")}
     if "participant_id" in query_fields:
         annotate_kwargs["patient_id"] = F("participant__patient_id")
-    if "study_id" in query_fields:
-        annotate_kwargs["study_id"] = F("participant__study__object_id")
     
     # construct query, apply limit if any, pass to paginator with large page size and return.
     query = SummaryStatisticDaily.objects \

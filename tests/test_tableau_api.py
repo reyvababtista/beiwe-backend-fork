@@ -1,9 +1,15 @@
+from datetime import date
+
+import orjson
+
 from authentication.tableau_authentication import (check_tableau_permissions,
     TableauAuthenticationFailed, TableauPermissionDenied)
-from constants.tableau_api_constants import X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET
+from constants.tableau_api_constants import (SERIALIZABLE_FIELD_NAMES, X_ACCESS_KEY_ID,
+    X_ACCESS_KEY_SECRET)
 from database.security_models import ApiKey
 from database.user_models import StudyRelation
 from tests.common import ResearcherSessionTest, TableauAPITest
+from tests.helpers import compare_dictionaries
 
 
 class TestNewTableauAPIKey(ResearcherSessionTest):
@@ -41,14 +47,50 @@ class TestDisableTableauAPIKey(TableauAPITest):
 class TestGetTableauDaily(TableauAPITest):
     ENDPOINT_NAME = "tableau_api.get_tableau_daily"
     
-    def test_summary_statistics_daily_view(self):
+    # parameters are
+    # end_date, start_date, limit, order_by, order_direction, participant_ids, fields
+    
+    # helpers
+    @property
+    def post_params_all_fields(self):
+        headers = self.raw_headers
+        headers["fields"] = ",".join(SERIALIZABLE_FIELD_NAMES)
+        return headers
+    
+    @property
+    def post_params_all_defaults(self):
+        headers = self.post_params_all_fields
+        headers['participant_ids'] = self.default_participant.patient_id
+        return headers
+    
+    @property
+    def full_response_dict(self):
+        defaults = self.default_summary_statistic_daily_cheatsheet()
+        defaults["date"] = date.today().isoformat()
+        defaults["participant_id"] = self.default_participant.id
+        defaults["study_id"] = self.session_study.object_id
+        return defaults
+    
+    def test_summary_statistics_daily_no_params_empty_db(self):
         # unpack the raw headers like this, they magically just work because http language is weird
-        resp = self.smart_get(self.session_study.object_id, **self.raw_headers)
-        self.assertEqual(resp.status_code, 200)
-        response_content = b""
-        for x in resp.streaming_content:
-            response_content = response_content + x  # x should be bytes
+        resp = self.smart_get_status_code(200, self.session_study.object_id, **self.raw_headers)
+        response_content = b"".join(resp.streaming_content)
         self.assertEqual(response_content, b'[]')
+    
+    def test_summary_statistics_daily_all_params_empty_db(self):
+        headers = self.post_params_all_fields
+        resp = self.smart_get_status_code(200, self.session_study.object_id, **headers)
+        response_content = b"".join(resp.streaming_content)
+        self.assertEqual(response_content, b'[]')
+    
+    def test_summary_statistics_daily_all_params_all_populated(self):
+        headers = self.post_params_all_defaults
+        self.generate_summary_statistic_daily()
+        resp = self.smart_get_status_code(200, self.session_study.object_id, **headers)
+        response_content = b"".join(resp.streaming_content)
+        response_json = orjson.loads(response_content)
+        self.assertEqual(len(response_json), 1)
+        assert compare_dictionaries(response_json[0], self.full_response_dict)
 
 
 class TableauApiAuthTests(TableauAPITest):

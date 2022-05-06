@@ -10,6 +10,7 @@ from constants.data_stream_constants import SURVEY_DATA_FILES
 from database.data_access_models import ChunkRegistry
 from database.study_models import Study
 from database.survey_models import Survey
+from database.system_models import GenericEvent
 from database.user_models import Participant
 from libs.file_processing.exceptions import BadHeaderException, ChunkFailedToExist
 from libs.file_processing.utility_functions_csvs import (construct_csv_string, csv_to_list,
@@ -180,8 +181,8 @@ class CsvMerger:
         if header == real_header:
             return real_header
         
-        message = f"header was \n'{header.decode()}'\n expected\n'{real_header.decode()}'"
-        self.report_error(BadHeaderException(message))
+        message = f'header was \n"{str(header)}"\n expected\n"{str(real_header)}"'
+        GenericEvent.easy_create("bad_header_2", message)
         return real_header
     
     def validate_two_headers(self, header_a: bytes, header_b: bytes, data_stream: str) -> bytes:
@@ -196,10 +197,8 @@ class CsvMerger:
         if header_a == real_header or header_b == real_header:
             return real_header
         
-        error = BadHeaderException(
-            f"headers were \n'{header_a.decode()}'\n and \n'{header_b.decode()}'\n expected\n'{real_header.decode()}'"
-        )
-        self.report_error(error)
+        message = f'headers were \n"{str(header_a)}"\n and \n"{str(header_b)}"\n expected\n"{str(real_header)}"'
+        GenericEvent.easy_create("bad_header_1", message)
         return real_header
     
     def report_error(self, e: Exception):

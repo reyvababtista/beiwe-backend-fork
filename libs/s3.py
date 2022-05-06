@@ -60,7 +60,18 @@ def s3_upload(
         key_path = s3_construct_study_key_path(key_path, obj)
     data = encrypt_for_server(data_string, smart_get_study_encryption_key(obj))
     assert S3_BUCKET is not Exception, "libs.s3.s3_upload called inside test"
-    conn.put_object(Body=data, Bucket=S3_BUCKET, Key=key_path)
+    _do_upload(key_path, data)
+
+
+def _do_upload(key_path: str, data_string: bytes, number_retries=3):
+    """ In ~April 2022 this api call started occasionally failing, so wrapping it in a retry. """
+    assert S3_BUCKET is not Exception, "libs.s3._do_upload called inside test"
+    try:
+        conn.put_object(Body=data_string, Bucket=S3_BUCKET, Key=key_path)
+    except Exception as e:
+        if "Please try again" not in str(e):
+            raise
+        _do_upload(key_path, data_string, number_retries=number_retries-1)
 
 
 def s3_retrieve(

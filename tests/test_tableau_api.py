@@ -63,7 +63,7 @@ class TestGetTableauDaily(TableauAPITest):
     def full_response_dict(self):
         defaults = self.default_summary_statistic_daily_cheatsheet()
         defaults["date"] = date.today().isoformat()
-        defaults["participant_id"] = self.default_participant.id
+        defaults["participant_id"] = self.default_participant.patient_id
         defaults["study_id"] = self.session_study.object_id
         return defaults
     

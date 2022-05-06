@@ -106,6 +106,8 @@ def tableau_query_database(
     
     annotate_kwargs = {"study_id": F("participant__study__object_id")}
     if "participant_id" in query_fields:
+        # need to replace participant_id with patient_id, we have to swap it back later
+        query_fields[query_fields.index("participant_id")] = "patient_id"
         annotate_kwargs["patient_id"] = F("participant__patient_id")
     
     # construct query, apply limit if any, pass to paginator with large page size and return.

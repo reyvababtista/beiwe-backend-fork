@@ -14,9 +14,9 @@ from libs.internal_types import TableauRequest
 from libs.utils.effiicient_paginator import TableauApiPaginator
 
 
-FINAL_SERIALIZABLE_FIELD_NAMES = (
+FINAL_SERIALIZABLE_FIELD_NAMES = [
     f for f in SummaryStatisticDaily._meta.fields if f.name in SERIALIZABLE_FIELD_NAMES
-)
+]
 
 
 @require_GET

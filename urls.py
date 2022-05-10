@@ -86,6 +86,8 @@ path('remove_researcher_from_study', admin_api.remove_researcher_from_study)
 path('delete_researcher/<str:researcher_id>', admin_api.delete_researcher)
 path('set_researcher_password', admin_api.set_researcher_password)
 path('rename_study/<str:study_id>', admin_api.rename_study)
+
+# app download
 path("download", admin_api.download_current)
 path("download_debug", admin_api.download_current_debug)
 path("download_beta", admin_api.download_beta)

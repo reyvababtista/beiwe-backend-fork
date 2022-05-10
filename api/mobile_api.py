@@ -2,7 +2,7 @@ import calendar
 import json
 import plistlib
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
@@ -13,18 +13,17 @@ from django.utils import timezone
 
 from authentication.participant_authentication import (authenticate_participant,
     authenticate_participant_registration, minimal_validation)
-from config.settings import REPORT_DECRYPTION_KEY_ERRORS
 from constants.celery_constants import ANDROID_FIREBASE_CREDENTIALS, IOS_FIREBASE_CREDENTIALS
-from constants.message_strings import (DECRYPTION_KEY_ADDITIONAL_MESSAGE, DEVICE_IDENTIFIERS_HEADER,
-    INVALID_EXTENSION_ERROR, NO_FILE_ERROR, S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR_1,
-    S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR_2, UNKNOWN_ERROR)
-from constants.participant_constants import IOS_API
+from constants.common_constants import PROBLEM_UPLOADS
+from constants.message_strings import (DEVICE_IDENTIFIERS_HEADER, INVALID_EXTENSION_ERROR,
+    NO_FILE_ERROR, S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR_1, S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR_2,
+    UNKNOWN_ERROR)
 from database.data_access_models import FileToProcess
-from database.profiling_models import DecryptionKeyError, UploadTracking
-from database.system_models import FileAsText
+from database.profiling_models import UploadTracking
+from database.system_models import FileAsText, GenericEvent
 from database.user_models import Participant
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
-    IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
+    IosDecryptionKeyDuplicateError, IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
 from libs.http_utils import determine_os_api
 from libs.internal_types import ParticipantRequest
 from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
@@ -93,27 +92,18 @@ def upload(request: ParticipantRequest, OS_API=""):
     
     # get_uploaded_file failure modes always aborts or errors
     try:
-        decryptor = DeviceDataDecryptor(s3_file_location, get_uploaded_file(request), participant)
+        file_contents = get_uploaded_file(request)
+        decryptor = DeviceDataDecryptor(s3_file_location, file_contents, participant)
     except RemoteDeleteFileScenario:
         log(200, "RemoteDeleteFileScenario")  # errors were unrecoverable, delete the file.
         return HttpResponse(status=200)
     
-    except DecryptionKeyInvalidError as e:
-        # when the decryption key is invalid the file is lost.  Nothing we can do.
-        # record the event, send the device a 200 so it can clear out the file.
-        report_decryption_key_error(participant, file_name, e)
-        log(f"{400 if OS_API == IOS_API else 200} ({OS_API}) decryption key failure: {str(e)}")
-        # iOS has a bug where a file can get split, we can recover those files. (200 would delete)
-        return abort(400) if OS_API == IOS_API else HttpResponse(status=200)  # NOQA:
-    
-    except IosDecryptionKeyNotFoundError as e:
+    except (DecryptionKeyInvalidError, IosDecryptionKeyNotFoundError, IosDecryptionKeyDuplicateError) as e:
         # IOS has a complex issue where it splits files into multiple segments, but the key is only
         # present on the first section. We wait 3 weeks for ios to upload with a key, eventually
         # we tell the device to delete the file.
-        t = convert_filename_to_datetime(file_name)
-        do_delete = t < EARLIEST_POSSIBLE_IOS_RECOVERY or t < (datetime.now() - timedelta(days=21))
-        log(200 if do_delete else 400, "IosDecryptionKeyNotFoundError", str(e))
-        return HttpResponse(status=200) if do_delete else abort(400)
+        upload_problem_file(file_contents, participant, s3_file_location, e)
+        return HttpResponse(status=200)
     
     # if uploaded data actually exists, and has a valid extension
     if decryptor.decrypted_file and file_name and contains_valid_extension(file_name):
@@ -214,18 +204,16 @@ def make_upload_error_report(patient_id: str, file_name: str):
     return abort(400)
 
 
-def report_decryption_key_error(participant: Participant, file_name: str, e: DecryptionKeyError):
-    # conditionally send a sentry error if enabled
-    if REPORT_DECRYPTION_KEY_ERRORS:
-        tags = {
-            "participant": participant.patient_id,
-            "operating system": participant.os_type,
-            "DecryptionKeyError id": str(DecryptionKeyError.objects.last().id),
-            "file_name": file_name,
-            "bug_report": DECRYPTION_KEY_ADDITIONAL_MESSAGE,
-        }
-        with make_sentry_client(SentryTypes.elastic_beanstalk, tags):
-            raise e
+def upload_problem_file(
+    file_contents: bytes, participant: Participant, s3_file_path: str, exception: Exception
+):
+    file_path = f"{PROBLEM_UPLOADS}/{participant.study.object_id}/" + s3_file_path \
+        + generate_easy_alphanumeric_string(10)
+    s3_upload(file_path, file_contents, participant, raw_path=True)
+    GenericEvent.easy_create(
+        tag=f"problem_upload_file_{exception.__class__.__name__}",
+        note=f'{file_path} for participant {participant.patient_id} failed with {str(exception)}',
+    )
 
 
 ################################################################################

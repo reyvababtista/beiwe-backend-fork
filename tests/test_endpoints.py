@@ -28,7 +28,6 @@ from constants.researcher_constants import ALL_RESEARCHER_TYPES, ResearcherRole
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT)
 from database.data_access_models import ChunkRegistry, FileToProcess
-from database.profiling_models import DecryptionKeyError
 from database.schedule_models import ArchivedEvent, Intervention
 from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
@@ -2466,12 +2465,6 @@ class TestMobileUpload(ParticipantSessionTest):
     def assert_one_file_to_process(self):
         self.assertEqual(FileToProcess.objects.count(), 1)
     
-    def check_decryption_key_error(self, error_shibboleth):
-        self.assertEqual(DecryptionKeyError.objects.count(), 1)
-        traceback = DecryptionKeyError.objects.first().traceback
-        self.assertIn(error_shibboleth, traceback)
-        self.assertIn(error_shibboleth, traceback.splitlines()[-1])
-    
     def test_bad_file_names(self):
         self.assert_no_files_to_process
         # responds with 200 code because device deletes file based on return
@@ -2513,22 +2506,16 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertEqual(ftp.last_updated, should_be_identical.last_updated)
         self.assert_one_file_to_process
     
-    @patch("libs.encryption.STORE_DECRYPTION_KEY_ERRORS")  # Variable's boolean value becomes True
     @patch("database.user_models.Participant.get_private_key")
-    def test_no_file_content(
-        self, get_private_key: MagicMock, STORE_DECRYPTION_KEY_ERRORS: MagicMock
-    ):
+    def test_no_file_content(self, get_private_key: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
         # this test will fail with the s3 invalid bucket
         self.smart_post_status_code(200, file_name="whatever.csv", file="")
         self.assertEqual(DecryptionKeyError.objects.count(), 0)
         self.assert_no_files_to_process
     
-    @patch("libs.encryption.STORE_DECRYPTION_KEY_ERRORS")
     @patch("database.user_models.Participant.get_private_key")
-    def test_simple_decryption_key_error(
-        self, get_private_key: MagicMock, STORE_DECRYPTION_KEY_ERRORS: MagicMock
-    ):
+    def test_simple_decryption_key_error(self, get_private_key: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
         self.smart_post_status_code(200, file_name="whatever.csv", file="some_content")
         self.assertEqual(DecryptionKeyError.objects.count(), 1)
@@ -2536,11 +2523,8 @@ class TestMobileUpload(ParticipantSessionTest):
         self.check_decryption_key_error("libs.security.PaddingException: Incorrect padding -- ")
         self.assert_no_files_to_process
     
-    @patch("libs.encryption.STORE_DECRYPTION_KEY_ERRORS")
     @patch("database.user_models.Participant.get_private_key")
-    def test_simple_decryption_key_error2(
-        self, get_private_key: MagicMock, STORE_DECRYPTION_KEY_ERRORS: MagicMock
-    ):
+    def test_simple_decryption_key_error2(self, get_private_key: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
         self.smart_post_status_code(200, file_name="whatever.csv", file=b"some_content")
         self.assertEqual(DecryptionKeyError.objects.count(), 1)
@@ -2548,11 +2532,8 @@ class TestMobileUpload(ParticipantSessionTest):
         self.check_decryption_key_error("libs.security.Base64LengthException:")
         self.assert_no_files_to_process
     
-    @patch("libs.encryption.STORE_DECRYPTION_KEY_ERRORS")
     @patch("database.user_models.Participant.get_private_key")
-    def test_bad_base64_length(
-        self, get_private_key: MagicMock, STORE_DECRYPTION_KEY_ERRORS: MagicMock
-    ):
+    def test_bad_base64_length(self, get_private_key: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
         self.smart_post_status_code(200, file_name="whatever.csv", file=b"some_content1")
         self.assertEqual(DecryptionKeyError.objects.count(), 1)
@@ -2562,11 +2543,8 @@ class TestMobileUpload(ParticipantSessionTest):
         )
         self.assert_no_files_to_process
     
-    @patch("libs.encryption.STORE_DECRYPTION_KEY_ERRORS")
     @patch("database.user_models.Participant.get_private_key")
-    def test_bad_base64_key(
-        self, get_private_key: MagicMock, STORE_DECRYPTION_KEY_ERRORS: MagicMock
-    ):
+    def test_bad_base64_key(self, get_private_key: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
         self.smart_post_status_code(200, file_name="whatever.csv", file="some_conten/")
         self.assertEqual(DecryptionKeyError.objects.count(), 1)

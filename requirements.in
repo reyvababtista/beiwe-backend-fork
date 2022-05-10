@@ -30,7 +30,7 @@ psycopg2==2.9.3
 
 # ipython can exhibit weird issues that make it look like the codebase is broken.  Most issues
 # are resolved by forcing this relatively new version of ipython.
-ipython
+ipython>=8.3.0
 uwsgi
 
 # Keep these dependencies up to date
@@ -42,4 +42,4 @@ pytz
 # this library. but we can't remove it because it is used in migrations.
 django-timezone-field==4.1.1
 
-pip-tools
+pip-tools>=6.6.0

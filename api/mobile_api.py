@@ -210,9 +210,10 @@ def upload_problem_file(
     file_path = f"{PROBLEM_UPLOADS}/{participant.study.object_id}/" + s3_file_path \
         + generate_easy_alphanumeric_string(10)
     s3_upload(file_path, file_contents, participant, raw_path=True)
+    note = f'{file_path} for participant {participant.patient_id} failed with {str(exception)}'
+    log("creating problem upload on s3:", note)
     GenericEvent.easy_create(
-        tag=f"problem_upload_file_{exception.__class__.__name__}",
-        note=f'{file_path} for participant {participant.patient_id} failed with {str(exception)}',
+        tag=f"problem_upload_file_{exception.__class__.__name__}", note=note,
     )
 
 

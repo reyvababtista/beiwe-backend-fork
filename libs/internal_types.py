@@ -5,8 +5,7 @@ from django.http.request import HttpRequest
 
 from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
 from database.data_access_models import ChunkRegistry, FileToProcess
-from database.profiling_models import (DecryptionKeyError, EncryptionErrorMetadata,
-    LineEncryptionError, UploadTracking)
+from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention,
     InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
 from database.security_models import ApiKey
@@ -62,7 +61,6 @@ ChunkRegistryQuerySet = Union[QuerySet, List[ChunkRegistry]]
 DashboardColorSettingQuerySet = Union[QuerySet, List[DashboardColorSetting]]
 DashboardGradientQuerySet = Union[QuerySet, List[DashboardGradient]]
 DashboardInflectionQuerySet = Union[QuerySet, List[DashboardInflection]]
-DecryptionKeyErrorQuerySet = Union[QuerySet, List[DecryptionKeyError]]
 DeviceSettingsQuerySet = Union[QuerySet, List[DeviceSettings]]
 EncryptionErrorMetadataQuerySet = Union[QuerySet, List[EncryptionErrorMetadata]]
 FileAsTextQuerySet = Union[QuerySet, List[FileAsText]]
@@ -86,7 +84,6 @@ SurveyBaseQuerySet = Union[QuerySet, List[SurveyBase]]
 SurveyQuerySet = Union[QuerySet, List[Survey]]
 UploadTrackingQuerySet = Union[QuerySet, List[UploadTracking]]
 WeeklyScheduleQuerySet = Union[QuerySet, List[WeeklySchedule]]
-
 AbsoluteScheduleManager = Union[Manager, List[AbsoluteSchedule]]
 ApiKeyManager = Union[Manager, List[ApiKey]]
 ArchivedEventManager = Union[Manager, List[ArchivedEvent]]
@@ -94,7 +91,6 @@ ChunkRegistryManager = Union[Manager, List[ChunkRegistry]]
 DashboardColorSettingManager = Union[Manager, List[DashboardColorSetting]]
 DashboardGradientManager = Union[Manager, List[DashboardGradient]]
 DashboardInflectionManager = Union[Manager, List[DashboardInflection]]
-DecryptionKeyErrorManager = Union[Manager, List[DecryptionKeyError]]
 DeviceSettingsManager = Union[Manager, List[DeviceSettings]]
 FileToProcessManager = Union[Manager, List[FileToProcess]]
 InterventionDateManager = Union[Manager, List[InterventionDate]]

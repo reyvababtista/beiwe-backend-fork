@@ -1,22 +1,21 @@
 import json
-import traceback
 from typing import List
 
 from Cryptodome.Cipher import AES
 from django.forms import ValidationError
 
-from config.settings import STORE_DECRYPTION_KEY_ERRORS, STORE_DECRYPTION_LINE_ERRORS
+from config.settings import STORE_DECRYPTION_LINE_ERRORS
 from constants.participant_constants import ANDROID_API, IOS_API
 from constants.security_constants import URLSAFE_BASE64_CHARACTERS
 from database.data_access_models import IOSDecryptionKey
-from database.profiling_models import (DecryptionKeyError, EncryptionErrorMetadata,
-    LineEncryptionError)
+from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError
 from database.user_models import Participant
 from libs.security import Base64LengthException, decode_base64, encode_base64, PaddingException
 
 
 class DecryptionKeyInvalidError(Exception): pass
 class IosDecryptionKeyNotFoundError(Exception): pass
+class IosDecryptionKeyDuplicateError(Exception): pass
 class RemoteDeleteFileScenario(Exception): pass
 class UnHandledError(Exception): pass  # for debugging
 class InvalidIV(Exception): pass
@@ -85,7 +84,6 @@ class DeviceDataDecryptor():
         try:
             decryption_key = IOSDecryptionKey.objects.get(file_name=self.file_name)
         except IOSDecryptionKey.DoesNotExist:
-            self.create_decryption_key_error(traceback.format_exc())
             raise IosDecryptionKeyNotFoundError(
                 f"ios decryption key for '{self.file_name}' could not be found."
             )
@@ -129,24 +127,18 @@ class DeviceDataDecryptor():
             key_base64_raw: bytes = self.file_lines[0]
         except IndexError:
             # shouldn't be reachable due to test for emptiness prior in code, keep around anyway.
-            self.create_decryption_key_error(traceback.format_exc())
             raise DecryptionKeyInvalidError("There was no decryption key.")
         
         # Test that every byte in the byte-string of the raw key is a valid url-safe base64
         # character this also cuts down some junk files.
         for c in key_base64_raw:
             if c not in URLSAFE_BASE64_CHARACTERS:
-                try:
-                    raise DecryptionKeyInvalidError(f"Key not base64 encoded: {key_base64_raw}")
-                except DecryptionKeyInvalidError:
-                    self.create_decryption_key_error(traceback.format_exc())
-                    raise
+                raise DecryptionKeyInvalidError(f"Key not base64 encoded: {str(key_base64_raw)}")
         
         # handle the various cases that can occur when extracting from base64.
         try:
             decoded_key: bytes = decode_base64(key_base64_raw)
         except (TypeError, PaddingException, Base64LengthException) as decode_error:
-            self.create_decryption_key_error(traceback.format_exc())
             raise DecryptionKeyInvalidError(f"Invalid decryption key: {decode_error}")
         
         # run RSA decryption
@@ -156,7 +148,6 @@ class DeviceDataDecryptor():
             if not decrypted_key:
                 raise TypeError(f"decoded key was '{decrypted_key}'")
         except (TypeError, IndexError, PaddingException, Base64LengthException) as decr_error:
-            self.create_decryption_key_error(traceback.format_exc())
             raise DecryptionKeyInvalidError(f"Invalid decryption key: {decr_error}")
         
         # If the decoded bits of the key is not exactly 128 bits (16 bytes) that probably means that
@@ -164,11 +155,7 @@ class DeviceDataDecryptor():
         # zeros.  Apps require an update to solve this (in a future rewrite we should use a correct
         # padding algorithm).
         if len(decrypted_key) != 16:
-            try:
-                raise DecryptionKeyInvalidError(f"Decryption key not 128 bits: {decrypted_key}")
-            except DecryptionKeyInvalidError:
-                self.create_decryption_key_error(traceback.format_exc())
-                raise
+            raise DecryptionKeyInvalidError(f"Decryption key not 128 bits: {decrypted_key}")
         
         if self.participant.os_type == IOS_API:
             self.populate_ios_decryption_key(base64_key)
@@ -207,7 +194,7 @@ class DeviceDataDecryptor():
             # assert both keys are identical.
             if extant_key.base64_encryption_key != base64_str:
                 print("ios key creation unknown error 2")
-                raise UnHandledError(
+                raise IosDecryptionKeyDuplicateError(
                     f"Two files, same name, two keys: '{extant_key.file_name}': "
                     f"extant key: '{extant_key.base64_encryption_key}', '"
                     f"new key: '{base64_str}'"
@@ -347,13 +334,3 @@ class DeviceDataDecryptor():
                 participant=self.participant,
             )
     
-    def create_decryption_key_error(self, an_traceback: str):
-        # helper function with local variable access.
-        # do not refactor to include raising the error in this function, that obfuscates the source.
-        if STORE_DECRYPTION_KEY_ERRORS:
-            DecryptionKeyError.do_create(
-                file_path=self.file_name,
-                contents=self.original_data,
-                traceback=an_traceback,
-                participant=self.participant,
-            )

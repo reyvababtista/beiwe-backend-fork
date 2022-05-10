@@ -53,36 +53,6 @@ class LineEncryptionError(TimestampedModel):
     participant = models.ForeignKey(Participant, null=True, on_delete=models.PROTECT)
 
 
-class DecryptionKeyError(TimestampedModel):
-    # FIXME: longest file name should be 66 character media files
-    file_path = models.CharField(max_length=256)
-    contents = models.TextField()
-    traceback = models.TextField(null=True)
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='decryption_key_errors')
-    
-    def decode(self):
-        return decode_base64(self.contents)
-    
-    @classmethod
-    def do_create(cls, file_path: str, contents: bytes, traceback: str, participant: Participant):
-        try:
-            DecryptionKeyError.objects.create(
-                file_path=file_path,
-                contents=contents.decode(),
-                traceback=traceback,
-                participant=participant,
-            )
-        except ValueError:
-            # to avoid storing 50% more data we try to store as the orig bytes, which SHOULD be
-            # encoded as base64, but sometimes we get junk null characters.  sure fine whatever...
-            DecryptionKeyError.objects.create(
-                file_path=file_path,
-                contents=encode_base64(contents),
-                traceback=traceback,
-                participant=participant,
-            )
-
-
 class UploadTracking(UtilityModel):
     file_path = models.CharField(max_length=256)
     file_size = models.PositiveIntegerField()

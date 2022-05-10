@@ -9,7 +9,7 @@ config/remote_db_env.py file, formatted like this:
     os.environ['S3_BUCKET'] = 'bucket_name'
 
 For options below that use this syntax:
-    getenv('REPORT_DECRYPTION_KEY_ERRORS', 'false').lower() == 'true'
+    getenv('BLOCK_QUOTA_EXCEEDED_ERROR', 'false').lower() == 'true'
 This means Beiwe is looking for the word 'true' and also accept "True", "TRUE", etc.
 If not provided with a value, or provided with any other value, they will be treated as false.
 """
@@ -86,6 +86,4 @@ BLOCK_QUOTA_EXCEEDED_ERROR = getenv('BLOCK_QUOTA_EXCEEDED_ERROR', 'false').lower
 # Developer debugging settings for working on decryption issues, which are particularly difficult to
 # manage and may require storing [substantially] more data than there is in a Sentry error report.
 #   Expects (case-insensitive) "true" to enable, otherwise it is disabled.
-REPORT_DECRYPTION_KEY_ERRORS = getenv('REPORT_DECRYPTION_KEY_ERRORS', 'false').lower() == 'true'
-STORE_DECRYPTION_KEY_ERRORS = getenv('STORE_DECRYPTION_KEY_ERRORS', 'false').lower() == 'true'
 STORE_DECRYPTION_LINE_ERRORS = getenv('STORE_DECRYPTION_LINE_ERRORS', 'false').lower() == 'true'

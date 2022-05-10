@@ -2,6 +2,7 @@ import json
 from typing import List
 
 from django.db.models import F
+from django.db.models.fields import Field
 from django.http import StreamingHttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
@@ -14,7 +15,7 @@ from libs.internal_types import TableauRequest
 from libs.utils.effiicient_paginator import TableauApiPaginator
 
 
-FINAL_SERIALIZABLE_FIELD_NAMES = [
+FINAL_SERIALIZABLE_FIELDS: List[Field] = [
     f for f in SummaryStatisticDaily._meta.fields if f.name in SERIALIZABLE_FIELD_NAMES
 ]
 
@@ -49,7 +50,7 @@ def web_data_connector(request: TableauRequest, study_object_id: str):
         "{id: 'participant_id', dataType: tableau.dataTypeEnum.string,},\n"
     ]
     
-    for field in FINAL_SERIALIZABLE_FIELD_NAMES:
+    for field in FINAL_SERIALIZABLE_FIELDS:
         for (python_type, tableau_type) in FIELD_TYPE_MAP:
             if isinstance(field, python_type):
                 columns.append(f"{{id: '{field.name}', dataType: {tableau_type},}},\n")

@@ -12,7 +12,7 @@ from django.http.response import FileResponse, HttpResponse, HttpResponseRedirec
 from django.urls import reverse
 from django.utils import timezone
 
-from api.tableau_api import FINAL_SERIALIZABLE_FIELD_NAMES
+from api.tableau_api import FINAL_SERIALIZABLE_FIELDS
 from config.jinja2 import easy_url
 from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
     IOS_FIREBASE_CREDENTIALS)
@@ -32,7 +32,7 @@ from database.schedule_models import ArchivedEvent, Intervention
 from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
-from database.system_models import FileAsText
+from database.system_models import FileAsText, GenericEvent
 from database.user_models import Participant, ParticipantFCMHistory, Researcher
 from libs.copy_study import format_study
 from libs.rsa import get_RSA_cipher
@@ -2421,8 +2421,8 @@ class TestRegisterParticipant(ParticipantSessionTest):
     
     def test_bad_request(self):
         self.smart_post_status_code(400)
-    
     @patch("api.mobile_api.s3_upload")
+    
     @patch("api.mobile_api.get_client_public_key_string")
     def test_success_never_registered_before(
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
@@ -2506,53 +2506,46 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertEqual(ftp.last_updated, should_be_identical.last_updated)
         self.assert_one_file_to_process
     
+    @patch("api.mobile_api.s3_upload")
     @patch("database.user_models.Participant.get_private_key")
-    def test_no_file_content(self, get_private_key: MagicMock):
+    def test_no_file_content(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
-        # this test will fail with the s3 invalid bucket
         self.smart_post_status_code(200, file_name="whatever.csv", file="")
-        self.assertEqual(DecryptionKeyError.objects.count(), 0)
+        # big fat nothing happens
         self.assert_no_files_to_process
+        self.assertEqual(GenericEvent.objects.count(), 0)
     
+    @patch("api.mobile_api.s3_upload")
     @patch("database.user_models.Participant.get_private_key")
-    def test_simple_decryption_key_error(self, get_private_key: MagicMock):
+    def test_decryption_key_bad_padding(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
         self.smart_post_status_code(200, file_name="whatever.csv", file="some_content")
-        self.assertEqual(DecryptionKeyError.objects.count(), 1)
-        # This construction gets us our special padding error
-        self.check_decryption_key_error("libs.security.PaddingException: Incorrect padding -- ")
         self.assert_no_files_to_process
+        # happens to be bad padding
+        self.assertEqual(GenericEvent.objects.count(), 1)
+        self.assertIn("Incorrect padding", GenericEvent.objects.get().note)
     
+    @patch("api.mobile_api.s3_upload")
     @patch("database.user_models.Participant.get_private_key")
-    def test_simple_decryption_key_error2(self, get_private_key: MagicMock):
+    def test_decryption_key_not_base64(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
-        self.smart_post_status_code(200, file_name="whatever.csv", file=b"some_content")
-        self.assertEqual(DecryptionKeyError.objects.count(), 1)
-        # This construction gets us our special padding error
-        self.check_decryption_key_error("libs.security.Base64LengthException:")
+        self.smart_post_status_code(200, file_name="whatever.csv", file="some_content/\\")
         self.assert_no_files_to_process
+        self.assertEqual(GenericEvent.objects.count(), 1)
+        self.assertIn("Key not base64 encoded:", GenericEvent.objects.get().note)
     
+    @patch("api.mobile_api.s3_upload")
     @patch("database.user_models.Participant.get_private_key")
-    def test_bad_base64_length(self, get_private_key: MagicMock):
+    def test_bad_base64_length(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
         self.smart_post_status_code(200, file_name="whatever.csv", file=b"some_content1")
-        self.assertEqual(DecryptionKeyError.objects.count(), 1)
-        # This construction gets us our special padding error
-        self.check_decryption_key_error(
-            "libs.security.Base64LengthException: Data provided had invalid length 2 after padding was removed."
-        )
         self.assert_no_files_to_process
-    
-    @patch("database.user_models.Participant.get_private_key")
-    def test_bad_base64_key(self, get_private_key: MagicMock):
-        get_private_key.return_value = self.PRIVATE_KEY
-        self.smart_post_status_code(200, file_name="whatever.csv", file="some_conten/")
-        self.assertEqual(DecryptionKeyError.objects.count(), 1)
-        # This construction gets us our special padding error
-        self.check_decryption_key_error(
-            "libs.encryption.DecryptionKeyInvalidError: Key not base64 encoded:"
+        self.assertEqual(GenericEvent.objects.count(), 1)
+        self.assertIn(
+            "invalid length 2 after padding was removed.",
+            GenericEvent.objects.get().note
         )
-        self.assert_no_files_to_process
+    # TODO: add invalid decrypted key length test...
 
 
 class TestGraph(ParticipantSessionTest):
@@ -2570,8 +2563,8 @@ class TestWebDataConnector(SmartRequestsTestCase):
     def test(self):
         resp = self.smart_get(self.session_study.object_id)
         content = resp.content.decode()
-        for field_name in FINAL_SERIALIZABLE_FIELD_NAMES:
-            self.assert_present(field_name, content)
+        for field in FINAL_SERIALIZABLE_FIELDS:
+            self.assert_present(field.name, content)
 
 
 class TestPushNotificationSetFCMToken(ParticipantSessionTest):

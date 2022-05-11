@@ -4,14 +4,14 @@ from django.db.models import Manager, QuerySet
 from django.http.request import HttpRequest
 
 from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
-from database.data_access_models import ChunkRegistry, FileToProcess
+from database.data_access_models import ChunkRegistry, FileToProcess, IOSDecryptionKey
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention,
     InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
 from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey, SurveyArchive, SurveyBase
-from database.system_models import FileAsText
+from database.system_models import FileAsText, GenericEvent
 from database.tableau_api_models import ForestParam, ForestTask, SummaryStatisticDaily
 from database.user_models import (AbstractPasswordUser, Participant, ParticipantFCMHistory,
     ParticipantFieldValue, PushNotificationDisabledEvent, Researcher, StudyRelation)
@@ -53,6 +53,7 @@ StrOrParticipantOrStudy = Union[str, Participant, Study]
 
 
 # Generated with scripts/generate_typing_hax.py on 2022-02-13
+# Generated with scripts/generate_typing_hax.py on 2022-05-11
 AbsoluteScheduleQuerySet = Union[QuerySet, List[AbsoluteSchedule]]
 AbstractPasswordUserQuerySet = Union[QuerySet, List[AbstractPasswordUser]]
 ApiKeyQuerySet = Union[QuerySet, List[ApiKey]]
@@ -64,8 +65,11 @@ DashboardInflectionQuerySet = Union[QuerySet, List[DashboardInflection]]
 DeviceSettingsQuerySet = Union[QuerySet, List[DeviceSettings]]
 EncryptionErrorMetadataQuerySet = Union[QuerySet, List[EncryptionErrorMetadata]]
 FileAsTextQuerySet = Union[QuerySet, List[FileAsText]]
+FileToProcessQuerySet = Union[QuerySet, List[FileToProcess]]
 ForestParamQuerySet = Union[QuerySet, List[ForestParam]]
 ForestTaskQuerySet = Union[QuerySet, List[ForestTask]]
+GenericEventQuerySet = Union[QuerySet, List[GenericEvent]]
+IOSDecryptionKeyQuerySet = Union[QuerySet, List[IOSDecryptionKey]]
 InterventionDateQuerySet = Union[QuerySet, List[InterventionDate]]
 InterventionQuerySet = Union[QuerySet, List[Intervention]]
 LineEncryptionErrorQuerySet = Union[QuerySet, List[LineEncryptionError]]
@@ -84,6 +88,7 @@ SurveyBaseQuerySet = Union[QuerySet, List[SurveyBase]]
 SurveyQuerySet = Union[QuerySet, List[Survey]]
 UploadTrackingQuerySet = Union[QuerySet, List[UploadTracking]]
 WeeklyScheduleQuerySet = Union[QuerySet, List[WeeklySchedule]]
+
 AbsoluteScheduleManager = Union[Manager, List[AbsoluteSchedule]]
 ApiKeyManager = Union[Manager, List[ApiKey]]
 ArchivedEventManager = Union[Manager, List[ArchivedEvent]]

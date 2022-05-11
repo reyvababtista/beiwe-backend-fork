@@ -87,3 +87,6 @@ BLOCK_QUOTA_EXCEEDED_ERROR = getenv('BLOCK_QUOTA_EXCEEDED_ERROR', 'false').lower
 # manage and may require storing [substantially] more data than there is in a Sentry error report.
 #   Expects (case-insensitive) "true" to enable, otherwise it is disabled.
 STORE_DECRYPTION_LINE_ERRORS = getenv('STORE_DECRYPTION_LINE_ERRORS', 'false').lower() == 'true'
+
+
+UPLOAD_LOGGING_ENABLED = getenv('UPLOAD_LOGGING_ENABLED', 'false').lower() == 'true'

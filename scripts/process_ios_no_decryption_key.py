@@ -18,10 +18,14 @@ def generic_events_to_process() -> GenericEventQuerySet:
         # if note.startswith("PROBLEM_UPLOADS/")
     }
     
-    file_names_with_valid_decryption_keys = IOSDecryptionKey.objects\
-        .filter(file_name__in=s3_paths_to_event_pks.keys()).values_list("file_name", flat=True)
+    pks_to_get = [
+        s3_paths_to_event_pks[path]
+        for path in IOSDecryptionKey.objects
+            .filter(file_name__in=s3_paths_to_event_pks.keys())
+            .values_list("file_name", flat=True)
+    ]
     
-    return GenericEvent.objects.filter(pk__in=file_names_with_valid_decryption_keys)
+    return GenericEvent.objects.filter(pk__in=pks_to_get)
 
 
 def decrypt_and_upload(generic_events_query: GenericEventQuerySet):
@@ -29,11 +33,12 @@ def decrypt_and_upload(generic_events_query: GenericEventQuerySet):
     
     an example s3 file path looks like this (last ten chars are random-unique):
     PROBLEM_UPLOADS/study_object_id/patient_id/powerState/1652107854439.csvze8by89ez1 """
+    print(f"found {generic_events_query.count()} ios upload files to add for processing")
     for event in generic_events_query:
         
         s3_path: str = event.note.split(" ")[0]  # the start of the note is the file path
         assert s3_path.startswith("PROBLEM_UPLOADS/")  # if this fails we are architecturally broken
-        
+        print(f"processing {s3_path}")
         # mimic the s3_file_location variable from mobile_api, get reequired pieces, get file.
         s3_file_location = s3_path.split("/", 2)[-1][:-10]
         patient_id = s3_file_location.split("/")[0]

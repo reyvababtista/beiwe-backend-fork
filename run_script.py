@@ -3,7 +3,7 @@
 import sys
 import os
 
-scripts = [path.rstrip(".py") for path in os.listdir("./scripts")
+scripts = [path[:-3] for path in os.listdir("./scripts")
            if path.endswith(".py") and not path.startswith("__")]
 scripts.sort()
 

@@ -2421,8 +2421,8 @@ class TestRegisterParticipant(ParticipantSessionTest):
     
     def test_bad_request(self):
         self.smart_post_status_code(400)
-    @patch("api.mobile_api.s3_upload")
     
+    @patch("api.mobile_api.s3_upload")
     @patch("api.mobile_api.get_client_public_key_string")
     def test_success_never_registered_before(
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
@@ -2506,7 +2506,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertEqual(ftp.last_updated, should_be_identical.last_updated)
         self.assert_one_file_to_process
     
-    @patch("api.mobile_api.s3_upload")
+    @patch("libs.participant_file_uploads.s3_upload")
     @patch("database.user_models.Participant.get_private_key")
     def test_no_file_content(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
@@ -2515,7 +2515,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assert_no_files_to_process
         self.assertEqual(GenericEvent.objects.count(), 0)
     
-    @patch("api.mobile_api.s3_upload")
+    @patch("libs.participant_file_uploads.s3_upload")
     @patch("database.user_models.Participant.get_private_key")
     def test_decryption_key_bad_padding(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
@@ -2525,7 +2525,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertEqual(GenericEvent.objects.count(), 1)
         self.assertIn("Incorrect padding", GenericEvent.objects.get().note)
     
-    @patch("api.mobile_api.s3_upload")
+    @patch("libs.participant_file_uploads.s3_upload")
     @patch("database.user_models.Participant.get_private_key")
     def test_decryption_key_not_base64(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
@@ -2534,7 +2534,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertEqual(GenericEvent.objects.count(), 1)
         self.assertIn("Key not base64 encoded:", GenericEvent.objects.get().note)
     
-    @patch("api.mobile_api.s3_upload")
+    @patch("libs.participant_file_uploads.s3_upload")
     @patch("database.user_models.Participant.get_private_key")
     def test_bad_base64_length(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY

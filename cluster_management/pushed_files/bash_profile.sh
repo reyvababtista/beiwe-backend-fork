@@ -10,6 +10,15 @@
 # for ssh logins, install and configure the libpam-umask package.
 #umask 022
 
+if test -f "/home/ubuntu/.pyenv/versions/beiwe/bin/python"; then
+    export PATH="$HOME/.pyenv/bin:$PATH"
+    eval "$(pyenv init --path)"
+    eval "$(pyenv virtualenv-init -)"
+
+    # set the global pyenv environment to this at every login
+    pyenv global beiwe
+fi
+
 alias b='cd ~/beiwe-backend/'
 
 alias update-commandline='cp ~/beiwe-backend/cluster_management/pushed_files/bash_profile.sh ~/.profile; cp ~/beiwe-backend/cluster_management/pushed_files/.inputrc ~/.inputrc'
@@ -49,8 +58,6 @@ alias ri="rm -i"
 alias htop="htop -d 5"
 alias nload="nload -a 5 -i 80000 -o 80000"
 alias df="df -h"
-alias pip="python3 -m pip"
-alias pip3="python3 -m pip"
 
 #Git
 alias s='git status'
@@ -82,12 +89,10 @@ alias processing-stop="killall supervisord"
 alias processing-restart="pkill -HUP supervisord"
 
 #Logs
-alias loga='tail -f /var/log/apache2/error.log | cut -d " " -f 4,10-' #tail follow apache log
-alias logao='nano +1000000000 /var/log/apache2/error.log' #open log, go to end
-alias logc='tail -f /home/ubuntu/celery*.log'
-alias logco='nano +1000000000 /home/ubuntu/celery*.log'
+alias log='tail -f /home/ubuntu/celery*.log'
+alias logs='tail -f /home/ubuntu/celery*.log'
+alias logapache='tail -f /var/log/apache2/error.log | cut -d " " -f 4,10-' #tail follow apache log
 alias logd='tail -f /home/ubuntu/supervisor.log'
-alias logdo='nano +1000000000 /home/ubuntu/supervisor.log'
 
 #Configuration files
 alias conf='sudo nano $HOME/beiwe-backend/config/settings.py'
@@ -97,11 +102,11 @@ alias superconf='sudo nano /etc/supervisord.conf'
 alias boot="sudo sysv-rc-conf"
 
 #Developer tools
-alias db="cd $HOME/beiwe-backend/; python3 manage.py shell_plus"
-alias py="python3"
+alias db="cd $HOME/beiwe-backend/; python manage.py shell_plus"
+alias py="python"
 alias ipy="ipython"
-alias manage="python3 manage.py"
-alias shell="python3 manage.py shell_plus"
+alias manage="python manage.py"
+alias shell="python manage.py shell_plus"
 alias ag="clear; printf '_%.0s' {1..100}; echo ''; echo 'Silver results begin here:'; ag --column"
 
 function run {
@@ -173,5 +178,3 @@ YELLOW="\[\033[0;33m\]"
 GREEN="\[\033[0;32m\]"
 NO_COLOUR="\[\033[0m\]"
 PS1="$GREEN\u$NO_COLOUR:\w$YELLOW\$(parse_git_branch)$NO_COLOUR\$ "
-
-

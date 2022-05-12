@@ -1,51 +1,51 @@
+from django.contrib import messages
 from django.core.exceptions import ValidationError
-from flask import abort, Blueprint, flash, redirect, request
-from flask.templating import render_template
+from django.http.request import HttpRequest
+from django.shortcuts import get_object_or_404, redirect
+from django.views.decorators.http import require_GET, require_POST
 
 from authentication.admin_authentication import (assert_admin, assert_researcher_under_admin,
-    authenticate_admin, authenticate_researcher_login, get_researcher_allowed_studies,
-    get_session_researcher, researcher_is_an_admin)
-from config.constants import ResearcherRole
-from config.settings import DOMAIN_NAME, DOWNLOADABLE_APK_URL
+    authenticate_admin, authenticate_researcher_login)
+from config.settings import DOWNLOADABLE_APK_URL
+from constants.researcher_constants import ResearcherRole
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation
+from libs.internal_types import ResearcherRequest
 from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
 from libs.security import check_password_requirements
 from libs.timezone_dropdown import ALL_TIMEZONES
+from middleware.abort_middleware import abort
 
-
-admin_api = Blueprint('admin_api', __name__)
 
 """######################### Study Administration ###########################"""
 
 
-@admin_api.route('/set_study_timezone/<string:study_id>', methods=['POST'])
+@require_POST
 @authenticate_admin
-def set_timezone(study_id=None):
+def set_study_timezone(request: ResearcherRequest, study_id=None):
     """ Sets the custom timezone on a study. """
-    new_timezone = request.values.get("new_timezone_name")
+    new_timezone = request.POST.get("new_timezone_name")
     if new_timezone not in ALL_TIMEZONES:
-        flash("The timezone chosen does not exist.", 'warning')
-        return redirect('/edit_study/{:d}'.format(study_id))
-
+        messages.warning(request, ("The timezone chosen does not exist."))
+        return redirect(f'/edit_study/{study_id}')
+    
     study = Study.objects.get(pk=study_id)
     study.timezone_name = new_timezone
     study.save()
-
+    
     # All scheduled events for this study need to be recalculated
     # this causes chaos, relative and absolute surveys will be regenerated if already sent.
     repopulate_all_survey_scheduled_events(study)
-
-    flash(f"Timezone {study.timezone_name} has been applied.", 'warning')
+    messages.warning(request, (f"Timezone {study.timezone_name} has been applied."))
     return redirect(f'/edit_study/{study_id}')
 
 
-@admin_api.route('/add_researcher_to_study', methods=['POST'])
+@require_POST
 @authenticate_admin
-def add_researcher_to_study():
-    researcher_id = request.values['researcher_id']
-    study_id = request.values['study_id']
-    assert_admin(study_id)
+def add_researcher_to_study(request: ResearcherRequest):
+    researcher_id = request.POST['researcher_id']
+    study_id = request.POST['study_id']
+    assert_admin(request, study_id)
     try:
         StudyRelation.objects.get_or_create(
             study_id=study_id, researcher_id=researcher_id, relationship=ResearcherRole.researcher
@@ -53,110 +53,93 @@ def add_researcher_to_study():
     except ValidationError:
         # handle case of the study id + researcher already existing
         pass
-
+    
     # This gets called by both edit_researcher and edit_study, so the POST request
     # must contain which URL it came from.
-    return redirect(request.values['redirect_url'])
+    # TODO: don't source the url from the page, give it a required post parameter for the redirect and check against that
+    return redirect(request.POST['redirect_url'])
 
 
-@admin_api.route('/remove_researcher_from_study', methods=['POST'])
+@require_POST
 @authenticate_admin
-def remove_researcher_from_study():
-    researcher_id = request.values['researcher_id']
-    study_id = request.values['study_id']
+def remove_researcher_from_study(request: ResearcherRequest):
+    researcher_id = request.POST['researcher_id']
+    study_id = request.POST['study_id']
     try:
         researcher = Researcher.objects.get(pk=researcher_id)
     except Researcher.DoesNotExist:
         return abort(404)
-    assert_admin(study_id)
-    assert_researcher_under_admin(researcher, study_id)
+    assert_admin(request, study_id)
+    assert_researcher_under_admin(request, researcher, study_id)
     StudyRelation.objects.filter(study_id=study_id, researcher_id=researcher_id).delete()
-    return redirect(request.values['redirect_url'])
+    # TODO: don't source the url from the page, give it a required post parameter for the redirect and check against that
+    return redirect(request.POST['redirect_url'])
 
 
-@admin_api.route('/delete_researcher/<string:researcher_id>', methods=['GET', 'POST'])
+@require_GET
 @authenticate_admin
-def delete_researcher(researcher_id):
+def delete_researcher(request: ResearcherRequest, researcher_id):
     # only site admins can delete researchers from the system.
-    session_researcher = get_session_researcher()
-    if not session_researcher.site_admin:
+    if not request.session_researcher.site_admin:
         return abort(403)
-
-    try:
-        researcher = Researcher.objects.get(pk=researcher_id)
-    except Researcher.DoesNotExist:
-        return abort(404)
-
+    researcher = get_object_or_404(Researcher, pk=researcher_id)
+    
     StudyRelation.objects.filter(researcher=researcher).delete()
     researcher.delete()
     return redirect('/manage_researchers')
 
 
-@admin_api.route('/set_researcher_password', methods=['POST'])
+@require_POST
 @authenticate_admin
-def set_researcher_password():
-    researcher = Researcher.objects.get(pk=request.form.get('researcher_id', None))
-    assert_researcher_under_admin(researcher)
-    new_password = request.form.get('password', '')
-    if check_password_requirements(new_password, flash_message=True):
+def set_researcher_password(request: ResearcherRequest):
+    researcher = Researcher.objects.get(pk=request.POST.get('researcher_id', None))
+    assert_researcher_under_admin(request, researcher)
+    new_password = request.POST.get('password', '')
+    success, msg = check_password_requirements(new_password)
+    if success:
         researcher.set_password(new_password)
-    return redirect('/edit_researcher/{:d}'.format(researcher.pk))
+    else:
+        messages.warning(request, msg)
+    return redirect(f'/edit_researcher/{researcher.pk}')
 
 
-@admin_api.route('/rename_study/<string:study_id>', methods=['POST'])
+@require_POST
 @authenticate_admin
-def rename_study(study_id=None):
+def rename_study(request: ResearcherRequest, study_id=None):
     study = Study.objects.get(pk=study_id)
-    assert_admin(study_id)
-    new_study_name = request.form.get('new_study_name', '')
+    assert_admin(request, study_id)
+    new_study_name = request.POST.get('new_study_name', '')
     study.name = new_study_name
     study.save()
-    return redirect('/edit_study/{:d}'.format(study.pk))
+    return redirect(f'/edit_study/{study.pk}')
 
 
 """##### Methods responsible for distributing APK file of Android app. #####"""
 
 
-@admin_api.route("/downloads")
-@authenticate_researcher_login
-def download_page():
-    return render_template(
-        "download_landing_page.html",
-        is_admin=researcher_is_an_admin(),
-        allowed_studies=get_researcher_allowed_studies(),
-        domain_name=DOMAIN_NAME,
-    )
-
-
-@admin_api.route("/download")
-def download_current():
+def download_current(request: ResearcherRequest):
     return redirect(DOWNLOADABLE_APK_URL)
 
 
-@admin_api.route("/download_debug")
 @authenticate_researcher_login
-def download_current_debug():
+def download_current_debug(request: ResearcherRequest):
     return redirect("https://s3.amazonaws.com/beiwe-app-backups/release/Beiwe-debug.apk")
 
 
-@admin_api.route("/download_beta")
 @authenticate_researcher_login
-def download_beta():
+def download_beta(request: ResearcherRequest):
     return redirect("https://s3.amazonaws.com/beiwe-app-backups/release/Beiwe.apk")
 
 
-@admin_api.route("/download_beta_debug")
 @authenticate_researcher_login
-def download_beta_debug():
+def download_beta_debug(request: ResearcherRequest):
     return redirect("https://s3.amazonaws.com/beiwe-app-backups/debug/Beiwe-debug.apk")
 
 
-@admin_api.route("/download_beta_release")
 @authenticate_researcher_login
-def download_beta_release():
+def download_beta_release(request: ResearcherRequest):
     return redirect("https://s3.amazonaws.com/beiwe-app-backups/release/Beiwe-2.2.3-onnelaLabServer-release.apk")
 
 
-@admin_api.route("/privacy_policy")
-def download_privacy_policy():
+def download_privacy_policy(request: HttpRequest):
     return redirect("https://s3.amazonaws.com/beiwe-app-backups/Beiwe+Data+Privacy+and+Security.pdf")

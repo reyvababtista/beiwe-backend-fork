@@ -1,4 +1,5 @@
-from sys import argv
+# NOTE: THIS FILE IS IMPORTED IN THE DJANGO CONF FILE.
+
 
 from cronutils.error_handler import ErrorSentry, null_error_handler
 from raven import Client as SentryClient
@@ -7,10 +8,11 @@ from raven.transport import HTTPTransport
 
 from config.settings import (SENTRY_DATA_PROCESSING_DSN, SENTRY_ELASTIC_BEANSTALK_DSN,
     SENTRY_JAVASCRIPT_DSN)
+from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
 
 
 # when running in a shell we force sentry off and force the use of the null_error_handler
-FORCE_SENTRY_OFF = True if "shell_plus" in argv or "--ipython" in argv or "ipython" in argv else False
+
 
 class SentryTypes:
     data_processing = "data_processing"
@@ -53,13 +55,13 @@ def make_error_sentry(sentry_type:str, tags:dict=None):
     """ Creates an ErrorSentry, defaults to error limit 10.
     If the applicable sentry DSN is missing will return an ErrorSentry,
     but if null truthy a NullErrorHandler will be returned instead. """
-
-    if FORCE_SENTRY_OFF:
+    
+    if RUNNING_TEST_OR_IN_A_SHELL:
         return null_error_handler
-
+    
     tags = tags or {}
     tags["sentry_type"] = sentry_type
-
+    
     try:
         return ErrorSentry(
             get_dsn_from_string(sentry_type),
@@ -67,4 +69,4 @@ def make_error_sentry(sentry_type:str, tags:dict=None):
             sentry_report_limit=10
         )
     except InvalidDsn:
-            return null_error_handler
+        return null_error_handler

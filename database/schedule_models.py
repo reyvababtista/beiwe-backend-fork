@@ -1,19 +1,19 @@
 from datetime import date, datetime, time, timedelta, tzinfo
-from typing import List
+from typing import List, Tuple
 
 import pytz
 import uuid
 from dateutil.tz import gettz
-from django.core.paginator import Paginator
 from django.core.validators import MaxValueValidator
 from django.db import models
 from django.utils import timezone
 
-from config.constants import DEV_TIME_FORMAT, ScheduleTypes
+from constants.celery_constants import ScheduleTypes
+from constants.common_constants import DEV_TIME_FORMAT
 from database.common_models import TimestampedModel
 from database.survey_models import Survey, SurveyArchive
 from database.user_models import Participant
-from libs.dev_utils import disambiguate_participant_survey, TxtClr
+from libs.utils.dev_utils import disambiguate_participant_survey, TxtClr
 
 
 class AbsoluteSchedule(TimestampedModel):
@@ -159,7 +159,7 @@ class WeeklySchedule(TimestampedModel):
             timings[day].append((hour * 60 * 60) + (minute * 60))
         return timings
 
-    def get_prior_and_next_event_times(self, now: datetime) -> (datetime, datetime):
+    def get_prior_and_next_event_times(self, now: datetime) -> Tuple[datetime, datetime]:
         """ Identify the start of the week relative to now, determine this week's push notification
         moment, then add 7 days. tzinfo of input is used to populate tzinfos of return. """
         today = now.date()
@@ -307,23 +307,6 @@ class ArchivedEvent(TimestampedModel):
     @property
     def survey(self):
         return self.survey_archive.survey
-
-    @classmethod
-    def get_values_for_notification_history(cls, participant_id):
-        return cls.objects\
-            .filter(participant_id=participant_id)\
-            .order_by('-created_on')\
-            .annotate(survey_id=models.F('survey_archive__survey'),
-                      survey_version=models.F('survey_archive__archive_start'))\
-            .values('scheduled_time', 'created_on', 'survey_id', 'survey_version', 'schedule_type', 'status')
-
-    @classmethod
-    def get_values_for_most_recent_notification(cls, participant_id):
-        return cls.get_values_for_notification_history(participant_id).first()
-
-    @classmethod
-    def get_values_for_notification_history_paginated(cls, participant_id, per_page=100):
-        return Paginator(cls.get_values_for_notification_history(participant_id), per_page)
 
     @staticmethod
     @disambiguate_participant_survey

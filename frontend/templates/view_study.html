@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block title %}View Study {{ study.name }}{% endblock %}
+
 {% block head %}
   {{ super() }}
   <script type="text/javascript">
@@ -10,178 +12,293 @@
   <script src="/static/javascript/participants_table.js" type="text/javascript"></script>
 {% endblock %}
 
-{% block title %}View Study{% endblock %}
-
 {% block content %}
-
   <div class="container" style="max-width:1920px;">
-    <div class="span12">
-      <div class="row">
+    
+    {% if site_admin or is_study_admin %}
+      <div class="col-xs-8 row"> 
+        <div class="row"> 
+          <h1>{{ study.name }}</h1>
+        </div>
       </div>
-      <div class="row">
-        <h2>{{ study.name }}</h2>
-        <p>ID: {{ study.object_id }}</p>
-      </div>
-    </div>
 
-    {% if study.is_test %}
-      This is a test study. Researchers will be able to download raw data and processed data output from the Data Analysis Pipeline.
+      <div class="col-xs-2 text-align-right"> 
+        <a href="/edit_study/{{ study['id'] }}" class="btn btn-info h3-margins">
+          Edit This Study
+        </a>
+      </div>
+
+      <div class="col-xs-2 pull-right"> 
+        <a href="/dashboard/{{ study['id'] }}" class="btn btn-info h3-margins">
+          View the Study Dashboard
+        </a>
+      </div>
+
     {% else %}
-      This is a production study. Researchers will only be able to download processed data output from the Data Analysis Pipeline.
+      <div class="col-xs-10 row"> 
+        <div class="row"> 
+          <h1>{{ study.name }}</h1>
+        </div>
+      </div>   
+
+      <div class="col-xs-2 text-align-right margin-right-neg-4"> 
+        <a href="/dashboard/{{ study['id'] }}" class="btn btn-info h3-margins">
+          View the Study Dashboard
+        </a>
+      </div>
     {% endif %}
 
-    <div class="span12">
-      <div class="row">
+
+    <div class="col-xs-12 row"> 
+      <i> 
+      <div class="col-xs-9 row pull-left"> 
+        {% if not study.is_test %}
+          Note: data in this study is restricted, only Forest summaries are accessible to Researchers 
+        {% endif %}
+      </div>
+      <div class="col-xs-3 pull-right text-align-right margin-right-neg-4"> 
+        <p>ID: {{ study.object_id }}</p>
+      </div>
+      </i>
+    </div>
+
+    <div class="row">
+      <div class="col-lg-12 row">
         <h3>Participants</h3>
       </div>
-      <p>Total participants ever registered on this study: {{ "{:,}".format(participants_ever_registered_count) }}</p>
-
-      <table class="table" id="participantList">
-        <thead>
-        <tr>
-          <th>Creation Date</th>
-          <th>Patient ID</th>
-          <th>Phone registered</th>
-          <th>Phone OS</th>
-          {% if push_notifications_enabled %}
-            {% for intervention in interventions | sort(case_sensitive=False) %}
-              <th>{{ intervention }}</th>
-            {% endfor %}
-          {% endif %}
-          {% for field in study_fields | sort(case_sensitive=False) %}
-            <th>{{ field }}</th>
-          {% endfor %}
-        </tr>
-        </thead>
-      </table>
-      <form action="/create_new_participant" method="post">
-        <div class="form-inline pull-left">
-          <input type="hidden" name="study_id" value="{{ study.id }}">
-          <button type="submit" class="btn btn-primary add_new_patient_button">Add new participant</button>
-        </div>
-      </form>
-
-      <button type="button" class="btn btn-warning add_many_patients_button" data-toggle="modal" data-target="#addManyPatientsModal" title="Enable a number of new participants to enroll in {{ study.name }}: download a file of new Patient IDs and registration passwords">Add many new participants</button>
-      {% include 'create_many_participants_modal.html' %}
-
-      {% if study.forest_enabled %}
-        <div class="row">
-          <h3>Forest</h3>
-
-          {% if is_site_admin %}
-            <p>
-              <b>Create new forest tasks</b>
-              <br>
-              <a class="btn btn-info" href="{{ url_for('forest_pages.create_tasks', study_id=study.id) }}">
-                Create Forest Tasks
-              </a>
-            </p>
-          {% endif %}
-          <p>
-            <b>View a log of recent forest runs on this study</b>
-            <br>
-            <a class="btn btn-info" href="{{ url_for('forest_pages.task_log', study_id=study.id) }}">
-              View Forest Task Log
-            </a>
-          </p>
-          <p>
-            <b>View a summary of what data forest has generated for this study</b>
-            <br>
-            <a class="btn btn-info" href="{{ url_for('forest_pages.analysis_progress', study_id=study.id) }}">
-              View Forest Analysis Progress
-            </a>
-          </p>
-          {% if is_site_admin %}
-            <p>
-              <b>Download Forest Task Log (for all studies)</b>
-              <br>
-              <a class="btn btn-info" href="{{ url_for('forest_pages.download_task_log') }}">
-                Download Forest Task Log
-              </a>
-            </p>
-          {% endif %}
-        </div>
-      {% endif %}
-
-      <div class="row">
-        <h3>Surveys</h3>
-
-        <div class="list-group">
-          {# If there are surveys attached to this study, list them #}
-          {% if tracking_survey_ids %}
-            {% for ids in tracking_survey_ids %}
-              <h4><a href="/edit_survey/{{ids[0]}}" class="list-group-item">Survey ID #{{ids[1]}}</a></h4>
-            {% endfor %}
-            {# If there aren't surveys attached to this study, show a message saying "no surveys" #}
-          {% else %}
-            <p><b>This study does not have any surveys.</b></p>
-          {% endif %}
-        </div>
-        <a href="/create_survey/{{ study.id }}/tracking_survey" class="btn btn-info">Create new survey</a>
-      </div>
-
-      <div class="row">
-        <h3>Audio Surveys</h3>
-
-        <div class="list-group">
-          {# If there are surveys attached to this study, list them #}
-          {% if audio_survey_ids %}
-            {% for ids in audio_survey_ids %}
-              <h4><a href="/edit_survey/{{ids[0]}}" class="list-group-item">Audio Survey ID #{{ids[1]}}</a></h4>
-            {% endfor %}
-            {# If there aren't surveys attached to this study, show a message saying "no surveys" #}
-          {% else %}
-            <p><b>This study does not have any audio surveys.</b></p>
-          {% endif %}
-        </div>
-        <a href="/create_survey/{{ study.id }}/audio_survey" class="btn btn-info">Create new <b>audio survey</b></a>
-      </div>
-
-      <div class="row">
-        <h3>Image Surveys</h3>
-
-        <div class="list-group">
-          {# If there are surveys attached to this study, list them #}
-          {% if image_survey_ids %}
-            {% for ids in image_survey_ids %}
-              <h4><a href="/edit_survey/{{ids[0]}}" class="list-group-item">Image Survey ID #{{ids[1]}}</a></h4>
-            {% endfor %}
-            {# If there aren't surveys attached to this study, show a message saying "no surveys" #}
-          {% else %}
-            <p><b>This study does not have any image surveys.</b></p>
-          {% endif %}
-        </div>
-        <a href="/create_survey/{{ study.id }}/image_survey" class="btn btn-info">Create new <b>image survey</b></a>
-      </div>
-
-      {% if push_notifications_enabled %}
-        <div class="row">
-          <h3>Interventions</h3>
-          <p><a href="/interventions/{{ study.id }}">Edit interventions for this study</a></p>
-        </div>
-      {% endif %}
-
-      <div class="row">
-        <h3>App settings</h3>
-        <p><a href="/device_settings/{{ study['id'] }}">View the types of data this study collects and the wording that study participants see in the app</a></p>
-      </div>
-
-{#      <div class="row">#}
-{#        <h3>Data Pipeline</h3>#}
-{#        <p><a href="/data-pipeline/{{ study.id }}">View the data pipeline information for this study</a></p>#}
-{#      </div>#}
-
-      <div class="row">
-        <h3>Custom Fields</h3>
-        <p><a href="/study_fields/{{ study['id'] }}">Edit custom fields available for this study</a></p>
-      </div>
-
-      <div class="row">
-        <h3>Study Dashboard</h3>
-        <p><a href="/dashboard/{{ study['id'] }}">View the Dashboard for this study</a></p>
-      </div>
-
     </div>
+
+    <div class="row">
+      <div class="col-xs-12 well">        
+        <p>Total participants ever registered on this study: 
+          {{ "{:,}".format(participants_ever_registered_count) }}</p>
+
+        <table class="table row" id="participantList">
+          <thead>
+          <tr>
+            <th>Creation Date</th>
+            <th>Patient ID</th>
+            <th>Phone registered</th>
+            <th>Phone OS</th>
+            {% if push_notifications_enabled %}
+              {% for intervention in interventions | sort(case_sensitive=False) %}
+                <th>{{ intervention }}</th>
+              {% endfor %}
+            {% endif %}
+            {% for field in study_fields | sort(case_sensitive=False) %}
+              <th>{{ field }}</th>
+            {% endfor %}
+          </tr>
+          </thead>
+        </table>
+
+        <form action="/create_new_participant" method="post">
+          <div class="form-inline pull-right h3-margins margin-right-1">
+            <input type="hidden" name="study_id" value="{{ study.id }}">
+            <button type="submit" class="btn btn-primary ">Add new participant</button>
+          </div>
+        </form>
+
+        <button type="button" class="btn btn-warning pull-left h3-margins" data-toggle="modal" data-target="#addManyPatientsModal" 
+                title="Enable a number of new participants to enroll in {{ study.name }}: 
+                download a file of new Patient IDs and registration passwords">Add many new participants</button>
+
+        {% include 'create_many_participants_modal.html' %}
+      </div>
+    </div>
+
+    <div class="col-xs-11 row"> 
+      <h3 class="row"> Surveys </h3>
+    </div>
+    <div class="col-xs-1"> 
+      <a href="/create_survey/{{ study.id }}/tracking_survey" class="btn btn-info h3-margins pull-right">
+        Create New <b>Survey</b></a>
+    </div>
+    
+    <div class="row">
+      <div class="list-group well col-xs-12">
+        {% if tracking_survey_info %}
+          {% for info in tracking_survey_info %}
+          
+            <div class="col-xs-12">
+              <a href="/edit_survey/{{study_id}}/{{info["id"] }}" class="list-group-item survey-button-margins row">  
+                {% if info["name"] != "" %}
+                  <span class="col-xs-9 row">
+                    {{info["name"]}} 
+                  </span>
+                {% else %}
+                  <span class="col-xs-9 row" style="color:gray;">
+                    (Unnamed Survey)
+                  </span>
+                {% endif %}
+                
+                {# stick these metadata into a small table so we can stack them #}
+                <table class="survey-inline-table pull-right">
+                  <div class="col-xs-3">
+                    <tr>
+                      <td>
+                        <span class="survey-micro-label"> Survey ID #{{info["object_id"]}} </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <span class="survey-micro-label"> Updated: {{info["last_updated"]}} </span>
+                      </td>
+                    </tr>
+                  </div>
+                </table>
+                </a>
+            </div>
+          {% endfor %}
+        {% else %}
+          This study does not have any Surveys.
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-xs-11 row"> 
+      <h3 class="row"> Audio Surveys </h3>
+    </div>
+    <div class="col-xs-1"> 
+      <a href="/create_survey/{{ study.id }}/audio_survey" class="btn btn-info h3-margins pull-right">
+        Create New <b>Audio Survey</b></a>
+    </div>
+
+    <div class="row">
+      <div class="list-group well col-xs-12">
+        {% if audio_survey_info %}
+          {% for info in audio_survey_info %}
+          
+            <div class="col-xs-12">
+              <a href="/edit_survey/{{study_id}}/{{info["id"] }}" class="list-group-item survey-button-margins row">  
+                {% if info["name"] != "" %}
+                  <span class="col-xs-9 row"> {{info["name"]}} </span>
+                {% else %}
+                  <span class="col-xs-9 row" style="color:gray;"> (Unnamed Survey) </span>
+                {% endif %}
+                
+                {# stick these metadata into a small table so we can stack them #}
+                <table class="pull-right survey-inline-table survey-micro-label">
+                  <tr> <td>
+                    <span> Survey ID #{{info["object_id"]}} </span>
+                  </td> </tr>
+                  <tr> <td>
+                    <span> Updated: {{info["last_updated"]}} </span>
+                  </td></tr>
+                </table>
+                </a>
+            </div>
+          {% endfor %}
+        {% else %}
+          This study does not have any Audio Surveys.
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-xs-11 row"> 
+      <h3 class="row"> Image Surveys </h3>
+    </div>
+    <div class="col-xs-1"> 
+      <a href="/create_survey/{{ study.id }}/image_survey" class="btn btn-info h3-margins pull-right">
+        Create New <b>Image Survey</b></a>
+    </div>
+
+    <div class="row">
+      <div class="list-group well col-xs-12">
+        {% if image_survey_info %}
+          {% for info in image_survey_info %}
+          
+            <div class="col-xs-12">
+              <a href="/edit_survey/{{study_id}}/{{info["id"] }}" class="list-group-item survey-button-margins row">  
+                {% if info["name"] != "" %}
+                  <span class="col-xs-9 row"> {{info["name"]}} </span>
+                {% else %}
+                  <span class="col-xs-9 row" style="color:gray;"> (Unnamed Survey) </span>
+                {% endif %}
+                
+                {# stick these metadata into a small table so we can stack them #}
+                <table class="pull-right survey-inline-table survey-micro-label">
+                  <tr> <td>
+                    <span> Survey ID #{{info["object_id"]}} </span>
+                  </td> </tr>
+                  <tr> <td>
+                    <span> Updated: {{info["last_updated"]}} </span>
+                  </td></tr>
+                </table>
+                </a>
+            </div>
+          {% endfor %}
+        {% else %}
+          This study does not have any Image Surveys.
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="row" >
+      <h3>Study Configuration</h3>
+      
+      <div class="col-xs-12 well ">  
+        {% if push_notifications_enabled %}
+          <div class="col-xs-3">
+
+            <p><a class="btn btn-info h3-margins" 
+            href={{ easy_url("study_api.interventions_page", study_id=study.id) }}>
+              Edit Interventions
+            </a></p>
+            Configure Interventions for use with Relative survey schedules
+          </div>
+          
+        {% endif %}
+
+        <div class="col-xs-6">
+          <p><a class="btn btn-info h3-margins"  href="/device_settings/{{ study['id'] }}">
+            Edit App Settings
+          </a></p>
+          Configure types and quantity of the passive data streams this study collects, and the wording that study participants see in the app
+        </div>
+
+        <div class="col-xs-3">
+          <p><a class="btn btn-info h3-margins"  href="/study_fields/{{ study['id'] }}">
+            Edit Custom Fields
+          </a></p>
+          Edit custom tags for organizing participants in your study.
+        </div>
+      </div>
+    </div>
+
+    {% if study.forest_enabled %}
+      <div class="row" >
+        <h3>Forest Data Analysis</h3>
+        <div class="col-xs-12 well">
+
+          {% if site_admin %}
+            <div class="col-xs-4">
+              <p><a class="btn btn-info" href="{{ easy_url('forest_pages.create_tasks', study_id=study.id) }}">
+                Dispatch New Forest Tasks
+              </a></p>
+              Queue up new Forest analysis runs on participant data.
+            </div>
+          {% endif %}
+
+          <div class="col-xs-4">
+            <p><a class="btn btn-info" href="{{ easy_url('forest_pages.task_log', study_id=study.id) }}">
+              View Forest Task History
+            </a></p>
+            View the runtime history of all Forest analysis tasks that have run on data from this study.
+          </div>
+          
+          <div class="col-xs-4">
+            <p><a class="btn btn-info" href="{{ easy_url('forest_pages.analysis_progress', study_id=study.id) }}">
+              View Forest Task Summaries
+            </a></p>
+            View a high-level summary about the data that Forest analysis run on.
+          </div>
+
+        </div>
+      </div>
+    {% endif %}
+
   </div>
+</div>
 
 {% endblock %}

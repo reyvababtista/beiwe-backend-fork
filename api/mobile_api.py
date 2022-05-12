@@ -1,183 +1,189 @@
 import calendar
+import json
 import plistlib
 import time
+from datetime import datetime
 
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
+from django.db import IntegrityError
+from django.http.response import HttpResponse
 from django.utils import timezone
-from flask import abort, Blueprint, json, render_template, request
-from werkzeug.datastructures import FileStorage
 
-from authentication.user_authentication import (authenticate_user, authenticate_user_registration,
-    get_session_participant, minimal_validation)
-from config.constants import (ALLOWED_EXTENSIONS, ANDROID_FIREBASE_CREDENTIALS,
-    IOS_FIREBASE_CREDENTIALS)
-from config.settings import REPORT_DECRYPTION_KEY_ERRORS
-from constants.mobile_api import (DECRYPTION_KEY_ADDITIONAL_MESSAGE, DECRYPTION_KEY_ERROR_MESSAGE,
-    DEVICE_IDENTIFIERS_HEADER, INVALID_EXTENSION_ERROR, NO_FILE_ERROR,
-    S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR, UNKNOWN_ERROR)
+from authentication.participant_authentication import (authenticate_participant,
+    authenticate_participant_registration, minimal_validation)
+from constants.celery_constants import ANDROID_FIREBASE_CREDENTIALS, IOS_FIREBASE_CREDENTIALS
+from constants.common_constants import PROBLEM_UPLOADS
+from constants.message_strings import (DEVICE_IDENTIFIERS_HEADER, INVALID_EXTENSION_ERROR,
+    NO_FILE_ERROR, S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR_1, S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR_2,
+    UNKNOWN_ERROR)
 from database.data_access_models import FileToProcess
-from database.profiling_models import DecryptionKeyError, UploadTracking
-from database.system_models import FileAsText
-from libs.encryption import decrypt_device_file, DecryptionKeyInvalidError, HandledError
+from database.profiling_models import UploadTracking
+from database.system_models import FileAsText, GenericEvent
+from database.user_models import Participant
+from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
+    IosDecryptionKeyDuplicateError, IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
 from libs.http_utils import determine_os_api
+from libs.internal_types import ParticipantRequest
 from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
-from libs.s3 import get_client_public_key_string, s3_upload
+from libs.s3 import get_client_public_key_string, s3_retrieve, s3_upload, smart_s3_list_study_files
+from libs.security import generate_easy_alphanumeric_string
 from libs.sentry import make_sentry_client, SentryTypes
+from middleware.abort_middleware import abort
 
 
-mobile_api = Blueprint('mobile_api', __name__)
+UPLOAD_LOGGING_ENABLED = False
+
+def log(*args, **kwargs):
+    if UPLOAD_LOGGING_ENABLED:
+        print(*args, **kwargs)
+
+EARLIEST_POSSIBLE_IOS_RECOVERY = datetime(2022, 4, 11, 0, 0, 0, 0)
+ALLOWED_EXTENSIONS = {'csv', 'json', 'mp4', "wav", 'txt', 'jpg'}
 
 ################################################################################
 ################################ UPLOADS #######################################
 ################################################################################
 
-@mobile_api.route('/upload', methods=['POST'])
-@mobile_api.route('/upload/ios/', methods=['GET', 'POST'])
 @determine_os_api
 @minimal_validation
-def upload(OS_API=""):
-    """ Entry point to upload GPS, Accelerometer, Audio, PowerState, Calls Log, Texts Log,
-    Survey Response, and debugging files to s3.
-
-    Behavior:
-    The Beiwe app is supposed to delete the uploaded file if it receives an html 200 response.
-    The API returns a 200 response when the file has A) been successfully handled, B) the file it
-    has been sent is empty, C) the file did not decrypt properly.  We encountered problems in
-    production with incorrectly encrypted files (as well as Android generating "rList" files
-    under unknown circumstances) and the app then uploads them.  When the device receives a 200
-    that is its signal to delete the file.
-    When a file is undecryptable (this was tracked to a scenario where the device could not
-    create/write an AES encryption key) we send a 200 response to stop that device attempting to
-    re-upload the data.
-    In the event of a single line being undecryptable (can happen due to io errors on the device)
-    we drop only that line (and store the erroring line in an attempt to track it down.
-
-    A 400 error means there is something is wrong with the uploaded file or its parameters,
-    administrators will be emailed regarding this upload, the event will be logged to the apache
-    log.  The app should not delete the file, it should try to upload it again at some point.
-
-    If a 500 error occurs that means there is something wrong server side, administrators will be
-    emailed and the event will be logged. The app should not delete the file, it should try to
-    upload it again at some point.
-
-    Request format:
-    send an http post request to [domain name]/upload, remember to include security
-    parameters (see user_authentication for documentation). Provide the contents of the file,
-    encrypted (see encryption specification) and properly converted to Base64 encoded text,
-    as a request parameter entitled "file".
-    Provide the file name in a request parameter entitled "file_name". """
-
+def upload(request: ParticipantRequest, OS_API=""):
+    """ Entry point to upload all data to aws s3.
+    - The Beiwe apps delete their copy of the uploaded file if it receives an html 200 response.
+    - The API returns a 200 response when...
+      - the file upload was successful.
+      - the file received was empty.
+      - the file could not decrypt. (numerous cases of this are covered and handled internally)
+      - when there are problems with the file name.
+    - The Beiwe apps skip the file and will try again later if they receive a 400 or 500 class error.
+    We do this when:
+      - the normal 400 error case where the post request parameters are invalid.
+      - a specific cases involving duplicate uploads spaced closely in time.
+      - a specific case involving a bug in the ios app where a file is split and  losing its 
+      decryption key.
+    Request:
+      - line-by-line-encrypted file contents in parameter "file"
+      - file name in parameter "file_name"  """
+    
     # Handle these corner cases first because they requires no database input.
-    # Crash logs are from truly ancient versions of the android codebase
-    # rList are randomly generated by android
-    # PersistedInstallation files come from firebase.
-    # todo: stop uploading junk files in the app by putting our files into a folder.
-    file_name = request.values.get("file_name", None)
+    file_name = request.POST.get("file_name", None)
     if (
-            not bool(file_name)
-            or file_name.startswith("rList")
-            or file_name.startswith("PersistedInstallation")
-            or not contains_valid_extension(file_name)
+        not file_name  # there must be a file name
+        or file_name.startswith("rList")  # rList are randomly generated by android
+        or file_name.startswith("PersistedInstallation")  # come from firebase.
+        or not contains_valid_extension(file_name)  # generic junk file test
     ):
-        return render_template('blank.html'), 200
-
+        return HttpResponse(status=200)
+    
     s3_file_location = file_name.replace("_", "/")
-    participant = get_session_participant()
-
-    if participant.unregistered:
-        # "Unregistered" participants are blocked from uploading further data.
-        # If the participant is unregistered, throw away the data file, but
-        # return a 200 "OK" status to the phone so the phone decides it can
-        # safely delete the file.
-        return render_template('blank.html'), 200
-
-    # block duplicate FTPs.  Testing the upload history is too complex
+    participant = request.session_participant
+    
+    if participant.unregistered:  # "Unregistered" participant uploads should delete their data.
+        log(200, "participant unregistered.")
+        return HttpResponse(status=200)
+    
+    # iOS can upload identically named files with different content (and missing decryption keys) so
+    # we need to return a 400 to back off. The device can try again later when the extant FTP has
+    # been processed. (ios files with bad decryption keys fail and don't create new FTPs.)
     if FileToProcess.test_file_path_exists(s3_file_location, participant.study.object_id):
-        return render_template('blank.html'), 200
-
-    uploaded_file = get_uploaded_file()
+        log("400, FileToProcess.test_file_path_exists")
+        return HttpResponse(status=400)
+    
+    # get_uploaded_file failure modes always aborts or errors
     try:
-        uploaded_file = decrypt_device_file(uploaded_file, participant)
-    except HandledError:
-        return render_template('blank.html'), 200
-    except DecryptionKeyInvalidError:
-        # when the decryption key is invalid the file is lost.  Nothing we can do.
-        # record the event, send the device a 200 so it can clear out the file.
-        if REPORT_DECRYPTION_KEY_ERRORS:
-            tags = {
-                "participant": participant.patient_id,
-                "operating system": "ios" if "ios" in request.path.lower() else "android",
-                "DecryptionKeyError id": str(DecryptionKeyError.objects.last().id),
-                "file_name": file_name,
-                "bug_report": DECRYPTION_KEY_ADDITIONAL_MESSAGE,
-            }
-            sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
-            sentry_client.captureMessage(DECRYPTION_KEY_ERROR_MESSAGE)
-        return render_template('blank.html'), 200
-
+        file_contents = get_uploaded_file(request)
+        decryptor = DeviceDataDecryptor(s3_file_location, file_contents, participant)
+    except RemoteDeleteFileScenario:
+        log(200, "RemoteDeleteFileScenario")  # errors were unrecoverable, delete the file.
+        return HttpResponse(status=200)
+    
+    except (DecryptionKeyInvalidError, IosDecryptionKeyNotFoundError, IosDecryptionKeyDuplicateError) as e:
+        # IOS has a complex issue where it splits files into multiple segments, but the key is only
+        # present on the first section. We wait 3 weeks for ios to upload with a key, eventually
+        # we tell the device to delete the file.
+        upload_problem_file(file_contents, participant, s3_file_location, e)
+        return HttpResponse(status=200)
+    
     # if uploaded data actually exists, and has a valid extension
-    if uploaded_file and file_name and contains_valid_extension(file_name):
-        s3_upload(s3_file_location, uploaded_file, participant.study.object_id)
-
-        # race condition: multiple _concurrent_ uploads with same file path. Behavior without
-        # try-except is correct, but we don't care about reporting it. Just send the device a 500
-        # error so it skips the file, the followup attempt receives 200 code and deletes the file.
-        try:
-            FileToProcess.append_file_for_processing(
-                s3_file_location, participant.study.object_id, participant=participant
-            )
-        except ValidationError as e:
-            # Real error is a second validation inside e.error_dict["s3_file_path"].
-            # Ew; just test for this string instead...
-            if S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR in str(e):
-                # this tells the device to just move on to the next file, try again later.
-                return abort(500)
-            else:
-                raise
-
-        UploadTracking.objects.create(
-            file_path=s3_file_location,
-            file_size=len(uploaded_file),
-            timestamp=timezone.now(),
-            participant=participant,
-        )
-        return render_template('blank.html'), 200
-
-    elif not uploaded_file:
+    if decryptor.decrypted_file and file_name and contains_valid_extension(file_name):
+        return upload_and_log(s3_file_location, participant, decryptor)
+    elif not decryptor.decrypted_file:
         # if the file turns out to be empty, delete it, we simply do not care.
-        return render_template('blank.html'), 200
+        return HttpResponse(status=200)
     else:
         return make_upload_error_report(participant.patient_id, file_name)
 
 
-# todo: this function exists to handle some ancient behavior, it definitely has details
-#  that can be removed, and an error case that can probably go too.
-def get_uploaded_file():
+def upload_and_log(
+    s3_file_location: str, participant: Participant, decryptor: DeviceDataDecryptor
+) -> HttpResponse:
+    # test if the file exists on s3, handle ios duplicate file merge.
+    if not smart_s3_list_study_files(s3_file_location, participant):
+        s3_upload(s3_file_location, decryptor.decrypted_file, participant)
+    
+    elif decryptor.used_ios_decryption_key_cache:
+        # if the upload required the ios key cache that means we have a split file and need to merge them.
+        s3_upload(
+            s3_file_location,
+            b"\n".join([s3_retrieve(s3_file_location, participant), decryptor.decrypted_file]),
+            participant,
+        )
+    else:
+        old_file_location = s3_file_location
+        s3_file_location = s3_duplicate_name(s3_file_location)
+        log(f"renamed duplicate '{old_file_location}' to '{s3_file_location}'")
+        s3_upload(s3_file_location, decryptor.decrypted_file, participant)
+    
+    # race condition: multiple _concurrent_ uploads with same file path. Behavior without try-except
+    # is correct, but we don't care about reporting it. Just send the device a 500 error so it skips
+    # the file, the followup attempt receives 200 code and deletes the file.
+    try:
+        FileToProcess.append_file_for_processing(s3_file_location, participant)
+    except (IntegrityError, ValidationError) as e:
+        # there are two error cases that can occur here (race condition with 2 concurrent uploads)
+        if (
+            S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR_1 in str(e)
+            or S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR_2 in str(e)
+        ):
+            # don't abort 500, we want to limit 500 errors on the ELB in production (uhg)
+            log("backoff for duplicate race condition.", str(e))
+            return abort(400)
+    
+    # record that an upload occurred
+    UploadTracking.objects.create(
+        file_path=s3_file_location,
+        file_size=len(decryptor.decrypted_file),
+        timestamp=timezone.now(),
+        participant=participant,
+    )
+    return HttpResponse(status=200)
+
+
+# FIXME: Device Testing. this function exists to handle some ancient behavior, it definitely has
+#  details that can be removed, and an error case that can probably go too.
+def get_uploaded_file(request: ParticipantRequest) -> bytes:
     # Slightly different values for iOS vs Android behavior.
-    # Android sends the file data as standard form post parameter (request.values)
-    # iOS sends the file as a multipart upload (so ends up in request.files)
-    # if neither is found, consider the "body" of the post the file
-    # ("body" post is not currently used by any client, only here for completeness)
-    if "file" in request.files:
-        uploaded_file = request.files['file']
-    elif "file" in request.values:
-        # android
-        uploaded_file = request.values['file']
+    # Android sends the file data as standard form post parameter (request.POST)
+    # iOS sends the file as a multipart upload (so ends up in request.FILES)
+    if "file" in request.FILES:
+        uploaded_file = request.FILES['file']  # ios
+    elif "file" in request.POST:
+        uploaded_file = request.POST['file']  # android
     else:
-        uploaded_file = request.data
-
-    # force the file to the correct object type.
-    if isinstance(uploaded_file, FileStorage):
+        log("get_uploaded_file, file not present")
+        return abort(400)  # no uploaded file, bad request.
+    
+    # okay for some reason we get different file-like types in different scenarios?
+    if isinstance(uploaded_file, (ContentFile, InMemoryUploadedFile, TemporaryUploadedFile)):
         uploaded_file = uploaded_file.read()
-    elif isinstance(uploaded_file, str):
-        # android
-        uploaded_file = uploaded_file.encode()
+    
+    if isinstance(uploaded_file, str):
+        uploaded_file = uploaded_file.encode()  # android
     elif isinstance(uploaded_file, bytes):
-        # not current behavior on any app
-        pass
+        pass  # nothing needs to happen (ios)
     else:
-        raise TypeError("uploaded_file was a %s" % type(uploaded_file))
-
+        raise TypeError(f"uploaded_file was a {type(uploaded_file)}")
     return uploaded_file
 
 
@@ -188,52 +194,71 @@ def make_upload_error_report(patient_id: str, file_name: str):
         error_message += NO_FILE_ERROR
     elif file_name and not contains_valid_extension(file_name):
         error_message += INVALID_EXTENSION_ERROR
-        error_message += grab_file_extension(file_name)
     else:
         error_message += UNKNOWN_ERROR
-
+    
     tags = {"upload_error": "upload error", "user_id": patient_id}
     sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
     sentry_client.captureMessage(error_message)
+    log(400, error_message, "(upload error report)")
     return abort(400)
+
+
+def upload_problem_file(
+    file_contents: bytes, participant: Participant, s3_file_path: str, exception: Exception
+):
+    file_path = f"{PROBLEM_UPLOADS}/{participant.study.object_id}/" + s3_file_path \
+        + generate_easy_alphanumeric_string(10)
+    s3_upload(file_path, file_contents, participant, raw_path=True)
+    note = f'{file_path} for participant {participant.patient_id} failed with {str(exception)}'
+    log("creating problem upload on s3:", note)
+    GenericEvent.easy_create(
+        tag=f"problem_upload_file_{exception.__class__.__name__}", note=note,
+    )
 
 
 ################################################################################
 ############################## Registration ####################################
 ################################################################################
 
-@mobile_api.route('/register_user', methods=['GET', 'POST'])
-@mobile_api.route('/register_user/ios/', methods=['GET', 'POST'])
 @determine_os_api
-@authenticate_user_registration
-def register_user(OS_API=""):
+@authenticate_participant_registration
+def register_user(request: ParticipantRequest, OS_API=""):
     """ Checks that the patient id has been granted, and that there is no device registered with
     that id.  If the patient id has no device registered it registers this device and logs the
     bluetooth mac address.
-    Check the documentation in user_authentication to ensure you have provided the proper credentials.
+    Check the documentation in participant_authentication to ensure you have provided the proper credentials.
     Returns the encryption key for this patient/user. """
-
+    
+    if (
+        'patient_id' not in request.POST
+        or 'phone_number' not in request.POST
+        or 'device_id' not in request.POST
+        or 'new_password' not in request.POST
+    ):
+        return abort(400)
+    
     # CASE: If the id and password combination do not match, the decorator returns a 403 error.
     # the following parameter values are required.
-    patient_id = request.values['patient_id']
-    phone_number = request.values['phone_number']
-    device_id = request.values['device_id']
-
+    patient_id = request.POST['patient_id']
+    phone_number = request.POST['phone_number']
+    device_id = request.POST['device_id']
+    
     # These values may not be returned by earlier versions of the beiwe app
-    device_os = request.values.get('device_os', "none")
-    os_version = request.values.get('os_version', "none")
-    product = request.values.get("product", "none")
-    brand = request.values.get("brand", "none")
-    hardware_id = request.values.get("hardware_id", "none")
-    manufacturer = request.values.get("manufacturer", "none")
-    model = request.values.get("model", "none")
-    beiwe_version = request.values.get("beiwe_version", "none")
-
+    device_os = request.POST.get('device_os', "none")
+    os_version = request.POST.get('os_version', "none")
+    product = request.POST.get("product", "none")
+    brand = request.POST.get("brand", "none")
+    hardware_id = request.POST.get("hardware_id", "none")
+    manufacturer = request.POST.get("manufacturer", "none")
+    model = request.POST.get("model", "none")
+    beiwe_version = request.POST.get("beiwe_version", "none")
+    
     # This value may not be returned by later versions of the beiwe app.
-    mac_address = request.values.get('bluetooth_id', "none")
-
-    participant = get_session_participant()
-    if participant.device_id and participant.device_id != request.values['device_id']:
+    mac_address = request.POST.get('bluetooth_id', "none")
+    
+    participant = request.session_participant
+    if participant.device_id and participant.device_id != device_id:
         # CASE: this patient has a registered a device already and it does not match this device.
         #   They need to contact the study and unregister their their other device.  The device
         #   will receive a 405 error and should alert the user accordingly.
@@ -242,37 +267,37 @@ def register_user(OS_API=""):
         # need to enter to at registration is their old password.
         # KG: 405 is good for IOS and Android, no need to check OS_API
         return abort(405)
-
-    if participant.os_type and participant.os_type != OS_API:
-        # CASE: this patient has registered, but the user was previously registered with a
-        # different device type. To keep the CSV munging code sane and data consistent (don't
-        # cross the iOS and Android data streams!) we disallow it.
-        return abort(400)
-
+    
+    # if participant.os_type and participant.os_type != OS_API:
+    #     # CASE: this patient has registered, but the user was previously registered with a
+    #     # different device type. To keep the CSV munging code sane and data consistent (don't
+    #     # cross the iOS and Android data streams!) we disallow it.
+    #     return abort(400)
+    
     # At this point the device has been checked for validity and will be registered successfully.
     # Any errors after this point will be server errors and return 500 codes. the final return
     # will be the encryption key associated with this user.
-
+    
     # Upload the user's various identifiers.
     unix_time = str(calendar.timegm(time.gmtime()))
     file_name = patient_id + '/identifiers_' + unix_time + ".csv"
-
+    
     # Construct a manual csv of the device attributes
     file_contents = (DEVICE_IDENTIFIERS_HEADER + "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" %
                      (patient_id, mac_address, phone_number, device_id, device_os,
                       os_version, product, brand, hardware_id, manufacturer, model,
                       beiwe_version)).encode()
-
-    s3_upload(file_name, file_contents, participant.study.object_id)
-    FileToProcess.append_file_for_processing(file_name, participant.study.object_id, participant=participant)
-
+    
+    s3_upload(file_name, file_contents, participant)
+    FileToProcess.append_file_for_processing(file_name, participant)
+    
     # set up device.
     participant.device_id = device_id
     participant.os_type = OS_API
-    participant.set_password(request.values['new_password'])  # set password saves the model
+    participant.set_password(request.POST['new_password'])  # set password saves the model
     device_settings = participant.study.device_settings.as_unpacked_native_python()
     device_settings.pop('_id', None)
-
+    
     # set up FCM files
     firebase_plist_data = None
     firebase_json_data = None
@@ -284,10 +309,10 @@ def register_user(OS_API=""):
         android_credentials = FileAsText.objects.filter(tag=ANDROID_FIREBASE_CREDENTIALS).first()
         if android_credentials:
             firebase_json_data = json.loads(android_credentials.text)
-
+    
     # ensure the survey schedules are updated for this participant.
     repopulate_all_survey_scheduled_events(participant.study, participant)
-
+    
     return_obj = {
         'client_public_key': get_client_public_key_string(patient_id, participant.study.object_id),
         'device_settings': device_settings,
@@ -296,7 +321,7 @@ def register_user(OS_API=""):
         'study_name': participant.study.name,
         'study_id': participant.study.object_id,
     }
-    return json.dumps(return_obj), 200
+    return HttpResponse(json.dumps(return_obj))
 
 
 ################################################################################
@@ -304,47 +329,61 @@ def register_user(OS_API=""):
 ################################################################################
 
 
-@mobile_api.route('/set_password', methods=['GET', 'POST'])
-@mobile_api.route('/set_password/ios/', methods=['GET', 'POST'])
 @determine_os_api
-@authenticate_user
-def set_password(OS_API=""):
+@authenticate_participant
+def set_password(request: ParticipantRequest, OS_API=""):
     """ After authenticating a user, sets the new password and returns 200.
     Provide the new password in a parameter named "new_password"."""
-    participant = get_session_participant()
-    participant.set_password(request.values["new_password"])
-    return render_template('blank.html'), 200
+    new_password = request.POST.get("new_password", None)
+    if new_password is None:
+        return abort(400)
+    request.session_participant.set_password(new_password)
+    return HttpResponse(status=200)
 
 
 ################################################################################
 ########################## FILE NAME FUNCTIONALITY #############################
 ################################################################################
 
+def convert_filename_to_datetime(file_name: str):
+    # "file_name" has underscores, "s3_file_path" has slashes
+    should_be_numbers = file_name.split("_")[-1][:-4]
+    if not should_be_numbers.isnumeric():
+        raise Exception(f"bad numbers in '{file_name}': {should_be_numbers}")
+    
+    if len(should_be_numbers) == 13:
+        should_be_numbers = should_be_numbers[:-3]
+    elif len(should_be_numbers) != 10:
+        raise Exception(f"bad digit count in {file_name}: {should_be_numbers}")
+    
+    return datetime.utcfromtimestamp(int(should_be_numbers))
 
-def grab_file_extension(file_name):
+
+def grab_file_extension(file_name: str):
     """ grabs the chunk of text after the final period. """
     return file_name.rsplit('.', 1)[1]
 
 
-def contains_valid_extension(file_name):
+def contains_valid_extension(file_name: str):
     """ Checks if string has a recognized file extension, this is not necessarily limited to 4 characters. """
     return '.' in file_name and grab_file_extension(file_name) in ALLOWED_EXTENSIONS
 
+
+def s3_duplicate_name(s3_file_path: str):
+    """ when duplicates occur we add this string onto the end and try to proceed as normal. """
+    return s3_file_path + "-duplicate-" + generate_easy_alphanumeric_string(10)
 
 ################################################################################
 ################################# DOWNLOAD #####################################
 ################################################################################
 
 
-@mobile_api.route('/download_surveys', methods=['GET', 'POST'])
-@mobile_api.route('/download_surveys/ios/', methods=['GET', 'POST'])
 @determine_os_api
-# @authenticate_user
-def get_latest_surveys(OS_API=""):
-    study = get_session_participant().study
+@authenticate_participant
+def get_latest_surveys(request: ParticipantRequest, OS_API=""):
     survey_json_list = []
-    for survey in study.surveys.filter(deleted=False):
+    for survey in request.session_participant.study.surveys.filter(deleted=False):
         # Exclude image surveys for the Android app to avoid crashing it
         if not (OS_API == "ANDROID" and survey.survey_type == "image_survey"):
             survey_json_list.append(survey.format_survey_for_study())
-    return json.dumps(survey_json_list)
+    return HttpResponse(json.dumps(survey_json_list))

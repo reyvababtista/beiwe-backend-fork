@@ -1,14 +1,20 @@
-from flask import Blueprint, json
+import json
+from django.http import FileResponse
+
+from django.http.response import HttpResponse
+from django.shortcuts import get_object_or_404
+from django.views.decorators.http import require_POST
 
 from authentication.data_access_authentication import (api_credential_check,
-    api_study_credential_check, get_api_researcher, get_api_study)
+    api_study_credential_check)
 from database.user_models import StudyRelation
+from libs.internal_types import ApiResearcherRequest, ApiStudyResearcherRequest
+from libs.intervention_export import intervention_survey_data
 
-other_researcher_apis = Blueprint('other_researcher_apis', __name__)
 
-@other_researcher_apis.route("/get-studies/v1", methods=['POST', "GET"])
+@require_POST
 @api_credential_check
-def get_studies():
+def get_studies(request: ApiResearcherRequest):
     """
     Retrieve a dict containing the object ID and name of all Study objects that the user can access
     If a GET request, access_key and secret_key must be provided in the URL as GET params. If
@@ -16,18 +22,25 @@ def get_studies():
     request body.
     :return: string: JSON-dumped dict {object_id: name}
     """
-    return json.dumps(
-        dict(
-            StudyRelation.objects.filter(researcher=get_api_researcher())
-                .values_list("study__object_id", "study__name")
+    return HttpResponse(
+        json.dumps(
+            dict(StudyRelation.objects.filter(
+                researcher=request.api_researcher).values_list("study__object_id", "study__name")
+            )
         )
     )
 
 
-@other_researcher_apis.route("/get-users/v1", methods=['POST', "GET"])
+@require_POST
 @api_study_credential_check()
-def get_users_in_study():
-    return json.dumps(  # json can't operate on query, need as list.
-        list(get_api_study().participants.values_list('patient_id', flat=True))
+def get_users_in_study(request: ApiStudyResearcherRequest):
+    # json can't operate on queryset, need as list.
+    return HttpResponse(
+        json.dumps(list(request.api_study.participants.values_list('patient_id', flat=True)))
     )
 
+
+@require_POST
+@api_study_credential_check()
+def download_study_interventions(request: ApiStudyResearcherRequest):
+    return HttpResponse(json.dumps(intervention_survey_data(request.api_study)))        

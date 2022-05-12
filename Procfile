@@ -1,0 +1,1 @@
+web: uwsgi --yaml uwsgi-config.yml

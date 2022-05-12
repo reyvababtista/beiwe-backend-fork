@@ -1,8 +1,3 @@
-from os.path import abspath
-from sys import path
-
-path.insert(0, abspath(__file__).rsplit('/', 2)[0])
-
-# do not comment out
+# Do not comment out!  Loads django if it was not already loaded.
+# By placing the load django call here any import of database models loads the ORM.
 import config.load_django
-

@@ -16,7 +16,10 @@
   </ol>
 
   {# Go to Dashboard button  #}
-  <a class="btn btn-info" href='/dashboard/{{ study.id }}/patient/{{ participant.patient_id }}'>Go to Participant Dashboard</a>&nbsp;
+  <a class="btn btn-info"
+    href={{ easy_url('dashboard_api.dashboard_participant_page', study_id=study.id, patient_id=participant.patient_id) }}>
+    Go to Participant Dashboard
+  </a>&nbsp;
 
   <br><br><br><br>
 
@@ -134,6 +137,15 @@
         <td>{{ latest_notification_attempt.status }}</td>
       </tr>
     </table>
+
+    <form action="{{ easy_url("push_notifications_api.resend_push_notification", study_id=study.id, patient_id=participant.patient_id) }}" method="post">
+     {% if participant.participant_push_enabled %} 
+      <input type="hidden" name="survey_id" value="{{ latest_notification_attempt.survey_id }}">
+      <button class="btn btn-danger" type="submit">
+        Resend Push Notification
+      </button>
+      {% endif %}
+    </form>
   {% endif %}
 
   <br><hr><br>

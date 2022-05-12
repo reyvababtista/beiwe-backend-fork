@@ -34,7 +34,7 @@ def current_time_string():
 
 def EXIT(n=None):
     """ Ipython has some weirdness with exit statements. """
-    if DEV_MODE:
+    if DEV_MODE and n != 0:
         traceback.print_stack()
 
     if n is None:
@@ -77,7 +77,7 @@ def increment_identifier(base_string, increment_string):
         raise Exception("%s not found or found more than once in %s" % (base_string, increment_string))
 
     prefix, suffix = splits
-    if suffix is "":
+    if suffix == "":
         suffix_increment = 1
     else:
         suffix_increment = int(suffix) + 1

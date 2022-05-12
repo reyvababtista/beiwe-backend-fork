@@ -30,43 +30,46 @@ RABBIT_MQ_PORT = 50000
 
 
 PYTHON_COMPILE_REQUIREMENTS = [
-    # Compile python installs - this may be out of date for building python 3.6
-    'build-essential',  # Includes a C compiler for compiling python
+    'build-essential',
+    'curl',
+    'gcc',
+    'git',
     'libbz2-dev',
-    'libreadline-gplv2-dev',
+    'libffi-dev',
+    'liblzma-dev',
+    'libncurses5-dev',
+    'libncursesw5-dev',
+    'libreadline-dev',
     'libsqlite3-dev',
     'libssl-dev',
+    'make',
+    'tk-dev',
+    'wget',
+    'xz-utils',
+    'zlib1g-dev',
 ]
 
 ## EC2 Instance Deployment Variables
 BASE_INSTALLS = [
-    # Search within files
-    'ack-grep',
-    'silversearcher-ag',
-
+    # we use supervisor to manage processes
+    "supervisor",
     # Necessary for cronutils
-    'mailutils',
     'moreutils',
-    'sendmail',
-
     # utils
     'nload',
     'htop',
-
-    # python pip as pip3, celery, supervisor.
-    'python3-pip',
+    'ack-grep',
+    'silversearcher-ag',
+    # libraries
     'libpq-dev',
-    "python3-celery",
-    "supervisor",
+    "zstd",
 ]
 
-APT_WORKER_INSTALLS = copy(BASE_INSTALLS)
-
-APT_MANAGER_INSTALLS = copy(BASE_INSTALLS)
+APT_WORKER_INSTALLS = copy(BASE_INSTALLS) + copy(PYTHON_COMPILE_REQUIREMENTS)
+APT_MANAGER_INSTALLS = copy(APT_WORKER_INSTALLS)
 APT_MANAGER_INSTALLS.append('rabbitmq-server')  # Queue tasks to run using celery
 
 APT_SINGLE_SERVER_AMI_INSTALLS = copy(APT_WORKER_INSTALLS)
-APT_SINGLE_SERVER_AMI_INSTALLS.extend(copy(PYTHON_COMPILE_REQUIREMENTS))
 APT_SINGLE_SERVER_AMI_INSTALLS.extend([
     'apache2',
     'haveged',  # For generating Flask secret key random string
@@ -119,6 +122,7 @@ DEPLOYMENT_SPECIFIC_CONFIG_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'enviro
 GENERAL_CONFIG_FOLDER = path_join(CLUSTER_MANAGEMENT_FOLDER, 'general_configuration')
 STAGED_FILES = path_join(CLUSTER_MANAGEMENT_FOLDER, 'staged_files')
 RABBIT_MQ_PASSWORD_FILE_NAME = "rabbit_mq_password.txt"
+PYCRYPTO_FILE_NAME = "crypto.tar.gz"
 
 ## Global EC2 Instance __remote__ folder paths
 REMOTE_HOME_DIR = path_join('/home', REMOTE_USERNAME)
@@ -201,12 +205,12 @@ def get_pushed_full_processing_server_env_file_path(eb_environment_name):
     return path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_remote_db_env.py')
 
 
-def get_finalized_credentials_file_path(eb_environment_name):
+def get_finalized_settings_file_path(eb_environment_name):
     return path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_finalized_settings.json')
 
 
-def get_finalized_environment_variables(eb_environment_name):
-    with open(get_finalized_credentials_file_path(eb_environment_name), 'r') as f:
+def get_finalized_settings_variables(eb_environment_name):
+    with open(get_finalized_settings_file_path(eb_environment_name), 'r') as f:
         return json.load(f)
 
 
@@ -216,32 +220,35 @@ def get_db_credentials_file_path(eb_environment_name):
     return path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_database_credentials.json")
 
 
+def get_db_credentials_variables(eb_environment_name):
+    with open(get_db_credentials_file_path(eb_environment_name), "r") as f:
+        return json.load(f)
+
+
 ## Beiwe Environment Files
-def get_beiwe_python_environment_variables_file_path(eb_environment_name):
+def get_beiwe_environment_variables_file_path(eb_environment_name):
     return path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_beiwe_environment_variables.json")
+
+
+def get_beiwe_environment_variables(eb_environment_name):
+    with open(get_beiwe_environment_variables_file_path(eb_environment_name), 'r') as f:
+        return json.load(f)
+
+
+## Processing worker and management servers
+def get_server_configuration_variables_path(eb_environment_name):
+    return path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_server_settings.json')
+
+
+def get_server_configuration_variables(eb_environment_name):
+    with open(get_server_configuration_variables_path(eb_environment_name), 'r') as f:
+        return json.load(f)
 
 
 def get_rabbit_mq_manager_ip_file_path(eb_environment_name):
     return path_join(
         DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + "_" + RABBIT_MQ_PASSWORD_FILE_NAME
     )
-
-
-def get_beiwe_environment_variables(eb_environment_name):
-    with open(get_beiwe_python_environment_variables_file_path(eb_environment_name), 'r') as f:
-        return json.load(f)
-
-
-## Processing worker and management servers
-def get_server_configuration_file_path(eb_environment_name):
-    return path_join(DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, eb_environment_name + '_server_settings.json')
-
-
-def get_server_configuration_file(eb_environment_name):
-    with open(get_server_configuration_file_path(eb_environment_name), 'r') as f:
-        return json.load(f)
-
-
 
 ####################################################################################################
 ####################################### AWS Strings ################################################
@@ -314,9 +321,15 @@ ENVIRONMENT_NAME_RESTRICTIONS = "Names must be 4 to 40 characters in length.\n" 
 
 EXTANT_ENVIRONMENT_PROMPT = "Enter the name of the Elastic Beanstalk Environment you want to run this operation on:"
 
-DO_CREATE_ENVIRONMENT ="Please enter the name of the environment for which you have filled out the required settings:"
+DO_CREATE_ENVIRONMENT = "Please enter the name of the environment for which you have filled out the required settings:"
+
+DO_CREATE_CLONE = "Please enter the name of the environment for which you have populated settings and wish to clone:"
+
+CLONE_NAME = "Please enter the name of the environment for which you have populated settings and wish to clone:"
 
 HELP_SETUP_NEW_ENVIRONMENT = "Enter the name of the environment you want to create:"
+
+HELP_SETUP_NEW_ENVIRONMENT_END = """After filling in the required contents of these newly created files you will be able to run the -create-environment command.  Note that several more credentials files will be generated as part of that process. """
 
 PURGE_COMMAND_BLURB = """
 DO NOT RUN THIS COMMAND ON A FUNCTIONAL ELASTIC BEANSTALK DEPLOYMENT.
@@ -328,16 +341,17 @@ Note 1: Run this command repeatedly until it tells you it cannot delete anything
 Note 2: You may have to go and manually delete a Service Role if you are intent on totally resetting your Elastic Beanstalk cluster.
 """
 
+CREATE_ENVIRONMENT_HELP = "Creates new Elastic Beanstalk environment with the provided environment name"
 
-CREATE_ENVIRONMENT_HELP = "creates new environment with the provided environment name"
+CLONE_ENVIRONMENT_HELP = "Copies an existing Elastic Beanstalk environment and deploys it, the database will be shared. (Run this command to upgrade from Python 3.6 to 3.8. There is a catch-22 if you try upgrading the beiwe-backend environment directly, so you have to clone and swap the URL.)"
 
-CREATE_MANAGER_HELP = "creates a data processing manager for the provided environment"
+CREATE_MANAGER_HELP = "Creates a data processing manager for the provided environment"
 
-CREATE_WORKER_HELP = "creates a data processing worker for the provided environment"
+CREATE_WORKER_HELP = "Creates a data processing worker for the provided environment"
 
 HELP_SETUP_NEW_ENVIRONMENT_HELP = "assists in creation of configuration files for a beiwe environment deployment"
 
-FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP = "sometimes deployment operations fail stating that health checks do not have sufficient permissions, run this command to fix that."
+FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP = "Sometimes deployment operations fail stating that health checks do not have sufficient permissions, run this command to fix that."
 
 DEV_HELP = "Worker and Manager deploy operations will swap the server over to the development branch instead of main (or you can set the branch explicitly by setting the 'DEV_BRANCH' environment variable)."
 

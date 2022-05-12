@@ -9,7 +9,7 @@ config/remote_db_env.py file, formatted like this:
     os.environ['S3_BUCKET'] = 'bucket_name'
 
 For options below that use this syntax:
-    getenv('REPORT_DECRYPTION_KEY_ERRORS', 'false').lower() == 'true'
+    getenv('BLOCK_QUOTA_EXCEEDED_ERROR', 'false').lower() == 'true'
 This means Beiwe is looking for the word 'true' and also accept "True", "TRUE", etc.
 If not provided with a value, or provided with any other value, they will be treated as false.
 """
@@ -47,7 +47,7 @@ SENTRY_JAVASCRIPT_DSN = getenv("SENTRY_JAVASCRIPT_DSN")
 S3_REGION_NAME = getenv("S3_REGION_NAME", "us-east-1")
 
 # Location of the downloadable Android APK file that'll be served from /download
-DOWNLOADABLE_APK_URL = getenv("DOWNLOADABLE_APK_URL", "https://s3.amazonaws.com/beiwe-app-backups/release/Beiwe-2.4.1-onnelaLabServer-release.apk")
+DOWNLOADABLE_APK_URL = getenv("DOWNLOADABLE_APK_URL", "https://beiwe-app-backups.s3.amazonaws.com/release/Beiwe-LATEST-commStatsCustomUrl.apk")
 
 #
 # File processing options
@@ -64,7 +64,7 @@ CONCURRENT_NETWORK_OPS = getenv("CONCURRENT_NETWORK_OPS") or cpu_count() * 2
 # therefore S3 costs), but will use more memory. Individual file size ranges from bytes to tens of
 # megabytes, so memory usage can be spikey and difficult to predict.
 #   Expects an integer number.
-FILE_PROCESS_PAGE_SIZE = getenv("FILE_PROCESS_PAGE_SIZE", 250)
+FILE_PROCESS_PAGE_SIZE = getenv("FILE_PROCESS_PAGE_SIZE", 100)
 
 #
 # Push Notification directives
@@ -86,6 +86,4 @@ BLOCK_QUOTA_EXCEEDED_ERROR = getenv('BLOCK_QUOTA_EXCEEDED_ERROR', 'false').lower
 # Developer debugging settings for working on decryption issues, which are particularly difficult to
 # manage and may require storing [substantially] more data than there is in a Sentry error report.
 #   Expects (case-insensitive) "true" to enable, otherwise it is disabled.
-REPORT_DECRYPTION_KEY_ERRORS = getenv('REPORT_DECRYPTION_KEY_ERRORS', 'false').lower() == 'true'
-STORE_DECRYPTION_KEY_ERRORS = getenv('STORE_DECRYPTION_KEY_ERRORS', 'false').lower() == 'true'
 STORE_DECRYPTION_LINE_ERRORS = getenv('STORE_DECRYPTION_LINE_ERRORS', 'false').lower() == 'true'

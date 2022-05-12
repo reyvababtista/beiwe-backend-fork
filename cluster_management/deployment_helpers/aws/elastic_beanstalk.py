@@ -10,34 +10,34 @@ from deployment_helpers.aws.elastic_beanstalk_configuration import (DynamicParam
 from deployment_helpers.aws.iam import (EnvironmentDeploymentFailure,
     get_or_create_automation_policy, iam_attach_role_policy, iam_create_role,
     iam_find_instance_profile, iam_find_role, IamEntityMissingError, PythonPlatformDiscoveryError)
-from deployment_helpers.aws.rds import (add_eb_environment_to_rds_database_security_group)
+from deployment_helpers.aws.rds import add_eb_environment_to_rds_database_security_group
 from deployment_helpers.aws.s3 import s3_encrypt_bucket
 from deployment_helpers.aws.security_groups import get_security_group_by_name, open_tcp_port
 from deployment_helpers.constants import (AWS_EB_ENHANCED_HEALTH, AWS_EB_MULTICONTAINER_DOCKER,
     AWS_EB_SERVICE, AWS_EB_WEB_TIER, AWS_EB_WORKER_TIER, BEIWE_APPLICATION_NAME,
     EB_INSTANCE_PROFILE_NAME, EB_INSTANCE_PROFILE_ROLE, EB_SEC_GRP_COUNT_ERROR, EB_SERVICE_ROLE,
-    get_elasticbeanstalk_assume_role_policy_document, get_finalized_environment_variables,
-    get_global_config, get_instance_assume_role_policy_document, get_server_configuration_file)
+    get_elasticbeanstalk_assume_role_policy_document, get_finalized_settings_variables,
+    get_global_config, get_instance_assume_role_policy_document, get_server_configuration_variables)
 from deployment_helpers.general_utils import current_time_string, log, retry
 
 
 def construct_eb_environment_variables(eb_environment_name):
     global_config = get_global_config()
     try:
-        environment_variables = get_finalized_environment_variables(eb_environment_name)
+        environment_variables = get_finalized_settings_variables(eb_environment_name)
     except Exception as e:
         log.error("could not get your environment settings.")
         log.error(e)
         raise
 
     try:
-        server_settings = get_server_configuration_file(eb_environment_name)
+        server_settings = get_server_configuration_variables(eb_environment_name)
     except Exception as e:
         log.error("could not get your server settings.")
         log.error(e)
         raise
     # This needs to be a comma separated list of environment variables declared as "var=value"
-    env_var_string = ",".join(["%s=%s" % (k, v) for k, v in environment_variables.items()])
+    env_var_string = ",".join([f"{k}={v}" for k, v in environment_variables.items()])
     generated_configuration_details = {
         "ServiceRole": get_or_create_eb_service_role()['RoleName'],
         "IamInstanceProfile": get_or_create_eb_instance_profile()['Arn'],
@@ -63,17 +63,17 @@ def construct_eb_environment_variables(eb_environment_name):
 ## AWS Accessors
 ##
 
-def get_python36_platform_arn():
-    """ Gets the most recent platform arn for a python 3.6 elastic beanstalk cluster, is region specific.."""
+def get_python38_platform_arn():
+    """ Gets the most recent platform arn for a python 3.8 elastic beanstalk cluster, is region specific.."""
     eb_client = create_eb_client()
     platforms = []
-    botoFilters = [{'Operator': 'contains', 'Type': 'PlatformName', 'Values': ['Python']}]
+    boto_filters = [{'Operator': 'contains', 'Type': 'PlatformName', 'Values': ['Python']}]
     # Note: regardless of the MaxRecords value, we're only seeing boto3 return 100 records max
-    for platform in eb_client.list_platform_versions(MaxRecords=1000, Filters=botoFilters)['PlatformSummaryList']:
+    for platform in eb_client.list_platform_versions(MaxRecords=1000, Filters=boto_filters)['PlatformSummaryList']:
         if (platform.get(
                 'PlatformCategory', None) == 'Python' and
-                "Python 3.6" in platform.get('PlatformArn', []) and
-                "64bit Amazon Linux" in platform.get('PlatformArn', [])
+                "Python 3.8" in platform.get('PlatformArn', []) and
+                "64bit Amazon Linux 2" in platform.get('PlatformArn', [])
         ):
             platforms.append(platform['PlatformArn'])
 
@@ -84,10 +84,10 @@ def get_python36_platform_arn():
     platforms.sort()
 
     if len(platforms) == 0:
-        raise PythonPlatformDiscoveryError("could not find python 3.6 platform")
+        raise PythonPlatformDiscoveryError("could not find python 3.8 platform")
     if len(platforms) > 1:
         log.error("\n***********************************************************\n"
-                  "Warning: encountered multiple Python 3.6 Elastic Beanstalk environment platforms.\n"
+                  "Warning: encountered multiple Python 3.8 Elastic Beanstalk environment platforms.\n"
                   "Beiwe did its best to automatically determine which environment to use.\n"
                   "After deployment finishes, determine whether there is a platform upgrade you can\n"
                   "apply for this cluster.\n"
@@ -278,7 +278,7 @@ def create_eb_environment(eb_environment_name, without_db=False):
             ApplicationName=BEIWE_APPLICATION_NAME,
             EnvironmentName=eb_environment_name,
             Description='elastic beanstalk beiwe cluster',
-            PlatformArn=get_python36_platform_arn(),
+            PlatformArn=get_python38_platform_arn(),
             OptionSettings=option_settings,
             # VersionLabel='string',  # TODO: this will probably be required later?
 

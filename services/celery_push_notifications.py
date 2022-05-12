@@ -8,9 +8,11 @@ from firebase_admin.messaging import (AndroidConfig, Message, Notification, Quot
     send as send_notification, SenderIdMismatchError, ThirdPartyAuthError, UnregisteredError)
 from typing import Dict, List
 
-from config.constants import API_TIME_FORMAT, PUSH_NOTIFICATION_SEND_QUEUE, ScheduleTypes
 from config.settings import BLOCK_QUOTA_EXCEEDED_ERROR, PUSH_NOTIFICATION_ATTEMPT_COUNT
-from config.study_constants import OBJECT_ID_ALLOWED_CHARS
+from constants.celery_constants import PUSH_NOTIFICATION_SEND_QUEUE, ScheduleTypes
+from constants.common_constants import API_TIME_FORMAT
+from constants.participant_constants import ANDROID_API
+from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from database.schedule_models import ArchivedEvent, ParticipantMessage, ParticipantMessageStatus, ParticipantMessageScheduleType, ScheduledEvent
 from database.user_models import Participant, ParticipantFCMHistory, PushNotificationDisabledEvent
 from libs.celery_control import push_send_celery_app, safe_apply_async
@@ -138,14 +140,14 @@ def send_push_notification(
         if not check_firebase_instance():
             print("Firebase credentials are not configured.")
             return
-
+        
         # use the earliest timed schedule as our reference for the sent_time parameter.  (why?)
         fcm_token = participant.get_fcm_token().token
         if schedule_pks is not None:
             schedules = participant.scheduled_events.filter(id__in=schedule_pks).prefetch_related('survey')
 
         try:
-            if participant.os_type == Participant.ANDROID_API:
+            if participant.os_type == ANDROID_API:
                 message = Message(
                     android=AndroidConfig(data=notification_data, priority='high'), token=fcm_token,
                 )
@@ -164,7 +166,7 @@ def send_push_notification(
             # Mark the fcm history as out of date, return early.
             ParticipantFCMHistory.objects.filter(token=fcm_token).update(unregistered=timezone.now())
             return
-
+        
         except QuotaExceededError as e:
             # Limits are very high, this should be impossible. Reraise because this requires
             # sysadmin attention and probably new development to allow multiple firebase
@@ -175,7 +177,7 @@ def send_push_notification(
                 return
             else:
                 raise
-
+        
         except ThirdPartyAuthError as e:
             print("\nThirdPartyAuthError\n")
             if schedule_pks:
@@ -186,16 +188,17 @@ def send_push_notification(
             if str(e) != "Auth error from APNS or Web Push Service":
                 raise
             return
-
+        
         except SenderIdMismatchError as e:
-            # TODO: need text of error message certainty of multiple similar error cases.
-            # (but behavior shouldn't be broken anymore, failed_send_handler executes.)
+            # In order to enhance this section we will need exact text of error messages to handle
+            # similar error cases. (but behavior shouldn't be broken anymore, failed_send_handler
+            # executes.)
             print("\nSenderIdMismatchError:\n")
             print(e)
             if schedule_pks:
                 failed_send_handler(participant, fcm_token, str(e), schedules)
             return
-
+        
         except ValueError as e:
             print("\nValueError\n")
             print(e)
@@ -207,7 +210,7 @@ def send_push_notification(
                 return
             else:
                 raise
-
+        
         except Exception as e:
             if schedule_pks:
                 failed_send_handler(participant, fcm_token, str(e), schedules)
@@ -220,16 +223,16 @@ def success_send_handler(participant: Participant, fcm_token: str, schedules: Li
     # If the query was successful archive the schedules.  Clear the fcm unregistered flag
     # if it was set (this shouldn't happen. ever. but in case we hook in a ui element we need it.)
     print(f"Push notification send succeeded for {participant.patient_id}.")
-
+    
     # this condition shouldn't occur.  Leave in, this case would be super stupid to diagnose.
-    fcm_hist = ParticipantFCMHistory.objects.get(token=fcm_token)
+    fcm_hist: ParticipantFCMHistory = ParticipantFCMHistory.objects.get(token=fcm_token)
     if fcm_hist.unregistered is not None:
         fcm_hist.unregistered = None
         fcm_hist.save()
-
+    
     participant.push_notification_unreachable_count = 0
     participant.save()
-
+    
     create_archived_events(schedules, success=True, status=ArchivedEvent.SUCCESS)
     enqueue_weekly_surveys(participant, schedules)
 
@@ -239,31 +242,31 @@ def failed_send_handler(
 ):
     """ Contains body of code for unregistering a participants push notification behavior.
         Participants get reenabled when they next touch the app checkin endpoint. """
-
+    
     if participant.push_notification_unreachable_count >= PUSH_NOTIFICATION_ATTEMPT_COUNT:
         now = timezone.now()
-        fcm_hist = ParticipantFCMHistory.objects.get(token=fcm_token)
+        fcm_hist: ParticipantFCMHistory = ParticipantFCMHistory.objects.get(token=fcm_token)
         fcm_hist.unregistered = now
         fcm_hist.save()
-
+        
         PushNotificationDisabledEvent(
             participant=participant, timestamp=now, count=participant.push_notification_unreachable_count
         ).save()
-
+        
         # disable the credential
         participant.push_notification_unreachable_count = 0
         participant.save()
-
+        
         print(f"Participant {participant.patient_id} has had push notifications "
               f"disabled after {PUSH_NOTIFICATION_ATTEMPT_COUNT} failed attempts to send.")
-
+    
     else:
         now = None
         participant.push_notification_unreachable_count += 1
         participant.save()
         print(f"Participant {participant.patient_id} has had push notifications failures "
               f"incremented to {participant.push_notification_unreachable_count}.")
-
+    
     create_archived_events(schedules, success=False, created_on=now, status=error_message)
     enqueue_weekly_surveys(participant, schedules)
 

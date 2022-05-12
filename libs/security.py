@@ -7,25 +7,19 @@ from binascii import Error as base64_error
 from hashlib import pbkdf2_hmac as pbkdf2
 from os import urandom
 
-from flask import flash
-
-from config.constants import ITERATIONS, PASSWORD_REQUIREMENT_REGEX_LIST
-from config.settings import FLASK_SECRET_KEY
-from config.study_constants import EASY_ALPHANUMERIC_CHARS
+from constants.message_strings import NEW_PASSWORD_8_LONG, NEW_PASSWORD_RULES_FAIL
+from constants.security_constants import (EASY_ALPHANUMERIC_CHARS, ITERATIONS,
+    PASSWORD_REQUIREMENT_REGEX_LIST)
 
 
-# seed the random number subsystem with some good entropy.
+# Seed the random number subsystem with some good entropy.
+# This is a security measure, it happens once at import, don't remove.
 random.seed(urandom(256))
 
 
 class DatabaseIsDownError(Exception): pass
 class PaddingException(Exception): pass
 class Base64LengthException(Exception): pass
-
-
-def set_secret_key(app):
-    """grabs the Flask secret key"""
-    app.secret_key = FLASK_SECRET_KEY
 
 
 ################################################################################
@@ -74,17 +68,17 @@ def decode_base64(data: bytes) -> bytes:
         length = len(data.strip(b"="))
         if length % 4 != 0:
             raise Base64LengthException(f"Data provided had invalid length {length} after padding was removed.")
-
-        if "incorrect padding" in str(e).lower():
+        
+        if "incorrect padding" in str(e).lower() or "number of data characters" in str(e).lower():
             # str(data) here is correct, we need a representation of the data, not the raw data.
             raise PaddingException(f'{str(e)} -- "{str(data)}"')
-
+        
         raise
 
 
 def generate_user_hash_and_salt(password: bytes) -> (bytes, bytes):
     """ Generates a hash and salt that will match a given input string, and also
-        matches the hashing that is done on a user's device. 
+        matches the hashing that is done on a user's device.
         Input is anticipated to be any arbitrary string."""
     salt = encode_base64(urandom(16))
     password = device_hash(password)
@@ -131,29 +125,24 @@ def generate_admin_password_and_salt() -> (bytes, bytes, bytes):
 ############################### Random #########################################
 ################################################################################
 
-def generate_easy_alphanumeric_string() -> str:
+def generate_easy_alphanumeric_string(length: int = 8) -> str:
     """
     Generates an "easy" alphanumeric (lower case) string of length 8 without the 0 (zero)
     character. This is a design decision, because users will have to type in the "easy"
     string on mobile devices, so we have made this a string that is easy to type and
     easy to distinguish the characters of (e.g. no I/l, 0/o/O confusion).
     """
-    return ''.join(random.choice(EASY_ALPHANUMERIC_CHARS) for _ in range(8))
+    return ''.join(random.choice(EASY_ALPHANUMERIC_CHARS) for _ in range(length))
 
 
 def generate_random_string() -> bytes:
     return encode_generic_base64(hashlib.sha512(urandom(16)).digest())
 
 
-def check_password_requirements(password, flash_message=False) -> bool:
+def check_password_requirements(password) -> (bool, str):
     if len(password) < 8:
-        if flash_message:
-            flash("Your New Password must be at least 8 characters long.", "danger")
-        return False
+        return False, NEW_PASSWORD_8_LONG
     for regex in PASSWORD_REQUIREMENT_REGEX_LIST:
         if not re.search(regex, password):
-            if flash_message:
-                flash("Your New Password must contain at least one symbol, one number, "
-                      "one lowercase, and one uppercase character.", "danger")
-            return False
-    return True
+            return False, NEW_PASSWORD_RULES_FAIL
+    return True, None

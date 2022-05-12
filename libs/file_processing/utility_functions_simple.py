@@ -2,9 +2,17 @@ from typing import List
 
 import zstd
 
-from config.constants import (CHUNK_TIMESLICE_QUANTUM, IDENTIFIERS, IOS_LOG_FILE,
-    UPLOAD_FILE_TYPE_MAPPING)
-from libs.file_processing.utility_functions_csvs import (clean_java_timecode, unix_time_to_string)
+from constants.data_processing_constants import CHUNK_TIMESLICE_QUANTUM
+from constants.data_stream_constants import IDENTIFIERS, IOS_LOG_FILE, UPLOAD_FILE_TYPE_MAPPING
+from libs.file_processing.utility_functions_csvs import clean_java_timecode, unix_time_to_string
+
+
+def normalize_s3_file_path(s3_file_path: str) -> str:
+    if "duplicate" in s3_file_path:
+        # duplicate files are named blahblah/datastream/unixtime.csv-duplicate-[rando-string]
+        return s3_file_path.split("-duplicate")[0]
+    else:
+        return s3_file_path
 
 
 def s3_file_path_to_data_type(file_path: str):
@@ -12,6 +20,7 @@ def s3_file_path_to_data_type(file_path: str):
     # a dumb mistake ages ago the identifiers file has an underscore where it should have a
     # slash, and we have to handle that case.  Also, it looks like we are hitting that case with
     # the identifiers file separately but without any slashes in it, sooooo we need to for-else.
+    file_path = normalize_s3_file_path(file_path)
     for file_piece in file_path.split('/'):
         data_type = UPLOAD_FILE_TYPE_MAPPING.get(file_piece, None)
         if data_type and "identifiers" in data_type:
@@ -25,7 +34,12 @@ def s3_file_path_to_data_type(file_path: str):
             return IOS_LOG_FILE
     # If no data type has been selected; i.e. if none of the data types are present in file_path,
     # raise an error
-    raise Exception("data type unknown: %s" % file_path)
+    raise Exception(f"data type unknown: {file_path}")
+
+
+def resolve_survey_id_from_file_name(name: str) -> str:
+    name = normalize_s3_file_path(name)
+    return name.rsplit("/", 2)[1]
 
 
 def ensure_sorted_by_timestamp(l: list):
@@ -65,11 +79,7 @@ def binify_from_timecode(unix_ish_time_code_string: bytes) -> int:
     """ Takes a unix-ish time code (accepts unix millisecond), and returns an
         integer value of the bin it should go in. """
     actually_a_timecode = clean_java_timecode(unix_ish_time_code_string)  # clean java time codes...
-    return actually_a_timecode // CHUNK_TIMESLICE_QUANTUM #separate into nice, clean hourly chunks!
-
-
-def resolve_survey_id_from_file_name(name: str) -> str:
-    return name.rsplit("/", 2)[1]
+    return actually_a_timecode // CHUNK_TIMESLICE_QUANTUM  # separate into nice, clean hourly chunks!
 
 
 def compress(data: bytes) -> bytes:

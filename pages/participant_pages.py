@@ -1,9 +1,6 @@
 from datetime import date, datetime
 from typing import Dict
 
-# FIXME: remove these Flask imports
-from flask import abort, Blueprint, flash, redirect, render_template, request, url_for
-
 from django.contrib import messages
 from django.core.paginator import EmptyPage, Paginator
 from django.db import transaction
@@ -201,77 +198,83 @@ def get_notification_details(archived_event: Dict, study_timezone: str, survey_n
     return notification
 
 
-# FIXME: convert this function from Flask to Django
-@participant_pages.route("/studies/<string:study_object_id>/participants/<string:participant_patient_id>/messages/schedule", methods=["GET", "POST"])
+@require_http_methods(['GET', 'POST'])
 @authenticate_researcher_study_access
-def schedule_message(study_object_id, participant_patient_id):
-    participant = Participant.get_or_404(
-        patient_id=participant_patient_id,
-        study__object_id=study_object_id,
-    )
+def schedule_message(request: ResearcherRequest, study_id: int, patient_id: str):
+    participant = get_object_or_404(Participant, patient_id=patient_id)
+    study = get_object_or_404(Study, pk=study_id)
+    # TODO: confirm that participant and study match
+    # TODO: check that request.values and request.method work
     form = ParticipantMessageForm(request.values or None, participant=participant)
     if request.method == "GET":
-        return render_schedule_message(form, participant)
+        return render_schedule_message(request, form, participant)
     if not form.is_valid():
-        return render_schedule_message(form, participant)
+        return render_schedule_message(request, form, participant)
     form.save()
-    flash(
-        f"Your message to participant \"{participant.patient_id}\" was successfully scheduled.",
-        "success",
+    messages.success(
+        request,
+        f"Your message to participant \"{participant.patient_id}\" was successfully scheduled."
     )
     return redirect(
-        url_for(
-            "participant_pages.participant",
-            patient_id=participant.patient_id,
+        easy_url(
+            "participant_pages.participant_page",
             study_id=participant.study_id,
+            patient_id=participant.patient_id,
         )
     )
 
   
 # FIXME: convert this function from Flask to Django
-def render_schedule_message(form, participant):
-    return render_template(
+def render_schedule_message(request, form, participant):
+    return render(
+        request,
         "participant_message.html",
-        form=form,
-        participant=participant,
+        context=dict(
+            form=form,
+            participant=participant,
+        )
     )
 
 
 # FIXME: convert this function from Flask to Django
-@participant_pages.route("/studies/<string:study_object_id>/messages/<string:participant_message_uuid>/cancel", methods=["POST"])
+@require_http_methods(['GET', 'POST'])
 @authenticate_researcher_study_access
-def cancel_message(study_object_id, participant_message_uuid):
+def cancel_message(request: ResearcherRequest, study_id: int, patient_id: str, participant_message_uuid):
+    # TODO: confirm that participant and study match
     with transaction.atomic():
         # Lock to prevent message from being sent while we're cancelling (or cancelling while it's
         # being sent)
         try:
             participant_message = ParticipantMessage.objects.select_for_update().get(
                 uuid=participant_message_uuid,
-                participant__study__object_id=study_object_id,
+                participant__study__id=study_id,
             )
         except ParticipantMessage.DoesNotExist:
-            flash("Sorry, could not find the message specified.", "yellow")
+            messages.warning(request, "Sorry, could not find the message specified.")
         else:
             if participant_message.status == ParticipantMessageStatus.sent:
-                flash("Sorry, could not cancel because the message was already sent.", "danger")
+                messages.danger(
+                    request,
+                    "Sorry, could not cancel because the message was already sent."
+                )
             elif participant_message.status == ParticipantMessageStatus.error:
-                flash(
-                    "Sorry, could not cancel because the message status is \"error\" and it may have "
-                    "already been sent.",
-                    "danger",
+                messages.danger(
+                    request,
+                    "Sorry, could not cancel because the message status is \"error\" and it may "
+                    "have already been sent."
                 )
             elif participant_message.status in ParticipantMessageStatus.scheduled:
                 if participant_message.status == ParticipantMessageStatus.scheduled:
                     participant_message.status = ParticipantMessageStatus.cancelled
                     participant_message.save(update_fields=["status"])
-                flash("The message was successfully cancelled.", "success")
+                messages.success(request, "The message was successfully cancelled.")
             elif participant_message.status in ParticipantMessageStatus.cancelled:
-                flash("The message was successfully cancelled.", "success")
+                messages.success(request, "The message was successfully cancelled.")
     return redirect(
-        url_for(
-            "participant_pages.participant",
-            patient_id=participant_message.participant.patient_id,
+        easy_url(
+            "participant_pages.participant_page",
             study_id=participant_message.participant.study_id,
+            patient_id=participant_message.participant.patient_id,
         )
     )
 

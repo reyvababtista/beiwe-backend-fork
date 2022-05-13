@@ -17,7 +17,7 @@ from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
 from database.user_models import Participant, ParticipantFieldValue
 from libs.internal_types import ResearcherRequest
-from libs.intervention_export import intervention_survey_data
+from libs.intervention_export import intervention_survey_data, survey_history_export
 
 
 @require_GET
@@ -83,6 +83,20 @@ def download_study_interventions(request: ResearcherRequest, study_id=None):
         filename=f"{study.object_id}_intervention_data.json",
     )
     fr.set_headers(None)  # django is kinda stupid? buh?
+    return fr
+
+
+@require_http_methods(['GET', 'POST'])
+@authenticate_researcher_study_access
+def download_study_survey_history(request: ResearcherRequest, study_id=None):
+    study = get_object_or_404(Study, id=study_id)
+    fr = FileResponse(
+        survey_history_export(study).decode(),  # okay, whatever, it needs to be a string, not bytes
+        content_type="text/json",
+        as_attachment=True,
+        filename=f"{study.object_id}_surveys_history_data.json",
+    )
+    fr.set_headers(None)  # django is still stupid?
     return fr
 
 

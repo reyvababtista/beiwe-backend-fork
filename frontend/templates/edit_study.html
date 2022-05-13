@@ -101,9 +101,7 @@
     </form>
   </div>
 
-  <br><br><br>
-
-  <div class="col-xs-12 well well-lg">
+  <div class="col-xs-12 well">
     <div class="col-xs-3" >
       <h2>App settings</h2>
     </div>
@@ -116,39 +114,51 @@
     </div>
   </div>
 
-  <br><br><br>
-  <div class="col-xs-4 well">
-    <h2  class="pull-left">Toggle Forest</h2>
-    
+  <div class="col-xs-12 well">
+    <h2 class="pull-left col-xs-3">Toggle Forest</h2>
+    <div class="col-xs-7 h2-middle-margins-vertical text-center">
+      Enable or disable whether forest analyses are runnable for this study.
+    </div>
     <form action="/toggle_study_forest_enabled/{{ study.id }}" method="post">
       {% if study.forest_enabled %}
-        <span class="pull-right h2-margins-vertical">
+        <div class="pull-right h2-margins-vertical">
           <button class="btn btn-danger" type="submit">Disable Forest</button>
-        </span>
-      {% else %}
-        <span class="pull-right h2-margins-vertical">
+        </div>
+        {% else %}
+        <div class="pull-right h2-margins-vertical">
           <button class="btn btn-success" type="submit">Enable Forest</button>
-        </span>
+        </div>
       {% endif %}
     </form>
     {% comment %} <p>Forest is currently {% if study.forest_enabled %}enabled{% else %}disabled{% endif %}.</p> {% endcomment %}
   </div>
 
-  <div class="col-xs-8 well">
+  <div class="col-xs-12 well">
     <h2 class="pull-left"> Intervention Data</h2>
+    <div class="pull-right h2-margins-vertical">
     <form action="{{ easy_url("study_api.download_study_interventions", study_id=study.id) }}" method="post">
-      <div class="pull-right h3-margins-vertical">
         <button class="btn btn-success" type="submit">Download Interventions</button>
       </div>
     </form>
-    <div class="col-lg-5 h3-margins-vertical text-center">
+    <div class="col-lg-7 h2-middle-margins-vertical text-center">
       Download a JSON representation of interventions for all users on this study.
     </div>
   </div>
 
-  <br><br><br>
+  <div class="col-xs-12 well">
+    <h2 class="pull-left">Survey History</h2>
+    <div class="col-lg-8 h2-middle-margins-vertical text-center">
+      Download a JSON representation of the entire history of changes to surveys.
+    </div>
+    <form action="{{ easy_url("study_api.download_study_survey_history", study_id=study.id) }}" method="post">
+      <div class="pull-right h3-margins-vertical">
+        <button class="btn btn-success" type="submit">Download Surveys</button>
+      </div>
+    </form>
+  </div>
 
-  <div class="col-lg-12 well">
+
+  <div class="col-xs-12 well">
     <h2>Set Study Timezone</h2>
     <form action="/set_study_timezone/{{ study.id }}" method="post">
       <div class="col-xs-10">
@@ -169,8 +179,8 @@
             Additionally, Forest's daily summary statistics are calculated within the study's time zone.  Changing the time zone here will NOT recalculate existing data.
           </h5>
         </div>
+      </form>
       </div>
-    </form>
 
     <div class="col-xs-12 well">
       <h2 class="col-xs-12">Rename study</h2>

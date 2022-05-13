@@ -24,7 +24,6 @@ from libs.participant_file_uploads import (upload_and_create_file_to_process_and
     upload_problem_file)
 from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
 from libs.s3 import get_client_public_key_string, s3_upload
-from libs.security import generate_easy_alphanumeric_string
 from libs.sentry import make_sentry_client, SentryTypes
 from middleware.abort_middleware import abort
 
@@ -304,10 +303,6 @@ def contains_valid_extension(file_name: str):
     """ Checks if string has a recognized file extension, this is not necessarily limited to 4 characters. """
     return '.' in file_name and grab_file_extension(file_name) in ALLOWED_EXTENSIONS
 
-
-def s3_duplicate_name(s3_file_path: str):
-    """ when duplicates occur we add this string onto the end and try to proceed as normal. """
-    return s3_file_path + "-duplicate-" + generate_easy_alphanumeric_string(10)
 
 ################################################################################
 ################################# DOWNLOAD #####################################

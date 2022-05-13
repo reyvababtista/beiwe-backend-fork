@@ -60,7 +60,7 @@ class FalseCeleryApp:
         into our stored function. """
         print(f"apply_async running, args:{args}, kwargs:{kwargs}")
         if "args" not in kwargs:
-            raise FalseCeleryAppError("'args' was not present?")
+            return self.an_function()
         return self.an_function(*kwargs["args"])
 
 

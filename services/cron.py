@@ -6,10 +6,13 @@ path.insert(0, abspath(__file__).rsplit('/', 2)[0])
 
 # start actual cron-related code here
 from sys import argv
+
 from cronutils import run_tasks
+
 from services.celery_data_processing import create_file_processing_tasks
-from services.celery_push_notifications import create_push_notification_tasks
 from services.celery_forest import create_forest_celery_tasks
+from services.celery_push_notifications import create_push_notification_tasks
+from services.scripts_runner import create_process_ios_no_decryption_key_task
 
 FIVE_MINUTES = "five_minutes"
 HOURLY = "hourly"
@@ -21,7 +24,7 @@ VALID_ARGS = [FIVE_MINUTES, HOURLY, FOUR_HOURLY, DAILY, WEEKLY, MONTHLY]
 
 TASKS = {
     FIVE_MINUTES: [create_file_processing_tasks, create_push_notification_tasks, create_forest_celery_tasks],
-    HOURLY: [],
+    HOURLY: [create_process_ios_no_decryption_key_task],
     FOUR_HOURLY: [],
     DAILY: [],
     WEEKLY: [],
@@ -49,4 +52,3 @@ if __name__ == "__main__":
             run_tasks(TASKS[cron_type], TIME_LIMITS[cron_type], cron_type)
     else:
         raise Exception("Invalid argument to cron\n")
-

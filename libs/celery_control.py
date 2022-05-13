@@ -7,7 +7,7 @@ from django.utils import timezone
 from kombu.exceptions import OperationalError
 
 from constants.celery_constants import (CELERY_CONFIG_LOCATION, DATA_PROCESSING_CELERY_SERVICE,
-    FOREST_SERVICE, PUSH_NOTIFICATION_SEND_SERVICE)
+    FOREST_SERVICE, PUSH_NOTIFICATION_SEND_SERVICE, SCRIPTS_SERVICE)
 
 
 def safe_apply_async(a_task_for_a_celery_queue, *args, **kwargs):
@@ -101,7 +101,7 @@ def instantiate_celery_app_connection(service_name: str) -> Celery or FalseCeler
 processing_celery_app = instantiate_celery_app_connection(DATA_PROCESSING_CELERY_SERVICE)
 push_send_celery_app = instantiate_celery_app_connection(PUSH_NOTIFICATION_SEND_SERVICE)
 forest_celery_app = instantiate_celery_app_connection(FOREST_SERVICE)
-
+scripts_celery_app = instantiate_celery_app_connection(SCRIPTS_SERVICE)
 
 #
 # The remaining functions are helpers for use in a live shell session on a machine running celery.

@@ -1,5 +1,5 @@
-from constants.celery_constants import FOREST_QUEUE
-from libs.celery_control import forest_celery_app, safe_apply_async
+from constants.celery_constants import SCRIPTS_QUEUE
+from libs.celery_control import safe_apply_async, scripts_celery_app
 from libs.sentry import make_error_sentry, SentryTypes
 
 
@@ -10,7 +10,7 @@ def create_process_ios_no_decryption_key_task():
 
 
 #run via celery as long as tasks exist
-@forest_celery_app.task(queue=FOREST_QUEUE)
+@scripts_celery_app.task(queue=SCRIPTS_QUEUE)
 def celery_process_ios_no_decryption_key():
     with make_error_sentry(sentry_type=SentryTypes.data_processing):
         print("running ios bad decryption keys script.")

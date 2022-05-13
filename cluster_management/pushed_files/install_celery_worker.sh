@@ -75,6 +75,19 @@ logfile_backups = 1
 stopasgroup = true
 startsecs = 5
 
+[program:script_tasks]
+# the queue and app names are declared in constants.py.
+directory = /home/ubuntu/beiwe-backend/
+command = /home/ubuntu/.pyenv/versions/beiwe/bin/python -m celery -A services.celery_scripts worker -Q scripts_queue --loglevel=info -Ofair --hostname=%%h_scripts --autoscale=10,2
+stdout_logfile = /home/ubuntu/celery_scripts.log
+stderr_logfile = /home/ubuntu/celery_scripts.log
+autostart = true
+logfile_maxbytes = 10MB
+logfile_backups = 1
+#stopwaitsecs = 30
+stopasgroup = true
+startsecs = 5
+
 [program:celery_push_send]
 # the queue and app names are declared in constants.py.
 directory = /home/ubuntu/beiwe-backend/

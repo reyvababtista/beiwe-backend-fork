@@ -3,15 +3,6 @@ from os.path import join as path_join
 from constants.common_constants import BEIWE_PROJECT_ROOT
 
 
-# Celery Constants
-DATA_PROCESSING_CELERY_SERVICE = "services.celery_data_processing"
-DATA_PROCESSING_CELERY_QUEUE = "data_processing"
-PUSH_NOTIFICATION_SEND_SERVICE = "services.push_notification_send"
-PUSH_NOTIFICATION_SEND_QUEUE = "push_notifications"
-FOREST_SERVICE = "services.celery_forest"
-FOREST_QUEUE = "forest_queue"
-
-
 class ScheduleTypes(object):
     absolute = "absolute"
     relative = "relative"
@@ -20,11 +11,21 @@ class ScheduleTypes(object):
     @classmethod
     def choices(cls):
         return (
-            (cls.absolute, "Absolute Schedule"),
+            (cls.absolute, "Absolute Schedule"), 
             (cls.relative, "Relative Schedule"),
             (cls.weekly, "Weekly Schedule")
         )
 
+
+# Celery Constants
+DATA_PROCESSING_CELERY_SERVICE = "services.celery_data_processing"
+DATA_PROCESSING_CELERY_QUEUE = "data_processing"
+PUSH_NOTIFICATION_SEND_SERVICE = "services.push_notification_send"
+PUSH_NOTIFICATION_SEND_QUEUE = "push_notifications"
+FOREST_SERVICE = "services.celery_forest"
+FOREST_QUEUE = "forest_queue"
+SCRIPTS_SERVICE = "services.celery_scripts"
+SCRIPTS_QUEUE = "scripts_queue"
 
 CELERY_CONFIG_LOCATION = path_join(BEIWE_PROJECT_ROOT, "manager_ip")
 

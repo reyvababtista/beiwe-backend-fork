@@ -24,7 +24,7 @@ PUSH_NOTIFICATION_SEND_SERVICE = "services.push_notification_send"
 PUSH_NOTIFICATION_SEND_QUEUE = "push_notifications"
 FOREST_SERVICE = "services.celery_forest"
 FOREST_QUEUE = "forest_queue"
-SCRIPTS_SERVICE = "services.celery_scripts"
+SCRIPTS_SERVICE = "services.scripts_runner"
 SCRIPTS_QUEUE = "scripts_queue"
 
 CELERY_CONFIG_LOCATION = path_join(BEIWE_PROJECT_ROOT, "manager_ip")

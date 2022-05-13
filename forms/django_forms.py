@@ -41,7 +41,7 @@ class AuthenticationForm(forms.Form):
 class CreateTasksForm(forms.Form):
     date_start = forms.DateField()
     date_end = forms.DateField()
-    participant_patient_ids = CommaSeparatedListCharField()
+    participant_patient_ids = CommaSeparatedListCharField()  # not actually a comma separated field
     trees = CommaSeparatedListChoiceField(choices=ForestTree.choices())
     
     def __init__(self, *args, **kwargs):
@@ -57,7 +57,7 @@ class CreateTasksForm(forms.Form):
             self.add_error("date_start", "date start was not provided.")
         if "date_end" not in cleaned_data or "date_start" not in cleaned_data:
             return
-
+        
         if cleaned_data["date_end"] < cleaned_data["date_start"]:
             error_message = "Start date must be before or the same as end date."
             self.add_error("date_start", error_message)
@@ -68,15 +68,17 @@ class CreateTasksForm(forms.Form):
         Filter participants to those who are registered in this study and specified in this field
         (instead of raising a ValidationError if an invalid or non-study patient id is specified).
         """
-        patient_ids = self.cleaned_data["participant_patient_ids"]
+        # TODO: this field is very weird and not using the CommaSeparatedListCharField?
+        # need to use getlist to access the many values in the multidict
+        patient_ids = self.data.getlist("participant_patient_ids")
         participants = (
             Participant
                 .objects
                 .filter(patient_id__in=patient_ids, study=self.study)
                 .values("id", "patient_id")
         )
+        # get database ids and patient ids
         self.cleaned_data["participant_ids"] = [participant["id"] for participant in participants]
-        
         return [participant["patient_id"] for participant in participants]
     
     def save(self):

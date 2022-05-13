@@ -2,6 +2,8 @@ from collections import defaultdict
 from datetime import date
 from typing import Dict
 
+import orjson
+
 from database.schedule_models import InterventionDate, RelativeSchedule
 from database.study_models import Study
 
@@ -36,3 +38,20 @@ def intervention_survey_data(study: Study) -> Dict[str, Dict[str, Dict[str, str]
     for k1 in final_data:
         final_data[k1] = dict(final_data[k1])
     return final_data
+
+
+def survey_history_export(study: Study):
+    survey_archives = defaultdict(list)
+    # get every survey archive for every survey in a study.
+    # There isn't enough study data to bother to further optimize this down to one query
+    # profiled: longest time on production was 0.15 seconds.
+    for survey in study.surveys.all():
+        query_list = list(
+            survey.archives.order_by("archive_start").values("archive_start", "content")
+        )
+        # we unpack the json of the survey object here.
+        for survey_archive_dict in query_list:
+            survey_archive_dict["survey_json"] = orjson.loads(survey_archive_dict.pop("content"))
+        survey_archives[survey.object_id].extend(query_list)
+    
+    return orjson.dumps(survey_archives)

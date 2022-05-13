@@ -2,8 +2,8 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.http.response import HttpResponse
 from django.utils import timezone
-from config.settings import UPLOAD_LOGGING_ENABLED
 
+from config.settings import UPLOAD_LOGGING_ENABLED
 from constants.common_constants import PROBLEM_UPLOADS
 from constants.message_strings import (S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR_1,
     S3_FILE_PATH_UNIQUE_CONSTRAINT_ERROR_2)
@@ -80,3 +80,8 @@ def upload_problem_file(
         tag=f"problem_upload_file_{exception.__class__.__name__}",
         note=note,
     )
+
+
+def s3_duplicate_name(s3_file_path: str):
+    """ when duplicates occur we add this string onto the end and try to proceed as normal. """
+    return s3_file_path + "-duplicate-" + generate_easy_alphanumeric_string(10)

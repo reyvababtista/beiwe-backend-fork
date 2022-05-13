@@ -15,4 +15,4 @@ def celery_process_ios_no_decryption_key():
     with make_error_sentry(sentry_type=SentryTypes.data_processing):
         print("running ios bad decryption keys script.")
         from scripts import process_ios_no_decryption_key  # noqa
-        exit()  # this is the easiest way to fix the need to reload the import.
+    exit(0)  # this is the easiest way to fix the need to reload the import.

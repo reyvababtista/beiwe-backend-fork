@@ -19,6 +19,9 @@ if DB_MODE == DB_MODE_SQLITE:
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': join(BEIWE_PROJECT_ROOT, "private/beiwe_db.sqlite"),
             'CONN_MAX_AGE': None,
+            'TEST': {
+                'NAME': join(BEIWE_PROJECT_ROOT, "private/beiwe_test_db.sqlite"),
+            },
         },
     }
 elif DB_MODE == DB_MODE_POSTGRES:

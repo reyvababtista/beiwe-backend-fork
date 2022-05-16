@@ -98,7 +98,7 @@ class TestChooseStudy(ResearcherSessionTest):
     def test_1_study(self):
         self.set_session_study_relation(ResearcherRole.researcher)
         resp = self.smart_get_status_code(302)
-        self.assert_(resp.url, easy_url("admin_pages.view_study", study_id=self.session_study.id))
+        self.assertEqual(resp.url, easy_url("admin_pages.view_study", study_id=self.session_study.id))
     
     def test_no_study(self):
         self.set_session_study_relation(None)

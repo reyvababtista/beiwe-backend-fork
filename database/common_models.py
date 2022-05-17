@@ -4,6 +4,7 @@ import json
 from random import choice as random_choice
 
 from django.db import models
+from django.db.models.fields import NOT_PROVIDED
 from django.db.models.fields.related import RelatedField
 
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
@@ -52,7 +53,25 @@ class UtilityModel(models.Model):
     def as_dict(self):
         """ Provides a dictionary representation of the object """
         return {field.name: getattr(self, field.name) for field in self._meta.fields}
-    
+
+    @classmethod
+    def summary(cls):
+        for field in sorted(cls._meta.fields, key=lambda x: x.name):
+            if field.is_relation:
+                print(f"{field.name} - {type(field).__name__} - {field.related_model.__name__}")
+            else:
+                print(f"{field.name} - {type(field).__name__}")
+            
+            info = []
+            
+            if field.blank: info.append("blank")
+            if field.null: info.append("null")
+            if field.db_index: info.append("db_index")
+            if field.default != NOT_PROVIDED: info.append(f'default: {field.default}')
+            if info:
+                print("\t", ", ".join(info), "\n", sep="")
+            else: print()
+
     @property
     def _contents(self):
         """ Convenience purely because this is the syntax used on some other projects """

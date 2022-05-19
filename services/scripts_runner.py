@@ -24,7 +24,7 @@ def celery_process_ios_no_decryption_key():
 def create_task_upload_logs():
     with make_error_sentry(sentry_type=SentryTypes.data_processing):
         print("Queueing log upload script.")
-        safe_apply_async(celery_process_ios_no_decryption_key)
+        safe_apply_async(celery_upload_logs)
 
 
 #run via celery as long as tasks exist

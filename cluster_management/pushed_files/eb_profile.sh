@@ -15,6 +15,8 @@ source /var/app/venv/*/bin/activate
 cd /var/app
 cd /var/app/current
 
+export EDITOR='nano'
+
 alias db='cd /var/app/current; python /var/app/current/manage.py shell_plus'
 alias restart='sudo killall -s 1 supervisord; htop -u apache'
 

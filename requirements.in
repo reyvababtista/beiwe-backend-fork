@@ -2,7 +2,7 @@
 Django==3.2.13
 firebase-admin==4.5.1
 Jinja2==3.1.1
-zstd==1.5.0.4  # This one seems to require manual pinning, version 1.5+ contains performance improvements
+zstd==1.5.2.5  # This one seems to require manual pinning, version 1.5+ contaicns performance improvements
 orjson==3.6.7
 
 # various extensions
@@ -11,11 +11,8 @@ django-extensions==3.1.5
 
 python-dateutil==2.8.2
 
-# We used to use pycrypto, now we use pycryptodome, but we can't get pycryptodome to decrypt RSA
-# stuff backwards-compatibly.  Pycrypto RSA decryption is not compatible with Python versions
-# greater than 3.7 without a patch to the time library.  There are Fixmes for expunging it elsewhere.
-pycryptodome==3.11.0
-pycryptodomex==3.11.0  # locked version
+# This version of pycryptodome results in "from Cryptodome import ..." imports.
+pycryptodomex==3.14.1  # locked version
 
 # error reporting
 raven==6.10  # raven has been sunset at 6.10
@@ -36,7 +33,6 @@ uwsgi
 # Keep these dependencies up to date
 boto3
 pytz
-# bleach  # at some point add bleach...
 
 # Ug due to pytz.timezone("America/New_York") being off by 4 minutes (aka ... wrong) we had to abandon
 # this library. but we can't remove it because it is used in migrations.

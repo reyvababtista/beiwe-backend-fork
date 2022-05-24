@@ -1,7 +1,6 @@
 from sys import version_info
 from typing import Tuple
 
-from Crypto.PublicKey import RSA as old_RSA
 from Cryptodome.PublicKey import RSA
 
 from constants.security_constants import ASYMMETRIC_KEY_LENGTH
@@ -37,8 +36,8 @@ def prepare_X509_key_for_java(exported_key) -> bytes:
     return b"".join(exported_key.split(b'\n')[1:-1])
 
 
-def get_RSA_cipher(key: bytes) -> old_RSA.RsaKey:
-    return old_RSA.importKey(key)
+def get_RSA_cipher(key: bytes) -> RSA.RsaKey:
+    return RSA.importKey(key)
 
 
 # pycryptodome: the following is correct for PKCS1_OAEP.

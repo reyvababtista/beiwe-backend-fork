@@ -141,17 +141,9 @@ class DeviceDataDecryptor():
         except (TypeError, PaddingException, Base64LengthException) as decode_error:
             raise DecryptionKeyInvalidError(f"Invalid decryption key: {decode_error}")
         
-        # Run RSA decryption
+        base64_key = self.rsa_decrypt(decoded_key)
+        
         try:
-            # PyCryptodome deprecated the old PyCrypto method RSA.decrypt() which could decrypt
-            # textbook/raw RSA without key padding, which is what the Android & iOS apps write.
-            # This (github.com/Legrandin/pycryptodome/issues/434#issuecomment-660701725) presents
-            # a plain-math implementation of RSA.decrypt(), which we use instead.
-            ciphertext_int = int.from_bytes(decoded_key, 'big')
-            plaintext_int = pow(ciphertext_int, self.private_key_cipher.d, self.private_key_cipher.n)
-            base64_key: bytes = plaintext_int.to_bytes(
-                self.private_key_cipher.size_in_bytes(), 'big'
-            ).lstrip(b'\x00')
             decrypted_key: bytes = decode_base64(base64_key)
             if not decrypted_key:
                 raise TypeError(f"decoded key was '{decrypted_key}'")
@@ -168,6 +160,21 @@ class DeviceDataDecryptor():
         if self.participant.os_type == IOS_API:
             self.populate_ios_decryption_key(base64_key)
         return decrypted_key
+    
+    def rsa_decrypt(self, decoded_key: bytes) -> bytes:
+        # TODO: populate with exception case handling
+        # PyCryptodome deprecated the old PyCrypto method RSA.decrypt() which could decrypt
+        # textbook/raw RSA without key padding, which is what the Android & iOS apps write. This
+        # (github.com/Legrandin/pycryptodome/issues/434#issuecomment-660701725) presents a
+        # plain-math implementation of RSA.decrypt(), which we use instead.
+        ciphertext_int = int.from_bytes(decoded_key, 'big')
+        plaintext_int = pow(
+            ciphertext_int, self.private_key_cipher.d, self.private_key_cipher.n
+        )
+        base64_key: bytes = plaintext_int.to_bytes(
+            self.private_key_cipher.size_in_bytes(), 'big'
+        ).lstrip(b'\x00')
+        return base64_key
     
     def populate_ios_decryption_key(self, base64_key: bytes):
         """ iOS has a bug where the file gets split into two uploads, so the second one is missing a
@@ -341,4 +348,3 @@ class DeviceDataDecryptor():
                 error_types=json.dumps(self.error_types),
                 participant=self.participant,
             )
-    

@@ -1,21 +1,8 @@
-from sys import version_info
 from typing import Tuple
 
 from Cryptodome.PublicKey import RSA
 
 from constants.security_constants import ASYMMETRIC_KEY_LENGTH
-
-
-# Pycrypto (not pycryptodome) uses an old function inside the std lib time library that was
-# deprecated because the name is misleading.  The exact replacement is the process_time function,
-# so we patch it to keep it working.
-# TODO: We only use the old pycrypto because we are using a not-best-practice of the direct RSA
-#   encryption instead of a something like PKCS1_OAEP (OAEP is a padding mechanism).  I have been
-#   unable to replicate the old code (and have zero incentive to do so) using of either the
-#   pycryptodome library (which explicitly disallows it) or the `rsa` library.
-if version_info.minor > 7:
-    import time
-    time.clock = time.process_time
 
 
 # The private keys are stored server-side (S3), and the public key is sent to the device.

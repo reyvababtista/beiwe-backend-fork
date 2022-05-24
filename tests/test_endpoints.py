@@ -2446,7 +2446,7 @@ class TestMobileUpload(ParticipantSessionTest):
     def setUpClass(cls) -> None:
         # pycrypto (and probably pycryptodome) requires that we re-seed the random number generation
         # if we run using the --parallel directive.
-        from Crypto import Random as old_Random  # note name conflict with std lib random.Random...
+        from Cryptodome import Random as old_Random  # note name conflict with std lib random.Random...
         old_Random.atfork()
         return super().setUpClass()
     

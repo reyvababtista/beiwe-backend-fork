@@ -23,10 +23,9 @@ from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_S
     NEW_PASSWORD_8_LONG, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_RULES_FAIL, PASSWORD_RESET_SUCCESS,
     PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY,
     WRONG_CURRENT_PASSWORD)
-from constants.participant_constants import IOS_API
-from constants.researcher_constants import ALL_RESEARCHER_TYPES, ResearcherRole
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT)
+from constants.user_constants import ALL_RESEARCHER_TYPES, IOS_API, ResearcherRole
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.schedule_models import ArchivedEvent, Intervention
 from database.security_models import ApiKey
@@ -2446,7 +2445,7 @@ class TestMobileUpload(ParticipantSessionTest):
     def setUpClass(cls) -> None:
         # pycrypto (and probably pycryptodome) requires that we re-seed the random number generation
         # if we run using the --parallel directive.
-        from Cryptodome import Random as old_Random  # note name conflict with std lib random.Random...
+        from Cryptodome import Random as old_Random
         old_Random.atfork()
         return super().setUpClass()
     

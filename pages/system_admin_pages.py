@@ -20,7 +20,7 @@ from constants.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID
     ALERT_FIREBASE_DELETED_TEXT, ALERT_IOS_DELETED_TEXT, ALERT_IOS_SUCCESS_TEXT,
     ALERT_IOS_VALIDATION_FAILED_TEXT, ALERT_MISC_ERROR_TEXT, ALERT_SPECIFIC_ERROR_TEXT,
     ALERT_SUCCESS_TEXT)
-from constants.researcher_constants import ResearcherRole
+from constants.user_constants import ResearcherRole
 from database.data_access_models import FileToProcess
 from database.study_models import Study
 from database.survey_models import Survey

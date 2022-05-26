@@ -10,9 +10,8 @@ from config.django_settings import STATIC_ROOT
 from constants.celery_constants import ScheduleTypes
 from constants.common_constants import BEIWE_PROJECT_ROOT
 from constants.forest_constants import ForestTree
-from constants.participant_constants import ANDROID_API, IOS_API, NULL_OS
-from constants.researcher_constants import ResearcherRole
 from constants.testing_constants import REAL_ROLES, ResearcherRole
+from constants.user_constants import ANDROID_API, IOS_API, NULL_OS, ResearcherRole
 from database.common_models import generate_objectid_string
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention,

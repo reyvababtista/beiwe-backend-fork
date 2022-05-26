@@ -9,7 +9,7 @@ from constants.common_constants import API_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_D
 from constants.data_processing_constants import CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER
 from constants.data_stream_constants import (CHUNKABLE_FILES, IDENTIFIERS,
     REVERSE_UPLOAD_FILE_TYPE_MAPPING)
-from constants.participant_constants import OS_TYPE_CHOICES
+from constants.user_constants import OS_TYPE_CHOICES
 from database.models import TimestampedModel
 from database.user_models import Participant
 from libs.security import chunk_hash

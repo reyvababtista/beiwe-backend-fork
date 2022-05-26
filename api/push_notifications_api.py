@@ -18,8 +18,8 @@ from constants.common_constants import API_TIME_FORMAT, RUNNING_TEST_OR_IN_A_SHE
 from constants.message_strings import (BAD_DEVICE_OS, BAD_PARTICPANT_OS,
     DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_PREFIX, MESSAGE_SEND_FAILED_UNKNOWN,
     PUSH_NOTIFICATIONS_NOT_CONFIGURED, RESEND_CLICKED, SUCCESSFULLY_SENT_NOTIFICATION_PREFIX)
-from constants.participant_constants import ANDROID_API, IOS_API
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
+from constants.user_constants import ANDROID_API, IOS_API
 from database.schedule_models import ArchivedEvent
 from database.study_models import Study
 from database.survey_models import Survey

@@ -5,8 +5,8 @@ from Cryptodome.Cipher import AES
 from django.forms import ValidationError
 
 from config.settings import STORE_DECRYPTION_LINE_ERRORS
-from constants.participant_constants import ANDROID_API, IOS_API
 from constants.security_constants import URLSAFE_BASE64_CHARACTERS
+from constants.user_constants import ANDROID_API, IOS_API
 from database.data_access_models import IOSDecryptionKey
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError
 from database.user_models import Participant

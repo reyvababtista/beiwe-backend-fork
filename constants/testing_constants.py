@@ -1,4 +1,4 @@
-from constants.researcher_constants import ResearcherRole
+from constants.user_constants import ResearcherRole
 
 
 HOST = "localhost.localdomain"
@@ -12,7 +12,7 @@ TEST_USERNAME = "automated_test_user"
 
 # ALL_ROLE_PERMUTATIONS is generated from this:
 # ALL_ROLE_PERMUTATIONS = tuple(
-# from constants.researcher_constants import ResearcherRole
+# from constants.user_constants import ResearcherRole
 # from itertools import permutations
 #     two_options for two_options in permutations(
 #     (ResearcherRole.site_admin, ResearcherRole.study_admin, ResearcherRole.researcher, None), 2)

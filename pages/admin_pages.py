@@ -10,7 +10,7 @@ from constants.common_constants import DISPLAY_TIME_FORMAT
 from constants.message_strings import (NEW_API_KEY_MESSAGE, NEW_PASSWORD_MISMATCH,
     PASSWORD_RESET_SUCCESS, RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE, TABLEAU_API_KEY_IS_DISABLED,
     TABLEAU_API_KEY_NOW_DISABLED, TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
-from constants.researcher_constants import ResearcherRole
+from constants.user_constants import ResearcherRole
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation

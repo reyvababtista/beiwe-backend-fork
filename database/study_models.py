@@ -12,9 +12,9 @@ from django.db.models.query import QuerySet
 from django.utils import timezone
 from django.utils.timezone import localtime
 
-from constants.researcher_constants import ResearcherRole
 from constants.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT,
     DEFAULT_CONSENT_SECTIONS_JSON, SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
+from constants.user_constants import ResearcherRole
 from database.models import JSONTextField, TimestampedModel
 from database.tableau_api_models import ForestParam
 from database.user_models import Participant, Researcher

@@ -3,7 +3,7 @@
 import django.db.models.deletion
 from django.db import migrations, models
 
-from constants.researcher_constants import ResearcherRole
+from constants.user_constants import ResearcherRole
 
 
 # Researcher.studies used to A) exist and B) was many-to-many field.  We cannot access it after

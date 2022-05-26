@@ -8,7 +8,7 @@ from django.core.exceptions import ValidationError
 from config.settings import CONCURRENT_NETWORK_OPS
 from constants.data_stream_constants import (ACCELEROMETER, ANDROID_LOG_FILE, CALL_LOG, IDENTIFIERS,
     SURVEY_DATA_FILES, SURVEY_TIMINGS, WIFI)
-from constants.participant_constants import ANDROID_API
+from constants.user_constants import ANDROID_API
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.user_models import Participant
 from libs.file_processing.batched_network_operations import batch_upload

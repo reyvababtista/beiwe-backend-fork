@@ -3,7 +3,7 @@ import functools
 from django.http.request import HttpRequest
 from django.urls.base import reverse
 
-from constants.participant_constants import ANDROID_API, IOS_API
+from constants.user_constants import ANDROID_API, IOS_API
 from libs.internal_types import ParticipantRequest
 
 

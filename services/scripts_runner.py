@@ -1,6 +1,21 @@
+import importlib
+from modulefinder import Module
+
 from constants.celery_constants import SCRIPTS_QUEUE
 from libs.celery_control import safe_apply_async, scripts_celery_app
 from libs.sentry import make_error_sentry, SentryTypes
+
+
+class ImportRepeater():
+    @classmethod
+    def ensure_run(cls, module: Module):
+        if hasattr(cls, module.__name__):
+            # module was run once
+            importlib.reload(module)
+        else:
+            # this is first run, which means module was just imported (run)
+            setattr(cls, module.__name__, True)
+        print(f"Ran script '{module.__name__}'")
 
 
 ## ios undecryptable files fix
@@ -14,9 +29,9 @@ def create_task_ios_no_decryption_key_task():
 @scripts_celery_app.task(queue=SCRIPTS_QUEUE)
 def celery_process_ios_no_decryption_key():
     with make_error_sentry(sentry_type=SentryTypes.data_processing):
-        print("running ios bad decryption keys script.")
-        from scripts import process_ios_no_decryption_key  # noqa
-    exit(0)  # this is the easiest way to fix the need to reload the import.
+        print("running script process_ios_no_decryption_key")
+        from scripts import process_ios_no_decryption_key
+        ImportRepeater.ensure_run(process_ios_no_decryption_key)
 
 
 ## Log uploads
@@ -31,6 +46,6 @@ def create_task_upload_logs():
 @scripts_celery_app.task(queue=SCRIPTS_QUEUE)
 def celery_upload_logs():
     with make_error_sentry(sentry_type=SentryTypes.data_processing):
-        print("running log upload script.")
-        from scripts import upload_logs  # noqa
-    exit(0)
+        print("running script upload_logs.")
+        from scripts import upload_logs
+        ImportRepeater.ensure_run(upload_logs)

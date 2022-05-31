@@ -4,6 +4,7 @@ from django.utils import timezone
 
 from libs.s3 import s3_upload_plaintext
 
+
 """
 this script runs periodically. The default system logrotate periodicity for the amazon ubuntu 18.04
 image is weekly, as long as this script is run more frequently than that all log data in the auth
@@ -20,3 +21,4 @@ hostname = check_output("hostname").strip().decode()
 
 # file name should sort by hostname then date
 s3_upload_plaintext(f"LOGS/auth_log/{hostname}-{now}.log", auth_log)
+print("uploaded auth_log")

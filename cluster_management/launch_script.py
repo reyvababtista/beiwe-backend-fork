@@ -36,11 +36,12 @@ from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVE
     LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_INSTALL_CELERY_WORKER, LOCAL_RABBIT_MQ_CONFIG_FILE_PATH,
     LOG_FILE, MANAGER_SERVER_INSTANCE_TYPE, PURGE_COMMAND_BLURB, PURGE_INSTANCE_PROFILES_HELP,
     PUSHED_FILES_FOLDER, RABBIT_MQ_PORT, REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH,
-    REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_RABBIT_MQ_CONFIG_FILE_PATH,
-    REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH, REMOTE_USERNAME,
-    STAGED_FILES, TERMINATE_PROCESSING_SERVERS_HELP, WORKER_SERVER_INSTANCE_TYPE)
+    REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_PROJECT_DIR,
+    REMOTE_RABBIT_MQ_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH,
+    REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH, REMOTE_USERNAME, STAGED_FILES,
+    TERMINATE_PROCESSING_SERVERS_HELP, WORKER_SERVER_INSTANCE_TYPE)
 from deployment_helpers.general_utils import current_time_string, do_zip_reduction, EXIT, log, retry
-from fabric.api import env as fabric_env, put, run, sudo
+from fabric.api import cd, env as fabric_env, put, run, sudo
 
 
 # Fabric configuration
@@ -138,6 +139,12 @@ def setup_python():
     run(f"{python} -m pip install --upgrade pip setuptools wheel >> {LOG_FILE}")
     run(f'{python} -m pip install -r {REMOTE_HOME_DIR}/beiwe-backend/requirements.txt >> {LOG_FILE}')
     run(f'{python} -m pip install -r {REMOTE_HOME_DIR}/beiwe-backend/requirements_data_processing.txt >> {LOG_FILE}')
+
+
+def run_custom_ondeploy_script():
+    python = "/home/ubuntu/.pyenv/versions/beiwe/bin/python"
+    with cd(REMOTE_PROJECT_DIR):
+        run(f'{python} run_script.py run_custom_ondeploy_script processing >> {LOG_FILE}')
 
 
 def setup_celery_worker():
@@ -473,6 +480,7 @@ def do_create_manager():
     push_manager_private_ip_and_password(name)
     setup_manager_cron()
     setup_celery_worker()  # run setup worker last.
+    run_custom_ondeploy_script()
     manager_fix()
     run("supervisord")
 
@@ -512,7 +520,8 @@ def do_create_worker():
     push_beiwe_configuration(name)
     push_manager_private_ip_and_password(name)
     setup_worker_cron()
-    setup_celery_worker()  # run setup worker last.
+    setup_celery_worker()
+    run_custom_ondeploy_script() 
     log.warning("Server is almost up.  Waiting 20 seconds to avoid a race condition...")
     sleep(20)
     run("supervisord")

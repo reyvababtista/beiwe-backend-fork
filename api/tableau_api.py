@@ -75,7 +75,7 @@ def format_errors(errors: dict) -> str:
 def tableau_query_database(
     study_object_id, participant_ids=None, limit=None,  # basics
     end_date=None, start_date=None,                     # time
-    order_by="date", order_direction="descending",      # sort
+    ordered_by="date", order_direction="default",       # sort
     query_fields: List[str] = None,
     **_  # Because Whimsy is important.                 # ignore everything else
 ) -> TableauApiPaginator:
@@ -102,9 +102,19 @@ def tableau_query_database(
     if start_date:
         filter_kwargs["date__gte"] = start_date
     
-    if order_direction == "descending":
-        order_by = "-" + order_by
+    # particpant_id needs to be remapped to patient_id
+    if ordered_by == "participant_id":
+        ordered_by = "patient_id"  # participant__patient_id also works, participant_id does not
     
+    # default ordering for date (which is itself the default oreding) is most recent first
+    if order_direction == "default" and ordered_by == "date":
+        order_direction = "descending"
+    elif order_direction == "default":
+        order_direction = "ascending"
+    if order_direction == "descending":
+        ordered_by = "-" + ordered_by
+    
+    # Set up annotation to rename the study's object_id the "study_id"
     annotate_kwargs = {"study_id": F("participant__study__object_id")}
     if "participant_id" in query_fields:
         # need to replace participant_id with patient_id, we have to swap it back later
@@ -113,6 +123,6 @@ def tableau_query_database(
     
     # construct query, apply limit if any, pass to paginator with large page size and return.
     query = SummaryStatisticDaily.objects \
-        .annotate(**annotate_kwargs).order_by(order_by).filter(**filter_kwargs)
+        .annotate(**annotate_kwargs).order_by(ordered_by).filter(**filter_kwargs)
     
     return TableauApiPaginator(query, 10000, values=query_fields, limit=limit)

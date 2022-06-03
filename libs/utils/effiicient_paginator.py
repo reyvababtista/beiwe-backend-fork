@@ -5,8 +5,9 @@ from orjson import dumps as orjson_dumps
 
 
 class EfficientQueryPaginator:
-    """ Contains the base logic functions that as-efficiently-as-possible, preferring memory efficiency over performance, returns database objects
-    Queries for the PKs and retrieves results using them.
+    """ Contains the base logic functions that as-efficiently-as-possible, preferring memory
+    efficiency over performance, returns database objects Queries for the PKs and retrieves results
+    using them.
     The result is a minimal memory overhead jit'd database query. """
     
     def __init__(
@@ -38,20 +39,20 @@ class EfficientQueryPaginator:
             )
             self.values_list = values_list
     
-    def __iter__(self):
-        """ Grab a page of PKs, the results via iteration. """
-        pks = []
-        for count, pk in enumerate(self.pk_query, start=1):
-            pks.append(pk)
-            if count % self.page_size == 0:
-                for result in self.value_query.filter(pk__in=pks):
-                    yield result
-                pks = []
-        
-        # after iteration, any remaining pks
-        if pks:
-            for result in self.value_query.filter(pk__in=pks):
-                yield result
+    # def __iter__(self):
+    #     """ Grab a page of PKs, the results via iteration. """
+    #     pks = []
+    #     for count, pk in enumerate(self.pk_query, start=1):
+    #         pks.append(pk)
+    #         if count % self.page_size == 0:
+    #             for result in self.value_query.filter(pk__in=pks):
+    #                 yield result
+    #             pks = []
+    # 
+    #     # after iteration, any remaining pks
+    #     if pks:
+    #         for result in self.value_query.filter(pk__in=pks):
+    #             yield result
     
     def paginate(self):
         """ Grab a page of PKs, return results in bulk. """
@@ -71,7 +72,7 @@ class EfficientQueryPaginator:
         """ streams a page by page orjson'd bytes of json list elements """
         yield b"["
         for page in self.paginate():
-            yield orjson_dumps(page)[1:-1]
+            yield orjson_dumps(page)[1:-1]  # this is a bytes object, we cut the first and last brackets
         yield b"]"
 
 
@@ -91,7 +92,6 @@ class TableauApiPaginator(EfficientQueryPaginator):
             yield b"]"
         else:
             # For some reason we can't call the super implementation, so I have copy-pasted.
-            # return super().stream_orjson_paginate()  # This doesn't work. >_O
             yield b"["
             for page in self.paginate():
                 yield orjson_dumps(page)[1:-1]

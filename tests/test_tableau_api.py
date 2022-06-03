@@ -46,7 +46,9 @@ class TestDisableTableauAPIKey(TableauAPITest):
 
 class TestGetTableauDaily(TableauAPITest):
     ENDPOINT_NAME = "tableau_api.get_tableau_daily"
+    today = date.today()
     yesterday = date.today() - timedelta(days=1)
+    tomorrow = date.today() + timedelta(days=-1)
     # parameters are
     # end_date, start_date, limit, order_by, order_direction, participant_ids, fields
     
@@ -98,6 +100,22 @@ class TestGetTableauDaily(TableauAPITest):
         self.assertEqual(len(response_object), 1)
         assert compare_dictionaries(response_object[0], self.full_response_dict)
     
+    def test_summary_statistics_daily_all_fields_one_at_a_time(self):
+        today = date.today()
+        self.generate_summary_statistic_daily()
+        cheat_sheet = self.default_summary_statistic_daily_cheatsheet()
+        cheat_sheet["date"] = today.isoformat()
+        cheat_sheet["participant_id"] = self.default_participant.patient_id
+        cheat_sheet["study_id"] = self.session_study.object_id
+        normal_params = self.params_all_defaults
+        normal_params.pop("fields")
+        for field in SERIALIZABLE_FIELD_NAMES:
+            params = {"end_date": today, "start_date": today, "fields": field, **normal_params}
+            resp = self.smart_get_200_auto_headers(**params)
+            response_object = orjson.loads(b"".join(resp.streaming_content))
+            self.assertEqual(len(response_object), 1)
+            assert compare_dictionaries(response_object[0], {field: cheat_sheet[field]})
+    
     def test_summary_statistics_daily_all_params_2_results_all_populated(self):
         self.generate_summary_statistic_daily()
         self.generate_summary_statistic_daily(a_date=self.yesterday)
@@ -116,6 +134,109 @@ class TestGetTableauDaily(TableauAPITest):
         resp = self.smart_get_200_auto_headers(**params)
         response_object = orjson.loads(b"".join(resp.streaming_content))
         self.assertEqual(len(response_object), 1)
+        assert compare_dictionaries(response_object[0], self.full_response_dict)
+    
+    def test_summary_statistics_daily_date_ordering(self):
+        self.generate_summary_statistic_daily()
+        self.generate_summary_statistic_daily(a_date=self.yesterday)
+        # the default ordering is ascending
+        params = {"order_direction": "descending", **self.params_all_defaults}
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        compare_me = self.full_response_dict
+        assert compare_dictionaries(response_object[0], compare_me)
+        compare_me['date'] = self.yesterday.isoformat()  # set to yesterday
+        assert compare_dictionaries(response_object[1], compare_me)
+        
+        # assert that ascending is correct
+        params = {"order_direction": "ascending", **self.params_all_defaults}
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        assert compare_dictionaries(response_object[0], compare_me)
+        compare_me['date'] = self.today.isoformat()  # revert to today
+        assert compare_dictionaries(response_object[1], compare_me)
+        
+        # assert that empty ordering is the default
+        params = {"order_direction": "", **self.params_all_defaults}
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        assert compare_dictionaries(response_object[0], compare_me)
+        compare_me['date'] = self.yesterday.isoformat()  # set to yesterday
+        assert compare_dictionaries(response_object[1], compare_me)
+    
+    def test_summary_statistics_daily_participant_ordering(self):
+        self.generate_summary_statistic_daily()
+        self.generate_summary_statistic_daily(participant=self.generate_participant(
+            study=self.session_study, patient_id="22222222",
+        ))
+        # the default ordering is ascending
+        params = {
+            **self.params_all_defaults,
+            # "order_direction": "ascending",
+            "ordered_by": "participant_id",
+            "participant_ids": self.default_participant.patient_id + ",22222222",
+        }
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        compare_me = self.full_response_dict
+        assert compare_dictionaries(response_object[1], compare_me)
+        compare_me['participant_id'] = "22222222"  # set to particpant 2
+        assert compare_dictionaries(response_object[0], compare_me)
+        
+        params["order_direction"] = "descending"
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        assert compare_dictionaries(response_object[1], compare_me)
+        compare_me['participant_id'] = self.default_participant.patient_id  # revert to participant 1
+        assert compare_dictionaries(response_object[0], compare_me)
+    
+    def test_summary_statistics_daily_wrong_date(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params["end_date"] = self.tomorrow
+        params["start_date"] = self.tomorrow
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(response_object, [])
+    
+    def test_summary_statistics_daily_wrong_future_date(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params["end_date"] = self.tomorrow
+        params["start_date"] = self.tomorrow
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(response_object, [])
+    
+    def test_summary_statistics_daily_wrong_past_date(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params["end_date"] = self.yesterday
+        params["start_date"] = self.yesterday
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(response_object, [])
+    
+    def test_summary_statistics_daily_bad_participant(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params["participant_ids"] = "bad_id"
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(response_object, [])
+    
+    def test_summary_statistics_daily_no_participant(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params.pop("participant_ids")
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        # self.assertEqual(response_object, [])
         assert compare_dictionaries(response_object[0], self.full_response_dict)
 
 

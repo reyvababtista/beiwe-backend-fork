@@ -119,7 +119,7 @@ class ApiQueryForm(forms.Form):
         required=False,
         error_messages={"invalid": "limit value could not be interpreted as an integer value"},
     )
-    order_by = forms.ChoiceField(
+    ordered_by = forms.ChoiceField(
         choices=SERIALIZABLE_FIELD_NAMES_DROPDOWN,
         required=False,
         error_messages={

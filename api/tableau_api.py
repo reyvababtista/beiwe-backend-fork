@@ -3,7 +3,7 @@ from typing import List
 
 from django.db.models import F
 from django.db.models.fields import Field
-from django.http import StreamingHttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
 
@@ -25,7 +25,9 @@ FINAL_SERIALIZABLE_FIELDS: List[Field] = [
 def get_tableau_daily(request: TableauRequest, study_object_id: str = None):
     form = ApiQueryForm(data=request.GET)
     if not form.is_valid():
-        return format_errors(form.errors.get_json_data())
+        return HttpResponse(
+            format_errors(form.errors.get_json_data()), status=400, content_type="application/json"
+        )
     
     # The don't need to specify the study_id and participant_id fields, those are provided.
     query_fields = [f for f in form.cleaned_data["fields"] if f in SERIALIZABLE_FIELD_NAMES]
@@ -46,7 +48,8 @@ def web_data_connector(request: TableauRequest, study_object_id: str):
     # populated. They are also related fields that both are proxies for a unique identifier field
     # that has a different name, so we do it manually.
     columns = [
-        '[\n', "{id: 'study_id', dataType: tableau.dataTypeEnum.string,},\n",
+        '[\n',
+        "{id: 'study_id', dataType: tableau.dataTypeEnum.string,},\n",
         "{id: 'participant_id', dataType: tableau.dataTypeEnum.string,},\n"
     ]
     

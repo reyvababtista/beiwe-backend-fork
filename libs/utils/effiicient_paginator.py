@@ -48,7 +48,7 @@ class EfficientQueryPaginator:
     #             for result in self.value_query.filter(pk__in=pks):
     #                 yield result
     #             pks = []
-    # 
+    #
     #     # after iteration, any remaining pks
     #     if pks:
     #         for result in self.value_query.filter(pk__in=pks):
@@ -71,7 +71,9 @@ class EfficientQueryPaginator:
     def stream_orjson_paginate(self):
         """ streams a page by page orjson'd bytes of json list elements """
         yield b"["
-        for page in self.paginate():
+        for i, page in enumerate(self.paginate()):
+            if i != 0:
+                yield b","
             yield orjson_dumps(page)[1:-1]  # this is a bytes object, we cut the first and last brackets
         yield b"]"
 
@@ -85,7 +87,9 @@ class TableauApiPaginator(EfficientQueryPaginator):
         
         if "patient_id" in self.values:
             yield b"["
-            for page in self.paginate():
+            for i, page in enumerate(self.paginate()):
+                if i != 0:
+                    yield b","
                 for values_dict in page:
                     values_dict["participant_id"] = values_dict.pop("patient_id")
                 yield orjson_dumps(page)[1:-1]
@@ -93,6 +97,8 @@ class TableauApiPaginator(EfficientQueryPaginator):
         else:
             # For some reason we can't call the super implementation, so I have copy-pasted.
             yield b"["
-            for page in self.paginate():
+            for i, page in enumerate(self.paginate()):
+                if i != 0:
+                    yield b","
                 yield orjson_dumps(page)[1:-1]
             yield b"]"

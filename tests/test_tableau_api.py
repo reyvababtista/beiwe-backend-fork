@@ -1,6 +1,7 @@
 from datetime import date, timedelta
-from django.http import StreamingHttpResponse
+
 import orjson
+from django.http import StreamingHttpResponse
 
 from authentication.tableau_authentication import (check_tableau_permissions,
     TableauAuthenticationFailed, TableauPermissionDenied)
@@ -74,6 +75,17 @@ class TestGetTableauDaily(TableauAPITest):
             200, self.session_study.object_id, data=kwargs, **self.raw_headers
         )
     
+    def test_bad_field_name(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params["fields"] = params["fields"].replace("accelerometer", "accellerometer")
+        resp = self.smart_get_status_code(
+            400, self.session_study.object_id, data=params, **self.raw_headers
+        )
+        self.assertEqual(
+            resp.content, b'{"errors": ["beiwe_accellerometer_bytes is not a valid field"]}'
+        )
+    
     def test_summary_statistics_daily_no_params_empty_db(self):
         # unpack the raw headers like this, they magically just work because http language is weird
         resp = self.smart_get_200_auto_headers()
@@ -93,6 +105,7 @@ class TestGetTableauDaily(TableauAPITest):
         assert compare_dictionaries(response_object[0], self.full_response_dict)
     
     def test_summary_statistics_daily_all_params_dates_all_populated(self):
+        
         self.generate_summary_statistic_daily()
         params = {"end_date": date.today(), "start_date": date.today(), **self.params_all_defaults}
         resp = self.smart_get_200_auto_headers(**params)

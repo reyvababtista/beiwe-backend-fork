@@ -2,7 +2,7 @@ import csv
 import json
 import os
 import traceback
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from multiprocessing.pool import ThreadPool
 from typing import Dict, Tuple
 
@@ -197,7 +197,7 @@ def construct_summary_statistics(task: ForestTask):
         
         for line in reader:
             has_data = True
-            summary_date = datetime.date(
+            summary_date = date(
                 int(float(line['year'])),
                 int(float(line['month'])),
                 int(float(line['day'])),

@@ -43,7 +43,7 @@ def intervention_survey_data(study: Study) -> Dict[str, Dict[str, DictOfStrStr]]
     return final_data
 
 
-def survey_history_export(study: Study):
+def survey_history_export(study: Study) -> bytes:
     survey_archives = defaultdict(list)
     # get every survey archive for every survey in a study.
     # There isn't enough study data to bother to further optimize this down to one query

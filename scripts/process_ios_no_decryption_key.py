@@ -1,3 +1,6 @@
+from datetime import timedelta
+from django.utils import timezone
+
 from api.mobile_api import upload_and_create_file_to_process_and_log
 from database.data_access_models import IOSDecryptionKey
 from database.system_models import GenericEvent
@@ -54,3 +57,7 @@ def decrypt_and_upload(generic_events_query: GenericEventQuerySet):
 
 
 decrypt_and_upload(generic_events_to_process())
+
+# purge corrupted uploads that are over 30 days old from the generic events db
+GenericEvent.objects.filter(tag="problem_upload_file_IosDecryptionKeyNotFoundError")\
+    .filter(created_on__lt=timezone.now() - timedelta(days=30)).delete()

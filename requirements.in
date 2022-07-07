@@ -1,5 +1,5 @@
 # core libraries
-Django==3.2.13
+Django==3.2.14
 firebase-admin==4.5.1
 Jinja2==3.1.1
 zstd==1.5.2.5  # This one seems to require manual pinning, version 1.5+ contaicns performance improvements
@@ -38,4 +38,4 @@ pytz
 # this library. but we can't remove it because it is used in migrations.
 django-timezone-field==4.1.1
 
-pip-tools>=6.6.0
+pip-tools>=6.8.0

@@ -86,7 +86,7 @@ alias pyc='find . -type f -name "*.pyc" -delete -print'
 #supervisord (data processing)
 alias processing-start="supervisord"
 alias processing-stop="killall supervisord"
-alias processing-restart="pkill -HUP supervisord"
+alias processing-restart="pkill -HUP supervisord 2> /dev/null"
 
 #Logs
 alias log='tail -f /home/ubuntu/celery*.log'

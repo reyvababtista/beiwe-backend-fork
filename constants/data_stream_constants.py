@@ -116,28 +116,7 @@ CHUNKABLE_FILES = {
 }
 
 # dictionary for printing ALL data streams (processed and bytes)
-COMPLETE_DATA_STREAM_DICT = {
-    ACCELEROMETER: "Accelerometer (bytes)",
-    AMBIENT_AUDIO: "Ambient Audio Recording (bytes)",
-    ANDROID_LOG_FILE: "Android Log File (bytes)",
-    BLUETOOTH: "Bluetooth (bytes)",
-    CALL_LOG: "Call Log (bytes)",
-    DEVICEMOTION: "Device Motion (bytes)",
-    GPS: "GPS (bytes)",
-    GYRO: "Gyro (bytes)",
-    IDENTIFIERS: "Identifiers (bytes)",
-    IMAGE_FILE: "Image Survey (bytes)",
-    IOS_LOG_FILE: "iOS Log File (bytes)",
-    MAGNETOMETER: "Magnetometer (bytes)",
-    POWER_STATE: "Power State (bytes)",
-    PROXIMITY: "Proximity (bytes)",
-    REACHABILITY: "Reachability (bytes)",
-    SURVEY_ANSWERS: "Survey Answers (bytes)",
-    SURVEY_TIMINGS: "Survey Timings (bytes)",
-    TEXTS_LOG: "Text Log (bytes)",
-    VOICE_RECORDING: "Audio Recordings (bytes)",
-    WIFI: "Wifi (bytes)",
-}
+
 
 
 DEVICE_IDENTIFIERS_HEADER = "patient_id,MAC,phone_number,device_id,device_os,os_version,product,brand,hardware_id,manufacturer,model,beiwe_version\n"

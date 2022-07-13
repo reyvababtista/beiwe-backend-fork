@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, render
 
 from authentication.admin_authentication import authenticate_researcher_study_access
 from constants.common_constants import API_DATE_FORMAT
-from constants.data_stream_constants import ALL_DATA_STREAMS, COMPLETE_DATA_STREAM_DICT
+from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_DATA_STREAMS
 from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
 from database.data_access_models import ChunkRegistry
 from database.study_models import Study
@@ -167,9 +167,11 @@ def dashboard_participant_page(request: ResearcherRequest, study_id, patient_id)
     """ Parses data to be displayed for the singular participant dashboard view """
     study = get_object_or_404(Study, pk=study_id)
     participant = get_object_or_404(Participant, patient_id=patient_id, study_id=study_id)
+    
     # query is optimized for bulk participants, so this is a little weird
     chunk_data = dashboard_chunkregistry_query(participant)
     chunks = chunk_data[participant.patient_id] if participant.patient_id in chunk_data else {}
+    
     # ----------------- dates for bytes data streams -----------------------
     if chunks:
         start, end = extract_date_args_from_request(request)
@@ -182,7 +184,7 @@ def dashboard_participant_page(request: ResearcherRequest, study_id, patient_id)
         )
         byte_streams: Dict[str, List[int]] = {
             stream: [get_bytes_data_stream_match(chunks, date, stream) for date in unique_dates]
-                for stream in ALL_DATA_STREAMS
+                for stream in DASHBOARD_DATA_STREAMS
         }
     else:
         last_date_data_entry = first_date_data_entry = None
@@ -396,7 +398,7 @@ def dashboard_chunkregistry_date_query(
         .order_by("time_bin")
         .values_list("time_bin", flat=True)
     )
-
+    
     # default behavior for 1 or 0 time_bins
     if len(all_time_bins) < 1:
         return None, None

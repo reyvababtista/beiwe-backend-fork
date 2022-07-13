@@ -221,7 +221,10 @@ def construct_summary_statistics(task: ForestTask):
             if not (task.data_date_start < summary_date < task.data_date_end):
                 continue
             
-            updates = {task_attribute: task}
+            updates = {
+                task_attribute: task,
+                "timezone": get_timezone_shortcode(summary_date, tz_longname),
+            }
             for column_name, value in line.items():
                 if column_name in TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS:
                     # look up column translation, coerce empty strings to Nones
@@ -237,7 +240,6 @@ def construct_summary_statistics(task: ForestTask):
                 "date": summary_date,
                 "defaults": updates,
                 "participant": task.participant,
-                "timezone": get_timezone_shortcode(summary_date, tz_longname),
             }
             log("creating SummaryStatisticDaily:", data)
             SummaryStatisticDaily.objects.update_or_create(**data)

@@ -12,19 +12,7 @@
   <script type="text/javascript" src="/static/javascript/libraries/collapse.js"></script>
   <script type="text/javascript" src="/static/javascript/libraries/bootstrap-datetimepicker.js"></script>
   <script src="/static/javascript/patient_dashboard_features.js"></script>
-  <script type="text/javascript">
-    {% if first_date_data and last_date_data %}
-      window.first_day = new Date({{ first_date_data.year}}, {{first_date_data.month - 1}}, {{first_date_data.day }});
-      window.last_day = new Date({{ last_date_data.year}}, {{last_date_data.month - 1}}, {{last_date_data.day }});
-    {% endif %}
-  {% if times %}
-      window.start_date = new Date({{ times[0].year}}, {{times[0].month - 1}}, {{times[0].day }});
-      window.end_date = new Date({{ times[-1].year}}, {{times[-1].month - 1}}, {{times[-1].day }});
-    {% else %}
-      window.start_date = new Date();
-      window.end_date = new Date();
-    {% endif %}
-  </script>
+  {% include 'dashboard/dashboard_javascript.html' %}
 {% endblock %}
 
 {% block content %}
@@ -55,7 +43,8 @@
             <ul class="dropdown-menu">
               {% for patient_id in patient_ids %}
                 <li><a href="/dashboard/{{ study_id }}/patient/{{ patient_id }}">
-                  {{ patient_id }}</a></li>
+                  {{ patient_id }}</a>
+                </li>
               {% endfor %}
             </ul>
           </div>
@@ -120,11 +109,12 @@
           {% endfor %}
         </tr>
       </thead>
+      
       {% for stream, byte_list in byte_streams.items() %} {# iterate over keys #}
         <div class="table_data">
           <tr>
             <th> <a href="/dashboard/{{ study_id }}/data_stream/{{ stream }}">
-                    {{   data_stream_dict.get(stream) }}</a>
+                    {{ data_stream_dict.get(stream) }}</a>
             </th>
             {% for bytes in byte_list %} {# iterate over bytes in values #}
               {% if bytes == None %}

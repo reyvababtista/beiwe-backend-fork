@@ -1,0 +1,14 @@
+<script type="text/javascript">
+  // this file only exists because of IDE syntax hilighting problems
+  {% if first_date_data and last_date_data %}
+    window.first_day = new Date({{ first_date_data.year }}, {{ first_date_data.month - 1 }}, {{ first_date_data.day }});
+    window.last_day = new Date({{ last_date_data.year }}, {{ last_date_data.month - 1 }}, {{ last_date_data.day }});
+  {% endif %}
+  {% if times %}
+    window.start_date = new Date({{ times[0].year }}, {{ times[0].month - 1 }}, {{ times[0].day }});
+    window.end_date = new Date({{ times[-1].year }}, {{ times[-1].month - 1 }}, {{ times[-1].day }});
+  {% else %}
+    window.start_date = new Date();
+    window.end_date = new Date();
+  {% endif %}
+</script>

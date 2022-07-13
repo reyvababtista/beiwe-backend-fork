@@ -34,9 +34,7 @@ def calculate_data_quantity_stats(participant: Participant):
         data_quantity = {
             "participant": participant,
             "date": day,
-            "defaults": {
-                "timezone": get_timezone_shortcode(day, tz_longname)
-            },
+            "defaults": {"timezone": get_timezone_shortcode(day, tz_longname)},
         }
         for data_type, total_bytes in day_data.items():
             data_quantity["defaults"][f"beiwe_{data_type}_bytes"] = total_bytes

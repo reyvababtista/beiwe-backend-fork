@@ -2520,9 +2520,9 @@ class TestMobileUpload(ParticipantSessionTest):
         get_private_key.return_value = self.PRIVATE_KEY
         self.smart_post_status_code(200, file_name="whatever.csv", file="some_content")
         self.assert_no_files_to_process
-        # happens to be bad padding
+        # happens to be bad length decryption key
         self.assertEqual(GenericEvent.objects.count(), 1)
-        self.assertIn("Incorrect padding", GenericEvent.objects.get().note)
+        self.assertIn("Decryption key not 128 bits", GenericEvent.objects.get().note)
     
     @patch("libs.participant_file_uploads.s3_upload")
     @patch("database.user_models.Participant.get_private_key")

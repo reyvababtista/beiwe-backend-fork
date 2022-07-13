@@ -71,7 +71,7 @@ class ReferenceObjectMixin:
             object_id=object_id or generate_objectid_string(),
             is_test=is_test or True,
             forest_enabled=forest_enabled or True,
-            timezone_name="America/New_York",
+            timezone_name="UTC",
             deleted=False,
             forest_param=self.default_forest_params,  # I think this is fine?
         )

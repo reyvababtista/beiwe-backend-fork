@@ -39,20 +39,20 @@ class EfficientQueryPaginator:
             )
             self.values_list = values_list
     
-    # def __iter__(self):
-    #     """ Grab a page of PKs, the results via iteration. """
-    #     pks = []
-    #     for count, pk in enumerate(self.pk_query, start=1):
-    #         pks.append(pk)
-    #         if count % self.page_size == 0:
-    #             for result in self.value_query.filter(pk__in=pks):
-    #                 yield result
-    #             pks = []
-    #
-    #     # after iteration, any remaining pks
-    #     if pks:
-    #         for result in self.value_query.filter(pk__in=pks):
-    #             yield result
+    def __iter__(self):
+        """ Grab a page of PKs, the results via iteration. """
+        pks = []
+        for count, pk in enumerate(self.pk_query, start=1):
+            pks.append(pk)
+            if count % self.page_size == 0:
+                for result in self.value_query.filter(pk__in=pks):
+                    yield result
+                pks = []
+    
+        # after iteration, any remaining pks
+        if pks:
+            for result in self.value_query.filter(pk__in=pks):
+                yield result
     
     def paginate(self):
         """ Grab a page of PKs, return results in bulk. """

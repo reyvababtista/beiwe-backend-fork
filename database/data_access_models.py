@@ -29,6 +29,7 @@ class ChunkRegistry(TimestampedModel):
     
     # removed: data_type used to have choices of ALL_DATA_STREAMS, but this generated migrations
     # unnecessarily, so it has been removed.  This has no side effects.
+    # TODO: the above comment is incorrect, we have on-database-save validation, revert to include choices
     data_type = models.CharField(max_length=32, db_index=True)
     time_bin = models.DateTimeField(db_index=True)
     file_size = models.IntegerField(null=True, default=None)  # Size (in bytes) of the uncompressed file

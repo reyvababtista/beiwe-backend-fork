@@ -1,10 +1,11 @@
 import json
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, tzinfo
 from typing import Any, Dict, List, Tuple, Union
 
 import pytz
 from django.shortcuts import get_object_or_404, render
+from django.utils.timezone import make_aware
 
 from authentication.admin_authentication import authenticate_researcher_study_access
 from constants.common_constants import API_DATE_FORMAT
@@ -23,7 +24,7 @@ DATETIME_FORMAT_ERROR = f"Dates and times provided to this endpoint must be form
 
 @authenticate_researcher_study_access
 def dashboard_page(request: ResearcherRequest, study_id: int):
-    """ information for the general dashboard view for a study"""
+    """ information for the general dashboard view for a study """
     study = get_object_or_404(Study, pk=study_id)
     participants = list(Participant.objects.filter(study=study_id).values_list("patient_id", flat=True))
     return render(
@@ -50,14 +51,14 @@ def get_data_for_dashboard_datastream_display(
     study = get_object_or_404(Study, pk=study_id)
     
     # general data fetching
-    participant_objects = Participant.objects.filter(study=study_id).order_by("patient_id")
+    participants = Participant.objects.filter(study=study).order_by("patient_id")
     data_exists, first_day, last_day, unique_dates, byte_streams = parse_data_streams(
-        request, study_id, data_stream, participant_objects
+        request, study, data_stream, participants
     )
-    if first_day is None or (not data_exists and past_url == ""):
-        next_url, past_url = "", ""
+    if first_day is None or not data_exists:
+        next_url = past_url = ""
     else:
-        start, end = extract_date_args_from_request(request)
+        start, end = extract_date_args_from_request(request, study.timezone)
         next_url, past_url = create_next_past_urls(first_day, last_day, start=start, end=end)
     
     show_color, color_low_range, color_high_range, all_flags_list = handle_filters(
@@ -87,62 +88,11 @@ def get_data_for_dashboard_datastream_display(
     )
 
 
-def handle_filters(request: ResearcherRequest, study: Study, data_stream: str):
-    color_settings: DashboardColorSetting
-    
-    if request.method == "POST":
-        color_low_range, color_high_range, all_flags_list =\
-            set_default_settings_post_request(request, study, data_stream)
-        show_color = "false" if color_low_range == 0 and color_high_range == 0 else "true"
-    else:
-        color_low_range, color_high_range, show_color = extract_range_args_from_request(request)
-        all_flags_list = extract_flag_args_from_request(request)
-    
-    if DashboardColorSetting.objects.filter(data_type=data_stream, study=study).exists():
-        color_settings = DashboardColorSetting.objects.get(data_type=data_stream, study=study)
-        default_filters = DashboardColorSetting.get_dashboard_color_settings(color_settings)
-    else:
-        default_filters = ""
-        color_settings = None
-    
-    # -------------------------------- dealing with color settings -------------------------------------------------
-    # test if there are default settings saved,
-    # and if there are, test if the default filters should be used or if the user has overridden them
-    if default_filters != "":
-        inflection_info = default_filters["inflections"]
-        if all_flags_list == [] and color_high_range is None and color_low_range is None:
-            # since none of the filters are set, parse default filters to pass in the default
-            # settings set the values for gradient filter
-            
-            # backend: color_range_min, color_range_max --> frontend: color_low_range,
-            # color_high_range the above is consistent throughout the back and front ends
-            if color_settings.gradient_exists():
-                gradient_info = default_filters["gradient"]
-                color_low_range = gradient_info["color_range_min"]
-                color_high_range = gradient_info["color_range_max"]
-                show_color = "true"
-            else:
-                color_high_range, color_low_range = 0, 0
-                show_color = "false"
-            
-            # set the values for the flag/inflection filter*s*
-            # the html is expecting a list of lists for the flags [[operator, value], ... ]
-            all_flags_list = [
-                [flag_info["operator"], flag_info["inflection_point"]]
-                for flag_info in inflection_info
-            ]
-    
-    # change the url params from jinja t/f to python understood T/F
-    show_color = True if show_color == "true" else False
-    
-    return show_color, color_low_range, color_high_range, all_flags_list
-
-
 def parse_data_streams(
-    request: ResearcherRequest, study_id: int, data_stream: str, participant_objects: ParticipantQuerySet
+    request: ResearcherRequest, study: Study, data_stream: str, participant_objects: ParticipantQuerySet
 ):
-    start, end = extract_date_args_from_request(request)
-    first_day, last_day = dashboard_chunkregistry_date_query(study_id, data_stream)
+    start, end = extract_date_args_from_request(request, study.timezone)
+    first_day, last_day = dashboard_chunkregistry_date_query(study, data_stream)
     data_exists = False
     unique_dates = []
     byte_streams = {}
@@ -174,8 +124,8 @@ def dashboard_participant_page(request: ResearcherRequest, study_id, patient_id)
     
     # ----------------- dates for bytes data streams -----------------------
     if chunks:
-        start, end = extract_date_args_from_request(request)
-        first_day, last_day = dashboard_chunkregistry_date_query(study_id, participant=participant)
+        start, end = extract_date_args_from_request(request, study.timezone)
+        first_day, last_day = dashboard_chunkregistry_date_query(study, participant=participant)
         unique_dates, first_date_data_entry, last_date_data_entry = get_unique_dates(
             start, end, first_day, last_day, chunks
         )
@@ -217,74 +167,12 @@ def dashboard_participant_page(request: ResearcherRequest, study_id, patient_id)
     )
 
 
-def set_default_settings_post_request(request: ResearcherRequest, study: Study, data_stream: str):
-    all_flags_list = argument_grabber(request, "all_flags_list", "[]")
-    color_high_range = argument_grabber(request, "color_high_range", "0")
-    color_low_range = argument_grabber(request, "color_low_range", "0")
-    
-    # convert parameters from unicode to correct types
-    # if they didn't save a gradient we don't want to save garbage
-    all_flags_list = json.loads(all_flags_list)
-    if color_high_range == "0" and color_low_range == "0":
-        color_low_range, color_high_range = 0, 0
-        bool_create_gradient = False
-    else:
-        bool_create_gradient = True
-        color_low_range = int(json.loads(color_low_range))
-        color_high_range = int(json.loads(color_high_range))
-    
-    # try to get a DashboardColorSetting object and check if it exists
-    if DashboardColorSetting.objects.filter(data_type=data_stream, study=study).exists():
-        # case: a default settings model already exists; delete the inflections associated with it
-        gradient: DashboardGradient
-        inflection: DashboardInflection
-        settings: DashboardColorSetting = DashboardColorSetting.objects.get(data_type=data_stream, study=study)
-        settings.inflections.all().delete()
-        if settings.gradient_exists():
-            settings.gradient.delete()
-        
-        if bool_create_gradient:
-            # create new gradient
-            gradient, _ = DashboardGradient.objects.get_or_create(dashboard_color_setting=settings)
-            gradient.color_range_max = color_high_range
-            gradient.color_range_min = color_low_range
-            gradient.save()
-        
-        # create new inflections
-        for flag in all_flags_list:
-            # all_flags_list looks like this: [[operator, inflection_point], ...]
-            inflection = DashboardInflection.objects.create(dashboard_color_setting=settings, operator=flag[0])
-            inflection.operator = flag[0]
-            inflection.inflection_point = flag[1]
-            inflection.save()
-        settings.save()
-    else:
-        # this is the case if a default settings does not yet exist
-        # create a new dashboard color setting in memory
-        settings = DashboardColorSetting.objects.create(data_type=data_stream, study=study)
-        
-        # create new gradient
-        if bool_create_gradient:
-            gradient = DashboardGradient.objects.create(dashboard_color_setting=settings)
-            gradient.color_range_max = color_high_range
-            gradient.color_range_min = color_low_range
-        
-        # create new inflections
-        for flag in all_flags_list:
-            inflection = DashboardInflection.objects.create(dashboard_color_setting=settings, operator=flag[0])
-            inflection.operator = flag[0]
-            inflection.inflection_point = flag[1]
-        
-        # save the dashboard color setting to the backend (currently is just in memory)
-        settings.save()
-    
-    return color_low_range, color_high_range, all_flags_list
-
-
 def get_unique_dates(start: datetime, end: datetime, first_day: date, last_day: date, chunks=None):
     """ create a list of all the unique days in which data was recorded for this study """
     first_date_data_entry = last_date_data_entry = None
+    
     if chunks:
+        # chunks are sourced from dashboard_chunkregistry_query, so should be in the study timezone
         all_dates = sorted(
             chunk["time_bin"].date() for chunk in chunks if chunk["time_bin"].date() >= first_day
             # must be >= first day bc there are some point for 1970 that get filtered out bc obv are garbage
@@ -365,6 +253,7 @@ def create_next_past_urls(first_day: date, last_day: date, start: datetime, end:
 
 def get_bytes_data_stream_match(chunks: List[Dict[str, datetime]], a_date: date, stream: str):
     """ Returns byte value for correct chunk based on data stream and type comparisons. """
+    # these time_bin datetime objects should be in the appropriate timezone
     return sum(
         chunk.get("bytes", 0) or 0 for chunk in chunks
         if chunk["time_bin"].date() == a_date and chunk["data_stream"] == stream
@@ -380,12 +269,12 @@ def get_bytes_date_match(stream_data: List[Dict[str, datetime]], a_date: date) -
 
 
 def dashboard_chunkregistry_date_query(
-    study_id: int, data_stream: str = None, participant: Participant = None
+    study: Study, data_stream: str = None, participant: Participant = None
 ):
     """ Gets the first and last days in the study excluding 1/1/1970 bc that is obviously an error
     and makes the frontend annoying to use """
     earlist_possible_data = datetime(year=2014, month=8, day=1, tzinfo=pytz.utc)  # beiwe launch date
-    kwargs = {"study_id": study_id}
+    kwargs = {"study_id": study.id}
     if data_stream:
         kwargs["data_type"] = data_stream
     if participant:
@@ -403,25 +292,24 @@ def dashboard_chunkregistry_date_query(
     if len(all_time_bins) < 1:
         return None, None
     
-    return all_time_bins[0].date(), all_time_bins[-1].date()
+    # and get as study timezone... which might be unnecessary
+    return all_time_bins[0].astimezone(study.timezone).date(), \
+           all_time_bins[-1].astimezone(study.timezone).date()
 
 
 # Fixme: start and end dates are never used
 def dashboard_chunkregistry_query(
-    participants: Union[ParticipantQuerySet, Participant], data_stream: str = None,
-    start: date = None, end: date = None
+    participants: Union[ParticipantQuerySet, Participant], data_stream: str = None
 ):
     """ Queries ChunkRegistry based on the provided parameters and returns a list of dictionaries
     with 3 keys: bytes, data_stream, and time_bin. """
     if isinstance(participants, Participant):
+        timezone: tzinfo = participants.study.timezone
         kwargs = {"participant": participants}
     else:
+        timezone: tzinfo = participants.first().study.timezone
         kwargs = {"participant_id__in": participants}
     
-    if start:
-        kwargs["time_bin__gte"] = start
-    if end:
-        kwargs["time_bin__lte"] = end
     if data_stream:
         kwargs["data_type"] = data_stream
     
@@ -429,8 +317,10 @@ def dashboard_chunkregistry_query(
     chunks = ChunkRegistry.objects.filter(**kwargs).extra(
         select={'data_stream': 'data_type', 'bytes': 'file_size'}
     ).values("participant__patient_id", "bytes", "data_stream", "time_bin")
+    
     patient_id_to_datapoints = defaultdict(list)
     for chunk in chunks:
+        chunk["time_bin"] = chunk["time_bin"].astimezone(timezone)
         patient_id_to_datapoints[chunk.pop("participant__patient_id")].append(chunk)
     
     # populate participants with no data, values don't need to be present.
@@ -441,20 +331,28 @@ def dashboard_chunkregistry_query(
     return dict(patient_id_to_datapoints)
 
 
-def extract_date_args_from_request(request: ResearcherRequest):
+def extract_date_args_from_request(request: ResearcherRequest, timezone: tzinfo) -> Tuple[datetime, datetime]:
     """ Gets start and end arguments from GET/POST params, throws 400 on date formatting errors. """
     start = argument_grabber(request, "start", None)
     end = argument_grabber(request, "end", None)
     try:
         if start:
-            start = datetime.strptime(start, API_DATE_FORMAT)
+            start = make_aware(datetime.strptime(start, API_DATE_FORMAT), timezone)
         if end:
-            end = datetime.strptime(end, API_DATE_FORMAT)
+            end = make_aware(datetime.strptime(end, API_DATE_FORMAT), timezone)
     except ValueError:
         return abort(400, DATETIME_FORMAT_ERROR)
     
     return start, end
 
+
+def argument_grabber(request: ResearcherRequest, key: str, default: Any = None) -> str or None:
+    return request.GET.get(key, request.POST.get(key, default))
+
+
+#
+## Post request parameters, mostly colors and gradients
+#
 
 def extract_range_args_from_request(request: ResearcherRequest):
     """ Gets minimum and maximum arguments from GET/POST params """
@@ -475,5 +373,122 @@ def extract_flag_args_from_request(request: ResearcherRequest):
     return all_flags_list
 
 
-def argument_grabber(request: ResearcherRequest, key: str, default: Any = None) -> str or None:
-    return request.GET.get(key, request.POST.get(key, default))
+def set_default_settings_post_request(request: ResearcherRequest, study: Study, data_stream: str):
+    all_flags_list = argument_grabber(request, "all_flags_list", "[]")
+    color_high_range = argument_grabber(request, "color_high_range", "0")
+    color_low_range = argument_grabber(request, "color_low_range", "0")
+    
+    # convert parameters from unicode to correct types
+    # if they didn't save a gradient we don't want to save garbage
+    all_flags_list = json.loads(all_flags_list)
+    if color_high_range == "0" and color_low_range == "0":
+        color_low_range, color_high_range = 0, 0
+        bool_create_gradient = False
+    else:
+        bool_create_gradient = True
+        color_low_range = int(json.loads(color_low_range))
+        color_high_range = int(json.loads(color_high_range))
+    
+    # try to get a DashboardColorSetting object and check if it exists
+    if DashboardColorSetting.objects.filter(data_type=data_stream, study=study).exists():
+        # case: a default settings model already exists; delete the inflections associated with it
+        gradient: DashboardGradient
+        inflection: DashboardInflection
+        settings: DashboardColorSetting = DashboardColorSetting.objects.get(
+            data_type=data_stream, study=study
+        )
+        settings.inflections.all().delete()
+        if settings.gradient_exists():
+            settings.gradient.delete()
+        
+        if bool_create_gradient:
+            # create new gradient
+            gradient, _ = DashboardGradient.objects.get_or_create(dashboard_color_setting=settings)
+            gradient.color_range_max = color_high_range
+            gradient.color_range_min = color_low_range
+            gradient.save()
+        
+        # create new inflections
+        for flag in all_flags_list:
+            # all_flags_list looks like this: [[operator, inflection_point], ...]
+            inflection = DashboardInflection.objects.create(
+                dashboard_color_setting=settings, operator=flag[0]
+            )
+            inflection.operator = flag[0]
+            inflection.inflection_point = flag[1]
+            inflection.save()
+        settings.save()
+    else:
+        # this is the case if a default settings does not yet exist
+        # create a new dashboard color setting in memory
+        settings = DashboardColorSetting.objects.create(data_type=data_stream, study=study)
+        
+        # create new gradient
+        if bool_create_gradient:
+            gradient = DashboardGradient.objects.create(dashboard_color_setting=settings)
+            gradient.color_range_max = color_high_range
+            gradient.color_range_min = color_low_range
+        
+        # create new inflections
+        for flag in all_flags_list:
+            inflection = DashboardInflection.objects.create(
+                dashboard_color_setting=settings, operator=flag[0]
+            )
+            inflection.operator = flag[0]
+            inflection.inflection_point = flag[1]
+        
+        # save the dashboard color setting to the backend (currently is just in memory)
+        settings.save()
+    
+    return color_low_range, color_high_range, all_flags_list
+
+
+def handle_filters(request: ResearcherRequest, study: Study, data_stream: str):
+    color_settings: DashboardColorSetting
+    
+    if request.method == "POST":
+        color_low_range, color_high_range, all_flags_list =\
+            set_default_settings_post_request(request, study, data_stream)
+        show_color = "false" if color_low_range == 0 and color_high_range == 0 else "true"
+    else:
+        color_low_range, color_high_range, show_color = extract_range_args_from_request(request)
+        all_flags_list = extract_flag_args_from_request(request)
+    
+    if DashboardColorSetting.objects.filter(data_type=data_stream, study=study).exists():
+        color_settings = DashboardColorSetting.objects.get(data_type=data_stream, study=study)
+        default_filters = DashboardColorSetting.get_dashboard_color_settings(color_settings)
+    else:
+        default_filters = ""
+        color_settings = None
+    
+    # -------------------------------- dealing with color settings -------------------------------------------------
+    # test if there are default settings saved,
+    # and if there are, test if the default filters should be used or if the user has overridden them
+    if default_filters != "":
+        inflection_info = default_filters["inflections"]
+        if all_flags_list == [] and color_high_range is None and color_low_range is None:
+            # since none of the filters are set, parse default filters to pass in the default
+            # settings set the values for gradient filter
+            
+            # backend: color_range_min, color_range_max --> frontend: color_low_range,
+            # color_high_range the above is consistent throughout the back and front ends
+            if color_settings.gradient_exists():
+                gradient_info = default_filters["gradient"]
+                color_low_range = gradient_info["color_range_min"]
+                color_high_range = gradient_info["color_range_max"]
+                show_color = "true"
+            else:
+                color_high_range, color_low_range = 0, 0
+                show_color = "false"
+            
+            # set the values for the flag/inflection filter*s*
+            # the html is expecting a list of lists for the flags [[operator, value], ... ]
+            all_flags_list = [
+                [flag_info["operator"], flag_info["inflection_point"]]
+                for flag_info in inflection_info
+            ]
+    
+    # change the url params from jinja t/f to python understood T/F
+    show_color = True if show_color == "true" else False
+    
+    return show_color, color_low_range, color_high_range, all_flags_list

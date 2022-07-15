@@ -12,7 +12,7 @@
   <script type="text/javascript" src="/static/javascript/libraries/collapse.js"></script>
   <script type="text/javascript" src="/static/javascript/libraries/bootstrap-datetimepicker.js"></script>
   <script src="/static/javascript/patient_dashboard_features.js"></script>
-  {% include 'dashboard/dashboard_javascript.html' %}
+  {% include 'dashboard/dashboard_participant_javascript.html' %}
 {% endblock %}
 
 {% block content %}
@@ -60,8 +60,12 @@
     <div class="dates">
       <p>Available Dates: {{ first_date_data.strftime('%m/%d/%Y') }}
         - {{ last_date_data.strftime('%m/%d/%Y') }}
+      <span class="pull-right">
+        (Timezone: {{ study.timezone_name }})
+      </span>
       </p>
     </div>
+
     <div class="date_bar">
       <div>
         {% if past_url %}

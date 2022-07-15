@@ -2,7 +2,7 @@ import csv
 import json
 import os
 import traceback
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, time
 from multiprocessing.pool import ThreadPool
 from typing import Dict, Tuple
 
@@ -30,8 +30,8 @@ from forest.jasmine.traj2stats import gps_stats_main
 from forest.willow.log_stats import log_stats_main
 
 
-MIN_TIME = datetime.time(0, 0, 0, 0)
-MAX_TIME = datetime.time(23, 59, 59, 999999)
+MIN_TIME = time(0, 0, 0, 0)
+MAX_TIME = time(23, 59, 59, 999999)
 
 
 class NoSentryException(Exception): pass

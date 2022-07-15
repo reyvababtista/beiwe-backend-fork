@@ -6,7 +6,6 @@ from constants.data_stream_constants import (ACCELEROMETER, AMBIENT_AUDIO, ANDRO
 
 # differs by one from 
 DASHBOARD_DATA_STREAMS = [
-    "timezone",
     ACCELEROMETER,
     AMBIENT_AUDIO,
     ANDROID_LOG_FILE,
@@ -30,7 +29,6 @@ DASHBOARD_DATA_STREAMS = [
 ]
 
 COMPLETE_DATA_STREAM_DICT = {
-    "timezone": "Timezone",
     ACCELEROMETER: "Accelerometer (bytes)",
     AMBIENT_AUDIO: "Ambient Audio Recording (bytes)",
     ANDROID_LOG_FILE: "Android Log File (bytes)",

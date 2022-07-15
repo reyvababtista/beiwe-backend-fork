@@ -1,0 +1,21 @@
+<script type="text/javascript">
+  window.color_high_range = null;
+  window.color_low_range = null;
+  window.show_color = {{ 'true' if show_color == True else 'false' }};
+  window.all_flags_list = JSON.parse('{{ all_flags_list|tojson }}');
+  window.base_next_url = JSON.parse('{{ base_next_url|tojson }}');
+  window.base_past_url = JSON.parse('{{ base_past_url|tojson }}');
+  window.current_gradient = [{{ 0 if color_low_range is none else color_low_range}}, {{ 0 if color_high_range is none else color_high_range }}];
+  {% if first_day and last_day %}
+    window.first_day = new Date({{ first_day.year}}, {{first_day.month - 1}}, {{first_day.day }});
+    window.last_day = new Date({{ last_day.year}}, {{last_day.month - 1}}, {{last_day.day }});
+  {% endif %}
+  {% if times %}
+    window.start_date = new Date({{ times[0].year}}, {{times[0].month - 1}}, {{times[0].day }});
+    window.end_date = new Date({{ times[-1].year}}, {{times[-1].month - 1}}, {{times[-1].day }});
+  {% else %}
+    window.start_date = new Date();
+    window.end_date = new Date();
+  {%  endif %}
+</script>
+  

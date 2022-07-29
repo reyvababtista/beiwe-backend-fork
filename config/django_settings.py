@@ -59,6 +59,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'middleware.abort_middleware.AbortMiddleware',
+    # "middleware.request_to_curl.CurlMiddleware",  # uncomment to enable a debugging tool
 ]
 
 TIME_ZONE = 'UTC'

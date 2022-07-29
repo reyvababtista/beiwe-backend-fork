@@ -77,7 +77,7 @@ class ForestTask(TimestampedModel):
         for i in range(10):
             try:
                 shutil.rmtree(self.data_base_path)
-            except FileNotFoundError:
+            except OSError:  # this is pretty expansive
                 pass
             # file system can be slightly slow, we need to sleep. (this code never executes on frontend)
             sleep(0.5)

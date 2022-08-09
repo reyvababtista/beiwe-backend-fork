@@ -14,6 +14,7 @@ from config.settings import UPLOAD_LOGGING_ENABLED
 from constants.celery_constants import ANDROID_FIREBASE_CREDENTIALS, IOS_FIREBASE_CREDENTIALS
 from constants.message_strings import (DEVICE_IDENTIFIERS_HEADER, INVALID_EXTENSION_ERROR,
     NO_FILE_ERROR, UNKNOWN_ERROR)
+from constants.user_constants import IOS_API
 from database.data_access_models import FileToProcess
 from database.system_models import FileAsText
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
@@ -193,14 +194,16 @@ def register_user(request: ParticipantRequest, OS_API=""):
     mac_address = request.POST.get('bluetooth_id', "none")
     
     participant = request.session_participant
-    if participant.device_id and participant.device_id != device_id:
+    if OS_API != IOS_API and participant.device_id and participant.device_id != device_id:
         # CASE: this patient has a registered a device already and it does not match this device.
         #   They need to contact the study and unregister their their other device.  The device
         #   will receive a 405 error and should alert the user accordingly.
         # Provided a user does not completely reset their device (which resets the device's
-        # unique identifier) they user CAN reregister an existing device, the unlock key they
+        # unique identifier) the user CAN reregister an existing device, the unlock key they
         # need to enter to at registration is their old password.
         # KG: 405 is good for IOS and Android, no need to check OS_API
+        # 2022-08-08: ios can change the device id under unknown triggers probably due to the app 
+        #   getting shifted between accounts / redone ios dev certificates.
         return abort(405)
     
     # if participant.os_type and participant.os_type != OS_API:

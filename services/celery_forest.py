@@ -2,11 +2,11 @@ import csv
 import json
 import os
 import traceback
-from datetime import date, datetime, timedelta, time
+from datetime import date, datetime, time, timedelta
 from multiprocessing.pool import ThreadPool
 from typing import Dict, Tuple
 
-import pytz
+from dateutil.tz import UTC
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import Sum
@@ -273,7 +273,7 @@ def batch_create_file(singular_task_chunk: Tuple[ForestTask, Dict]):
 
 def enqueue_forest_task(**kwargs):
     updated_kwargs = {
-        "expires": (datetime.utcnow() + timedelta(minutes=5)).replace(second=30, microsecond=0, tzinfo=pytz.utc),
+        "expires": (datetime.utcnow() + timedelta(minutes=5)).replace(second=30, microsecond=0, tzinfo=UTC),
         "max_retries": 0,
         "retry": False,
         "task_publish_retry": False,

@@ -2,7 +2,7 @@ from datetime import date, datetime
 from posixpath import abspath
 from sys import argv as _argv
 
-import pytz
+from dateutil.tz import UTC
 
 
 BEIWE_PROJECT_ROOT = abspath(__file__.rsplit("/", 2)[0] + "/")
@@ -14,7 +14,7 @@ RUNNING_TEST_OR_IN_A_SHELL = any(
 
 # roughly one month before the initial deploy of the first Beiwe instance.
 EARLIEST_POSSIBLE_DATA_DATE = date(2014, 8, 1)
-EARLIEST_POSSIBLE_DATA_DATETIME = datetime(year=2014, month=8, day=1, tzinfo=pytz.utc)
+EARLIEST_POSSIBLE_DATA_DATETIME = datetime(year=2014, month=8, day=1, tzinfo=UTC)
 
 # The format that dates should be in throughout the codebase
 # 1990-01-31T07:30:04 gets you jan 31 1990 at 7:30:04am

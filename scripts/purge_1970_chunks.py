@@ -1,13 +1,15 @@
+from datetime import datetime
+
+from dateutil.tz import UTC
+
 from constants.data_stream_constants import AMBIENT_AUDIO, IMAGE_FILE, VOICE_RECORDING
 from database.data_access_models import ChunkRegistry
 
-from datetime import datetime
-import pytz
 
 # Onnela Lab, the first deployment, went live after this date, and it may be early by a whole year.
 # Any uploaded data from before this is due to a user manually setting the date on their phone,
 # or it is corrupted data.
-earlist_possible_data = datetime(year=2014, month=8, day=1, tzinfo=pytz.utc)
+earlist_possible_data = datetime(year=2014, month=8, day=1, tzinfo=UTC)
 query = ChunkRegistry.objects.filter(time_bin__lt=earlist_possible_data) \
     .exclude(data_type__in=[IMAGE_FILE, AMBIENT_AUDIO, VOICE_RECORDING])
 

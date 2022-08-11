@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
 from typing import Any, Dict, List, Tuple, Union
 
-import pytz
+from dateutil.tz import UTC
 from django.shortcuts import get_object_or_404, render
 from django.utils.timezone import make_aware
 
@@ -273,7 +273,7 @@ def dashboard_chunkregistry_date_query(
 ):
     """ Gets the first and last days in the study excluding 1/1/1970 bc that is obviously an error
     and makes the frontend annoying to use """
-    earlist_possible_data = datetime(year=2014, month=8, day=1, tzinfo=pytz.utc)  # beiwe launch date
+    earlist_possible_data = datetime(year=2014, month=8, day=1, tzinfo=UTC)  # beiwe launch date
     kwargs = {"study_id": study.id}
     if data_stream:
         kwargs["data_type"] = data_stream

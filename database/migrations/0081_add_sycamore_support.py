@@ -21,11 +21,11 @@ def backfill_sycamore_param(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
+    
     dependencies = [
-        ('database', '0079_delete_decryptionkeyerror'),
+        ('database', '0080_summarystatisticdaily_timezone'),
     ]
-
+    
     operations = [
         migrations.AddField(
             model_name='forestparam',

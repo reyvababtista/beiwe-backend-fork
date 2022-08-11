@@ -10,7 +10,7 @@ from django.utils import timezone
 from config.django_settings import STATIC_ROOT
 from constants.celery_constants import ScheduleTypes
 from constants.common_constants import BEIWE_PROJECT_ROOT
-from constants.forest_constants import ForestTree
+from constants.forest_constants import DefaultForestParameters, ForestTree
 from constants.testing_constants import REAL_ROLES
 from constants.user_constants import ANDROID_API, IOS_API, NULL_OS, ResearcherRole
 from database.common_models import generate_objectid_string
@@ -19,7 +19,7 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
     InterventionDate, RelativeSchedule, WeeklySchedule)
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
-from database.tableau_api_models import ForestParam, ForestTask, SummaryStatisticDaily
+from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
 from database.user_models import Participant, ParticipantFCMHistory, Researcher, StudyRelation
 from libs.security import generate_easy_alphanumeric_string
 
@@ -73,7 +73,6 @@ class ReferenceObjectMixin:
             forest_enabled=forest_enabled or True,
             timezone_name="UTC",
             deleted=False,
-            forest_param=self.default_forest_params,  # I think this is fine?
         )
         study.save()
         return study
@@ -335,21 +334,26 @@ class ReferenceObjectMixin:
     #
     
     @property
-    def default_forest_params(self) -> ForestParam:
+    def default_forest_params(self) -> ForestParameters:
         """ Creates a default forest params object.  This is a default object, and will be
         auto-populated in scenarios where such an object is required but not provided. """
         try:
             return self._default_forest_params
         except AttributeError:
             pass
-        # there is an actual default ForestParams defined in a migration.
-        self._default_forest_params = ForestParam.objects.get(default=True)
+        self._default_forest_params = ForestParameters(
+            name="default forest param",
+            notes="this is junk",
+            tree_name="jasmine",
+            json_parameters=DefaultForestParameters.jasmine_defaults_json,
+        )
+        self._default_forest_params.save()
         return self._default_forest_params
     
     def generate_forest_task(
         self,
         participant: Participant = None,
-        forest_param: ForestParam = None,
+        forest_param: ForestParameters = None,
         data_date_start: datetime = timezone.now(),    # generated once at import time. will differ,
         data_date_end: datetime = timezone.now(),      # slightly, but end is always after start.
         forest_tree: str = ForestTree.jasmine,

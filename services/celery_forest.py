@@ -21,14 +21,16 @@ from database.data_access_models import ChunkRegistry
 from database.tableau_api_models import ForestTask, SummaryStatisticDaily
 from database.user_models import Participant
 from libs.celery_control import forest_celery_app, safe_apply_async
+from libs.copy_study import format_study
+from libs.intervention_export import intervention_survey_data
 from libs.s3 import s3_retrieve
 from libs.sentry import make_error_sentry, SentryTypes
 from libs.streaming_zip import determine_file_name
 from libs.utils.date_utils import get_timezone_shortcode
 
 from forest.jasmine.traj2stats import gps_stats_main
-from forest.willow.log_stats import log_stats_main
 from forest.sycamore.base import get_submits_for_tableau
+from forest.willow.log_stats import log_stats_main
 
 
 MIN_TIME = datetime.min.time()
@@ -297,3 +299,15 @@ def save_cached_files(task: ForestTask):
     if os.path.exists(task.all_memory_dict_path):
         with open(task.all_memory_dict_path, "rb") as f:
             task.save_all_memory_dict_bytes(f.read())
+
+
+def get_interventions_data(forest_task: ForestTask):
+    """ Generates a study interventions file for the participant's survey and returns the path to it """
+    with open(forest_task.interventions_filepath, "w") as f:
+        f.write(json.dumps(intervention_survey_data(forest_task.participant.study)))
+
+
+def get_study_config_data(forest_task: ForestTask):
+    """ Generates a study config file for the participant's survey and returns the path to it. """
+    with open(forest_task.study_config_path, "w") as f:
+        f.write(format_study(forest_task.participant.study))

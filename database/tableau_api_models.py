@@ -14,30 +14,13 @@ from database.user_models import Participant
 from libs.utils.date_utils import datetime_to_list
 
 
-class ForestParam(TimestampedModel):
-    """ Model for tracking params used in Forest analyses. There is one object for all trees.
-
-    When adding support for a new tree, make sure to add a migration to populate existing
-    ForestMetadata objects with the default metadata for the new tree. This way, all existing
-    ForestTasks are still associated to the same ForestMetadata object and we don't have to give a
-    warning to users that the metadata have changed. """
-    # Note: making a BooleanField null=True unique=True allows us to ensure only one object can have
-    # default=True at any time (null is considered unique). This means this field should be consumed
-    # as True or falsy (null is false), as the value should never be actually set to `False`.
-    # (Warning: the above property depends on the database backend.)
-    default = models.BooleanField(unique=True, null=True, blank=True)
-    notes = models.TextField(blank=True)
-    name = models.TextField(blank=True)
-    
-    jasmine_json_string = models.TextField()
-    willow_json_string = models.TextField()
-    sycamore_json_string = models.TextField()
-    
-    def params_for_tree(self, tree_name):
-        if tree_name not in ForestTree.values():
-            raise KeyError(f"Invalid tree \"{tree_name}\". Must be one of {ForestTree.values()}.")
-        json_string_field_name = f"{tree_name}_json_string"
-        return json.loads(getattr(self, json_string_field_name))
+class ForestParameters(TimestampedModel):
+    """ Model for storing parameter sets used in Forest analyses."""
+    name = models.TextField(blank=True, null=False)
+    notes = models.TextField(blank=True, null=False)
+    tree_name = models.TextField(blank=False, null=False, choices=ForestTree.choices())
+    json_parameters = models.TextField(blank=False, null=False)
+    deleted = models.BooleanField(default=False)
 
 
 class ForestTask(TimestampedModel):
@@ -48,7 +31,8 @@ class ForestTask(TimestampedModel):
     # primary keys of the model. it is intentionally not the primary key
     external_id = models.UUIDField(default=uuid.uuid4, editable=False)
     
-    forest_param = models.ForeignKey(ForestParam, on_delete=models.PROTECT)
+    # forest params can be null, means it used defaults
+    forest_param = models.ForeignKey(ForestParameters, null=True, on_delete=models.PROTECT)
     params_dict_cache = models.TextField(blank=True)  # Cache of the params used
     
     forest_tree = models.TextField(choices=ForestTree.choices())
@@ -186,52 +170,42 @@ class ForestTask(TimestampedModel):
         return os.path.join("/tmp/forest/", str(self.external_id), self.forest_tree)
     
     @property
-    def interventions_filepath(self):
+    def interventions_filepath(self) -> str:
         """ Generates a study interventions file for the participant's survey and returns the path to it """
-        from database.study_models import Study
-        from libs.intervention_export import intervention_survey_data
-        study = Study.objects.get(id=self.participant.study_id)
-        filename = study.name.replace(' ', '_') + "_interventions.json"
-        with open(os.path.join(self.data_base_path, filename), "w") as f:
-            f.write(json.dumps(intervention_survey_data(study)))
+        filename = self.participant.study.name.replace(' ', '_') + "_interventions.json"
         return os.path.join(self.data_base_path, filename)
     
     @property
-    def study_config_path(self):
+    def study_config_path(self) -> str:
         """ Generates a study config file for the participant's survey and returns the path to it. """
-        from database.study_models import Study
-        from libs.copy_study import format_study
-        study = Study.objects.get(pk=self.participant.study_id)
-        filename = study.name.replace(' ', '_') + "_surveys_and_settings.json"
-        with open(os.path.join(self.data_base_path, filename), "w") as f:
-            f.write(format_study(study))
+        filename = self.participant.name.replace(' ', '_') + "_surveys_and_settings.json"
         return os.path.join(self.data_base_path, filename)
     
     @property
-    def data_input_path(self):
+    def data_input_path(self) -> str:
         """ Return the path to the input data folder, creating it if it doesn't already exist. """
         return os.path.join(self.data_base_path, "data")
     
     @property
-    def data_output_path(self):
+    def data_output_path(self) -> str:
         """ Return the path to the output data folder, creating it if it doesn't already exist. """
         return os.path.join(self.data_base_path, "output")
     
     @property
-    def forest_results_path(self):
+    def forest_results_path(self) -> str:
         """ Return the path to the file that contains the output of Forest. """
         return os.path.join(self.data_output_path, f"{self.participant.patient_id}.csv")
     
     @property
-    def s3_base_folder(self):
+    def s3_base_folder(self) -> str:
         return os.path.join(self.participant.study.object_id, "forest")
     
     @property
-    def all_bv_set_path(self):
+    def all_bv_set_path(self) -> str:
         return os.path.join(self.data_output_path, "all_BV_set.pkl")
     
     @property
-    def all_memory_dict_path(self):
+    def all_memory_dict_path(self) -> str:
         return os.path.join(self.data_output_path, "all_memory_dict.pkl")
     
     def generate_all_bv_set_s3_key(self):

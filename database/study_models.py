@@ -17,7 +17,6 @@ from constants.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT,
 from constants.user_constants import ResearcherRole
 from database.common_models import UtilityModel
 from database.models import JSONTextField, TimestampedModel
-from database.tableau_api_models import ForestParam
 from database.user_models import Participant, Researcher
 from database.validators import LengthValidator
 
@@ -42,21 +41,13 @@ class Study(TimestampedModel):
         max_length=256, default="America/New_York", null=False, blank=False
     )
     deleted = models.BooleanField(default=False)
-    
     forest_enabled = models.BooleanField(default=False)
-    # Note: this is not nullable to prevent bugs where this is null, though if forest_enabled is
-    #       False, the forest_param field isn't used
-    forest_param = models.ForeignKey(ForestParam, on_delete=models.PROTECT)
     
     def save(self, *args, **kwargs):
         """ Ensure there is a study device settings attached to this study. """
         # First we just save. This code has vacillated between throwing a validation error and not
         # during study creation.  Our current fix is to save, then test whether a device settings
         # object exists.  If not, create it.
-        try:
-            self.forest_param
-        except ObjectDoesNotExist:
-            self.forest_param = ForestParam.objects.get(default=True)
         super().save(*args, **kwargs)
         try:
             self.device_settings

@@ -12,7 +12,7 @@ from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey, SurveyArchive, SurveyBase
 from database.system_models import FileAsText, GenericEvent
-from database.tableau_api_models import ForestParam, ForestTask, SummaryStatisticDaily
+from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
 from database.user_models import (AbstractPasswordUser, Participant, ParticipantFCMHistory,
     ParticipantFieldValue, PushNotificationDisabledEvent, Researcher, StudyRelation)
 
@@ -66,7 +66,7 @@ DeviceSettingsQuerySet = Union[QuerySet, List[DeviceSettings]]
 EncryptionErrorMetadataQuerySet = Union[QuerySet, List[EncryptionErrorMetadata]]
 FileAsTextQuerySet = Union[QuerySet, List[FileAsText]]
 FileToProcessQuerySet = Union[QuerySet, List[FileToProcess]]
-ForestParamQuerySet = Union[QuerySet, List[ForestParam]]
+ForestParametersQuerySet = Union[QuerySet, List[ForestParameters]]
 ForestTaskQuerySet = Union[QuerySet, List[ForestTask]]
 GenericEventQuerySet = Union[QuerySet, List[GenericEvent]]
 IOSDecryptionKeyQuerySet = Union[QuerySet, List[IOSDecryptionKey]]

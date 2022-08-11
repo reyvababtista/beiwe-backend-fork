@@ -7,7 +7,6 @@ from multiprocessing.pool import ThreadPool
 from typing import Dict, Tuple
 
 from dateutil.tz import UTC
-from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
@@ -135,6 +134,11 @@ def celery_run_forest(forest_task_id):
         task.update_only(process_download_end_time=timezone.now())
         log("task.process_download_end_time:", task.process_download_end_time.isoformat())
         
+        # get extra custom files for any trees that need them (currently just sycamore)
+        if task.forest_tree == ForestTree.sycamore:
+            get_interventions_data(task)
+            get_study_config_data(task)
+
         # Run Forest
         params_dict = task.get_params_dict()
         log("params_dict:", params_dict)

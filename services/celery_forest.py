@@ -2,7 +2,7 @@ import csv
 import json
 import os
 import traceback
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from multiprocessing.pool import ThreadPool
 from typing import Dict, Tuple
 
@@ -30,8 +30,8 @@ from forest.jasmine.traj2stats import gps_stats_main
 from forest.willow.log_stats import log_stats_main
 
 
-MIN_TIME = time(0, 0, 0, 0)
-MAX_TIME = time(23, 59, 59, 999999)
+MIN_TIME = datetime.min.time()
+MAX_TIME = datetime.max.time()
 
 
 class NoSentryException(Exception): pass
@@ -163,7 +163,7 @@ def celery_run_forest(forest_task_id):
     finally:
         # This is entirely boilerplate for reporting cleanup operations cleanly to both sentry and
         # forest task infrastructure.
-        # log("deleting files 1")
+        log("deleting files 1")
         try:
             task.clean_up_files()
         except Exception:
@@ -179,7 +179,7 @@ def celery_run_forest(forest_task_id):
     
     log("task.status:", task.status)
     if task.stacktrace:
-        log("stacktrace:", task.stacktrace)
+        log("task.stacktrace:", task.stacktrace)
     
     task.save(update_fields=["status", "stacktrace"])
     

@@ -2,10 +2,9 @@ from collections import defaultdict
 from datetime import datetime, tzinfo
 from typing import Callable, Optional
 
-from dateutil.tz import gettz
+from dateutil.tz import gettz, UTC
 from django.db.models.query import QuerySet
 from django.utils.timezone import make_aware
-from pytz import UTC
 
 from constants.data_processing_constants import CHUNK_TIMESLICE_QUANTUM
 from constants.data_stream_constants import ALL_DATA_STREAMS

@@ -91,3 +91,24 @@ TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS = {
 
 NO_DATA_ERROR = 'No chunked data found for participant for the dates specified.'
 FOREST_ERROR_LOCATION_KEY = "forest_error_location"
+
+
+# default forest parameters:
+
+SYCAMORE_DEFAULTS = {
+    "submits_timeframe": "daily",
+    "tz_str": "America/New_York",
+}
+
+SYCAMORE_DATE_FORMAT = "%Y-%m-%d"
+
+JASMINE_DEFAULTS = {
+    "option": "daily",
+    "tz_str": "America/New_York",
+    "save_traj": False,  # intentionally left as a falsy value
+}
+
+WILLOW_DEFAULTS = {
+    "option": "daily",
+    "tz_str": "America/New_York",
+}

@@ -101,11 +101,11 @@ def celery_run_forest(forest_task_id):
         if task is None:
             return
         
-        # Set metadata on the task
-        task.status = ForestTaskStatus.running
-        task.forest_version = get_distribution("forest").version
-        task.process_start_time = timezone.now()
-        task.save(update_fields=["status", "forest_version", "process_start_time"])
+        task.update_only(  # Set metadata on the task
+            status=ForestTaskStatus.running,
+            process_start_time=timezone.now(),
+            forest_version=get_distribution("forest").version
+        )
     
     try:
         # ChunkRegistry time_bin hourly chunks are in UTC, and only have hourly datapoints for all
@@ -127,29 +127,25 @@ def celery_run_forest(forest_task_id):
         file_size = chunks.aggregate(Sum('file_size')).get('file_size__sum')
         if file_size is None:
             raise NoSentryException(NO_DATA_ERROR)
-        
-        task.total_file_size = file_size
-        task.save(update_fields=["total_file_size"])
+        task.update_only(total_file_size=file_size)
         
         # Download data
         # FIXME: download only files appropriate to the forest task to be run
         create_local_data_files(task, chunks)
-        task.process_download_end_time = timezone.now()
-        task.save(update_fields=["process_download_end_time"])
+        task.update_only(process_download_end_time=timezone.now())
         log("task.process_download_end_time:", task.process_download_end_time.isoformat())
         
         # Run Forest
-        params_dict = task.params_dict(task=True)
+        params_dict = task.get_params_dict()
         log("params_dict:", params_dict)
-        task.params_dict_cache = json.dumps(params_dict, cls=DjangoJSONEncoder)
-        task.save(update_fields=["params_dict_cache"])
+        task.update_only(params_dict_cache=json.dumps(params_dict))
         
         log("running:", task.forest_tree)
         TREE_TO_FOREST_FUNCTION[task.forest_tree](**params_dict)
+        log("done running:", task.forest_tree)
         
         # Save data
-        task.forest_output_exists = construct_summary_statistics(task)
-        task.save(update_fields=["forest_output_exists"])
+        task.update_only(forest_output_exists=construct_summary_statistics(task))
         save_cached_files(task)
     
     except Exception as e:

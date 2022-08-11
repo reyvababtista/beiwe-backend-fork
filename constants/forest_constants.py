@@ -99,21 +99,29 @@ SYCAMORE_DATE_FORMAT = "%Y-%m-%d"
 
 # default forest parameters:
 class DefaultForestParameters:
-    jasmine_defaults = {
-        "option": "daily",
-        "tz_str": "America/New_York",
-        "save_traj": False,  # intentionally left as a falsy value
-    }
-    jasmine_defaults_json = json.dumps(jasmine_defaults)
-    
-    willow_defaults = {
-        "option": "daily",
-        "tz_str": "America/New_York",
-    }
-    willow_defaults_json = json.dumps(willow_defaults)
-    
-    sycamore_defaults = {
-        "submits_timeframe": "daily",
-        "tz_str": "America/New_York",
-    }
-    sycamore_defaults_json = json.dumps(sycamore_defaults)
+    jasmine_defaults = json.dumps(
+        {
+            "option": "daily",
+            "tz_str": "America/New_York",
+            "save_traj": False,  # intentionally left as a falsy value
+        }
+    )
+    willow_defaults = json.dumps(
+        {
+            "option": "daily",
+            "tz_str": "America/New_York",
+        }
+    )
+    sycamore_defaults = json.dumps(
+        {
+            "submits_timeframe": "daily",
+            "tz_str": "America/New_York",
+        }
+    )
+
+
+DEFAULT_FOREST_PARAMETERS_LOOKUP = {
+    ForestTree.jasmine: DefaultForestParameters.jasmine_defaults,
+    ForestTree.willow: DefaultForestParameters.willow_defaults,
+    ForestTree.sycamore: DefaultForestParameters.sycamore_defaults,
+}

@@ -8,7 +8,7 @@ from time import sleep
 
 from django.db import models
 
-from constants.forest_constants import ForestTaskStatus, ForestTree, SYCAMORE_DATE_FORMAT
+from constants.forest_constants import DEFAULT_FOREST_PARAMETERS_LOOKUP, ForestTaskStatus, ForestTree, SYCAMORE_DATE_FORMAT
 from database.common_models import TimestampedModel
 from database.user_models import Participant
 from libs.utils.date_utils import datetime_to_list
@@ -72,26 +72,32 @@ class ForestTask(TimestampedModel):
             f"Could not delete folder {self.data_base_path} for participant {self.external_id}, tried {i} times."
         )
     
-    def params_dict(self, task=False):
+    def get_params_dict(self) -> dict:
         """ Return a dict of params to pass into the Forest function. The task flag is used to
         indicate whether this is being called for use in the serializer or for use in a task (in
         which case we can call additional functions as needed). """
+
         params = {
             "output_folder": self.data_output_path,
             "study_folder": self.data_input_path,
         }
-        self.handle_tree_specific_dates(params)
+
+        # no forest params implies that we are using the defaults, this may change in the future.
+        if self.forest_param is None:
+            params.update(**json.loads(DEFAULT_FOREST_PARAMETERS_LOOKUP[self.forest_tree]))
+        else:
+            params.update(**json.loads(self.forest_param.json_parameters))
+
+        self.handle_tree_specific_date_params(params)
         
         if self.forest_tree == ForestTree.jasmine:
-            self.assemble_jasmine_params(params)
+            self.assemble_jasmine_dynamic_params(params)
+        if self.forest_tree == ForestTree.sycamore:
+            self.assemble_sycamore_folder_path_params(params)
         
-        # todo: document, why do we need this task flag?
-        if self.forest_tree == ForestTree.sycamore and task:
-            self.assemble_sycamore_params(params)
-        
-        return {**self.forest_param.params_for_tree(self.forest_tree), **params}
+        return params
     
-    def handle_tree_specific_dates(self, params: dict):
+    def handle_tree_specific_date_params(self, params: dict):
         if self.forest_tree != ForestTree.sycamore:
             # most trees expect lists of datetime parameters. We need to add a day since this model
             # tracks time end inclusively, but Forest expects it exclusively
@@ -106,15 +112,15 @@ class ForestTask(TimestampedModel):
                 "end_date": (self.data_date_end + timedelta(days=1)).strftime(SYCAMORE_DATE_FORMAT),
             })
     
-    def assemble_jasmine_params(self, params: dict):
+    def assemble_jasmine_dynamic_params(self, params: dict):
         params["all_BV_set"] = self.get_jasmine_all_bv_set_dict()
         params["all_memory_dict"] = self.get_jasmine_all_memory_dict_dict()
     
-    def assemble_sycamore_params(self, params: dict):
+    def assemble_sycamore_folder_path_params(self, params: dict):
         params['config_path'] = self.study_config_path
         params['interventions_filepath'] = self.interventions_filepath
     
-    def get_jasmine_all_bv_set_dict(self):
+    def get_jasmine_all_bv_set_dict(self) -> dict:
         """ Return the unpickled all_bv_set dict. """
         if not self.all_bv_set_s3_key:
             return None  # Forest expects None if it doesn't exist
@@ -123,7 +129,7 @@ class ForestTask(TimestampedModel):
             s3_retrieve(self.all_bv_set_s3_key, self.participant.study.object_id, raw_path=True)
         )
     
-    def get_jasmine_all_memory_dict_dict(self):
+    def get_jasmine_all_memory_dict_dict(self) -> dict:
         """ Return the unpickled all_memory_dict dict. """
         if not self.all_memory_dict_s3_key:
             return None  # Forest expects None if it doesn't exist
@@ -132,7 +138,7 @@ class ForestTask(TimestampedModel):
             s3_retrieve(self.all_memory_dict_s3_key, self.participant.study.object_id, raw_path=True)
         )
     
-    def get_legible_identifier(self):
+    def get_legible_identifier(self) -> str:
         """ Return a human-readable identifier. """
         return "_".join([
             "data",

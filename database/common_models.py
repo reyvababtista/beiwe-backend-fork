@@ -53,7 +53,7 @@ class UtilityModel(models.Model):
     def as_dict(self):
         """ Provides a dictionary representation of the object """
         return {field.name: getattr(self, field.name) for field in self._meta.fields}
-
+    
     @classmethod
     def summary(cls):
         for field in sorted(cls._meta.fields, key=lambda x: x.name):
@@ -71,7 +71,7 @@ class UtilityModel(models.Model):
             if info:
                 print("\t", ", ".join(info), "\n", sep="")
             else: print()
-
+    
     @property
     def _contents(self):
         """ Convenience purely because this is the syntax used on some other projects """
@@ -148,6 +148,16 @@ class UtilityModel(models.Model):
                 raise Exception(f"unpexpected parameter: {attr}")
             setattr(self, attr, value)
         self.save()
+    
+    def update_only(self, **kwargs):
+        """ As update, but only saves the fields provided. """
+        for attr, value in kwargs.items():
+            if not hasattr(self, attr):
+                # This safety is good enough, only fails when using defer.
+                raise Exception(f"unpexpected parameter: {attr}")
+            setattr(self, attr, value)
+        self.save(update_fields=kwargs.keys())
+    
     
     def __str__(self):
         """ multipurpose object representation """

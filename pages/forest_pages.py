@@ -185,7 +185,7 @@ def download_task_data(request: ResearcherRequest, study_id, forest_task_externa
         zip_generator(chunks),
         content_type="zip",
         as_attachment=True,
-        filename=f"{tracker.get_slug()}.zip",
+        filename=f"{tracker.get_legible_identifier()}.zip",
     )
     f.set_headers(None)
     return f

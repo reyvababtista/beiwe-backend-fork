@@ -1,14 +1,14 @@
-import datetime
 import json
 import os
 import pickle
 import shutil
 import uuid
+from datetime import timedelta
 from time import sleep
 
 from django.db import models
 
-from constants.forest_constants import ForestTaskStatus, ForestTree
+from constants.forest_constants import ForestTaskStatus, ForestTree, SYCAMORE_DATE_FORMAT
 from database.common_models import TimestampedModel
 from database.user_models import Participant
 from libs.utils.date_utils import datetime_to_list
@@ -89,97 +89,90 @@ class ForestTask(TimestampedModel):
         )
     
     def params_dict(self, task=False):
-        """ Return a dict of params to pass into the Forest function. The task flag is used to indicate whether this
-            is being called for use in the serializer or for use in a task (in which case we can call additional 
-            functions as needed).
-         """
-        other_params = {
+        """ Return a dict of params to pass into the Forest function. The task flag is used to
+        indicate whether this is being called for use in the serializer or for use in a task (in
+        which case we can call additional functions as needed). """
+        params = {
             "output_folder": self.data_output_path,
             "study_folder": self.data_input_path,
         }
-        if self.forest_tree not in [ForestTree.sycamore]:
-            # sycamore expects "time_end" and "time_start" as strings, while other trees expect them as lists
-            # Need to add a day since this model tracks time end inclusively, but Forest expects
-            # it exclusively
-            time_end = datetime_to_list(self.data_date_end + datetime.timedelta(days=1))
-            time_start = datetime_to_list(self.data_date_start)
-            other_params.update({
-                "time_end": time_end,
-                "time_start": time_start,
+        self.handle_tree_specific_dates(params)
+        
+        if self.forest_tree == ForestTree.jasmine:
+            self.assemble_jasmine_params(params)
+        
+        # todo: document, why do we need this task flag?
+        if self.forest_tree == ForestTree.sycamore and task:
+            self.assemble_sycamore_params(params)
+        
+        return {**self.forest_param.params_for_tree(self.forest_tree), **params}
+    
+    def handle_tree_specific_dates(self, params: dict):
+        if self.forest_tree != ForestTree.sycamore:
+            # most trees expect lists of datetime parameters. We need to add a day since this model
+            # tracks time end inclusively, but Forest expects it exclusively
+            params.update({
+                "time_start": datetime_to_list(self.data_date_start),
+                "time_end": datetime_to_list(self.data_date_end + timedelta(days=1)),
             })
         else:
-            # sycamore expects string in format "YYYY-MM-DD"
-            string_format = "%Y-%m-%d"
-            time_end = (self.data_date_end + datetime.timedelta(days=1)).strftime(string_format)
-            time_start = self.data_date_start.strftime(string_format)
-            other_params.update({
-                "end_date": time_end,
-                "start_date": time_start,
+            # sycamore expects "time_end" and "time_start" as strings in the format "YYYY-MM-DD"
+            params.update({
+                "start_date": self.data_date_start.strftime(SYCAMORE_DATE_FORMAT),
+                "end_date": (self.data_date_end + timedelta(days=1)).strftime(SYCAMORE_DATE_FORMAT),
             })
-        if self.forest_tree == ForestTree.jasmine:
-            other_params["all_BV_set"] = self.get_all_bv_set_dict()
-            other_params["all_memory_dict"] = self.get_all_memory_dict_dict()
-        if self.forest_tree == ForestTree.sycamore and task:
-            other_params['config_path'] = self.study_config_path
-            other_params['interventions_filepath'] = self.interventions_filepath
-        return {**self.forest_param.params_for_tree(self.forest_tree), **other_params}
     
-    def get_all_bv_set_dict(self):
+    def assemble_jasmine_params(self, params: dict):
+        params["all_BV_set"] = self.get_jasmine_all_bv_set_dict()
+        params["all_memory_dict"] = self.get_jasmine_all_memory_dict_dict()
+    
+    def assemble_sycamore_params(self, params: dict):
+        params['config_path'] = self.study_config_path
+        params['interventions_filepath'] = self.interventions_filepath
+    
+    def get_jasmine_all_bv_set_dict(self):
         """ Return the unpickled all_bv_set dict. """
-        # FIXME: rename
         if not self.all_bv_set_s3_key:
             return None  # Forest expects None if it doesn't exist
         from libs.s3 import s3_retrieve
-        bytes = s3_retrieve(self.all_bv_set_s3_key, self.participant.study.object_id, raw_path=True)
-        return pickle.loads(bytes)
+        return pickle.loads(
+            s3_retrieve(self.all_bv_set_s3_key, self.participant.study.object_id, raw_path=True)
+        )
     
-    def get_all_memory_dict_dict(self):
+    def get_jasmine_all_memory_dict_dict(self):
         """ Return the unpickled all_memory_dict dict. """
-        # FIXME: rename
         if not self.all_memory_dict_s3_key:
             return None  # Forest expects None if it doesn't exist
         from libs.s3 import s3_retrieve
-        bytes = s3_retrieve(
-            self.all_memory_dict_s3_key,
-            self.participant.study.object_id,
-            raw_path=True,
+        return pickle.loads(
+            s3_retrieve(self.all_memory_dict_s3_key, self.participant.study.object_id, raw_path=True)
         )
-        return pickle.loads(bytes)
     
-    def get_slug(self):
+    def get_legible_identifier(self):
         """ Return a human-readable identifier. """
-        parts = [
+        return "_".join([
             "data",
             self.participant.patient_id,
             self.forest_tree,
             str(self.data_date_start),
             str(self.data_date_end),
-        ]
-        return "_".join(parts)
+        ])
     
     def save_all_bv_set_bytes(self, all_bv_set_bytes):
         from libs.s3 import s3_upload
-        s3_upload(
-            self.generate_all_bv_set_s3_key(),
-            all_bv_set_bytes,
-            self.participant,
-            raw_path=True,
-        )
         self.all_bv_set_s3_key = self.generate_all_bv_set_s3_key()
+        s3_upload(self.all_bv_set_s3_key, all_bv_set_bytes, self.participant, raw_path=True)
         self.save(update_fields=["all_bv_set_s3_key"])
     
     def save_all_memory_dict_bytes(self, all_memory_dict_bytes):
         from libs.s3 import s3_upload
-        s3_upload(
-            self.generate_all_memory_dict_s3_key(),
-            all_memory_dict_bytes,
-            self.participant,
-            raw_path=True,
-        )
         self.all_memory_dict_s3_key = self.generate_all_memory_dict_s3_key()
+        s3_upload(self.all_memory_dict_s3_key, all_memory_dict_bytes, self.participant, raw_path=True)
         self.save(update_fields=["all_memory_dict_s3_key"])
     
+    #
     ## File paths
+    #
     @property
     def data_base_path(self):
         """ Return the path to the base data folder, creating it if it doesn't already exist. """
@@ -191,22 +184,21 @@ class ForestTask(TimestampedModel):
                 pass  # it just needs to exist
             self._tmp_parent_folder_exists = True
         return os.path.join("/tmp/forest/", str(self.external_id), self.forest_tree)
-
+    
     @property
     def interventions_filepath(self):
         """ Generates a study interventions file for the participant's survey and returns the path to it """
         from database.study_models import Study
-        study = Study.objects.get(id=self.participant.study_id)
         from libs.intervention_export import intervention_survey_data
-        data = intervention_survey_data(study)
+        study = Study.objects.get(id=self.participant.study_id)
         filename = study.name.replace(' ', '_') + "_interventions.json"
         with open(os.path.join(self.data_base_path, filename), "w") as f:
-            f.write(json.dumps(data))
+            f.write(json.dumps(intervention_survey_data(study)))
         return os.path.join(self.data_base_path, filename)
     
     @property
     def study_config_path(self):
-        """ Generates a study config file for the participant's survey and returns the path to it """
+        """ Generates a study config file for the participant's survey and returns the path to it. """
         from database.study_models import Study
         from libs.copy_study import format_study
         study = Study.objects.get(pk=self.participant.study_id)
@@ -214,7 +206,7 @@ class ForestTask(TimestampedModel):
         with open(os.path.join(self.data_base_path, filename), "w") as f:
             f.write(format_study(study))
         return os.path.join(self.data_base_path, filename)
-
+    
     @property
     def data_input_path(self):
         """ Return the path to the input data folder, creating it if it doesn't already exist. """
@@ -236,12 +228,10 @@ class ForestTask(TimestampedModel):
     
     @property
     def all_bv_set_path(self):
-        # FIXME: this is part of Willow maybe? rename.
         return os.path.join(self.data_output_path, "all_BV_set.pkl")
     
     @property
     def all_memory_dict_path(self):
-        # FIXME: this is part of Jasmine  maybe? rename.
         return os.path.join(self.data_output_path, "all_memory_dict.pkl")
     
     def generate_all_bv_set_s3_key(self):
@@ -336,7 +326,7 @@ class SummaryStatisticDaily(TimestampedModel):
     sycamore_average_time_to_submit = models.FloatField(null=True, blank=True)
     sycamore_average_time_to_open = models.FloatField(null=True, blank=True)
     sycamore_average_duration = models.FloatField(null=True, blank=True)
-
+    
     jasmine_task = models.ForeignKey(ForestTask, blank=True, null=True, on_delete=models.PROTECT, related_name="jasmine_summary_statistics")
     willow_task = models.ForeignKey(ForestTask, blank=True, null=True, on_delete=models.PROTECT, related_name="willow_summary_statistics")
     sycamore_task = models.ForeignKey(ForestTask, blank=True, null=True, on_delete=models.PROTECT, related_name="sycamore_summary_statistics")

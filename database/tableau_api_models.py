@@ -32,7 +32,7 @@ class ForestTask(TimestampedModel):
     external_id = models.UUIDField(default=uuid.uuid4, editable=False)
     
     # forest params can be null, means it used defaults
-    forest_param = models.ForeignKey(ForestParameters, null=True, on_delete=models.PROTECT)
+    forest_param = models.ForeignKey(ForestParameters, null=True, blank=True, on_delete=models.PROTECT)  # blank must be true
     params_dict_cache = models.TextField(blank=True)  # Cache of the params used
     
     forest_tree = models.TextField(choices=ForestTree.choices())
@@ -184,7 +184,7 @@ class ForestTask(TimestampedModel):
     @property
     def study_config_path(self) -> str:
         """ Generates a study config file for the participant's survey and returns the path to it. """
-        filename = self.participant.name.replace(' ', '_') + "_surveys_and_settings.json"
+        filename = self.participant.patient_id.replace(' ', '_') + "_surveys_and_settings.json"
         return os.path.join(self.data_base_path, filename)
     
     @property

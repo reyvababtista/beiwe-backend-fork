@@ -71,12 +71,12 @@ class Migration(migrations.Migration):
             name='forest_tree',
             field=models.TextField(choices=[('jasmine', 'Jasmine'), ('willow', 'Willow'), ('sycamore', 'Sycamore')]),
         ),
+        migrations.DeleteModel(
+            name='ForestParam',
+        ),
         migrations.AlterField(
             model_name='foresttask',
             name='forest_param',
             field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.PROTECT, to='database.forestparameters'),
-        ),
-        migrations.DeleteModel(
-            name='ForestParam',
         ),
     ]

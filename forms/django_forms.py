@@ -92,7 +92,7 @@ class CreateTasksForm(forms.Form):
                         data_date_start=self.cleaned_data["date_start"],
                         data_date_end=self.cleaned_data["date_end"],
                         status=ForestTaskStatus.queued,
-                        forest_param=self.study.forest_param,
+                        forest_param=None, # TODO: implement forest parameters
                     )
                 )
         ForestTask.objects.bulk_create(forest_tasks)

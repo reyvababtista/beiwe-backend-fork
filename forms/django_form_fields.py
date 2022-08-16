@@ -2,6 +2,8 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 
+# this is broken, things are not properly unpacked, had to manually fix participant_patient_ids
+# on the CreateTasksForm.
 class CommaSeparatedListFieldMixin(forms.Field):
     """ A mixin for use with django form fields. This mixin changes the field to accept a comma
         separated list of inputs that are individually cleaned and validated. Takes one optional
@@ -9,35 +11,32 @@ class CommaSeparatedListFieldMixin(forms.Field):
         values (the validator parameter still expects a single value as input, and is applied to
         each value individually) """
     NONSTRING_ERROR_MESSAGE = "Please supply only string arguments to a CommaSeparatedListField"
-
+    
     def __init__(self, *args, default=None, **kwargs):
         self.default = default if default is not None else []
         super().__init__(*args, **kwargs)
-
+    
     def clean(self, value) -> list:
-        errors = []
-
         if not value:
             if self.required:
                 raise ValidationError(self.error_messages['required'], code='required')
             else:
                 return self.default
-
+        
         if not isinstance(value, str):
             raise ValidationError(self.NONSTRING_ERROR_MESSAGE)
-
-        value_list = value.split(",")
-
+        
+        errors = []
         cleaned_values = []
-        for v in value_list:
+        for v in value.split(","):
             try:
                 cleaned_values.append(super().clean(v.strip()))
             except ValidationError as err:
                 errors.append(err)
-
+        
         if errors:
             raise ValidationError(errors)
-
+        
         return cleaned_values
 
 

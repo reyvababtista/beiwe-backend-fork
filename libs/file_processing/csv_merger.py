@@ -2,17 +2,16 @@ from typing import Dict, List, Set, Tuple
 
 from botocore.exceptions import ReadTimeoutError
 from cronutils import ErrorHandler
-from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
 
+from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
 from constants.data_processing_constants import (CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER,
     REFERENCE_CHUNKREGISTRY_HEADERS)
 from constants.data_stream_constants import SURVEY_DATA_FILES
 from database.data_access_models import ChunkRegistry
-from database.study_models import Study
 from database.survey_models import Survey
 from database.system_models import GenericEvent
 from database.user_models import Participant
-from libs.file_processing.exceptions import BadHeaderException, ChunkFailedToExist
+from libs.file_processing.exceptions import ChunkFailedToExist
 from libs.file_processing.utility_functions_csvs import (construct_csv_string, csv_to_list,
     unix_time_to_string)
 from libs.file_processing.utility_functions_simple import (compress,
@@ -131,8 +130,8 @@ class CsvMerger:
         
         # this object will eventually get **kwarg'd into ChunkRegistry.register_chunked_data
         chunk_params = {
-            "study_id": Study.objects.filter(object_id=study_object_id).values_list("pk", flat=True).get(),
-            "participant_id": Participant.objects.filter(patient_id=patient_id).values_list("pk", flat=True).get(),
+            "study_id": self.participant.study_id,
+            "participant_id": self.participant.id,
             "data_type": data_stream,
             "chunk_path": chunk_path,
             "time_bin": time_bin,

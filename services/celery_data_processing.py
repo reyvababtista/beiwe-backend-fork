@@ -74,7 +74,7 @@ def celery_process_file_chunks(participant_id):
         error_sentry = make_error_sentry(
             sentry_type=SentryTypes.data_processing, tags={'user_id': participant.patient_id}
         )
-        print("processing files for {participant.patient_id}")
+        print(f"processing files for {participant.patient_id}")
         
         while True:
             previous_number_bad_files = number_bad_files

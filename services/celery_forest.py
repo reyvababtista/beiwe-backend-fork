@@ -209,7 +209,7 @@ def construct_summary_statistics(task: ForestTask):
         reader = csv.DictReader(f)
         has_data = False
         log("opened file...")
-        tz_longname = task.participant.study.timezone_name
+        
         for line in reader:
             has_data = True
             summary_date = date(
@@ -223,7 +223,7 @@ def construct_summary_statistics(task: ForestTask):
             
             updates = {
                 task_attribute: task,
-                "timezone": get_timezone_shortcode(summary_date, tz_longname),
+                "timezone": get_timezone_shortcode(summary_date, task.participant.study.timezone),
             }
             for column_name, value in line.items():
                 if column_name in TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS:

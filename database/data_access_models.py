@@ -117,10 +117,6 @@ class ChunkRegistry(TimestampedModel):
             query['time_bin__lte'] = end
         return cls.objects.filter(**query)
     
-    def update_chunk(self, data_to_hash: bytes):
-        self.chunk_hash = chunk_hash(data_to_hash).decode()
-        self.save()
-    
     @classmethod
     def get_updated_users_for_study(cls, study, date_of_last_activity):
         """ Returns a list of patient ids that have had new or updated ChunkRegistry data

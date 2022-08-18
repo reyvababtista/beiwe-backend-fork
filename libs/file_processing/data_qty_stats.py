@@ -18,22 +18,22 @@ from libs.utils.date_utils import date_to_end_of_day, date_to_start_of_day, get_
 utcfromtimestamp: Callable = datetime.utcfromtimestamp
 
 
-def timeslice_to_start_of_day(timeslice: int, timezone_name: str):
-    """ (we use an integer to represent time, it must be multiplied by CHUNK_TIMESLICE_QUANTUM to
+def timeslice_to_start_of_day(timeslice: int, tz: tzinfo):
+    """ We use an integer to represent time, it must be multiplied by CHUNK_TIMESLICE_QUANTUM to
     yield a unix timestamp."""
     # get the date _in the local time_, then get the start of that day as a datetime
     day = make_aware(utcfromtimestamp(timeslice * CHUNK_TIMESLICE_QUANTUM), UTC) \
-        .astimezone(gettz(timezone_name)).date()
-    return date_to_start_of_day(day, timezone_name)
+        .astimezone(tz).date()
+    return date_to_start_of_day(day, tz)
 
 
-def timeslice_to_end_of_day(timeslice: int, timezone_name: str):
-    """ (we use an integer to represent time, it must be multiplied by CHUNK_TIMESLICE_QUANTUM to
+def timeslice_to_end_of_day(timeslice: int, tz: tzinfo):
+    """ We use an integer to represent time, it must be multiplied by CHUNK_TIMESLICE_QUANTUM to
     yield a unix timestamp."""
     # get the date _in the local time_, then get the end of that day as a datetime
     day = make_aware(utcfromtimestamp(timeslice * CHUNK_TIMESLICE_QUANTUM), UTC) \
-        .astimezone(gettz(timezone_name)).date()
-    return date_to_end_of_day(day, timezone_name)
+        .astimezone(tz).date()
+    return date_to_end_of_day(day, tz)
 
 
 def populate_data_quantity(
@@ -61,19 +61,22 @@ def calculate_data_quantity_stats(
     """ Update the SummaryStatisticDaily  stats for a participant, using ChunkRegistry data
     earliest_time_bin_number -- expressed in hours since 1/1/1970
     latest_time_bin_number -- expressed in hours since 1/1/1970 """
-    tz_longname: str = participant.study.timezone_name
+    
+    # (related model, study, is cached)
     study_timezone: tzinfo = participant.study.timezone
     query = ChunkRegistry.objects.filter(participant=participant)
-    
+
     # Filter by date range
     if earliest_time_bin_number is not None:
         query = query.filter(
-            time_bin__gte=timeslice_to_start_of_day(earliest_time_bin_number, tz_longname)
+            time_bin__gte=timeslice_to_start_of_day(earliest_time_bin_number, study_timezone)
         )
+        print("yo it didn't crash 1")
     if latest_time_bin_number is not None:
         query = query.filter(  # lte vs lt is irrelevant
-            time_bin__lt=timeslice_to_end_of_day(latest_time_bin_number, tz_longname)
+            time_bin__lt=timeslice_to_end_of_day(latest_time_bin_number, study_timezone)
         )
+        print("yo it didn't crash 2")
     
     # For each date, create a DataQuantity object
     for day, day_data in populate_data_quantity(query, study_timezone).items():
@@ -81,7 +84,7 @@ def calculate_data_quantity_stats(
             "participant": participant,
             "date": day,
             "defaults": {
-                "timezone": get_timezone_shortcode(day, tz_longname)
+                "timezone": get_timezone_shortcode(day, participant.study.timezone)
             }
         }
         for data_type, total_bytes in day_data.items():

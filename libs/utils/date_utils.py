@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, tzinfo
 from typing import List, Union
 
 from django.utils.timezone import make_aware
@@ -38,18 +38,18 @@ def datetime_to_list(datetime_obj: Union[date, datetime]) -> List[int]:
     return datetime_component_list
 
 
-def date_to_start_of_day(a_date: date, timezone_long_name: str):
+def date_to_start_of_day(a_date: date, tz: tzinfo):
     """ Given a date and a timezone, returns a timezone'd datetime for the start of that day. """
     if not type(a_date) is date:
         raise TypeError("date_start_of_day requires dates, datetimes must be handled manually")
-    make_aware(datetime.combine(a_date, datetime.min.time()), timezone_long_name)
+    return make_aware(datetime.combine(a_date, datetime.min.time()), tz)
 
 
-def date_to_end_of_day(a_date: date, timezone_long_name: str):
+def date_to_end_of_day(a_date: date, tz: tzinfo):
     """ Given a date and a timezone, returns a timezone'd datetime for the end of that day. """
     if not type(a_date) is date:
         raise TypeError("date_end_of_day requires dates, datetimes must be handled manually")
-    make_aware(datetime.combine(a_date, datetime.max.time()), timezone_long_name)
+    return make_aware(datetime.combine(a_date, datetime.max.time()), tz)
 
 
 def get_timezone_shortcode(a_date: date, timezone_long_name: str) -> str:

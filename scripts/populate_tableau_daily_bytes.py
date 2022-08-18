@@ -13,8 +13,7 @@ def calculate_data_quantity_stats(participant: Participant):
     """ Update the SummaryStatisticDaily  stats for a participant, using ChunkRegistry data """
     daily_data_quantities = defaultdict(lambda: defaultdict(int))
     days = set()
-    tz_longname = participant.study.timezone_name
-    study_timezone = gettz(tz_longname)
+    study_timezone = participant.study.timezone
     query = ChunkRegistry.objects.filter(participant=participant) \
         .values_list('time_bin', 'data_type', 'file_size').iterator()
     
@@ -34,7 +33,7 @@ def calculate_data_quantity_stats(participant: Participant):
         data_quantity = {
             "participant": participant,
             "date": day,
-            "defaults": {"timezone": get_timezone_shortcode(day, tz_longname)},
+            "defaults": {"timezone": get_timezone_shortcode(day, study_timezone)},
         }
         for data_type, total_bytes in day_data.items():
             data_quantity["defaults"][f"beiwe_{data_type}_bytes"] = total_bytes

@@ -161,3 +161,6 @@ REFERENCE_UPLOAD_HEADERS = {
         IOS_API: None
     }
 }
+
+
+CHUNK_EXISTS_CASE = "chunk_exists_case"

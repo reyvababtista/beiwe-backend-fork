@@ -71,12 +71,10 @@ def calculate_data_quantity_stats(
         query = query.filter(
             time_bin__gte=timeslice_to_start_of_day(earliest_time_bin_number, study_timezone)
         )
-        print("yo it didn't crash 1")
     if latest_time_bin_number is not None:
         query = query.filter(  # lte vs lt is irrelevant
             time_bin__lt=timeslice_to_end_of_day(latest_time_bin_number, study_timezone)
         )
-        print("yo it didn't crash 2")
     
     # For each date, create a DataQuantity object
     for day, day_data in populate_data_quantity(query, study_timezone).items():

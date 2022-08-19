@@ -5,10 +5,12 @@ import shutil
 import uuid
 from datetime import timedelta
 from time import sleep
+from typing import Optional
 
 from django.db import models
 
-from constants.forest_constants import DEFAULT_FOREST_PARAMETERS_LOOKUP, ForestTaskStatus, ForestTree, SYCAMORE_DATE_FORMAT
+from constants.forest_constants import (DEFAULT_FOREST_PARAMETERS_LOOKUP, ForestTaskStatus,
+    ForestTree, SYCAMORE_DATE_FORMAT)
 from database.common_models import TimestampedModel
 from database.user_models import Participant
 from libs.utils.date_utils import datetime_to_list
@@ -31,7 +33,8 @@ class ForestTask(TimestampedModel):
     # primary keys of the model. it is intentionally not the primary key
     external_id = models.UUIDField(default=uuid.uuid4, editable=False)
     
-    # forest params can be null, means it used defaults
+    # forest param can be null, means it used defaults
+    # access using forest_param_or_none!
     forest_param = models.ForeignKey(ForestParameters, null=True, blank=True, on_delete=models.PROTECT)  # blank must be true
     params_dict_cache = models.TextField(blank=True)  # Cache of the params used
     
@@ -72,22 +75,30 @@ class ForestTask(TimestampedModel):
             f"Could not delete folder {self.data_base_path} for participant {self.external_id}, tried {i} times."
         )
     
+    @property
+    def forest_param_or_none(self) -> Optional(ForestParameters):
+        # because this is annoying!
+        try:
+            return self.forest_param
+        except ForestParameters.DoesNotExist:
+            return None
+    
     def get_params_dict(self) -> dict:
         """ Return a dict of params to pass into the Forest function. The task flag is used to
         indicate whether this is being called for use in the serializer or for use in a task (in
         which case we can call additional functions as needed). """
-
+        
         params = {
             "output_folder": self.data_output_path,
             "study_folder": self.data_input_path,
         }
-
+        
         # no forest params implies that we are using the defaults, this may change in the future.
-        if self.forest_param is None:
+        if self.forest_param_or_none is None:
             params.update(**json.loads(DEFAULT_FOREST_PARAMETERS_LOOKUP[self.forest_tree]))
         else:
             params.update(**json.loads(self.forest_param.json_parameters))
-
+        
         self.handle_tree_specific_date_params(params)
         
         if self.forest_tree == ForestTree.jasmine:

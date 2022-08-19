@@ -52,11 +52,11 @@ class ForestTaskBaseSerializer(serializers.ModelSerializer):
         else:
             return "Unknown"
     
-    def get_forest_param_name(self, instance):
-        return instance.forest_param.name if instance.forest_param else None
+    def get_forest_param_name(self, instance: ForestTask):
+        return instance.forest_param.name if instance.forest_param_or_none else None
     
-    def get_forest_param_notes(self, instance):
-        return instance.forest_param.notes if instance.forest_param else None
+    def get_forest_param_notes(self, instance: ForestTask):
+        return instance.forest_param.notes if instance.forest_param_or_none else None
     
     def get_params_dict(self, instance):
         if instance.params_dict_cache:

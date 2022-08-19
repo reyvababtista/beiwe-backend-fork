@@ -76,7 +76,7 @@ class ForestTask(TimestampedModel):
         )
     
     @property
-    def forest_param_or_none(self) -> Optional(ForestParameters):
+    def forest_param_or_none(self) -> Optional[ForestParameters]:
         # because this is annoying!
         try:
             return self.forest_param

@@ -33,7 +33,7 @@ def study_participants_api(request: ResearcherRequest, study_id: int):
     sort_in_descending_order = request.GET.get('order[0][dir]') == 'desc'
     contains_string = request.GET.get('search[value]')
     total_participants_count = Participant.objects.filter(study_id=study_id).count()
-    filtered_participants_count = study.filtered_participants(contains_string).count()
+    filtered_participants_count = filtered_participants(study, contains_string).count()
     data = get_values_for_participants_table(
         study, start, length, sort_by_column_index, sort_in_descending_order, contains_string
     )
@@ -239,7 +239,7 @@ def get_values_for_participants_table(
     )
     
     # Prefetch intervention dates, sorted case-insensitively by_b name
-    query = study.filtered_participants(contains_string)
+    query = filtered_participants(study, contains_string)
     query = query.annotate(registered=no_device_id)
     query = query.order_by(sort_by_column)  # must be after the annotate to allow registered sorting
     query = query.prefetch_related(
@@ -261,6 +261,8 @@ def get_values_for_participants_table(
             if intervention_date.date is not None:
                 intervention_date.date = intervention_date.date.strftime(API_DATE_FORMAT)
             participant_values.append(intervention_date.date)
+        else:
+            participant_values.append(None)
         
         # a participant may not have all custom field values populated, so we need a reference
         # in order to fill None values where they [don't] exist.
@@ -272,3 +274,9 @@ def get_values_for_participants_table(
         
         participants_data.append(participant_values)
     return participants_data
+
+
+def filtered_participants(study, contains_string: str):
+    """ searches for participants with lowercase matches on os and patient id. """
+    return Participant.objects.filter(study_id=study.id) \
+            .filter(Q(patient_id__icontains=contains_string) | Q(os_type__icontains=contains_string))

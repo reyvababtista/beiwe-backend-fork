@@ -15,6 +15,7 @@ from django.utils.timezone import localtime
 from constants.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT,
     DEFAULT_CONSENT_SECTIONS_JSON, SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
 from constants.user_constants import ResearcherRole
+from database.common_models import UtilityModel
 from database.models import JSONTextField, TimestampedModel
 from database.tableau_api_models import ForestParam
 from database.user_models import Participant, Researcher
@@ -171,7 +172,7 @@ class Study(TimestampedModel):
         )
 
 
-class StudyField(models.Model):
+class StudyField(UtilityModel):
     study = models.ForeignKey(Study, on_delete=models.PROTECT, related_name='fields')
     field_name = models.TextField()
     

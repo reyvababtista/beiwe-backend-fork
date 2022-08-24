@@ -163,13 +163,6 @@ class Study(TimestampedModel):
         """ So pytz.timezone("America/New_York") provides a tzinfo-like object that is wrong by 4
         minutes.  That's insane.  The dateutil gettz function doesn't have that fun insanity. """
         return gettz(self.timezone_name)
-    
-    def filtered_participants(self, contains_string: str):
-        return (
-            Participant.objects.filter(study_id=self.id)
-                       .filter(Q(patient_id__icontains=contains_string) |
-                               Q(os_type__icontains=contains_string))
-        )
 
 
 class StudyField(UtilityModel):

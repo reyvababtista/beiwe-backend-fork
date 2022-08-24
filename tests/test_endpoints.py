@@ -1216,7 +1216,7 @@ class TestPrivacyPolicy(ResearcherSessionTest):
         self.assertIsInstance(redirect, HttpResponseRedirect)
 
 
-# FIXME: implement this test beyond "it doesn't crash", and there is a known bug to follow up on too.
+# FIXME: implement this test beyond "it doesn't crash"
 class TestStudyParticipantApi(ResearcherSessionTest):
     ENDPOINT_NAME = "study_api.study_participants_api"
     
@@ -1251,7 +1251,9 @@ class TestStudyParticipantApi(ResearcherSessionTest):
             "data": [[self.SOME_TIMESTAMP.strftime(API_DATE_FORMAT),
                       self.default_participant.patient_id,
                       True,
-                      "ANDROID"]]
+                      "ANDROID",
+                      None,  # the intervention date (doesn't exist)
+                    ]]
         }
         self.assertEqual(content, correct_content)
 

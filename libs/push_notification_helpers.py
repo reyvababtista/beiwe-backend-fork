@@ -174,6 +174,7 @@ def get_next_weekly_event_and_schedule(survey: Survey) -> (datetime, WeeklySched
     timing_list = []
     # our possible next weekly event may be this week, or next week; get this week if it hasn't
     # happened, next week if it has.  A survey can have many weekly schedules, grab them all.
+    weekly_schedule: WeeklySchedule
     for weekly_schedule in survey.weekly_schedules.all():
         this_week, next_week = weekly_schedule.get_prior_and_next_event_times(now)
         timing_list.append((this_week if now < this_week else next_week, weekly_schedule))

@@ -93,6 +93,7 @@ def participant_page(request: ResearcherRequest, study_id: int, patient_id: str)
         "participant_pages.participant_page", study_id=study_id, patient_id=patient_id
     ))
 
+
 def render_participant_page(request: ResearcherRequest, participant: Participant, study: Study):
     # to reduce database queries we get all the data across 4 queries and then merge it together.
     # dicts of intervention id to intervention date string, and of field names to value
@@ -142,6 +143,7 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
         )
     )
 
+
 def query_values_for_notification_history(participant_id) -> ArchivedEventQuerySet:
     return (
         ArchivedEvent.objects
@@ -154,6 +156,7 @@ def query_values_for_notification_history(participant_id) -> ArchivedEventQueryS
             'scheduled_time', 'created_on', 'survey_id', 'survey_version', 'schedule_type', 'status'
         )
     )
+
 
 def get_survey_names_dict(study: Study):
     survey_names = {}

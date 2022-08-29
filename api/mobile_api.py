@@ -2,29 +2,34 @@ import calendar
 import json
 import plistlib
 import time
-from datetime import datetime
+from datetime import date, datetime, timedelta
+from typing import List, Tuple
 
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
 from django.http.response import HttpResponse
+from django.utils import timezone
 
 from authentication.participant_authentication import (authenticate_participant,
     authenticate_participant_registration, minimal_validation)
 from config.settings import UPLOAD_LOGGING_ENABLED
 from constants.celery_constants import ANDROID_FIREBASE_CREDENTIALS, IOS_FIREBASE_CREDENTIALS
-from constants.message_strings import (DEVICE_IDENTIFIERS_HEADER, INVALID_EXTENSION_ERROR,
-    NO_FILE_ERROR, UNKNOWN_ERROR)
+from constants.message_strings import (DEVICE_CHECKED_IN, DEVICE_IDENTIFIERS_HEADER,
+    INVALID_EXTENSION_ERROR, NO_FILE_ERROR, UNKNOWN_ERROR)
 from database.data_access_models import FileToProcess
+from database.schedule_models import ScheduledEvent, WeeklySchedule
+from database.survey_models import Survey
 from database.system_models import FileAsText
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
     IosDecryptionKeyDuplicateError, IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
 from libs.http_utils import determine_os_api
-from libs.internal_types import ParticipantRequest
+from libs.internal_types import ParticipantRequest, ScheduledEventQuerySet
 from libs.participant_file_uploads import (upload_and_create_file_to_process_and_log,
     upload_problem_file)
 from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
 from libs.s3 import get_client_public_key_string, s3_upload
 from libs.sentry import make_sentry_client, SentryTypes
+from libs.utils.date_utils import date_to_end_of_day, date_to_start_of_day
 from middleware.abort_middleware import abort
 
 
@@ -302,9 +307,83 @@ def contains_valid_extension(file_name: str):
 @determine_os_api
 @authenticate_participant
 def get_latest_surveys(request: ParticipantRequest, OS_API=""):
+    survey: Survey
     survey_json_list = []
     for survey in request.session_participant.study.surveys.filter(deleted=False):
         # Exclude image surveys for the Android app to avoid crashing it
         if not (OS_API == "ANDROID" and survey.survey_type == "image_survey"):
-            survey_json_list.append(survey.format_survey_for_study())
+            survey_json_list.append(format_survey_for_device(survey))
+    
+    # if there was a "checkin_uuid" parameter, indicate participant and ScheduledEvent of checkin.
+    checkin_uuid = request.POST.get("checkin_uuid", None)
+    if checkin_uuid:
+        now = timezone.now()
+        schedule: ScheduledEvent = ScheduledEvent.objects.get(uuid=checkin_uuid)
+        if request.session_participant.first_push_notification_checkin is None:
+            request.session_participant.update(first_push_notification_checkin=now)
+        schedule.update(checkin_time=now)
+        schedule.archive(True, DEVICE_CHECKED_IN, now)
+    
     return HttpResponse(json.dumps(survey_json_list))
+
+# TODO: move this stuff elsewhere.
+
+def get_start_and_end_of_java_timings_week(now: datetime) -> Tuple[datetime, datetime]:
+    """ study timezone aware week start and end """
+    if now.tzinfo is None:
+        raise TypeError("missing required timezone-aware datetime")
+    now_date: date = now.date()
+    date_sunday_start_of_week = now_date - timedelta(days=now.weekday() + 1)
+    date_saturday_end_of_week = now_date + timedelta(days=5 - now.weekday())  # TODO: Test
+    dt_sunday_start_of_week = date_to_start_of_day(date_sunday_start_of_week, now.tzinfo)
+    dt_saturday_end_of_week = date_to_end_of_day(date_saturday_end_of_week, now.tzinfo)
+    return dt_sunday_start_of_week, dt_saturday_end_of_week
+
+
+def format_survey_for_device(survey: Survey):
+    """ Returns a dict with the values of the survey fields for download to the app """
+    survey_dict = survey.as_unpacked_native_python()
+    # Make the dict look like the old Mongolia-style dict that the frontend is expecting
+    survey_dict.pop('id')
+    survey_dict.pop('deleted')
+    survey_dict['_id'] = survey_dict.pop('object_id')
+    
+    # weekly defines a list of 7 lists of ints, [[], [], [], [], [], [], []]
+    survey_timings = export_weekly_survey_timings(survey)
+    
+    # get all non-weekly scheduled events
+    start_of_week, end_of_week = get_start_and_end_of_java_timings_week(survey.study.now())
+    query: ScheduledEventQuerySet = survey.scheduled_events.exclude(weekly_schedule__isnull=False) \
+        .filter(scheduled_time__gte=start_of_week, scheduled_time__lte=end_of_week)
+    
+    for schedule in query:
+        day_index, seconds = decompose_datetime_to_timings(schedule.scheduled_time)
+        survey_timings[day_index].append(seconds)
+    
+    # sort, deduplicate all days
+    for i in range(len(survey_timings)):
+        survey_timings[i] = sorted(set(survey_timings[i]))
+    
+    # the old timings object does need to be provided
+    survey_dict['timings'] = survey_timings
+    
+    return survey_dict
+
+
+def export_weekly_survey_timings(survey: Survey) -> List[List[int]]:
+    """Returns a json formatted list of weekly timings for use on the frontend"""
+    # this weird sort order results in correctly ordered output.
+    fields_ordered = ("hour", "minute", "day_of_week")
+    timings = [[], [], [], [], [], [], []]
+    schedule_components = WeeklySchedule.objects. \
+        filter(survey=survey).order_by(*fields_ordered).values_list(*fields_ordered)
+    
+    # get, calculate, append, dump.
+    for hour, minute, day in schedule_components:
+        timings[day].append((hour * 60 * 60) + (minute * 60))
+    return timings
+
+
+def decompose_datetime_to_timings(dt: datetime) -> Tuple[int, int]:
+    """ returns day-index, seconds into day. """
+    return dt.weekday() + 1, dt.hour * 60 * 60 + dt.minute * 60

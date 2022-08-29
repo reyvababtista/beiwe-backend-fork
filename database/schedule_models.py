@@ -1,20 +1,18 @@
+
 from __future__ import annotations
 
+import uuid
 from datetime import date, datetime, time, timedelta, tzinfo
 from typing import List, Tuple
 
-from dateutil.tz import gettz
 from django.core.validators import MaxValueValidator
 from django.db import models
 from django.db.models import Manager
-from django.utils.timezone import localtime, make_aware
+from django.utils.timezone import make_aware
 
 from constants.celery_constants import ScheduleTypes
-from constants.common_constants import DEV_TIME_FORMAT
 from database.common_models import TimestampedModel
 from database.survey_models import Survey, SurveyArchive
-from database.user_models import Participant
-from libs.utils.dev_utils import disambiguate_participant_survey, TxtClr
 
 
 class AbsoluteSchedule(TimestampedModel):
@@ -110,6 +108,7 @@ class RelativeSchedule(TimestampedModel):
         return duplicated
 
 
+
 class WeeklySchedule(TimestampedModel):
     """ Represents an instance of a time of day within a week for the weekly survey schedule.
         day_of_week is an integer, day 0 is Sunday.
@@ -194,6 +193,10 @@ class ScheduledEvent(TimestampedModel):
     relative_schedule = models.ForeignKey('RelativeSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)
     absolute_schedule = models.ForeignKey('AbsoluteSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)
     scheduled_time = models.DateTimeField()
+    deleted = models.BooleanField(null=False, default=False, db_index=True)
+    uuid = models.UUIDField(null=False, default=uuid.uuid4, db_index=True, unique=True)
+    checkin_time = models.DateTimeField(null=True, blank=True, db_index=True)
+    most_recent_event = models.ForeignKey("ArchivedEvent", on_delete=models.DO_NOTHING, null=True)
     
     # due to import complexity (needs those classes) this is the best place to stick the lookup dict.
     SCHEDULE_CLASS_LOOKUP = {
@@ -204,15 +207,6 @@ class ScheduledEvent(TimestampedModel):
         RelativeSchedule: ScheduleTypes.relative,
         WeeklySchedule: ScheduleTypes.weekly,
     }
-    
-    # This constraint is no longer necessary because de-duplication occurs when scheduled events are
-    # generated. Additionally, in some corner cases, it causes a database error in relative
-    # survey events where a survey is sent multiple times and multiple interventions exist such
-    # that the event times overlap (eg, two interventions a day apart and two surveys at the same
-    # time the day of and day after the intervention results in the same survey being scheduled
-    # for a user twice at the same time
-    #  class Meta:
-    #     unique_together = ('survey', 'participant', 'scheduled_time',)
     
     def get_schedule_type(self):
         return self.SCHEDULE_CLASS_LOOKUP[self.get_schedule().__class__]
@@ -236,154 +230,43 @@ class ScheduledEvent(TimestampedModel):
         else:
             raise Exception("ScheduledEvent had no associated schedule")
     
-    def archive(
-            self, self_delete: bool, status: str, created_on: datetime = None,
-    ):
+    def archive(self, self_delete: bool, status: str, created_on: datetime = None):
         """ Create an ArchivedEvent from a ScheduledEvent. """
         # We need to handle the case of no-existing-survey-archive on the referenced survey,  Could
-        # be cleaner, but there is an interaction with a  migration that will break; not worth it.
+        # be cleaner, but there is an interaction with a migration that will break; not worth it.
         try:
             survey_archive = self.survey.most_recent_archive()
         except SurveyArchive.DoesNotExist:
             self.survey.archive()
             survey_archive = self.survey.most_recent_archive()
         
-        # Args, call, conditionally self-delete
-        kwargs = dict(
+        # create archive, link archive, conditionally mark self as deleted
+        archive = ArchivedEvent(
             survey_archive=survey_archive,
             participant=self.participant,
             schedule_type=self.get_schedule_type(),
             scheduled_time=self.scheduled_time,
-            status=status
+            status=status,
+            schedule_uuid=self.uuid
+            **{"created_on": created_on} if created_on else {}  # :D
         )
-        if created_on:
-            kwargs["created_on"] = created_on
-        ArchivedEvent.objects.create(**kwargs)
-        if self_delete:
-            self.delete()
-    
-    @staticmethod
-    @disambiguate_participant_survey
-    def find_pending_events(
-            participant: Participant = None, survey: Survey or str = None,
-            tz: tzinfo = gettz('America/New_York'),
-    ):
-        """ THIS FUNCTION IS FOR DEBUGGING PURPOSES ONLY
-
-        Throw in a participant and or survey object, OR THEIR IDENTIFYING STRING and we make it work
-        'tz' will normalize timestamps to that timezone, default is us east.
-        """
-        # this is a simplified, modified version ofg the find_notification_events on ArchivedEvent.
-        filters = {}
-        if participant:
-            filters['participant'] = participant
-        if survey:
-            filters["survey"] = survey
-        elif participant:  # if no survey, yes participant:
-            filters["survey__in"] = participant.study.surveys.all()
-        
-        query = ScheduledEvent.objects.filter(**filters).order_by(
-            "survey__object_id", "participant__patient_id", "-scheduled_time"
-        )
-        survey_id = ""
-        for a in query:
-            # only print participant name and survey id when it changes
-            if a.survey.object_id != survey_id:
-                print(f"{a.survey.survey_type} {TxtClr.CYAN}{a.survey.object_id}{TxtClr.BLACK}:")
-                survey_id = a.survey.object_id
-            
-            # data points of interest for sending information
-            sched_time = localtime(a.scheduled_time, tz)
-            sched_time_print = datetime.strftime(sched_time, DEV_TIME_FORMAT)
-            print(
-                f"  {a.get_schedule_type()} FOR {TxtClr.CYAN}{a.participant.patient_id}{TxtClr.BLACK}"
-                f" AT {TxtClr.GREEN}{sched_time_print}{TxtClr.BLACK}",
-            )
+        archive.save()
+        self.update(most_recent_event=archive, deleted=self_delete)
 
 
-# TODO there is no code that updates the response_time field.  That should be rolled into the
-#  check-for-downloads as an optional parameter passed in.  If it doesn't get hit then there is
-#  no guarantee that the app checked in.
 class ArchivedEvent(TimestampedModel):
-    SUCCESS = "success"
-    
+    # The survey archive cannot point to schedule objects because schedule objects can be deleted
+    # (not just marked as deleted)
     survey_archive = models.ForeignKey('SurveyArchive', on_delete=models.PROTECT, related_name='archived_events', db_index=True)
     participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='archived_events', db_index=True)
-    schedule_type = models.CharField(max_length=32, db_index=True)
-    scheduled_time = models.DateTimeField(db_index=True)
-    response_time = models.DateTimeField(null=True, blank=True, db_index=True)
+    schedule_type = models.CharField(null=True, blank=True, max_length=32, db_index=True)
+    scheduled_time = models.DateTimeField(null=True, blank=True, db_index=True)
     status = models.TextField(null=False, blank=False, db_index=True)
+    uuid = models.UUIDField(null=True, default=uuid.uuid4, db_index=True, unique=True)
     
     @property
     def survey(self):
         return self.survey_archive.survey
-    
-    @staticmethod
-    @disambiguate_participant_survey
-    def find_notification_events(
-            participant: Participant = None, survey: Survey or str = None, schedule_type: str = None,
-            tz: tzinfo = gettz('America/New_York'), flat=False
-    ):
-        """ THIS FUNCTION IS FOR DEBUGGING PURPOSES ONLY
-
-        Throw in a participant and or survey object, OR THEIR IDENTIFYING STRING and we make it work
-
-        'survey_type'  will filter by survey type, duh.
-        'flat'         disables alternating line colors.
-        'tz'           will normalize timestamps to that timezone, default is us east.
-        """
-        filters = {}
-        if participant:
-            filters['participant'] = participant
-        if schedule_type:
-            filters["schedule_type"] = schedule_type
-        if survey:
-            filters["survey_archive__survey"] = survey
-        elif participant:  # if no survey, yes participant:
-            filters["survey_archive__survey__in"] = participant.study.surveys.all()
-        
-        # order by participant to separate out the core related events, then order by survey
-        # to group the participant's related events together, and do this in order of most recent
-        # at the top of all sub-lists.
-        query = ArchivedEvent.objects.filter(**filters).order_by(
-            "participant__patient_id", "survey_archive__survey__object_id", "-created_on"
-        )
-        
-        print(f"There were {query.count()} sent scheduled events matching your query.")
-        participant_name = ""
-        survey_id = ""
-        for a in query:
-            # only print participant name and survey id when it changes
-            if a.participant.patient_id != participant_name:
-                print(f"\nparticipant {TxtClr.CYAN}{a.participant.patient_id}{TxtClr.BLACK}:")
-                participant_name = a.participant.patient_id
-            if a.survey.object_id != survey_id:
-                print(f"{a.survey.survey_type} {TxtClr.CYAN}{a.survey.object_id}{TxtClr.BLACK}:")
-                survey_id = a.survey.object_id
-            
-            # data points of interest for sending information
-            sched_time = localtime(a.scheduled_time, tz)
-            sent_time = localtime(a.created_on, tz)
-            time_diff_minutes = (sent_time - sched_time).total_seconds() / 60
-            sched_time_print = datetime.strftime(sched_time, DEV_TIME_FORMAT)
-            sent_time_print = datetime.strftime(sent_time, DEV_TIME_FORMAT)
-            
-            print(
-                f"  {a.schedule_type} FOR {TxtClr.GREEN}{sched_time_print}{TxtClr.BLACK} "
-                f"SENT {TxtClr.GREEN}{sent_time_print}{TxtClr.BLACK}  "
-                f"\u0394 of {time_diff_minutes:.1f} min",
-                end="",
-                # \u0394 is the delta character
-            )
-            
-            if a.status == ArchivedEvent.SUCCESS:
-                print(f'  status: "{TxtClr.GREEN}{a.status}{TxtClr.BLACK}"')
-            else:
-                print(f'  status: "{TxtClr.YELLOW}{a.status}{TxtClr.BLACK}"')
-            
-            if not flat:
-                # these lines get hard to read, color helps, we can alternate brightness like this!
-                TxtClr.brightness_swap()
 
 
 class Intervention(TimestampedModel):

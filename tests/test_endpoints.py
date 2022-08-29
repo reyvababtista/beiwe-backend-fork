@@ -20,14 +20,14 @@ from constants.common_constants import API_DATE_FORMAT, BEIWE_PROJECT_ROOT
 from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_DATA_STREAMS
 from constants.data_stream_constants import ACCELEROMETER, ALL_DATA_STREAMS, SURVEY_TIMINGS
 from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_UNKNOWN,
-    NEW_PASSWORD_8_LONG, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_RULES_FAIL, PASSWORD_RESET_SUCCESS,
-    PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY,
-    WRONG_CURRENT_PASSWORD)
+    MESSAGE_SEND_SUCCESS, NEW_PASSWORD_8_LONG, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_RULES_FAIL,
+    PASSWORD_RESET_SUCCESS, PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED,
+    TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT)
 from constants.user_constants import ALL_RESEARCHER_TYPES, IOS_API, ResearcherRole
 from database.data_access_models import ChunkRegistry, FileToProcess
-from database.schedule_models import ArchivedEvent, Intervention
+from database.schedule_models import Intervention
 from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
@@ -2681,7 +2681,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.generate_fcm_token(self.default_participant)
         self.do_post()
         archived_event = self.default_participant.archived_events.latest("created_on")
-        self.assertIn(ArchivedEvent.SUCCESS, archived_event.status)
+        self.assertIn(MESSAGE_SEND_SUCCESS, archived_event.status)
     
     @patch("api.push_notifications_api.check_firebase_instance")
     @patch("api.push_notifications_api.send_push_notification")
@@ -2692,7 +2692,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.generate_fcm_token(self.default_participant)
         self.do_post()
         archived_event = self.default_participant.archived_events.latest("created_on")
-        self.assertIn(ArchivedEvent.SUCCESS, archived_event.status)
+        self.assertIn(MESSAGE_SEND_SUCCESS, archived_event.status)
 
 
 # FIXME: make a real test...

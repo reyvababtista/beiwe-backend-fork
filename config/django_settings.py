@@ -77,25 +77,26 @@ INSTALLED_APPS = [
 SHELL_PLUS = "ipython"
 
 SHELL_PLUS_POST_IMPORTS = [
-    "pytz",
+    # generic
     "json",
-    ["libs.s3", ("s3_list_files",)],
-    ["pprint", ("pprint",)],
-    ["datetime", ("date", "datetime", "timedelta", "tzinfo")],
+    "orjson",
     ["collections", ("Counter", "defaultdict")],
-    ["django.utils.timezone", ("localtime", "make_aware", "make_naive")],
-    ["time", ("sleep",)],
-    ["libs.utils.shell_utils", "*"],
+    ["pprint", ("pprint",)],
+    
+    # datetimezone
+    "dateutil",  # do not add pytz it is deprecated
     ["dateutil", ('tz',)],
+    ["dateutil.tz", ('UTC',)],
+    ["time", ("sleep",)],
+    ["datetime", ("date", "datetime", "timedelta", "tzinfo")],
+    ["django.utils.timezone", ("localtime", "make_aware", "make_naive")],
+    
+    # shell
+    ["libs.utils.shell_utils", "*"],
     ['libs.utils.dev_utils', "GlobalTimeTracker"],
-    # ['libs.celery_control', (
-    #     "get_notification_scheduled_job_ids",
-    #     "get_notification_reserved_job_ids",
-    #     "get_notification_active_job_ids",
-    #     "get_processing_scheduled_job_ids",
-    #     "get_processing_reserved_job_ids",
-    #     "get_processing_active_job_ids",
-    # )]
+    
+    # s3
+    ["libs.s3", ("s3_list_files", "s3_upload", "s3_upload_plaintext", "s3_retrieve", "s3_retrieve_plaintext")],
 ]
 SHELL_PLUS_PRE_IMPORTS = []
 

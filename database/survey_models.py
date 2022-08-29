@@ -9,7 +9,7 @@ from constants.study_constants import AUDIO_SURVEY_SETTINGS, IMAGE_SURVEY_SETTIN
 from database.common_models import JSONTextField, TimestampedModel
 from database.validators import LengthValidator
 
-
+# TODO: we absolutely do not need this SurveyBase class
 class SurveyBase(TimestampedModel):
     """ SurveyBase contains all fields that we want to have copied into a survey backup whenever
     it is updated. """
@@ -142,22 +142,6 @@ class Survey(SurveyBase):
         return ArchivedEvent.objects.filter(
             survey_archive_id__in=self.archives.values_list("id", flat=True)
         ).filter(**archived_event_filter_kwargs).order_by("-scheduled_time")
-    
-    def format_survey_for_study(self):
-        """
-        Returns a dict with the values of the survey fields for download to the app
-        """
-        survey_dict = self.as_unpacked_native_python()
-        # Make the dict look like the old Mongolia-style dict that the frontend is expecting
-        survey_dict.pop('id')
-        survey_dict.pop('deleted')
-        survey_dict['_id'] = survey_dict.pop('object_id')
-        
-        # the old timings object does need to be provided
-        from database.schedule_models import WeeklySchedule
-        survey_dict['timings'] = WeeklySchedule.export_survey_timings(self)
-        
-        return survey_dict
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

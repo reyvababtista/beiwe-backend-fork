@@ -11,9 +11,10 @@ from firebase_admin.messaging import (AndroidConfig, Message, Notification, Quot
 from config.settings import BLOCK_QUOTA_EXCEEDED_ERROR, PUSH_NOTIFICATION_ATTEMPT_COUNT
 from constants.celery_constants import PUSH_NOTIFICATION_SEND_QUEUE, ScheduleTypes
 from constants.common_constants import API_TIME_FORMAT
+from constants.message_strings import MESSAGE_SEND_SUCCESS
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from constants.user_constants import ANDROID_API
-from database.schedule_models import ArchivedEvent, ScheduledEvent
+from database.schedule_models import ScheduledEvent
 from database.user_models import Participant, ParticipantFCMHistory, PushNotificationDisabledEvent
 from libs.celery_control import push_send_celery_app, safe_apply_async
 from libs.firebase_config import check_firebase_instance
@@ -36,6 +37,8 @@ def get_surveys_and_schedules(now):
         participant__deleted=False, survey__deleted=False,
         # Shouldn't be necessary, placeholder containing correct lte count.
         # participant__push_notification_unreachable_count__lte=PUSH_NOTIFICATION_ATTEMPT_COUNT
+        # added august 2022, part of checkins
+        deleted=False,
     ).values_list(
         "survey__object_id",
         "participant__fcm_tokens__token",
@@ -108,7 +111,9 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
         
         print(f"Sending push notification to {patient_id} for {survey_obj_ids}...")
         try:
-            send_push_notification(participant, reference_schedule, survey_obj_ids, fcm_token)
+            send_push_notification(
+                participant, reference_schedule, survey_obj_ids, fcm_token
+            )
         # error types are documented at firebase.google.com/docs/reference/fcm/rest/v1/ErrorCode
         except UnregisteredError:
             print("\nUnregisteredError\n")
@@ -166,20 +171,20 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
 def send_push_notification(
         participant: Participant, reference_schedule: ScheduledEvent, survey_obj_ids: List[str],
         fcm_token: str
-):
+) -> str:
     """ Contains the body of the code to send a notification  """
-    # we include a nonce in case of notification deduplication.
+    # we include a nonce in case of notification deduplication, and a schedule_uuid to for the
+    #  checkin after the push notification is sent.
     data_kwargs = {
         'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32)),
         'sent_time': reference_schedule.scheduled_time.strftime(API_TIME_FORMAT),
         'type': 'survey',
-        'survey_ids': json.dumps(list(set(survey_obj_ids))),  # Dedupe.
+        'survey_ids': json.dumps(list(set(survey_obj_ids))),  # Dedupe-dedupe
+        'schedule_uuid': reference_schedule.uuid
     }
     
     if participant.os_type == ANDROID_API:
-        message = Message(
-            android=AndroidConfig(data=data_kwargs, priority='high'), token=fcm_token,
-        )
+        message = Message(android=AndroidConfig(data=data_kwargs, priority='high'), token=fcm_token)
     else:
         display_message = \
             "You have a survey to take." if len(survey_obj_ids) == 1 else "You have surveys to take."
@@ -205,7 +210,7 @@ def success_send_handler(participant: Participant, fcm_token: str, schedules: Li
     participant.push_notification_unreachable_count = 0
     participant.save()
     
-    create_archived_events(schedules, success=True, status=ArchivedEvent.SUCCESS)
+    create_archived_events(schedules, status=MESSAGE_SEND_SUCCESS)
     enqueue_weekly_surveys(participant, schedules)
 
 
@@ -222,7 +227,8 @@ def failed_send_handler(
         fcm_hist.save()
         
         PushNotificationDisabledEvent(
-            participant=participant, timestamp=now, count=participant.push_notification_unreachable_count
+            participant=participant, timestamp=now,
+            count=participant.push_notification_unreachable_count
         ).save()
         
         # disable the credential
@@ -239,16 +245,14 @@ def failed_send_handler(
         print(f"Participant {participant.patient_id} has had push notifications failures "
               f"incremented to {participant.push_notification_unreachable_count}.")
     
-    create_archived_events(schedules, success=False, created_on=now, status=error_message)
+    create_archived_events(schedules, status=error_message, created_on=now)
     enqueue_weekly_surveys(participant, schedules)
 
 
-def create_archived_events(
-        schedules: List[ScheduledEvent], success: bool, status: str, created_on: datetime = None,
-    ):
-    """ Populates event history, successes will delete source ScheduledEvents. """
-    for schedule in schedules:
-        schedule.archive(self_delete=success, status=status, created_on=created_on)
+def create_archived_events(schedules: List[ScheduledEvent], status: str, created_on: datetime = None):
+    """ Populates event history, does not mark ScheduledEvents as deleted. """
+    for scheduled_event in schedules:
+        scheduled_event.archive(False, status=status, created_on=created_on)
 
 
 def enqueue_weekly_surveys(participant: Participant, schedules: List[ScheduledEvent]):

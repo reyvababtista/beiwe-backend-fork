@@ -57,8 +57,8 @@ class TxtClr:
 
 def disambiguate_participant_survey(func):
     """ This wrapper allows a function to take any combination of (participant, survey)
-        mostly used in debugging push notifications.
-    """
+    Mostly used in debugging push notifications. """
+    
     @functools.wraps(func)
     def _disambiguate_participant_survey(*args, **kwargs):
         args = list(args)  # not initially mutable

@@ -115,8 +115,11 @@ DEVICE_IDENTIFIERS_HEADER = "patient_id,MAC,phone_number,device_id,device_os,os_
 
 ## manual push notification failures
 RESEND_CLICKED = "resend clicked"
+
+DEVICE_CHECKED_IN = "device checked in"
 DEVICE_HAS_NO_REGISTERED_TOKEN = "device has no registered token"
 PUSH_NOTIFICATIONS_NOT_CONFIGURED = "Push notifications not configured for participant device type"
+MESSAGE_SEND_SUCCESS = "success"  # for historical reasons don't change this without writing a migration
 MESSAGE_SEND_FAILED_PREFIX = "message send failed:"
 MESSAGE_SEND_FAILED_UNKNOWN = "message send failed: unknown"
 SUCCESSFULLY_SENT_NOTIFICATION_PREFIX = "Successfully sent notification to"

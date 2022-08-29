@@ -11,6 +11,7 @@ from config.django_settings import STATIC_ROOT
 from constants.celery_constants import ScheduleTypes
 from constants.common_constants import BEIWE_PROJECT_ROOT
 from constants.forest_constants import DefaultForestParameters, ForestTree
+from constants.message_strings import MESSAGE_SEND_SUCCESS
 from constants.testing_constants import REAL_ROLES
 from constants.user_constants import ANDROID_API, IOS_API, NULL_OS, ResearcherRole
 from database.common_models import generate_objectid_string
@@ -283,7 +284,7 @@ class ReferenceObjectMixin:
             schedule_type=schedule_type or ScheduleTypes.weekly,
             scheduled_time=scheduled_time or timezone.now(),
             response_time=response_time or None,
-            status=status or ArchivedEvent.SUCCESS,
+            status=status or MESSAGE_SEND_SUCCESS,
         )
         archived_event.save()
         return archived_event

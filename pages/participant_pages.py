@@ -16,7 +16,7 @@ from database.user_models import Participant
 from libs.firebase_config import check_firebase_instance
 from libs.http_utils import easy_url
 from libs.internal_types import ArchivedEventQuerySet, ResearcherRequest
-from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
+from libs.schedules import repopulate_all_survey_scheduled_events
 from middleware.abort_middleware import abort
 
 

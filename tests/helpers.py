@@ -276,14 +276,13 @@ class ReferenceObjectMixin:
     #
     def generate_archived_event(
         self, survey: Survey, participant: Participant, schedule_type: str = None,
-        scheduled_time: datetime = None, response_time: datetime = None, status: str = None
+        scheduled_time: datetime = None, status: str = None
     ):
         archived_event = ArchivedEvent(
             survey_archive=survey.archives.first(),
             participant=participant,
             schedule_type=schedule_type or ScheduleTypes.weekly,
             scheduled_time=scheduled_time or timezone.now(),
-            response_time=response_time or None,
             status=status or MESSAGE_SEND_SUCCESS,
         )
         archived_event.save()

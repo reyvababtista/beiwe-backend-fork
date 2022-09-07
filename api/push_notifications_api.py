@@ -136,7 +136,7 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
     
     # create an event for this attempt, update it on all exit scenarios
     unscheduled_event = ArchivedEvent(
-        survey_archive=survey.most_recent_archive(),
+        survey_archive=survey.archives.order_by("-archive_start").first(),  # the current survey archive
         participant=participant,
         schedule_type=f"manual - {request.session_researcher.username}"[:32],  # max length of field
         scheduled_time=now,
@@ -144,25 +144,23 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
     )
     unscheduled_event.save()
     
-    # system is wrong failures
+    # failures
     if fcm_token is None:
         unscheduled_event.update(status=DEVICE_HAS_NO_REGISTERED_TOKEN)
         messages.error(request, error_message)
         return return_redirect
+    
     # "participant os"
     if not check_firebase_instance(firebase_check_kwargs):
         unscheduled_event.update(status=PUSH_NOTIFICATIONS_NOT_CONFIGURED)
         messages.error(request, error_message)
         return return_redirect
     
-    # The nonce is present to handle push notification deduplication (known to exist after testing).
-    # Note that schedule_uuid is null in the case of no schedule
     data_kwargs = {
         'type': 'survey',
         'survey_ids': json.dumps([survey.object_id]),
         'sent_time': now.strftime(API_TIME_FORMAT),
         'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32)),
-        'schedule_uuid': None
     }
     if participant.os_type == ANDROID_API:
         message = Message(
@@ -179,10 +177,10 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
         messages.error(request, BAD_PARTICPANT_OS)
         return return_redirect
     
-    # real error cases (raised directly when running locally, report to sentry when run on a server)
+    # real error cases (raised directly when running locally, reported to sentry on a server)
     try:
         _response = send_push_notification(message)
-        unscheduled_event.update(status=MESSAGE_SEND_SUCCESS, nonce=checkin_nonce)
+        unscheduled_event.update(status=MESSAGE_SEND_SUCCESS)
         messages.success(
             request, f'{SUCCESSFULLY_SENT_NOTIFICATION_PREFIX} {participant.patient_id}.'
         )

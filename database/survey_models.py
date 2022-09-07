@@ -99,8 +99,8 @@ class Survey(SurveyBase):
         Returns a json serializable object that represents the weekly schedules of this survey.
         The return object is a list of 7 lists of ints
         """
-        from database.schedule_models import WeeklySchedule
-        return WeeklySchedule.export_survey_timings(self)
+        from libs.schedules import export_weekly_survey_timings
+        return export_weekly_survey_timings(self)
     
     def relative_timings(self):
         """

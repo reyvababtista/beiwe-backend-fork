@@ -18,7 +18,7 @@ from database.schedule_models import ScheduledEvent
 from database.user_models import Participant, ParticipantFCMHistory, PushNotificationDisabledEvent
 from libs.celery_control import push_send_celery_app, safe_apply_async
 from libs.firebase_config import check_firebase_instance
-from libs.push_notification_helpers import set_next_weekly
+from libs.schedules import set_next_weekly
 from libs.sentry import make_error_sentry, SentryTypes
 
 

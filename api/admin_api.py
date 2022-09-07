@@ -11,7 +11,7 @@ from constants.user_constants import ResearcherRole
 from database.study_models import Study
 from database.user_models import Researcher, StudyRelation
 from libs.internal_types import ResearcherRequest
-from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
+from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.security import check_password_requirements
 from libs.timezone_dropdown import ALL_TIMEZONES
 from middleware.abort_middleware import abort

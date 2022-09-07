@@ -11,7 +11,7 @@ from database.study_models import Study
 from database.survey_models import Survey
 from libs.internal_types import ResearcherRequest
 from libs.json_logic import do_validate_survey
-from libs.push_notification_helpers import (repopulate_absolute_survey_schedule_events,
+from libs.schedules import (repopulate_absolute_survey_schedule_events,
     repopulate_relative_survey_schedule_events, repopulate_weekly_survey_schedule_events)
 
 

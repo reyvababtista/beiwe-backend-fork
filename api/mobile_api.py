@@ -3,7 +3,7 @@ import json
 import plistlib
 import time
 from datetime import date, datetime, timedelta
-from typing import List, Tuple
+from typing import Tuple
 
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
@@ -17,7 +17,7 @@ from constants.celery_constants import ANDROID_FIREBASE_CREDENTIALS, IOS_FIREBAS
 from constants.message_strings import (DEVICE_CHECKED_IN, DEVICE_IDENTIFIERS_HEADER,
     INVALID_EXTENSION_ERROR, NO_FILE_ERROR, UNKNOWN_ERROR)
 from database.data_access_models import FileToProcess
-from database.schedule_models import ScheduledEvent, WeeklySchedule
+from database.schedule_models import ScheduledEvent
 from database.survey_models import Survey
 from database.system_models import FileAsText
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
@@ -26,8 +26,8 @@ from libs.http_utils import determine_os_api
 from libs.internal_types import ParticipantRequest, ScheduledEventQuerySet
 from libs.participant_file_uploads import (upload_and_create_file_to_process_and_log,
     upload_problem_file)
-from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
 from libs.s3 import get_client_public_key_string, s3_upload
+from libs.schedules import export_weekly_survey_timings, repopulate_all_survey_scheduled_events
 from libs.sentry import make_sentry_client, SentryTypes
 from libs.utils.date_utils import date_to_end_of_day, date_to_start_of_day
 from middleware.abort_middleware import abort
@@ -368,20 +368,6 @@ def format_survey_for_device(survey: Survey):
     survey_dict['timings'] = survey_timings
     
     return survey_dict
-
-
-def export_weekly_survey_timings(survey: Survey) -> List[List[int]]:
-    """Returns a json formatted list of weekly timings for use on the frontend"""
-    # this weird sort order results in correctly ordered output.
-    fields_ordered = ("hour", "minute", "day_of_week")
-    timings = [[], [], [], [], [], [], []]
-    schedule_components = WeeklySchedule.objects. \
-        filter(survey=survey).order_by(*fields_ordered).values_list(*fields_ordered)
-    
-    # get, calculate, append, dump.
-    for hour, minute, day in schedule_components:
-        timings[day].append((hour * 60 * 60) + (minute * 60))
-    return timings
 
 
 def decompose_datetime_to_timings(dt: datetime) -> Tuple[int, int]:

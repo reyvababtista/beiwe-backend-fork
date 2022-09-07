@@ -10,7 +10,7 @@ from database.schedule_models import (AbsoluteSchedule, Intervention, RelativeSc
     WeeklySchedule)
 from database.study_models import Study
 from database.survey_models import Survey
-from libs.push_notification_helpers import repopulate_all_survey_scheduled_events
+from libs.schedules import repopulate_all_survey_scheduled_events
 
 
 NoneType = type(None)

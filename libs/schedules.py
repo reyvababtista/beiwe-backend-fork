@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from typing import List
 
 from database.schedule_models import ArchivedEvent, ScheduledEvent, WeeklySchedule
 from database.study_models import Study
@@ -186,3 +187,17 @@ def get_next_weekly_event_and_schedule(survey: Survey) -> (datetime, WeeklySched
     timing_list.sort(key=lambda date_and_schedule: date_and_schedule[0])
     schedule_date, schedule = timing_list[0]
     return schedule_date, schedule
+
+
+def export_weekly_survey_timings(survey: Survey) -> List[List[int]]:
+    """Returns a json formatted list of weekly timings for use on the frontend"""
+    # this weird sort order results in correctly ordered output.
+    fields_ordered = ("hour", "minute", "day_of_week")
+    timings = [[], [], [], [], [], [], []]
+    schedule_components = WeeklySchedule.objects. \
+        filter(survey=survey).order_by(*fields_ordered).values_list(*fields_ordered)
+    
+    # get, calculate, append, dump.
+    for hour, minute, day in schedule_components:
+        timings[day].append((hour * 60 * 60) + (minute * 60))
+    return timings

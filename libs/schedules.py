@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import List
 
+from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from database.schedule_models import ArchivedEvent, ScheduledEvent, WeeklySchedule
 from database.study_models import Study
 from database.survey_models import Survey
@@ -193,7 +194,7 @@ def export_weekly_survey_timings(survey: Survey) -> List[List[int]]:
     """Returns a json formatted list of weekly timings for use on the frontend"""
     # this weird sort order results in correctly ordered output.
     fields_ordered = ("hour", "minute", "day_of_week")
-    timings = [[], [], [], [], [], [], []]
+    timings = EMPTY_WEEKLY_SURVEY_TIMINGS()
     schedule_components = WeeklySchedule.objects. \
         filter(survey=survey).order_by(*fields_ordered).values_list(*fields_ordered)
     

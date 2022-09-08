@@ -39,6 +39,7 @@ class TestUrls(CommonTestCase):
 
 class TestAllEndpoints(CommonTestCase):
     
+    # literally some meta checks, enter urls here if they will not have a standard test class
     EXCEPTIONS_ENDPOINTS = [
         # special case, these are manually tested
         "login_pages.validate_login",

@@ -79,7 +79,7 @@ def update_survey(request: ResearcherRequest, study_id: int, survey_id: int):
     if survey.survey_type == Survey.TRACKING_SURVEY:
         errors = do_validate_survey(content)
         if len(errors) > 1:
-            return HttpResponse(json.dumps(errors), status_code=400)
+            return HttpResponse(json.dumps(errors), status=400)
     
     # For each of the schedule types, creates Schedule objects and ScheduledEvent objects
     weekly_timings = json.loads(request.POST.get('weekly_timings'))

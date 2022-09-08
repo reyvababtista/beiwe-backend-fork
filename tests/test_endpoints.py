@@ -2637,15 +2637,6 @@ class TestResendPushNotifications(ResearcherSessionTest):
             survey_id=self.default_survey.pk
         )
     
-    def validate_scheduled_event(self, archived_event: ArchivedEvent):
-        # the scheduled event needs to have some specific qualities
-        self.assertEqual(ScheduledEvent.objects.count(), 1)
-        one_time_schedule = ScheduledEvent.objects.first()
-        self.assertEqual(one_time_schedule.survey_id, self.default_survey.id)
-        self.assertEqual(one_time_schedule.checkin_time, None)
-        self.assertEqual(one_time_schedule.deleted, True)  # important, don't resend
-        self.assertEqual(one_time_schedule.most_recent_event.id, archived_event.id)
-    
     def test_bad_fcm_token(self):  # check_firebase_instance: MagicMock):
         self.set_session_study_relation(ResearcherRole.researcher)
         token = self.generate_fcm_token(self.default_participant)
@@ -2656,7 +2647,6 @@ class TestResendPushNotifications(ResearcherSessionTest):
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertEqual(archived_event.status, DEVICE_HAS_NO_REGISTERED_TOKEN)
         self.validate_scheduled_event(archived_event)
-        
     
     def test_no_fcm_token(self):  # check_firebase_instance: MagicMock):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -2675,11 +2665,48 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.assertEqual(archived_event.status, PUSH_NOTIFICATIONS_NOT_CONFIGURED)
         self.validate_scheduled_event(archived_event)
     
+    def test_400(self):
+        # missing survey_id
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.smart_post_status_code(400, self.session_study.pk, self.default_participant.patient_id)
+    
+    @patch("api.push_notifications_api.send_push_notification")
     @patch("api.push_notifications_api.check_firebase_instance")
-    def test_mocked_generic_error(self, check_firebase_instance: MagicMock):
-        # by failing to patch messages.send we trigger a valueerror because firebase creds aren't
-        #  present is not configured.
+    def test_mocked_firebase_valueerror_error_1(
+        self, check_firebase_instance: MagicMock, send_push_notification: MagicMock
+    ):
+        # manually invoke some other ValueError to validate that dumb logic.
         check_firebase_instance.return_value = True
+        send_push_notification.side_effect = ValueError('something exploded')
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertIn(MESSAGE_SEND_FAILED_UNKNOWN, archived_event.status)
+        self.validate_scheduled_event(archived_event)
+
+    @patch("api.push_notifications_api.check_firebase_instance")
+    def test_mocked_firebase_valueerror_2(self, check_firebase_instance: MagicMock):
+        # by failing to patch messages.send we trigger a valueerror because firebase creds aren't
+        #  present is not configured, it is passed to the weird firebase clause
+        check_firebase_instance.return_value = True
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertIn("The default Firebase app does not exist.", archived_event.status)
+        self.assertIn("Firebase Error,", archived_event.status)
+        self.validate_scheduled_event(archived_event)
+    
+    @patch("api.push_notifications_api.send_push_notification")
+    @patch("api.push_notifications_api.check_firebase_instance")
+    def test_mocked_generic_error(
+        self, check_firebase_instance: MagicMock, send_push_notification: MagicMock
+    ):
+        # mock generic error on sending the notification
+        check_firebase_instance.return_value = True
+        send_push_notification.side_effect = Exception('something exploded')
         self.set_session_study_relation(ResearcherRole.researcher)
         self.generate_fcm_token(self.default_participant)
         self.do_post()
@@ -2709,7 +2736,15 @@ class TestResendPushNotifications(ResearcherSessionTest):
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertIn(MESSAGE_SEND_SUCCESS, archived_event.status)
         self.validate_scheduled_event(archived_event)
-
+    
+    def validate_scheduled_event(self, archived_event: ArchivedEvent):
+        # the scheduled event needs to have some specific qualities
+        self.assertEqual(ScheduledEvent.objects.count(), 1)
+        one_time_schedule = ScheduledEvent.objects.first()
+        self.assertEqual(one_time_schedule.survey_id, self.default_survey.id)
+        self.assertEqual(one_time_schedule.checkin_time, None)
+        self.assertEqual(one_time_schedule.deleted, True)  # important, don't resend
+        self.assertEqual(one_time_schedule.most_recent_event.id, archived_event.id)
 
 # FIXME: make a real test...
 class TestForestAnalysisProgress(ResearcherSessionTest):

@@ -348,13 +348,14 @@ def format_survey_for_device(survey: Survey):
     survey_dict.pop('deleted')
     survey_dict['_id'] = survey_dict.pop('object_id')
     
-    # weekly defines a list of 7 lists of ints, [[], [], [], [], [], [], []]
+    # weekly defines a list of 7 lists of ints or [[], [], [], [], [], [], []]
     survey_timings = export_weekly_survey_timings(survey)
     
     # get all non-weekly scheduled events
     start_of_week, end_of_week = get_start_and_end_of_java_timings_week(survey.study.now())
-    query: ScheduledEventQuerySet = survey.scheduled_events.exclude(weekly_schedule__isnull=False) \
-        .filter(scheduled_time__gte=start_of_week, scheduled_time__lte=end_of_week)
+    query: ScheduledEventQuerySet = survey.scheduled_events \
+        .filter(scheduled_time__gte=start_of_week, scheduled_time__lt=end_of_week) \
+        .exclude(weekly_schedule__isnull=False)  # skip where attached weekly schedules are not null
     
     for schedule in query:
         day_index, seconds = decompose_datetime_to_timings(schedule.scheduled_time)
@@ -366,10 +367,10 @@ def format_survey_for_device(survey: Survey):
     
     # the old timings object does need to be provided
     survey_dict['timings'] = survey_timings
-    
     return survey_dict
 
 
 def decompose_datetime_to_timings(dt: datetime) -> Tuple[int, int]:
     """ returns day-index, seconds into day. """
-    return dt.weekday() + 1, dt.hour * 60 * 60 + dt.minute * 60
+    # have to convert to sunday-zero-indoexed
+    return (dt.weekday() + 1) % 7, dt.hour * 60 * 60 + dt.minute * 60

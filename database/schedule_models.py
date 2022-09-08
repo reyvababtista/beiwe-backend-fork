@@ -196,7 +196,7 @@ class ScheduledEvent(TimestampedModel):
     absolute_schedule = models.ForeignKey('AbsoluteSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)
     scheduled_time = models.DateTimeField()
     deleted = models.BooleanField(null=False, default=False, db_index=True)
-    uuid = models.UUIDField(null=False, default=uuid.uuid4, db_index=True, unique=True)
+    uuid = models.UUIDField(null=True, blank=True, db_index=True, unique=True)
     checkin_time = models.DateTimeField(null=True, blank=True, db_index=True)
     most_recent_event = models.ForeignKey("ArchivedEvent", on_delete=models.DO_NOTHING, null=True)
     
@@ -264,7 +264,7 @@ class ArchivedEvent(TimestampedModel):
     schedule_type = models.CharField(null=True, blank=True, max_length=32, db_index=True)
     scheduled_time = models.DateTimeField(null=True, blank=True, db_index=True)
     status = models.TextField(null=False, blank=False, db_index=True)
-    uuid = models.UUIDField(null=True, default=uuid.uuid4, db_index=True, unique=True)
+    uuid = models.UUIDField(null=True, blank=True, db_index=True)
     
     @property
     def survey(self):

@@ -2,15 +2,15 @@ from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from database.schedule_models import BadWeekllyCount, WeeklySchedule
 from libs.schedules import NoSchedulesException, export_weekly_survey_timings, get_next_weekly_event_and_schedule
 from tests.common import CommonTestCase
-
+from constants.testing_constants import MIDNIGHT_EVERY_DAY
 
 from pprint import pprint
 
 
-MIDNIGHT_EVERY_DAY = lambda: [[0], [0], [0], [0], [0], [0], [0]]
 
 
-class TestSchedules(CommonTestCase):
+
+class TestTimingsSchedules(CommonTestCase):
     
     def test_immutable_defaults(self):
         # assert that this variable creates lists anew.

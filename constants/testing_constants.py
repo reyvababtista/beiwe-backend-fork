@@ -138,3 +138,7 @@ ANDROID_CERT = """{
     }],
 "configuration_version": "1"
 }"""
+
+
+def MIDNIGHT_EVERY_DAY():
+    return [[0], [0], [0], [0], [0], [0], [0]]

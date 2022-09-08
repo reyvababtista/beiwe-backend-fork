@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Union
 
 from django.db.models import Manager, QuerySet
 from django.http.request import HttpRequest
@@ -50,7 +50,6 @@ class TableauRequest(HttpRequest): pass
 
 StrOrBytes = Union[str, bytes]
 StrOrParticipantOrStudy = Union[str, Participant, Study]
-
 
 # Generated with scripts/generate_typing_hax.py on 2022-09-30
 AbsoluteScheduleQuerySet = QuerySet[AbsoluteSchedule]

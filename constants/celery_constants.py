@@ -3,20 +3,6 @@ from os.path import join as path_join
 from constants.common_constants import BEIWE_PROJECT_ROOT
 
 
-class ScheduleTypes(object):
-    absolute = "absolute"
-    relative = "relative"
-    weekly = "weekly"
-    
-    @classmethod
-    def choices(cls):
-        return (
-            (cls.absolute, "Absolute Schedule"), 
-            (cls.relative, "Relative Schedule"),
-            (cls.weekly, "Weekly Schedule")
-        )
-
-
 # Celery Constants
 DATA_PROCESSING_CELERY_SERVICE = "services.celery_data_processing"
 DATA_PROCESSING_CELERY_QUEUE = "data_processing"

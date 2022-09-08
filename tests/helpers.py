@@ -8,10 +8,10 @@ from django.http.response import HttpResponse
 from django.utils import timezone
 
 from config.django_settings import STATIC_ROOT
-from constants.celery_constants import ScheduleTypes
 from constants.common_constants import BEIWE_PROJECT_ROOT
 from constants.forest_constants import DefaultForestParameters, ForestTree
 from constants.message_strings import MESSAGE_SEND_SUCCESS
+from constants.schedule_constants import ScheduleTypes
 from constants.testing_constants import REAL_ROLES
 from constants.user_constants import ANDROID_API, IOS_API, NULL_OS, ResearcherRole
 from database.common_models import generate_objectid_string
@@ -295,6 +295,7 @@ class ReferenceObjectMixin:
             survey=survey or self.default_survey,
             day_of_week=day_of_week,
             hour=hour,
+            minute=minute,
         )
         weekly.save()
         return weekly

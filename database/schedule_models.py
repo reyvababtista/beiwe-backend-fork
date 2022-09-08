@@ -10,9 +10,12 @@ from django.db import models
 from django.db.models import Manager
 from django.utils.timezone import make_aware
 
-from constants.celery_constants import ScheduleTypes
+from constants.schedule_constants import ScheduleTypes
 from database.common_models import TimestampedModel
 from database.survey_models import Survey, SurveyArchive
+
+
+class BadWeekllyCount(Exception): pass
 
 
 class AbsoluteSchedule(TimestampedModel):
@@ -108,7 +111,6 @@ class RelativeSchedule(TimestampedModel):
         return duplicated
 
 
-
 class WeeklySchedule(TimestampedModel):
     """ Represents an instance of a time of day within a week for the weekly survey schedule.
         day_of_week is an integer, day 0 is Sunday.
@@ -134,7 +136,7 @@ class WeeklySchedule(TimestampedModel):
         
         # asserts are not bypassed in production. Keep.
         if len(timings) != 7:
-            raise Exception(
+            raise BadWeekllyCount(
                 f"Must have schedule for every day of the week, found {len(timings)} instead."
             )
         survey.weekly_schedules.all().delete()

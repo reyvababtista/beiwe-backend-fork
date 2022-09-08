@@ -9,9 +9,10 @@ from firebase_admin.messaging import (AndroidConfig, Message, Notification, Quot
     send as send_notification, SenderIdMismatchError, ThirdPartyAuthError, UnregisteredError)
 
 from config.settings import BLOCK_QUOTA_EXCEEDED_ERROR, PUSH_NOTIFICATION_ATTEMPT_COUNT
-from constants.celery_constants import PUSH_NOTIFICATION_SEND_QUEUE, ScheduleTypes
+from constants.celery_constants import PUSH_NOTIFICATION_SEND_QUEUE
 from constants.common_constants import API_TIME_FORMAT
 from constants.message_strings import MESSAGE_SEND_SUCCESS
+from constants.schedule_constants import ScheduleTypes
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from constants.user_constants import ANDROID_API
 from database.schedule_models import ScheduledEvent

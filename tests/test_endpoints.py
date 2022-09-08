@@ -1,6 +1,6 @@
 import json
 from copy import copy
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from io import BytesIO
 from typing import List
 from unittest.mock import MagicMock, patch
@@ -12,6 +12,7 @@ from django.http.response import FileResponse, HttpResponse, HttpResponseRedirec
 from django.urls import reverse
 from django.utils import timezone
 
+from api.mobile_api import get_start_and_end_of_java_timings_week
 from api.tableau_api import FINAL_SERIALIZABLE_FIELDS
 from config.jinja2 import easy_url
 from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
@@ -23,11 +24,13 @@ from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_S
     MESSAGE_SEND_SUCCESS, NEW_PASSWORD_8_LONG, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_RULES_FAIL,
     PASSWORD_RESET_SUCCESS, PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED,
     TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
+from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
-    IOS_CERT)
+    IOS_CERT, MIDNIGHT_EVERY_DAY)
 from constants.user_constants import ALL_RESEARCHER_TYPES, IOS_API, ResearcherRole
 from database.data_access_models import ChunkRegistry, FileToProcess
-from database.schedule_models import ArchivedEvent, Intervention, ScheduledEvent
+from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention, ScheduledEvent,
+    WeeklySchedule)
 from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
@@ -35,6 +38,7 @@ from database.system_models import FileAsText, GenericEvent
 from database.user_models import Participant, ParticipantFCMHistory, Researcher
 from libs.copy_study import format_study
 from libs.rsa import get_RSA_cipher
+from libs.schedules import repopulate_absolute_survey_schedule_events
 from libs.security import generate_easy_alphanumeric_string
 from tests.common import (BasicSessionTestCase, CommonTestCase, DataApiTest, ParticipantSessionTest,
     RedirectSessionApiTest, ResearcherSessionTest, SmartRequestsTestCase)
@@ -2380,6 +2384,19 @@ class TestParticipantSetPassword(ParticipantSessionTest):
 class TestGetLatestSurveys(ParticipantSessionTest):
     ENDPOINT_NAME = "mobile_api.get_latest_surveys"
     
+    @property
+    def BASIC_SURVEY_CONTENT(self):
+        return [
+            {
+                '_id': self.DEFAULT_SURVEY_OBJECT_ID,
+                'content': [],
+                'settings': {},
+                'survey_type': 'tracking_survey',
+                'timings': EMPTY_WEEKLY_SURVEY_TIMINGS(),
+                'name': "",
+            }
+        ]
+    
     def test_no_surveys(self):
         resp = self.smart_post_status_code(200)
         self.assertEqual(resp.content, b"[]")
@@ -2387,19 +2404,65 @@ class TestGetLatestSurveys(ParticipantSessionTest):
     def test_basic_survey(self):
         self.default_survey
         resp = self.smart_post_status_code(200)
-        self.assertTrue(len(resp.content) > 100)
         output_survey = json.loads(resp.content.decode())
-        basic_survey = [
-            {
-                '_id': self.DEFAULT_SURVEY_OBJECT_ID,
-                'content': [],
-                'settings': {},
-                'survey_type': 'tracking_survey',
-                'timings': [[], [], [], [], [], [], []],
-                'name': "",
-            }
-        ]
-        self.assertEqual(output_survey, basic_survey)
+        self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
+    
+    def test_weekly_basics(self):
+        self.default_survey
+        resp = self.smart_post_status_code(200)
+        output_survey = json.loads(resp.content.decode())
+        reference_output = self.BASIC_SURVEY_CONTENT
+        reference_output[0]["timings"] = MIDNIGHT_EVERY_DAY()
+        WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY(), self.default_survey)
+        self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
+    
+    def test_weekly_basics(self):
+        self.default_survey
+        reference_output = self.BASIC_SURVEY_CONTENT
+        reference_output[0]["timings"] = MIDNIGHT_EVERY_DAY()
+        WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY(), self.default_survey)
+        resp = self.smart_post_status_code(200)
+        output_survey = json.loads(resp.content.decode())
+        self.assertEqual(output_survey, reference_output)
+    
+    def test_absolute_schedule_basics(self):
+        # test for absolute surveys that they show up regardless of the day of the week they fall on,
+        # as long as that day is within the current week.
+        self.default_survey
+        for day_of_week_index in self.iterate_weekday_absolute_schedules():
+            resp = self.smart_post_status_code(200)
+            api_survey_representation = json.loads(resp.content.decode())
+            reference_representation = self.BASIC_SURVEY_CONTENT
+            reference_representation[0]["timings"][day_of_week_index] = [0]
+            self.assertEqual(api_survey_representation, reference_representation)
+    
+    def iterate_weekday_absolute_schedules(self):
+        # iterates over days of the week and populates absolute schedules and scheduled events
+        start, _ = get_start_and_end_of_java_timings_week(timezone.now())
+        for i in range(0, 7):
+            AbsoluteSchedule.objects.all().delete()
+            ScheduledEvent.objects.all().delete()
+            a_date = start.date() + timedelta(days=i)
+            self.generate_absolute_schedule(a_date)
+            repopulate_absolute_survey_schedule_events(self.default_survey, self.default_participant)
+            # correct weekday for sunday-zero-index
+            yield (a_date.weekday() + 1) % 7
+    
+    def test_absolute_schedule_out_of_range_future(self):
+        self.default_survey
+        self.generate_absolute_schedule(date.today() + timedelta(days=200))
+        repopulate_absolute_survey_schedule_events(self.default_survey, self.default_participant)
+        resp = self.smart_post_status_code(200)
+        output_survey = json.loads(resp.content.decode())
+        self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
+
+    def test_absolute_schedule_out_of_range_past(self):
+        self.default_survey
+        self.generate_absolute_schedule(date.today() - timedelta(days=200))
+        repopulate_absolute_survey_schedule_events(self.default_survey, self.default_participant)
+        resp = self.smart_post_status_code(200)
+        output_survey = json.loads(resp.content.decode())
+        self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
 
 
 class TestRegisterParticipant(ParticipantSessionTest):
@@ -2685,7 +2748,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertIn(MESSAGE_SEND_FAILED_UNKNOWN, archived_event.status)
         self.validate_scheduled_event(archived_event)
-
+    
     @patch("api.push_notifications_api.check_firebase_instance")
     def test_mocked_firebase_valueerror_2(self, check_firebase_instance: MagicMock):
         # by failing to patch messages.send we trigger a valueerror because firebase creds aren't

@@ -306,7 +306,7 @@ class ReferenceObjectMixin:
     
     def generate_relative_schedule(
         self, survey: Survey, intervention: Intervention, days_after: int = 0,
-        hour: int = 0, minute :int = 0,
+        hour: int = 0, minute: int = 0,
     ) -> RelativeSchedule:
         relative = RelativeSchedule(
             survey=survey or self.default_survey,

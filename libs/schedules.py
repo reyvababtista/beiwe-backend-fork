@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import List
 
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
-from database.schedule_models import ArchivedEvent, ScheduledEvent, WeeklySchedule
+from database.schedule_models import AbsoluteSchedule, ArchivedEvent, ScheduledEvent, WeeklySchedule
 from database.study_models import Study
 from database.survey_models import Survey
 from database.user_models import Participant
@@ -91,6 +91,7 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
     events.delete()
     
     new_events = []
+    abs_sched: AbsoluteSchedule
     for abs_sched in survey.absolute_schedules.all():
         scheduled_time = abs_sched.event_time
         # if one participant
@@ -173,20 +174,20 @@ def repopulate_relative_survey_schedule_events(survey: Survey, single_participan
 def get_next_weekly_event_and_schedule(survey: Survey) -> (datetime, WeeklySchedule):
     """ Determines the next time for a particular survey, provides the relevant weekly schedule. """
     now = survey.study.now()
-    timing_list = []
+    timings_list = []
     # our possible next weekly event may be this week, or next week; get this week if it hasn't
     # happened, next week if it has.  A survey can have many weekly schedules, grab them all.
     weekly_schedule: WeeklySchedule
     for weekly_schedule in survey.weekly_schedules.all():
         this_week, next_week = weekly_schedule.get_prior_and_next_event_times(now)
-        timing_list.append((this_week if now < this_week else next_week, weekly_schedule))
+        timings_list.append((this_week if now < this_week else next_week, weekly_schedule))
     
-    if not timing_list:
+    if not timings_list:
         raise NoSchedulesException()
     
     # get the earliest next schedule_date
-    timing_list.sort(key=lambda date_and_schedule: date_and_schedule[0])
-    schedule_date, schedule = timing_list[0]
+    timings_list.sort(key=lambda date_and_schedule: date_and_schedule[0])
+    schedule_date, schedule = timings_list[0]
     return schedule_date, schedule
 
 

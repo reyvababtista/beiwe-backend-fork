@@ -21,7 +21,7 @@ from constants.message_strings import (BAD_DEVICE_OS, BAD_PARTICPANT_OS,
     SUCCESSFULLY_SENT_NOTIFICATION_PREFIX)
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from constants.user_constants import ANDROID_API, IOS_API
-from database.schedule_models import ArchivedEvent
+from database.schedule_models import ArchivedEvent, ScheduledEvent
 from database.study_models import Study
 from database.survey_models import Survey
 from database.user_models import Participant, ParticipantFCMHistory
@@ -144,6 +144,15 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
     )
     unscheduled_event.save()
     
+    # crete a scheduled event to point at, for records and checkin tracking.
+    ScheduledEvent.objects.create(
+        survey=survey,
+        participant=participant,
+        scheduled_time=now,
+        most_recent_event=unscheduled_event,
+        deleted=True,  # don't continue to send this notification
+    )
+
     # failures
     if fcm_token is None:
         unscheduled_event.update(status=DEVICE_HAS_NO_REGISTERED_TOKEN)

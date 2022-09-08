@@ -9,10 +9,10 @@ from constants.study_constants import AUDIO_SURVEY_SETTINGS, IMAGE_SURVEY_SETTIN
 from database.common_models import JSONTextField, TimestampedModel
 from database.validators import LengthValidator
 
-# TODO: we absolutely do not need this SurveyBase class
+
 class SurveyBase(TimestampedModel):
     """ SurveyBase contains all fields that we want to have copied into a survey backup whenever
-    it is updated. """
+    it is updated. (used in surveys and survey archives.) """
     
     AUDIO_SURVEY = 'audio_survey'
     TRACKING_SURVEY = 'tracking_survey'
@@ -35,28 +35,22 @@ class SurveyBase(TimestampedModel):
 
 
 class Survey(SurveyBase):
-    """
-    Surveys contain all information the app needs to display the survey correctly to a participant,
-    and when it should push the notifications to take the survey.
+    """ Surveys contain all information the app needs to display the survey correctly to a
+    participant, and when it should push the notifications to take the survey.
 
-    Surveys must have a 'survey_type', which is a string declaring the type of survey it
-    contains, which the app uses to display the correct interface.
+    Surveys must have a 'survey_type', which is a string declaring the type of survey it contains,
+    which the app uses to display the correct interface.
 
-    Surveys contain 'content', which is a JSON blob that is unpacked on the app and displayed
-    to the participant in the form indicated by the survey_type.
+    Surveys contain 'content', which is a JSON blob that is unpacked on the app and displayed to the
+    participant in the form indicated by the survey_type.
 
-    Timings schema: a survey must indicate the day of week and time of day on which to trigger;
-    by default it contains no values. The timings schema mimics the Java.util.Calendar.DayOfWeek
+    Timings schema: a survey must indicate the day of week and time of day on which to trigger; by
+    default it contains no values. The timings schema mimics the Java.util.Calendar.DayOfWeek
     specification: it is zero-indexed with day 0 as Sunday. 'timings' is a list of 7 lists, each
-    inner list containing any number of times of the day. Times of day are integer values
-    indicating the number of seconds past midnight.
+    inner list containing any number of times of the day. Times of day are integer values indicating
+    the number of seconds past midnight.
 
-    Inherits the following fields from SurveyBase
-    content
-    survey_type
-    settings
-    timings
-    """
+    Inherits the following fields from SurveyBase content survey_type settings timings """
     
     # This is required for file name and path generation
     object_id = models.CharField(max_length=24, unique=True, validators=[LengthValidator(24)])
@@ -80,11 +74,9 @@ class Survey(SurveyBase):
     
     @classmethod
     def create_with_settings(cls, survey_type: str, **kwargs):
-        """
-        Create a new Survey with the provided survey type and attached to the given Study,
-        as well as any other given keyword arguments. If the Survey is audio/image and no other
-        settings are given, give it the default audio/image survey settings.
-        """
+        """ Create a new Survey with the provided survey type and attached to the given Study, as
+        well as any other given keyword arguments. If the Survey is audio/image and no other
+        settings are given, give it the default audio/image survey settings. """
         
         if survey_type == cls.AUDIO_SURVEY and 'settings' not in kwargs:
             kwargs['settings'] = json.dumps(AUDIO_SURVEY_SETTINGS)
@@ -95,18 +87,14 @@ class Survey(SurveyBase):
         return survey
     
     def weekly_timings(self):
-        """
-        Returns a json serializable object that represents the weekly schedules of this survey.
-        The return object is a list of 7 lists of ints
-        """
+        """ Returns a json serializable object that represents the weekly schedules of this survey.
+        The return object is a list of 7 lists of ints """
         from libs.schedules import export_weekly_survey_timings
         return export_weekly_survey_timings(self)
     
     def relative_timings(self):
-        """
-        Returns a json serializable object that represents the relative schedules of the survey
-        The return object is a list of lists of intervention ids, days offset, and seconds offset.
-        """
+        """ Returns a json serializable object that represents the relative schedules of the survey
+        The return object is a list of lists of intervention ids, days offset, and seconds offset. """
         schedules = []
         for schedule in self.relative_schedules.all():
             num_seconds = schedule.minute * 60 + schedule.hour * 3600
@@ -114,10 +102,8 @@ class Survey(SurveyBase):
         return schedules
     
     def relative_timings_by_name(self):
-        """
-        Returns a json serializable object that represents the relative schedules of the survey
-        The return object is a list of lists of intervention names, days offset, and seconds offset.
-        """
+        """ Returns a json serializable object that represents the relative schedules of the survey
+        The return object is a list of lists of intervention names, days offset, and seconds offset. """
         schedules = []
         for schedule in self.relative_schedules.all():
             num_seconds = schedule.minute * 60 + schedule.hour * 3600
@@ -126,10 +112,8 @@ class Survey(SurveyBase):
         return schedules
     
     def absolute_timings(self):
-        """
-        Returns a json serializable object that represents the absolute schedules of the survey
-        The return object is a list of lists of the year, month, day and seconds within the day.
-        """
+        """ Returns a json serializable object that represents the absolute schedules of the survey
+        The return object is a list of lists of the year, month, day and seconds within the day. """
         schedules = []
         for schedule in self.absolute_schedules.all():
             event_time = schedule.event_time
@@ -153,7 +137,6 @@ class Survey(SurveyBase):
     def archive(self):
         """ Create an archive if there were any changes to the data since the last archive was
         created, or if no archive exists. """
-        
         # get self as dictionary representation, remove fields that don't exist, extract last
         # updated and the survey id.
         new_data = self.as_dict()

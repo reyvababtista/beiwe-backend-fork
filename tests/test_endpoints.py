@@ -27,7 +27,7 @@ from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID
     IOS_CERT)
 from constants.user_constants import ALL_RESEARCHER_TYPES, IOS_API, ResearcherRole
 from database.data_access_models import ChunkRegistry, FileToProcess
-from database.schedule_models import Intervention
+from database.schedule_models import ArchivedEvent, Intervention, ScheduledEvent
 from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
@@ -2637,6 +2637,15 @@ class TestResendPushNotifications(ResearcherSessionTest):
             survey_id=self.default_survey.pk
         )
     
+    def validate_scheduled_event(self, archived_event: ArchivedEvent):
+        # the scheduled event needs to have some specific qualities
+        self.assertEqual(ScheduledEvent.objects.count(), 1)
+        one_time_schedule = ScheduledEvent.objects.first()
+        self.assertEqual(one_time_schedule.survey_id, self.default_survey.id)
+        self.assertEqual(one_time_schedule.checkin_time, None)
+        self.assertEqual(one_time_schedule.deleted, True)  # important, don't resend
+        self.assertEqual(one_time_schedule.most_recent_event.id, archived_event.id)
+    
     def test_bad_fcm_token(self):  # check_firebase_instance: MagicMock):
         self.set_session_study_relation(ResearcherRole.researcher)
         token = self.generate_fcm_token(self.default_participant)
@@ -2646,6 +2655,8 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.assertEqual(self.default_participant.fcm_tokens.count(), 1)
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertEqual(archived_event.status, DEVICE_HAS_NO_REGISTERED_TOKEN)
+        self.validate_scheduled_event(archived_event)
+        
     
     def test_no_fcm_token(self):  # check_firebase_instance: MagicMock):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -2654,6 +2665,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.assertEqual(self.default_participant.fcm_tokens.count(), 0)
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertEqual(archived_event.status, DEVICE_HAS_NO_REGISTERED_TOKEN)
+        self.validate_scheduled_event(archived_event)
     
     def test_no_firebase_creds(self):  # check_firebase_instance: MagicMock):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -2661,6 +2673,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.do_post()
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertEqual(archived_event.status, PUSH_NOTIFICATIONS_NOT_CONFIGURED)
+        self.validate_scheduled_event(archived_event)
     
     @patch("api.push_notifications_api.check_firebase_instance")
     def test_mocked_generic_error(self, check_firebase_instance: MagicMock):
@@ -2672,6 +2685,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.do_post()
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertEqual(MESSAGE_SEND_FAILED_UNKNOWN, archived_event.status)
+        self.validate_scheduled_event(archived_event)
     
     @patch("api.push_notifications_api.check_firebase_instance")
     @patch("api.push_notifications_api.send_push_notification")
@@ -2682,6 +2696,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.do_post()
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertIn(MESSAGE_SEND_SUCCESS, archived_event.status)
+        self.validate_scheduled_event(archived_event)
     
     @patch("api.push_notifications_api.check_firebase_instance")
     @patch("api.push_notifications_api.send_push_notification")
@@ -2693,6 +2708,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.do_post()
         archived_event = self.default_participant.archived_events.latest("created_on")
         self.assertIn(MESSAGE_SEND_SUCCESS, archived_event.status)
+        self.validate_scheduled_event(archived_event)
 
 
 # FIXME: make a real test...

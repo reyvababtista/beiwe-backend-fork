@@ -152,7 +152,7 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
         most_recent_event=unscheduled_event,
         deleted=True,  # don't continue to send this notification
     )
-
+    
     # failures
     if fcm_token is None:
         unscheduled_event.update(status=DEVICE_HAS_NO_REGISTERED_TOKEN)
@@ -171,6 +171,7 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
         'sent_time': now.strftime(API_TIME_FORMAT),
         'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32)),
     }
+
     if participant.os_type == ANDROID_API:
         message = Message(
             android=AndroidConfig(data=data_kwargs, priority='high'), token=fcm_token.token,
@@ -193,12 +194,21 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
         messages.success(
             request, f'{SUCCESSFULLY_SENT_NOTIFICATION_PREFIX} {participant.patient_id}.'
         )
-    except (FirebaseError, UnregisteredError) as e:
-        unscheduled_event.update(status=f"Firebase Error, {MESSAGE_SEND_FAILED_PREFIX} {str(e)}")
-        messages.error(request, error_message)
-        if not RUNNING_TEST_OR_IN_A_SHELL:
-            with make_error_sentry(SentryTypes.elastic_beanstalk):
-                raise
+    except (ValueError, FirebaseError, UnregisteredError) as e:
+        # misconfiguration is not its own error type for some reason (and makes this code ugly)
+        if isinstance(e, ValueError) and "The default Firebase app does not exist." not in str(e):
+            unscheduled_event.update(status=MESSAGE_SEND_FAILED_UNKNOWN + " (2)")  # presumably a bug
+            messages.error(request, error_message)
+            if not RUNNING_TEST_OR_IN_A_SHELL:
+                with make_error_sentry(SentryTypes.elastic_beanstalk):
+                    raise
+        else:
+            # normal case, firebase or unregistered error
+            unscheduled_event.update(status=f"Firebase Error, {MESSAGE_SEND_FAILED_PREFIX} {str(e)}")
+            messages.error(request, error_message)
+            if not RUNNING_TEST_OR_IN_A_SHELL:
+                with make_error_sentry(SentryTypes.elastic_beanstalk):
+                    raise
     except Exception:
         unscheduled_event.update(status=MESSAGE_SEND_FAILED_UNKNOWN)  # presumably a bug
         messages.error(request, error_message)

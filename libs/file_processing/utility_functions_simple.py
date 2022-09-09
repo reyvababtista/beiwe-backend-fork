@@ -10,14 +10,6 @@ from libs.file_processing.exceptions import BadTimecodeError
 from libs.file_processing.utility_functions_csvs import unix_time_to_string
 
 
-def normalize_s3_file_path(s3_file_path: str) -> str:
-    if "duplicate" in s3_file_path:
-        # duplicate files are named blahblah/datastream/unixtime.csv-duplicate-[rando-string]
-        return s3_file_path.split("-duplicate")[0]
-    else:
-        return s3_file_path
-
-
 def s3_file_path_to_data_type(file_path: str):
     # Look through each folder name in file_path to see if it corresponds to a data type. Due to
     # a dumb mistake ages ago the identifiers file has an underscore where it should have a

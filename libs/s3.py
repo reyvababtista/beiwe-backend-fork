@@ -1,12 +1,14 @@
 from typing import Generator, List, Optional, Tuple
 
 import boto3
+import zstd
 from botocore.client import BaseClient, Paginator
 from cronutils import ErrorHandler
 from Cryptodome.PublicKey import RSA
 
 from config.settings import (BEIWE_SERVER_AWS_ACCESS_KEY_ID, BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
     S3_BUCKET, S3_REGION_NAME)
+from constants.compression_constants import ZSTD_EXTENSION
 from constants.data_processing_constants import CHUNKS_FOLDER
 from database.study_models import Study
 from database.user_models_participant import Participant
@@ -29,6 +31,80 @@ conn: BaseClient = boto3.client(
     aws_secret_access_key=BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
     region_name=S3_REGION_NAME,
 )
+
+
+class S3Compressed:
+    
+    def __init__(self, s3_path: str, obj: StrOrParticipantOrStudy, bypass_study_folder: bool) -> None:
+        # the .zstd compression is final, it is appended to the end of every
+        self.s3_path: str = s3_path
+        # self.s3_path_normalized: str = self.normalize_s3_file_path(s3_path)
+        
+        self.bypass_study_folder = bypass_study_folder
+        self.smart_key_obj = obj
+        
+        self.raw_data = None
+        self.final_data = None
+        self.downloaded = False
+    
+    @property
+    def compressed(self):
+        return self.s3_path.endswith(ZSTD_EXTENSION)
+    
+    def download(self):
+        
+        if not self.downloaded:
+            if self.compressed:
+                self._download_as_uncompressed()
+            else:
+                self._download_as_compressed()
+    
+    def _download_as_uncompressed(self):
+        self.raw_data = s3_retrieve(self.path_to_non_zstd_path, self.smart_key_obj, self.bypass_study_folder)
+        self.put_data(self.raw_data)  # compresses, sets self.s3_path
+        s3_delete(self.path_to_non_zstd_path)
+    
+    def _download_as_compressed(self):
+        self.raw_data = s3_retrieve(self.path_to_zstd_path, self.smart_key_obj, self.bypass_study_folder)
+        self.s3_path = self.path_to_zstd_path
+    
+    def get_data(self) -> bytes:
+        if self.final_data is not None:
+            return self.final_data
+        
+        self.download()
+        if self.compressed:
+            self.final_data = zstd.decompress(self.raw_data)
+            # don't keep the raw data around once we have decompressed it.
+            self.raw_data = None
+        
+        return self.final_data
+    
+    def put_data(self, data: bytes):
+        compressed_data = zstd.compress(
+            data,
+            1,  # compression level (1 yields better compression on average across our data streams
+            0,  # auto-tune the number of threads based on cpu cores (no apparent drawbacks)
+        )
+        s3_upload(self.path_to_zstd_path, compressed_data, self.smart_key_obj, raw_path=self.bypass_study_folder)
+        self.s3_path = self.path_to_zstd_path
+    
+    @property
+    def path_to_zstd_path(self):
+        return self.path_to_non_zstd_path + ZSTD_EXTENSION
+    
+    @property
+    def path_to_non_zstd_path(self):
+        return self.s3_path.rstrip(ZSTD_EXTENSION)
+    
+    @staticmethod
+    def normalize_s3_file_path(s3_file_path: str) -> str:
+        s3_file_path = s3_file_path.rstrip(".zstd")
+        if "duplicate" in s3_file_path:
+            # duplicate files are named blahblah/datastream/unixtime.csv-duplicate-[rando-string]
+            return s3_file_path.split("-duplicate")[0]
+        else:
+            return s3_file_path
 
 
 def smart_get_study_encryption_key(obj: StrOrParticipantOrStudy) -> bytes:
@@ -82,7 +158,9 @@ def s3_upload_plaintext(upload_path: str, data_string: bytes) -> None:
     conn.put_object(Body=data_string, Bucket=S3_BUCKET, Key=upload_path)
 
 
-def s3_retrieve(key_path: str, obj: str, raw_path: bool = False, number_retries=3) -> bytes:
+def s3_retrieve(
+    key_path: str, obj: StrOrParticipantOrStudy, raw_path: bool = False, number_retries=3
+) -> bytes:
     """ Takes an S3 file path (key_path), and a study ID.  Takes an optional argument, raw_path,
     which defaults to false.  When set to false the path is prepended to place the file in the
     appropriate study_id folder. """
@@ -158,8 +236,15 @@ def _do_list_files_generator(page_iterator: Paginator):
             yield item['Key'].strip("/")
 
 
+#fixme: we have two s3_delete functions, we need to merge the class above with... participant deletion I think.
+def s3_delete1(s3_path: str, obj: StrOrParticipantOrStudy, raw_path=True):
+    if not raw_path:
+        s3_path = s3_construct_study_key_path(s3_path, obj)
+    conn.delete_object(Bucket=S3_BUCKET, Key=s3_path)
+
+
 # todo: test
-def s3_delete(key_path: str) -> bool:
+def s3_delete2(key_path: str) -> bool:
     assert S3_BUCKET is not Exception, "libs.s3.s3_delete called inside test"
     resp = conn.delete_object(Bucket=S3_BUCKET, Key=key_path)
     if not resp["DeleteMarker"]:

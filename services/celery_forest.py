@@ -258,7 +258,7 @@ def create_local_data_files(task: ForestTask, chunks: ChunkRegistryQuerySet) -> 
     """ Download only the files needed for the forest task. """
     # this is an iterable, this is intentional, retain it.
     params: ChunkRegistryQuerySet = (
-        (task, chunk) for chunk in 
+        (task, chunk) for chunk in
             chunks.filter(data_type__in=ForestFiles.lookup(task.forest_tree))
             .values("study__object_id", *CHUNK_FIELDS)
     )
@@ -306,11 +306,13 @@ def save_cached_files(task: ForestTask):
 
 def get_interventions_data(forest_task: ForestTask):
     """ Generates a study interventions file for the participant's survey and returns the path to it """
+    os.makedirs(os.path.dirname(forest_task.interventions_filepath), exist_ok=True)
     with open(forest_task.interventions_filepath, "w") as f:
         f.write(json.dumps(intervention_survey_data(forest_task.participant.study)))
 
 
 def get_study_config_data(forest_task: ForestTask):
     """ Generates a study config file for the participant's survey and returns the path to it. """
+    os.makedirs(os.path.dirname(forest_task.study_config_path), exist_ok=True)
     with open(forest_task.study_config_path, "w") as f:
         f.write(format_study(forest_task.participant.study))

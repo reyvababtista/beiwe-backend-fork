@@ -263,7 +263,7 @@ def get_bytes_data_stream_match(chunks: List[Dict[str, datetime]], a_date: date,
 def get_bytes_date_match(stream_data: List[Dict[str, datetime]], a_date: date) -> int or None:
     """ Returns byte value for correct stream based on ate. """
     return sum(
-        data_point.get("bytes", 0) for data_point in stream_data
+        data_point.get("bytes", 0) or 0 for data_point in stream_data
         if (data_point["time_bin"]).date() == a_date
     )
 

@@ -14,13 +14,14 @@ from pkg_resources import get_distribution
 
 from constants.celery_constants import FOREST_QUEUE
 from constants.data_access_api_constants import CHUNK_FIELDS
-from constants.forest_constants import (FOREST_ERROR_LOCATION_KEY, ForestTaskStatus, ForestTree,
-    NO_DATA_ERROR, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS, YEAR_MONTH_DAY)
+from constants.forest_constants import (FOREST_ERROR_LOCATION_KEY, ForestFiles, ForestTaskStatus,
+    ForestTree, NO_DATA_ERROR, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS, YEAR_MONTH_DAY)
 from database.data_access_models import ChunkRegistry
 from database.tableau_api_models import ForestTask, SummaryStatisticDaily
 from database.user_models import Participant
 from libs.celery_control import forest_celery_app, safe_apply_async
 from libs.copy_study import format_study
+from libs.internal_types import ChunkRegistryQuerySet
 from libs.intervention_export import intervention_survey_data
 from libs.s3 import s3_retrieve
 from libs.sentry import make_error_sentry, SentryTypes
@@ -138,7 +139,7 @@ def celery_run_forest(forest_task_id):
         if task.forest_tree == ForestTree.sycamore:
             get_interventions_data(task)
             get_study_config_data(task)
-
+        
         # Run Forest
         params_dict = task.get_params_dict()
         log("params_dict:", params_dict)
@@ -253,15 +254,17 @@ def construct_summary_statistics(task: ForestTask):
     return has_data
 
 
-def create_local_data_files(task, chunks):
-    # FIXME: download only files appropriate to the forest task to be run.
-    # downloading data is highly threadable and can be the majority of the run time. 4 works for
-    # most files, a very high small file count can make use of 10+ before we are cpu limited.
+def create_local_data_files(task: ForestTask, chunks: ChunkRegistryQuerySet) -> None:
+    """ Download only the files needed for the forest task. """
+    # this is an iterable, this is intentional, retain it.
+    params: ChunkRegistryQuerySet = (
+        (task, chunk) for chunk in 
+            chunks.filter(data_stream__in=ForestFiles.lookup(task.forest_tree)
+            .values("study__object_id", *CHUNK_FIELDS)
+    )
+    # and run
     with ThreadPool(4) as pool:
-        for _ in pool.imap_unordered(
-            func=batch_create_file,
-            iterable=[(task, chunk) for chunk in chunks.values("study__object_id", *CHUNK_FIELDS)],
-        ):
+        for _ in pool.imap_unordered(func=batch_create_file, iterable=params,):
             pass
 
 

@@ -259,8 +259,8 @@ def create_local_data_files(task: ForestTask, chunks: ChunkRegistryQuerySet) -> 
     # this is an iterable, this is intentional, retain it.
     params: ChunkRegistryQuerySet = (
         (task, chunk) for chunk in 
-            chunks.filter(data_stream__in=ForestFiles.lookup(task.forest_tree)
-            .values("study__object_id", *CHUNK_FIELDS))
+            chunks.filter(data_stream__in=ForestFiles.lookup(task.forest_tree))
+            .values("study__object_id", *CHUNK_FIELDS)
     )
     # and run
     with ThreadPool(4) as pool:

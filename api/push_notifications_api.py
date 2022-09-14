@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from firebase_admin.exceptions import FirebaseError
 from firebase_admin.messaging import (AndroidConfig, Message, Notification,
-    send as send_push_notification)
+    send as send_push_notification, UnregisteredError)
 
 from authentication.admin_authentication import authenticate_researcher_study_access
 from authentication.participant_authentication import authenticate_participant
@@ -184,7 +184,7 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
         messages.success(
             request, f'{SUCCESSFULLY_SENT_NOTIFICATION_PREFIX} {participant.patient_id}.'
         )
-    except FirebaseError as e:
+    except (FirebaseError, UnregisteredError) as e:
         unscheduled_event.update(status=f"Firebase Error, {MESSAGE_SEND_FAILED_PREFIX} {str(e)}")
         messages.error(request, error_message)
         if not RUNNING_TEST_OR_IN_A_SHELL:

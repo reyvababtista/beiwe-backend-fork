@@ -260,11 +260,11 @@ def create_local_data_files(task: ForestTask, chunks: ChunkRegistryQuerySet) -> 
     params: ChunkRegistryQuerySet = (
         (task, chunk) for chunk in 
             chunks.filter(data_stream__in=ForestFiles.lookup(task.forest_tree)
-            .values("study__object_id", *CHUNK_FIELDS)
+            .values("study__object_id", *CHUNK_FIELDS))
     )
     # and run
     with ThreadPool(4) as pool:
-        for _ in pool.imap_unordered(func=batch_create_file, iterable=params,):
+        for _ in pool.imap_unordered(func=batch_create_file, iterable=params):
             pass
 
 

@@ -110,6 +110,7 @@ class DefaultForestParameters:
     )
     willow_defaults = json.dumps(
         {
+            "option": "daily",
             "tz_str": "America/New_York",
         }
     )

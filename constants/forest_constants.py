@@ -104,6 +104,7 @@ SYCAMORE_DATE_FORMAT = "%Y-%m-%d"
 class DefaultForestParameters:
     jasmine_defaults = json.dumps(
         {
+            "frequency": "daily",
             "tz_str": "America/New_York",
             "save_traj": False,  # intentionally left as a falsy value
         }

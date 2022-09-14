@@ -83,6 +83,7 @@ class ForestTask(TimestampedModel):
         except ForestParameters.DoesNotExist:
             return None
     
+
     def get_params_dict(self) -> dict:
         """ Return a dict of params to pass into the Forest function. The task flag is used to
         indicate whether this is being called for use in the serializer or for use in a task (in
@@ -124,7 +125,7 @@ class ForestTask(TimestampedModel):
             })
     
     def assemble_jasmine_dynamic_params(self, params: dict):
-        params["all_BV_set"] = self.get_jasmine_all_bv_set_dict()
+        params["all_bv_set"] = self.get_jasmine_all_bv_set_dict()
         params["all_memory_dict"] = self.get_jasmine_all_memory_dict_dict()
     
     def assemble_sycamore_folder_path_params(self, params: dict):

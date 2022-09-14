@@ -122,6 +122,7 @@ class DefaultForestParameters:
         }
     )
 
+
 DEFAULT_FOREST_PARAMETERS_LOOKUP = {
     ForestTree.jasmine: DefaultForestParameters.jasmine_defaults,
     ForestTree.willow: DefaultForestParameters.willow_defaults,
@@ -137,4 +138,4 @@ class ForestFiles:
 
     @classmethod
     def lookup(cls, tree_name: str):
-        return getattr(self, tree_name)
+        return getattr(cls, tree_name)

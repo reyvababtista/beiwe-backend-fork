@@ -1,5 +1,8 @@
 import json
 
+from constants.data_stream_constants import CALL_LOG, GPS, SURVEY_ANSWERS, TEXTS_LOG
+
+
 class ForestTree:
     """ Todo: Once we upgrade to Django 3, use TextChoices """
     jasmine = "jasmine"
@@ -119,9 +122,19 @@ class DefaultForestParameters:
         }
     )
 
-
 DEFAULT_FOREST_PARAMETERS_LOOKUP = {
     ForestTree.jasmine: DefaultForestParameters.jasmine_defaults,
     ForestTree.willow: DefaultForestParameters.willow_defaults,
     ForestTree.sycamore: DefaultForestParameters.sycamore_defaults,
 }
+
+
+class ForestFiles:
+    # documented at https://forest.beiwe.org/en/latest/#forest-trees
+    jasmine = [GPS]
+    willow = [CALL_LOG, TEXTS_LOG]
+    sycamore = [SURVEY_ANSWERS]
+
+    @classmethod
+    def lookup(cls, tree_name: str):
+        return getattr(self, tree_name)

@@ -95,7 +95,7 @@ TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS = {
 
 
 NO_DATA_ERROR = 'No chunked data found for participant for the dates specified.'
-FOREST_ERROR_LOCATION_KEY = "forest_error_location"
+CLEANUP_ERROR = "\n\nThis task encountered an error cleaning up  after itself.\n\n"
 
 SYCAMORE_DATE_FORMAT = "%Y-%m-%d"
 
@@ -135,7 +135,7 @@ class ForestFiles:
     jasmine = [GPS]
     willow = [CALL_LOG, TEXTS_LOG]
     sycamore = [SURVEY_ANSWERS]
-
+    
     @classmethod
     def lookup(cls, tree_name: str):
         return getattr(cls, tree_name)

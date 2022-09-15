@@ -1,10 +1,12 @@
 import csv
 import json
+import shutil
 import traceback
 from datetime import date, datetime, timedelta
 from multiprocessing.pool import ThreadPool
 from os import makedirs
 from os.path import dirname, exists as file_exists, join as path_join
+from time import sleep
 from typing import Dict, Tuple
 
 from dateutil.tz import UTC
@@ -34,7 +36,13 @@ from forest.sycamore.base import get_submits_for_tableau
 from forest.willow.log_stats import log_stats_main
 
 
-# TODO: turn this into a class, its already well factored for it.
+"""
+This entire code path could be rewritten as a class, but all the data we need or want to track is
+collected on the ForestTask object.  For code organization reasons the [overwhelming] majority of
+code for running any given forest task should be in this file, not attached to the ForestTask
+database model. Deducing file paths, most dealing with constants and other simple lookups, including
+parameters for each tree, should be placed on that class.
+"""
 
 
 MIN_TIME = datetime.min.time()
@@ -99,26 +107,22 @@ def celery_run_forest(forest_task_id):
         participant: Participant = task.participant
         
         # Check if there already is a running task for this participant and tree, handling
-        # concurrency and requeuing of the ask if necessary
+        # concurrency and requeuing of the ask if necessary (locks db rows until end of transaction)
         tasks = ForestTask.objects.select_for_update() \
                 .filter(participant=participant, forest_tree=task.forest_tree)
         
-        # TODO: This is obviously unsafe in the more general case, but interleaved or duplicated tasks
-        # in the context of generating daily data will be fine because they just rerun the same
-        # idempotent analysis operations.  Does the transaction matter?
-        # Handle overlap case (paranoid)
+        # if any other forest tasks are running, exit.
         if tasks.filter(status=ForestTaskStatus.running).exists():
-            enqueue_forest_task(args=[task.id])
             return
         
         # Get the chronologically earliest task that's queued
         task: ForestTask = tasks.filter(status=ForestTaskStatus.queued) \
                 .order_by("-data_date_start").first()
         
-        if task is None:
+        if task is None:  # Should be unreachable...
             return
         
-        task.update_only(  # Set metadata on the task
+        task.update_only(  # Set metadata on the task to running
             status=ForestTaskStatus.running,
             process_start_time=timezone.now(),
             forest_version=get_distribution("forest").version
@@ -141,6 +145,7 @@ def celery_run_forest(forest_task_id):
 
 
 def run_forest_task(task: ForestTask, start: datetime, end: datetime):
+    """ Given a time range, downloads all data and executes a tree on that data. """
     try:
         download_data(task, start, end)
         run_forest(task)
@@ -159,7 +164,7 @@ def run_forest_task(task: ForestTask, start: datetime, end: datetime):
         # forest task infrastructure.
         try:
             log("deleting files 1")
-            task.clean_up_files()
+            clean_up_files(task)
         except Exception:
             # mergeing stack traces, handling null case, then conditionally report with tags
             task.update_only(stacktrace=((task.stacktrace or "") + CLN_ERR + traceback.format_exc()))
@@ -170,7 +175,7 @@ def run_forest_task(task: ForestTask, start: datetime, end: datetime):
     
     log("task.status:", task.status)
     log("deleting files 2")
-    task.clean_up_files()  # if this fails you probably have server oversubscription issues.
+    clean_up_files(task)  # if this fails you probably have server oversubscription issues.
     task.update_only(process_end_time=timezone.now())
 
 
@@ -261,6 +266,22 @@ def construct_summary_statistics(task: ForestTask):
 #
 ## Files
 #
+def clean_up_files(forest_task: ForestTask):
+    """ Delete temporary input and output files from this Forest run. """
+    for i in range(10):
+        try:
+            shutil.rmtree(forest_task.data_base_path)
+        except OSError:  # this is pretty expansive
+            pass
+        # file system can be slightly slow, we need to sleep. (this code never executes on frontend)
+        sleep(0.5)
+        if not file_exists(forest_task.data_base_path):
+            return
+    raise Exception(
+        f"Could not delete folder {forest_task.data_base_path} for participant {forest_task.external_id}, tried {i} times."
+    )
+
+
 def download_data_files(task: ForestTask, chunks: ChunkRegistryQuerySet) -> None:
     """ Download only the files needed for the forest task. """
     ensure_folders_exist(task)

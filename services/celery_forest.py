@@ -1,9 +1,10 @@
 import csv
 import json
-import os
 import traceback
 from datetime import date, datetime, timedelta
 from multiprocessing.pool import ThreadPool
+from os import makedirs
+from os.path import dirname, exists as file_exists, join as path_join
 from typing import Dict, Tuple
 
 from dateutil.tz import UTC
@@ -43,20 +44,25 @@ class BadForestField(Exception): pass
 
 DEBUG_CELERY_FOREST = False
 
-
+#
+## Celery and dev helpers
+#
 def log(*args, **kwargs):
     if DEBUG_CELERY_FOREST:
         print("celery_forest debug: ", end="")
         print(*args, **kwargs)
 
 
-# don't stick in constants, we want forest imports limited to forest related files, forest is not
-# installed on frontend servers, forest constants must remain freely importable
-TREE_TO_FOREST_FUNCTION = {
-    ForestTree.jasmine: gps_stats_main,
-    ForestTree.willow: log_stats_main,
-    ForestTree.sycamore: get_submits_for_tableau,
-}
+def enqueue_forest_task(**kwargs):
+    safe_apply_async(
+        celery_run_forest,
+        expires=(datetime.utcnow() + timedelta(minutes=5)).replace(second=30, microsecond=0, tzinfo=UTC),
+        max_retries=0,
+        retry=False,
+        task_publish_retry=False,
+        task_track_started=True,
+        **kwargs
+    )
 
 
 def create_forest_celery_tasks():
@@ -72,21 +78,28 @@ def create_forest_celery_tasks():
             enqueue_forest_task(args=[task.id])
 
 
+# don't stick in constants, we want forest imports limited to forest related files, forest is not
+# installed on frontend servers, forest constants must remain freely importable.
+TREE_TO_FOREST_FUNCTION = {
+    ForestTree.jasmine: gps_stats_main,
+    ForestTree.willow: log_stats_main,
+    ForestTree.sycamore: get_submits_for_tableau,
+}
+
+
 # run via celery as long as tasks exist
 @forest_celery_app.task(queue=FOREST_QUEUE)
 def celery_run_forest(forest_task_id):
     with transaction.atomic():
         task: ForestTask = ForestTask.objects.filter(id=forest_task_id).first()
-        
         participant: Participant = task.participant
-        forest_tree = task.forest_tree
         
         # Check if there already is a running task for this participant and tree, handling
         # concurrency and requeuing of the ask if necessary
         tasks = ForestTask.objects.select_for_update() \
-                .filter(participant=participant, forest_tree=forest_tree)
+                .filter(participant=participant, forest_tree=task.forest_tree)
         
-        # FIXME: This is obviously unsafe in the more general case, but interleaved or duplicated tasks
+        # TODO: This is obviously unsafe in the more general case, but interleaved or duplicated tasks
         # in the context of generating daily data will be fine because they just rerun the same
         # idempotent analysis operations.
         # Handle overlap case (paranoid)
@@ -122,7 +135,10 @@ def celery_run_forest(forest_task_id):
         log("endtime_11_59pm: ", endtime_11_59pm.isoformat())
         
         chunks = ChunkRegistry.objects.filter(
-            participant=participant, time_bin__gte=starttime_midnight, time_bin__lte=endtime_11_59pm
+            participant=participant,
+            time_bin__gte=starttime_midnight,
+            time_bin__lte=endtime_11_59pm,
+            data_type__in=ForestFiles.lookup(task.forest_tree)
         )
         file_size = chunks.aggregate(Sum('file_size')).get('file_size__sum')
         if file_size is None:
@@ -130,8 +146,7 @@ def celery_run_forest(forest_task_id):
         task.update_only(total_file_size=file_size)
         
         # Download data
-        # FIXME: download only files appropriate to the forest task to be run
-        create_local_data_files(task, chunks)
+        download_data_files(task, chunks)
         task.update_only(process_download_end_time=timezone.now())
         log("task.process_download_end_time:", task.process_download_end_time.isoformat())
         
@@ -151,7 +166,7 @@ def celery_run_forest(forest_task_id):
         
         # Save data
         task.update_only(forest_output_exists=construct_summary_statistics(task))
-        save_cached_files(task)
+        upload_cached_files(task)
     
     except Exception as e:
         task.status = ForestTaskStatus.error
@@ -198,7 +213,7 @@ def construct_summary_statistics(task: ForestTask):
     """ Construct summary statistics from forest output, returning whether or not any
         SummaryStatisticDaily has potentially been created or updated. """
     
-    if not os.path.exists(task.forest_results_path):
+    if not file_exists(task.forest_results_path):
         log("path does not exist:", task.forest_results_path)
         return False
     
@@ -254,65 +269,64 @@ def construct_summary_statistics(task: ForestTask):
     return has_data
 
 
-def create_local_data_files(task: ForestTask, chunks: ChunkRegistryQuerySet) -> None:
+#
+## Files
+#
+def download_data_files(task: ForestTask, chunks: ChunkRegistryQuerySet) -> None:
     """ Download only the files needed for the forest task. """
     # this is an iterable, this is intentional, retain it.
-    params: ChunkRegistryQuerySet = (
-        (task, chunk) for chunk in
-            chunks.filter(data_type__in=ForestFiles.lookup(task.forest_tree))
-            .values("study__object_id", *CHUNK_FIELDS)
+    params = (
+        (task, chunk) for chunk in chunks.values("study__object_id", *CHUNK_FIELDS)
     )
-    # and run
+    # and run!
     with ThreadPool(4) as pool:
         for _ in pool.imap_unordered(func=batch_create_file, iterable=params):
             pass
 
 
-def batch_create_file(singular_task_chunk: Tuple[ForestTask, Dict]):
+def batch_create_file(task_and_chunk_tuple: Tuple[ForestTask, Dict]):
     """ Wrapper for basic file download operations so that it can be run in a ThreadPool. """
     # weird unpack of variables, do s3_retrieve.
-    task, chunk = singular_task_chunk
+    forest_task, chunk = task_and_chunk_tuple
     contents = s3_retrieve(chunk["chunk_path"], chunk["study__object_id"], raw_path=True)
-    # file ops
-    file_name = os.path.join(task.data_input_path, determine_file_name(chunk))
-    os.makedirs(os.path.dirname(file_name), exist_ok=True)
+    # file ops, sometimes we have to add folder structure (surveys)
+    file_name = path_join(forest_task.data_input_path, determine_file_name(chunk))
+    makedirs(dirname(file_name), exist_ok=True)
     with open(file_name, "xb") as f:
         f.write(contents)
 
 
-def enqueue_forest_task(**kwargs):
-    updated_kwargs = {
-        "expires": (datetime.utcnow() + timedelta(minutes=5)).replace(second=30, microsecond=0, tzinfo=UTC),
-        "max_retries": 0,
-        "retry": False,
-        "task_publish_retry": False,
-        "task_track_started": True,
-        **kwargs,
-    }
-    safe_apply_async(celery_run_forest, **updated_kwargs)
-
-
-def save_cached_files(task: ForestTask):
-    """ Find output files from forest tasks and consume them. """
-    # Fixme: we need to standardize this, and rename these functions
-    if os.path.exists(task.all_bv_set_path):
-        with open(task.all_bv_set_path, "rb") as f:
-            task.save_all_bv_set_bytes(f.read())
-    
-    if os.path.exists(task.all_memory_dict_path):
-        with open(task.all_memory_dict_path, "rb") as f:
-            task.save_all_memory_dict_bytes(f.read())
-
-
 def get_interventions_data(forest_task: ForestTask):
     """ Generates a study interventions file for the participant's survey and returns the path to it """
-    os.makedirs(os.path.dirname(forest_task.interventions_filepath), exist_ok=True)
+    ensure_folders_exist(forest_task)
     with open(forest_task.interventions_filepath, "w") as f:
         f.write(json.dumps(intervention_survey_data(forest_task.participant.study)))
 
 
 def get_study_config_data(forest_task: ForestTask):
     """ Generates a study config file for the participant's survey and returns the path to it. """
-    os.makedirs(os.path.dirname(forest_task.study_config_path), exist_ok=True)
+    ensure_folders_exist(forest_task)
     with open(forest_task.study_config_path, "w") as f:
         f.write(format_study(forest_task.participant.study))
+
+
+def ensure_folders_exist(forest_task: ForestTask):
+    """ This io is minimal, simply always make sure these folder structures exist. """
+    # files
+    makedirs(dirname(forest_task.interventions_filepath), exist_ok=True)
+    makedirs(dirname(forest_task.study_config_path), exist_ok=True)
+    # folders
+    makedirs(forest_task.data_input_path, exist_ok=True)
+    makedirs(forest_task.data_output_path, exist_ok=True)
+    makedirs(forest_task.data_base_path, exist_ok=True)
+
+
+# Extras
+def upload_cached_files(forest_task: ForestTask):
+    """ Find output files from forest tasks and consume them. """
+    if file_exists(forest_task.all_bv_set_path):
+        with open(forest_task.all_bv_set_path, "rb") as f:
+            forest_task.save_all_bv_set_bytes(f.read())
+    if file_exists(forest_task.all_memory_dict_path):
+        with open(forest_task.all_memory_dict_path, "rb") as f:
+            forest_task.save_all_memory_dict_bytes(f.read())

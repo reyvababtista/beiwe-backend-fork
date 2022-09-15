@@ -73,6 +73,7 @@ class ForestTaskCsvSerializer(ForestTaskBaseSerializer):
 
 class ForestTaskSerializer(ForestTaskBaseSerializer):
     cancel_url = serializers.SerializerMethodField()
+    # FIXME: this downloads all data, garbage, purge.
     download_url = serializers.SerializerMethodField()
     
     class Meta:

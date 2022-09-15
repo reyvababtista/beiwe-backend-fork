@@ -60,6 +60,10 @@ class ForestTask(TimestampedModel):
     # non-fields
     _tmp_parent_folder_exists = False
     
+    @property
+    def taskname(self):
+        return self.forest_tree + "_task"
+        
     def clean_up_files(self):
         """ Delete temporary input and output files from this Forest run. """
         for i in range(10):
@@ -82,13 +86,11 @@ class ForestTask(TimestampedModel):
             return self.forest_param
         except ForestParameters.DoesNotExist:
             return None
-    
 
     def get_params_dict(self) -> dict:
         """ Return a dict of params to pass into the Forest function. The task flag is used to
         indicate whether this is being called for use in the serializer or for use in a task (in
-        which case we can call additional functions as needed). """
-        
+        which case we can call additional functions as needed). """        
         params = {
             "output_folder": self.data_output_path,
             "study_folder": self.data_input_path,

@@ -15,7 +15,7 @@ from pkg_resources import get_distribution
 
 from constants.celery_constants import FOREST_QUEUE
 from constants.data_access_api_constants import CHUNK_FIELDS
-from constants.forest_constants import (FOREST_ERROR_LOCATION_KEY, ForestFiles, ForestTaskStatus,
+from constants.forest_constants import (CLEANUP_ERROR as CLN_ERR, ForestFiles, ForestTaskStatus,
     ForestTree, NO_DATA_ERROR, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS, YEAR_MONTH_DAY)
 from database.data_access_models import ChunkRegistry
 from database.tableau_api_models import ForestTask, SummaryStatisticDaily
@@ -32,6 +32,9 @@ from libs.utils.date_utils import get_timezone_shortcode
 from forest.jasmine.traj2stats import gps_stats_main
 from forest.sycamore.base import get_submits_for_tableau
 from forest.willow.log_stats import log_stats_main
+
+
+# TODO: turn this into a class, its already well factored for it.
 
 
 MIN_TIME = datetime.min.time()
@@ -139,79 +142,73 @@ def celery_run_forest(forest_task_id):
 
 def run_forest_task(task: ForestTask, start: datetime, end: datetime):
     try:
-        chunks = ChunkRegistry.objects.filter(
-            participant=task.participant,
-            time_bin__gte=start,
-            time_bin__lte=end,
-            data_type__in=ForestFiles.lookup(task.forest_tree)
-        )
-        file_size = chunks.aggregate(Sum('file_size')).get('file_size__sum')
-        if file_size is None:
-            raise NoSentryException(NO_DATA_ERROR)
-        task.update_only(total_file_size=file_size)
-        
-        # Download data
-        download_data_files(task, chunks)
-        task.update_only(process_download_end_time=timezone.now())
-        log("task.process_download_end_time:", task.process_download_end_time.isoformat())
-        
-        # get extra custom files for any trees that need them (currently just sycamore)
-        if task.forest_tree == ForestTree.sycamore:
-            get_interventions_data(task)
-            get_study_config_data(task)
-        
-        # Run Forest
-        params_dict = task.get_params_dict()
-        log("params_dict:", params_dict)
-        task.update_only(params_dict_cache=json.dumps(params_dict))
-        
-        log("running:", task.forest_tree)
-        TREE_TO_FOREST_FUNCTION[task.forest_tree](**params_dict)
-        log("done running:", task.forest_tree)
-        
-        # Save data
-        task.update_only(forest_output_exists=construct_summary_statistics(task))
+        download_data(task, start, end)
+        run_forest(task)
         upload_cached_files(task)
-    
+        task.update_only(status=ForestTaskStatus.success)
     except Exception as e:
-        task.status = ForestTaskStatus.error
-        task.stacktrace = traceback.format_exc()
-        tags = {k: str(v) for k, v in task.as_dict().items()}
-        tags[FOREST_ERROR_LOCATION_KEY] = "forest task general error"
+        task.update_only(status=ForestTaskStatus.error, stacktrace=traceback.format_exc())
+        log("task.stacktrace 1:", task.stacktrace)
+        tags = {k: str(v) for k, v in task.as_dict().items()}  # report with many tags
         if not isinstance(e, NoSentryException):
             with make_error_sentry(SentryTypes.data_processing, tags=tags):
                 raise
     
-    else:
-        task.status = ForestTaskStatus.success
-    
     finally:
         # This is entirely boilerplate for reporting cleanup operations cleanly to both sentry and
         # forest task infrastructure.
-        log("deleting files 1")
         try:
+            log("deleting files 1")
             task.clean_up_files()
         except Exception:
-            if task.stacktrace is None:
-                task.stacktrace = traceback.format_exc()
-            else:
-                task.stacktrace = task.stacktrace + "\n\n" + traceback.format_exc()
-            # add all possible tags...
+            # mergeing stack traces, handling null case, then conditionally report with tags
+            task.update_only(stacktrace=((task.stacktrace or "") + CLN_ERR + traceback.format_exc()))
+            log("task.stacktrace 2:", task.stacktrace)
             tags = {k: str(v) for k, v in task.as_dict().items()}
-            tags[FOREST_ERROR_LOCATION_KEY] = "forest task cleanup error"
             with make_error_sentry(SentryTypes.data_processing, tags=tags):
                 raise
     
     log("task.status:", task.status)
-    if task.stacktrace:
-        log("task.stacktrace:", task.stacktrace)
-    
-    task.save(update_fields=["status", "stacktrace"])
-    
     log("deleting files 2")
     task.clean_up_files()  # if this fails you probably have server oversubscription issues.
-    task.process_end_time = timezone.now()
-    task.save(update_fields=["process_end_time"])
+    task.update_only(process_end_time=timezone.now())
+
+
+def run_forest(forest_task: ForestTask):
+    # Run Forest
+    params_dict = forest_task.get_params_dict()
+    log("params_dict:", params_dict)
+    forest_task.update_only(params_dict_cache=json.dumps(params_dict))
+    
+    log("running:", forest_task.forest_tree)
+    TREE_TO_FOREST_FUNCTION[forest_task.forest_tree](**params_dict)
+    log("done running:", forest_task.forest_tree)
+    
+    # Save data
+    forest_task.update_only(forest_output_exists=construct_summary_statistics(forest_task))
+
+
+def download_data(forest_task: ForestTask, start: datetime, end: datetime):
+    chunks = ChunkRegistry.objects.filter(
+        participant=forest_task.participant,
+        time_bin__gte=start,
+        time_bin__lte=end,
+        data_type__in=ForestFiles.lookup(forest_task.forest_tree)
+    )
+    file_size = chunks.aggregate(Sum('file_size')).get('file_size__sum')
+    if file_size is None:
+        raise NoSentryException(NO_DATA_ERROR)
+    forest_task.update_only(total_file_size=file_size)
+    
+    # Download data
+    download_data_files(forest_task, chunks)
+    forest_task.update_only(process_download_end_time=timezone.now())
+    log("task.process_download_end_time:", forest_task.process_download_end_time.isoformat())
+    
+    # get extra custom files for any trees that need them (currently just sycamore)
+    if forest_task.forest_tree == ForestTree.sycamore:
+        get_interventions_data(forest_task)
+        get_study_config_data(forest_task)
 
 
 def construct_summary_statistics(task: ForestTask):

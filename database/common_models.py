@@ -150,7 +150,7 @@ class UtilityModel(models.Model):
         self.save()
     
     def update_only(self, **kwargs):
-        """ As update, but only saves the fields provided. """
+        """ As update, but only saves the fields provided. (its extremely concise) """
         for attr, value in kwargs.items():
             if not hasattr(self, attr):
                 # This safety is good enough, only fails when using defer.

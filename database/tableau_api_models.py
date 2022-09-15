@@ -1,10 +1,9 @@
 import json
-import os
 import pickle
-import shutil
 import uuid
 from datetime import timedelta
-from time import sleep
+from os import mkdir
+from os.path import join as path_join, exists as file_exists
 from typing import Optional
 
 from django.db import models
@@ -14,6 +13,11 @@ from constants.forest_constants import (DEFAULT_FOREST_PARAMETERS_LOOKUP, Forest
 from database.common_models import TimestampedModel
 from database.user_models import Participant
 from libs.utils.date_utils import datetime_to_list
+
+
+#
+## GO READ THE MULTILINE STATEMENT AT THE TOP OF services/celery_forest.py
+#
 
 
 class ForestParameters(TimestampedModel):
@@ -26,9 +30,7 @@ class ForestParameters(TimestampedModel):
 
 
 class ForestTask(TimestampedModel):
-    participant = models.ForeignKey(
-        'Participant', on_delete=models.PROTECT, db_index=True
-    )
+    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, db_index=True)
     # the external id is used for endpoints that refer to forest trackers to avoid exposing the
     # primary keys of the model. it is intentionally not the primary key
     external_id = models.UUIDField(default=uuid.uuid4, editable=False)
@@ -57,27 +59,24 @@ class ForestTask(TimestampedModel):
     all_bv_set_s3_key = models.TextField(blank=True)
     all_memory_dict_s3_key = models.TextField(blank=True)
     
-    # non-fields
+    #
+    ## non-fields
+    #
     _tmp_parent_folder_exists = False
+    
+    def get_legible_identifier(self) -> str:
+        """ Return a human-readable identifier. """
+        return "_".join([
+            "data",
+            self.participant.patient_id,
+            self.forest_tree,
+            str(self.data_date_start),
+            str(self.data_date_end),
+        ])
     
     @property
     def taskname(self):
         return self.forest_tree + "_task"
-        
-    def clean_up_files(self):
-        """ Delete temporary input and output files from this Forest run. """
-        for i in range(10):
-            try:
-                shutil.rmtree(self.data_base_path)
-            except OSError:  # this is pretty expansive
-                pass
-            # file system can be slightly slow, we need to sleep. (this code never executes on frontend)
-            sleep(0.5)
-            if not os.path.exists(self.data_base_path):
-                return
-        raise Exception(
-            f"Could not delete folder {self.data_base_path} for participant {self.external_id}, tried {i} times."
-        )
     
     @property
     def forest_param_or_none(self) -> Optional[ForestParameters]:
@@ -86,11 +85,14 @@ class ForestTask(TimestampedModel):
             return self.forest_param
         except ForestParameters.DoesNotExist:
             return None
-
+    
+    #
+    ## forest tree parameters
+    #
     def get_params_dict(self) -> dict:
         """ Return a dict of params to pass into the Forest function. The task flag is used to
         indicate whether this is being called for use in the serializer or for use in a task (in
-        which case we can call additional functions as needed). """        
+        which case we can call additional functions as needed). """
         params = {
             "output_folder": self.data_output_path,
             "study_folder": self.data_input_path,
@@ -134,6 +136,7 @@ class ForestTask(TimestampedModel):
         params['config_path'] = self.study_config_path
         params['interventions_filepath'] = self.interventions_filepath
     
+    # Cached data sets (consider moving out of this file)
     def get_jasmine_all_bv_set_dict(self) -> dict:
         """ Return the unpickled all_bv_set dict. """
         if not self.all_bv_set_s3_key:
@@ -152,25 +155,15 @@ class ForestTask(TimestampedModel):
             s3_retrieve(self.all_memory_dict_s3_key, self.participant.study.object_id, raw_path=True)
         )
     
-    def get_legible_identifier(self) -> str:
-        """ Return a human-readable identifier. """
-        return "_".join([
-            "data",
-            self.participant.patient_id,
-            self.forest_tree,
-            str(self.data_date_start),
-            str(self.data_date_end),
-        ])
-    
     def save_all_bv_set_bytes(self, all_bv_set_bytes):
         from libs.s3 import s3_upload
-        self.all_bv_set_s3_key = self.generate_all_bv_set_s3_key()
+        self.all_bv_set_s3_key = self.all_bv_set_s3_key_path
         s3_upload(self.all_bv_set_s3_key, all_bv_set_bytes, self.participant, raw_path=True)
         self.save(update_fields=["all_bv_set_s3_key"])
     
     def save_all_memory_dict_bytes(self, all_memory_dict_bytes):
         from libs.s3 import s3_upload
-        self.all_memory_dict_s3_key = self.generate_all_memory_dict_s3_key()
+        self.all_memory_dict_s3_key = self.all_memory_dict_s3_key_path
         s3_upload(self.all_memory_dict_s3_key, all_memory_dict_bytes, self.participant, raw_path=True)
         self.save(update_fields=["all_memory_dict_s3_key"])
     
@@ -181,64 +174,66 @@ class ForestTask(TimestampedModel):
     def data_base_path(self):
         """ Return the path to the base data folder, creating it if it doesn't already exist. """
         # on first access of the base path check for the presence of the /tmp/forest
-        if not self._tmp_parent_folder_exists and not os.path.exists("/tmp/forest/"):
+        if not self._tmp_parent_folder_exists and not file_exists("/tmp/forest/"):
             try:
-                os.mkdir("/tmp/forest/")
+                mkdir("/tmp/forest/")
             except FileExistsError:
                 pass  # it just needs to exist
             self._tmp_parent_folder_exists = True
-        return os.path.join("/tmp/forest/", str(self.external_id), self.forest_tree)
+        return path_join("/tmp/forest/", str(self.external_id), self.forest_tree)
     
     @property
     def interventions_filepath(self) -> str:
         """ Generates a study interventions file for the participant's survey and returns the path to it """
         filename = self.participant.study.name.replace(' ', '_') + "_interventions.json"
-        return os.path.join(self.data_base_path, filename)
+        return path_join(self.data_base_path, filename)
     
     @property
     def study_config_path(self) -> str:
         """ Generates a study config file for the participant's survey and returns the path to it. """
         filename = self.participant.patient_id.replace(' ', '_') + "_surveys_and_settings.json"
-        return os.path.join(self.data_base_path, filename)
+        return path_join(self.data_base_path, filename)
     
     @property
     def data_input_path(self) -> str:
         """ Return the path to the input data folder, creating it if it doesn't already exist. """
-        return os.path.join(self.data_base_path, "data")
+        return path_join(self.data_base_path, "data")
     
     @property
     def data_output_path(self) -> str:
         """ Return the path to the output data folder, creating it if it doesn't already exist. """
-        return os.path.join(self.data_base_path, "output")
+        return path_join(self.data_base_path, "output")
     
     @property
     def forest_results_path(self) -> str:
         """ Return the path to the file that contains the output of Forest. """
-        return os.path.join(self.data_output_path, f"{self.participant.patient_id}.csv")
+        return path_join(self.data_output_path, f"{self.participant.patient_id}.csv")
     
     @property
     def s3_base_folder(self) -> str:
-        return os.path.join(self.participant.study.object_id, "forest")
+        return path_join(self.participant.study.object_id, "forest")
     
     @property
     def all_bv_set_path(self) -> str:
-        return os.path.join(self.data_output_path, "all_BV_set.pkl")
+        return path_join(self.data_output_path, "all_BV_set.pkl")
     
     @property
     def all_memory_dict_path(self) -> str:
-        return os.path.join(self.data_output_path, "all_memory_dict.pkl")
+        return path_join(self.data_output_path, "all_memory_dict.pkl")
     
-    def generate_all_bv_set_s3_key(self):
+    @property
+    def all_bv_set_s3_key_path(self):
         """ Generate the S3 key that all_bv_set_s3_key should live in (whereas the direct
         all_bv_set_s3_key field on the instance is where it currently lives, regardless of how
         generation changes). """
-        return os.path.join(self.s3_base_folder, 'all_bv_set.pkl')
+        return path_join(self.s3_base_folder, 'all_bv_set.pkl')
     
-    def generate_all_memory_dict_s3_key(self):
+    @property
+    def all_memory_dict_s3_key_path(self):
         """ Generate the S3 key that all_memory_dict_s3_key should live in (whereas the direct
         all_memory_dict_s3_key field on the instance is where it currently lives, regardless of how
         generation changes). """
-        return os.path.join(self.s3_base_folder, 'all_memory_dict.pkl')
+        return path_join(self.s3_base_folder, 'all_memory_dict.pkl')
 
 
 class SummaryStatisticDaily(TimestampedModel):

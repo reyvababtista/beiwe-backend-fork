@@ -41,18 +41,26 @@ MAX_TIME = datetime.max.time()
 class NoSentryException(Exception): pass
 class BadForestField(Exception): pass
 
+# don't stick in constants, we want forest imports limited to forest related files, forest is not
+# installed on frontend servers, forest constants must remain freely importable.
+TREE_TO_FOREST_FUNCTION = {
+    ForestTree.jasmine: gps_stats_main,
+    ForestTree.willow: log_stats_main,
+    ForestTree.sycamore: get_submits_for_tableau,
+}
 
 DEBUG_CELERY_FOREST = False
 
-#
-## Celery and dev helpers
-#
+
 def log(*args, **kwargs):
     if DEBUG_CELERY_FOREST:
         print("celery_forest debug: ", end="")
         print(*args, **kwargs)
 
 
+#
+## Celery and dev helpers
+#
 def enqueue_forest_task(**kwargs):
     safe_apply_async(
         celery_run_forest,
@@ -78,16 +86,9 @@ def create_forest_celery_tasks():
             enqueue_forest_task(args=[task.id])
 
 
-# don't stick in constants, we want forest imports limited to forest related files, forest is not
-# installed on frontend servers, forest constants must remain freely importable.
-TREE_TO_FOREST_FUNCTION = {
-    ForestTree.jasmine: gps_stats_main,
-    ForestTree.willow: log_stats_main,
-    ForestTree.sycamore: get_submits_for_tableau,
-}
-
-
-# run via celery as long as tasks exist
+#
+## The forest task runtime
+#
 @forest_celery_app.task(queue=FOREST_QUEUE)
 def celery_run_forest(forest_task_id):
     with transaction.atomic():
@@ -101,7 +102,7 @@ def celery_run_forest(forest_task_id):
         
         # TODO: This is obviously unsafe in the more general case, but interleaved or duplicated tasks
         # in the context of generating daily data will be fine because they just rerun the same
-        # idempotent analysis operations.
+        # idempotent analysis operations.  Does the transaction matter?
         # Handle overlap case (paranoid)
         if tasks.filter(status=ForestTaskStatus.running).exists():
             enqueue_forest_task(args=[task.id])
@@ -120,24 +121,28 @@ def celery_run_forest(forest_task_id):
             forest_version=get_distribution("forest").version
         )
     
+    # ChunkRegistry time_bin hourly chunks are in UTC, and only have hourly datapoints for all
+    # automated data, but manually entered data is more specific with minutes, seconds, etc.  We
+    # want our query for source data to use the study's timezone such that starts of days align to
+    # local midnight and end-of-day to 11:59.59pm. Weird fractional timezones will be noninclusive
+    # of their first hour of data between midnight and midnight + 1 hour, except for manually
+    # entered data streams which will instead align to the calendar date in the study timezone. Any
+    # such "missing" fraction of an hour is instead included at the end of the previous day.
+    starttime_midnight = datetime.combine(task.data_date_start, MIN_TIME, task.participant.study.timezone)
+    endtime_11_59pm = datetime.combine(task.data_date_end, MAX_TIME, task.participant.study.timezone)
+    log("starttime_midnight: ", starttime_midnight.isoformat())
+    log("endtime_11_59pm: ", endtime_11_59pm.isoformat())
+    
+    # do the thing
+    run_forest_task(task, starttime_midnight, endtime_11_59pm)
+
+
+def run_forest_task(task: ForestTask, start: datetime, end: datetime):
     try:
-        # ChunkRegistry time_bin hourly chunks are in UTC, and only have hourly datapoints for all
-        # automated data, but manually entered data is more specific with minutes, seconds, etc.  We
-        # want our query for source data to use the study's timezone such that starts of days align
-        # to local midnight and end-of-day to 11:59.59pm. Weird fractional timezones will be
-        # noninclusive of their first hour of data between midnight and midnight + 1 hour, except
-        # for manually entered data streams which will instead align to the calendar date in the
-        # study timezone. Any such "missing" fraction of an hour is instead included at the end of the
-        # previous day.
-        starttime_midnight = datetime.combine(task.data_date_start, MIN_TIME, participant.study.timezone)
-        endtime_11_59pm = datetime.combine(task.data_date_end, MAX_TIME, participant.study.timezone)
-        log("starttime_midnight: ", starttime_midnight.isoformat())
-        log("endtime_11_59pm: ", endtime_11_59pm.isoformat())
-        
         chunks = ChunkRegistry.objects.filter(
-            participant=participant,
-            time_bin__gte=starttime_midnight,
-            time_bin__lte=endtime_11_59pm,
+            participant=task.participant,
+            time_bin__gte=start,
+            time_bin__lte=end,
             data_type__in=ForestFiles.lookup(task.forest_tree)
         )
         file_size = chunks.aggregate(Sum('file_size')).get('file_size__sum')
@@ -217,16 +222,7 @@ def construct_summary_statistics(task: ForestTask):
         log("path does not exist:", task.forest_results_path)
         return False
     
-    if task.forest_tree == ForestTree.jasmine:
-        task_attribute = "jasmine_task"
-    elif task.forest_tree == ForestTree.willow:
-        task_attribute = "willow_task"
-    elif task.forest_tree == ForestTree.sycamore:
-        task_attribute = "sycamore_task"
-    else:
-        raise Exception(f"Unknown Forest Tree: {task.forest_tree}")
-    log("tree:", task_attribute)
-    
+    log("tree:", task.taskname)
     with open(task.forest_results_path, "r") as f:
         reader = csv.DictReader(f)
         has_data = False
@@ -244,7 +240,7 @@ def construct_summary_statistics(task: ForestTask):
                 continue
             
             updates = {
-                task_attribute: task,
+                task.taskname: task,
                 "timezone": get_timezone_shortcode(summary_date, task.participant.study.timezone),
             }
             for column_name, value in line.items():
@@ -258,11 +254,7 @@ def construct_summary_statistics(task: ForestTask):
                 else:
                     raise BadForestField(column_name)
             
-            data = {
-                "date": summary_date,
-                "defaults": updates,
-                "participant": task.participant,
-            }
+            data = {"date": summary_date, "defaults": updates, "participant": task.participant}
             log("creating SummaryStatisticDaily:", data)
             SummaryStatisticDaily.objects.update_or_create(**data)
     
@@ -274,6 +266,7 @@ def construct_summary_statistics(task: ForestTask):
 #
 def download_data_files(task: ForestTask, chunks: ChunkRegistryQuerySet) -> None:
     """ Download only the files needed for the forest task. """
+    ensure_folders_exist(task)
     # this is an iterable, this is intentional, retain it.
     params = (
         (task, chunk) for chunk in chunks.values("study__object_id", *CHUNK_FIELDS)

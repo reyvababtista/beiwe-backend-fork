@@ -324,7 +324,7 @@ def get_study_config_data(forest_task: ForestTask):
 def ensure_folders_exist(forest_task: ForestTask):
     """ This io is minimal, simply always make sure these folder structures exist. """
     makedirs(ROOT_FOREST_TASK_PATH, exist_ok=True)
-    makedirs(forest_task.root_path_for_task, exists_ok=True)
+    makedirs(forest_task.root_path_for_task, exist_ok=True)
     # files
     makedirs(dirname(forest_task.interventions_filepath), exist_ok=True)
     makedirs(dirname(forest_task.study_config_path), exist_ok=True)

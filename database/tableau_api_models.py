@@ -2,14 +2,13 @@ import json
 import pickle
 import uuid
 from datetime import timedelta
-from os import mkdir
-from os.path import join as path_join, exists as file_exists
+from os.path import join as path_join
 from typing import Optional
 
 from django.db import models
 
 from constants.forest_constants import (DEFAULT_FOREST_PARAMETERS_LOOKUP, ForestTaskStatus,
-    ForestTree, SYCAMORE_DATE_FORMAT)
+    ForestTree, ROOT_FOREST_TASK_PATH, SYCAMORE_DATE_FORMAT)
 from database.common_models import TimestampedModel
 from database.user_models import Participant
 from libs.utils.date_utils import datetime_to_list
@@ -62,7 +61,6 @@ class ForestTask(TimestampedModel):
     #
     ## non-fields
     #
-    _tmp_parent_folder_exists = False
     
     def get_legible_identifier(self) -> str:
         """ Return a human-readable identifier. """
@@ -171,68 +169,68 @@ class ForestTask(TimestampedModel):
     ## File paths
     #
     @property
+    def root_path_for_task(self):
+        """ The uuid-folder name for this task """
+        return path_join(ROOT_FOREST_TASK_PATH, str(self.external_id))
+    
+    @property
     def data_base_path(self):
-        """ Return the path to the base data folder, creating it if it doesn't already exist. """
-        # on first access of the base path check for the presence of the /tmp/forest
-        if not self._tmp_parent_folder_exists and not file_exists("/tmp/forest/"):
-            try:
-                mkdir("/tmp/forest/")
-            except FileExistsError:
-                pass  # it just needs to exist
-            self._tmp_parent_folder_exists = True
-        return path_join("/tmp/forest/", str(self.external_id), self.forest_tree)
+        """ Path to the base data for this task's tree. """
+        return path_join(self.root_path_for_task, self.forest_tree)
     
     @property
     def interventions_filepath(self) -> str:
-        """ Generates a study interventions file for the participant's survey and returns the path to it """
+        """ The study interventions file path for the participant's survey data. """
         filename = self.participant.study.name.replace(' ', '_') + "_interventions.json"
         return path_join(self.data_base_path, filename)
     
     @property
     def study_config_path(self) -> str:
-        """ Generates a study config file for the participant's survey and returns the path to it. """
+        """ The study configuration file file path. """
         filename = self.participant.patient_id.replace(' ', '_') + "_surveys_and_settings.json"
         return path_join(self.data_base_path, filename)
     
     @property
     def data_input_path(self) -> str:
-        """ Return the path to the input data folder, creating it if it doesn't already exist. """
+        """ Path to the input data folder. """
         return path_join(self.data_base_path, "data")
     
     @property
     def data_output_path(self) -> str:
-        """ Return the path to the output data folder, creating it if it doesn't already exist. """
+        """ Path to the output data folder. """
         return path_join(self.data_base_path, "output")
     
     @property
     def forest_results_path(self) -> str:
-        """ Return the path to the file that contains the output of Forest. """
+        """ Path to the file that contains the output of Forest. """
         return path_join(self.data_output_path, f"{self.participant.patient_id}.csv")
     
     @property
-    def s3_base_folder(self) -> str:
-        return path_join(self.participant.study.object_id, "forest")
-    
-    @property
     def all_bv_set_path(self) -> str:
+        """ Jasmine's all_bv_set file for this task. """
         return path_join(self.data_output_path, "all_BV_set.pkl")
     
     @property
     def all_memory_dict_path(self) -> str:
+        """ Jasmine's all_memory_dict file for this task. """
         return path_join(self.data_output_path, "all_memory_dict.pkl")
+    
+    #
+    ## AWS S3 key paths
+    #
+    @property
+    def s3_base_folder(self) -> str:
+        """ Base file path on AWS S3 for any forest data on this study """
+        return path_join(self.participant.study.object_id, "forest")
     
     @property
     def all_bv_set_s3_key_path(self):
-        """ Generate the S3 key that all_bv_set_s3_key should live in (whereas the direct
-        all_bv_set_s3_key field on the instance is where it currently lives, regardless of how
-        generation changes). """
+        """ Jasmine's all_bv_set file for this study on AWS S3. """
         return path_join(self.s3_base_folder, 'all_bv_set.pkl')
     
     @property
     def all_memory_dict_s3_key_path(self):
-        """ Generate the S3 key that all_memory_dict_s3_key should live in (whereas the direct
-        all_memory_dict_s3_key field on the instance is where it currently lives, regardless of how
-        generation changes). """
+        """ Jasmine's all_memory_dict file for this study on AWS S3. """
         return path_join(self.s3_base_folder, 'all_memory_dict.pkl')
 
 

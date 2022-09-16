@@ -18,7 +18,8 @@ from pkg_resources import get_distribution
 from constants.celery_constants import FOREST_QUEUE
 from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import (CLEANUP_ERROR as CLN_ERR, ForestFiles, ForestTaskStatus,
-    ForestTree, NO_DATA_ERROR, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS, YEAR_MONTH_DAY)
+    ForestTree, NO_DATA_ERROR, ROOT_FOREST_TASK_PATH, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS,
+    YEAR_MONTH_DAY)
 from database.data_access_models import ChunkRegistry
 from database.tableau_api_models import ForestTask, SummaryStatisticDaily
 from database.user_models import Participant
@@ -270,15 +271,15 @@ def clean_up_files(forest_task: ForestTask):
     """ Delete temporary input and output files from this Forest run. """
     for i in range(10):
         try:
-            shutil.rmtree(forest_task.data_base_path)
-        except OSError:  # this is pretty expansive
+            shutil.rmtree(forest_task.root_path_for_task)
+        except OSError:  # this is pretty expansive, but there are an endless number of os errors...
             pass
         # file system can be slightly slow, we need to sleep. (this code never executes on frontend)
         sleep(0.5)
-        if not file_exists(forest_task.data_base_path):
+        if not file_exists(forest_task.root_path_for_task):
             return
     raise Exception(
-        f"Could not delete folder {forest_task.data_base_path} for participant {forest_task.external_id}, tried {i} times."
+        f"Could not delete folder {forest_task.root_path_for_task} for participant {forest_task.external_id}, tried {i} times."
     )
 
 
@@ -323,6 +324,8 @@ def get_study_config_data(forest_task: ForestTask):
 
 def ensure_folders_exist(forest_task: ForestTask):
     """ This io is minimal, simply always make sure these folder structures exist. """
+    makedirs(ROOT_FOREST_TASK_PATH, exist_ok=True)
+    makedirs(forest_task.root_path_for_task, exists_ok=True)
     # files
     makedirs(dirname(forest_task.interventions_filepath), exist_ok=True)
     makedirs(dirname(forest_task.study_config_path), exist_ok=True)

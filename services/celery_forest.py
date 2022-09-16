@@ -152,14 +152,13 @@ def run_forest_task(task: ForestTask, start: datetime, end: datetime):
         run_forest(task)
         upload_cached_files(task)
         task.update_only(status=ForestTaskStatus.success)
-    except Exception as e:
+    except BaseException as e:
         task.update_only(status=ForestTaskStatus.error, stacktrace=traceback.format_exc())
         log("task.stacktrace 1:", task.stacktrace)
         tags = {k: str(v) for k, v in task.as_dict().items()}  # report with many tags
         if not isinstance(e, NoSentryException):
             with make_error_sentry(SentryTypes.data_processing, tags=tags):
                 raise
-    
     finally:
         # This is entirely boilerplate for reporting cleanup operations cleanly to both sentry and
         # forest task infrastructure.

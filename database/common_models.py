@@ -18,10 +18,8 @@ def generate_objectid_string():
 
 
 class JSONTextField(models.TextField):
-    """
-    A TextField for holding JSON-serialized data. This is only different from models.TextField
-    in UtilityModel.as_native_json, in that this is not JSON serialized an additional time.
-    """
+    """ A TextField for holding JSON-serialized data. This is only different from models.TextField
+    in UtilityModel.as_native_json, in that this is not JSON serialized an additional time. """
 
 
 class UtilityModel(models.Model):
@@ -113,10 +111,8 @@ class UtilityModel(models.Model):
         return ret
     
     def as_unpacked_native_python(self, remove_timestamps=True) -> dict:
-        """
-        Collect all of the fields of the model and return their values in a python dict,
-        with json fields appropriately deserialized.
-        """
+        """ Collect all of the fields of the model and return their values in a python dict,
+        with json fields appropriately deserialized. """
         field_dict = {}
         for field in self._meta.fields:
             field_name = field.name

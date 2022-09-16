@@ -3,6 +3,9 @@ import json
 from constants.data_stream_constants import CALL_LOG, GPS, SURVEY_ANSWERS, TEXTS_LOG
 
 
+ROOT_FOREST_TASK_PATH = "/tmp/forest/"
+
+
 class ForestTree:
     """ Todo: Once we upgrade to Django 3, use TextChoices """
     jasmine = "jasmine"

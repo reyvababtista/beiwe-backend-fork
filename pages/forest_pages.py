@@ -196,7 +196,7 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
     # SummaryStatisticDaily is orders of magnitude smaller than ChunkRegistry.
     dates = list(
         SummaryStatisticDaily.objects
-        .exclude(date__gte=EARLIEST_POSSIBLE_DATA_DATE)
+        .exclude(date__lte=max(EARLIEST_POSSIBLE_DATA_DATE, study.created_on.date()))
         .filter(participant__in=study.participants.all())
         .order_by("date")
         .values_list("date", flat=True)
@@ -204,6 +204,11 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
     
     start_date = dates[0] if dates else study.created_on.date()
     end_date = dates[-1] if dates else timezone.now().date()
+
+    # start_date = dates[0] if dates and dates[0] >= EARLIEST_POSSIBLE_DATA_DATE else study.created_on.date()
+    # end_date = dates[-1] if dates and dates[-1] <= timezone.now().date() else timezone.now().date()
+    
+
     return render(
         request,
         "forest/create_tasks.html",
@@ -213,8 +218,8 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
                 study.participants.order_by("patient_id").values_list("patient_id", flat=True)
             ),
             trees=ForestTree.choices(),
-            start_date=start_date.strftime('%Y-%m-%d'),
-            end_date=end_date.strftime('%Y-%m-%d')
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat()
         )
     )
 

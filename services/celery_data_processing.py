@@ -21,8 +21,7 @@ def create_file_processing_tasks():
     until the most recent job is finished.
 
     Also, for some reason 5 minutes is the smallest value that .... works.  At all.
-    No clue why.
-    """
+    No clue why. """
     
     # set the tasks to expire at the 5 minutes and thirty seconds mark after the most recent
     # 6 minutely cron task. This way all tasks will be revoked at the same, and well-known, instant.

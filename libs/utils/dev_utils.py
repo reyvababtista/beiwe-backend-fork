@@ -1,19 +1,37 @@
+import cProfile
 import functools
 from collections import defaultdict
 from inspect import getframeinfo, stack
+from math import sqrt
 from os.path import relpath
 from pprint import pprint
 from statistics import mean, stdev
 from time import perf_counter
 from types import FunctionType, MethodType
 
-from math import sqrt
-
 from database.survey_models import Survey
 from database.user_models import Participant
+from libs.security import generate_easy_alphanumeric_string
+
 
 PROJECT_PATH = __file__.rsplit("/", 2)[0]
 class DevUtilError(BaseException): pass
+
+
+def profileit(func):
+    def wrapper(*args, **kwargs):
+        datafn = func.__name__ + "-" + generate_easy_alphanumeric_string(8) + ".profile"
+        prof = cProfile.Profile()
+        try:
+            retval = prof.runcall(func, *args, **kwargs)
+        except BaseException:
+            prof.dump_stats(datafn)
+            raise
+        prof.dump_stats(datafn)
+        
+        return retval
+    
+    return wrapper
 
 
 class TxtClr:

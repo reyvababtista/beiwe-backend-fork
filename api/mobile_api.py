@@ -307,22 +307,29 @@ def contains_valid_extension(file_name: str):
 @determine_os_api
 @authenticate_participant
 def get_latest_surveys(request: ParticipantRequest, OS_API=""):
-    survey: Survey
-    survey_json_list = []
-    for survey in request.session_participant.study.surveys.filter(deleted=False):
-        # Exclude image surveys for the Android app to avoid crashing it
-        if not (OS_API == "ANDROID" and survey.survey_type == "image_survey"):
-            survey_json_list.append(format_survey_for_device(survey))
+    """ This is the endpoint hit by the app to downwload the current survey and survey schedule 
+    information.  The app's representation of surveys is of the current week. """
+    # todo: document exactly how many days of survey info the ios and android apps use. determine any architectural differences
+    
+    # record that participant checked in.
+    now = timezone.now()
+    request.session_participant.update(last_survey_checkin=now)
     
     # if there was a "checkin_uuid" parameter, indicate participant and ScheduledEvent of checkin.
     checkin_uuid = request.POST.get("checkin_uuid", None)
     if checkin_uuid:
-        now = timezone.now()
         schedule: ScheduledEvent = ScheduledEvent.objects.get(uuid=checkin_uuid)
         if request.session_participant.first_push_notification_checkin is None:
             request.session_participant.update(first_push_notification_checkin=now)
         schedule.update(checkin_time=now)
         schedule.archive(True, DEVICE_CHECKED_IN, now)
+    
+    survey_json_list = []
+    survey: Survey
+    for survey in request.session_participant.study.surveys.filter(deleted=False):
+        # Exclude image surveys for the Android app to avoid crashing it
+        if not (OS_API == "ANDROID" and survey.survey_type == "image_survey"):
+            survey_json_list.append(format_survey_for_device(survey))
     
     return HttpResponse(json.dumps(survey_json_list))
 

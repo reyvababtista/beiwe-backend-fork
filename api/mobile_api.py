@@ -20,6 +20,7 @@ from database.data_access_models import FileToProcess
 from database.schedule_models import ScheduledEvent
 from database.survey_models import Survey
 from database.system_models import FileAsText
+from database.user_models import Participant
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
     IosDecryptionKeyDuplicateError, IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
 from libs.http_utils import determine_os_api
@@ -329,7 +330,7 @@ def get_latest_surveys(request: ParticipantRequest, OS_API=""):
     for survey in request.session_participant.study.surveys.filter(deleted=False):
         # Exclude image surveys for the Android app to avoid crashing it
         if not (OS_API == "ANDROID" and survey.survey_type == "image_survey"):
-            survey_json_list.append(format_survey_for_device(survey))
+            survey_json_list.append(format_survey_for_device(survey, request.session_participant))
     
     return HttpResponse(json.dumps(survey_json_list))
 
@@ -347,7 +348,7 @@ def get_start_and_end_of_java_timings_week(now: datetime) -> Tuple[datetime, dat
     return dt_sunday_start_of_week, dt_saturday_end_of_week
 
 
-def format_survey_for_device(survey: Survey):
+def format_survey_for_device(survey: Survey, participant: Participant):
     """ Returns a dict with the values of the survey fields for download to the app """
     survey_dict = survey.as_unpacked_native_python()
     # Make the dict look like the old Mongolia-style dict that the frontend is expecting
@@ -360,15 +361,15 @@ def format_survey_for_device(survey: Survey):
     
     # get all non-weekly scheduled events
     start_of_week, end_of_week = get_start_and_end_of_java_timings_week(survey.study.now())
-    query: ScheduledEventQuerySet = survey.scheduled_events \
-        .filter(scheduled_time__gte=start_of_week, scheduled_time__lt=end_of_week) \
-        .exclude(weekly_schedule__isnull=False)  # skip where attached weekly schedules are not null
+    query: ScheduledEventQuerySet = survey.scheduled_events.filter(
+        scheduled_time__gte=start_of_week, scheduled_time__lt=end_of_week, participant=participant
+    ).exclude(weekly_schedule__isnull=False)  # skip where attached weekly schedules are not null
     
     for schedule in query:
         day_index, seconds = decompose_datetime_to_timings(schedule.scheduled_time)
         survey_timings[day_index].append(seconds)
     
-    # sort, deduplicate all days
+    # sort, deduplicate all days lists
     for i in range(len(survey_timings)):
         survey_timings[i] = sorted(set(survey_timings[i]))
     

@@ -54,9 +54,9 @@ def set_fcm_token(request: ParticipantRequest):
     # need to get_or_create rather than catching DoesNotExist to handle if two set_fcm_token
     # requests are made with the same token one after another and one request.
     try:
-        p, _ = ParticipantFCMHistory.objects.get_or_create(token=token, participant=participant)
-        p.unregistered = None
-        p.save()  # retain as save, we want last_updated to mutate
+        ph, _ = ParticipantFCMHistory.objects.get_or_create(token=token, participant=participant)
+        ph.unregistered = None
+        ph.save()  # retain as save, we want last_updated to mutate
         ParticipantFCMHistory.objects.exclude(token=token).filter(
             participant=participant, unregistered=None
         ).update(unregistered=now, last_updated=now)

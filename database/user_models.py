@@ -99,6 +99,7 @@ class Participant(AbstractPasswordUser):
     
     push_notification_unreachable_count = models.SmallIntegerField(default=0, null=False, blank=False)
     first_push_notification_checkin = models.DateTimeField(null=True, blank=True)
+    last_push_notification_checkin = models.DateTimeField(null=True, blank=True)
     last_survey_checkin = models.DateTimeField(null=True, blank=True)
     deleted = models.BooleanField(default=False)
     

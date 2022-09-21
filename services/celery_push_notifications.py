@@ -108,7 +108,7 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
         participant = Participant.objects.get(patient_id=patient_id)
         schedules = ScheduledEvent.objects.filter(pk__in=schedule_pks)
         reference_schedule = schedules.order_by("scheduled_time").first()
-        survey_obj_ids = list(set(survey_obj_ids))  # already deduped; whatever.
+        survey_obj_ids = list(set(survey_obj_ids))  # Dedupe-dedupe
         
         print(f"Sending push notification to {patient_id} for {survey_obj_ids}...")
         try:
@@ -180,7 +180,7 @@ def send_push_notification(
         'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32)),
         'sent_time': reference_schedule.scheduled_time.strftime(API_TIME_FORMAT),
         'type': 'survey',
-        'survey_ids': json.dumps(list(set(survey_obj_ids))),  # Dedupe-dedupe
+        'survey_ids': json.dumps(survey_obj_ids),
         'schedule_uuid': reference_schedule.uuid
     }
     
@@ -251,9 +251,12 @@ def failed_send_handler(
 
 
 def create_archived_events(schedules: List[ScheduledEvent], status: str, created_on: datetime = None):
-    """ Populates event history, does not mark ScheduledEvents as deleted. """
+    # """ Populates event history, does not mark ScheduledEvents as deleted. """
+    
+    # TODO: We are currently blindly deleting after sending, this will be changed after the app is
+    #  updated to provide uuid checkins on the download surveys endpoint.
     for scheduled_event in schedules:
-        scheduled_event.archive(False, status=status, created_on=created_on)
+        scheduled_event.archive(self_delete=True, status=status, created_on=created_on)
 
 
 def enqueue_weekly_surveys(participant: Participant, schedules: List[ScheduledEvent]):

@@ -255,8 +255,9 @@ def create_archived_events(schedules: List[ScheduledEvent], status: str, created
     
     # TODO: We are currently blindly deleting after sending, this will be changed after the app is
     #  updated to provide uuid checkins on the download surveys endpoint.
+    mark_as_deleted = status == MESSAGE_SEND_SUCCESS
     for scheduled_event in schedules:
-        scheduled_event.archive(self_delete=True, status=status, created_on=created_on)
+        scheduled_event.archive(self_delete=mark_as_deleted, status=status, created_on=created_on)
 
 
 def enqueue_weekly_surveys(participant: Participant, schedules: List[ScheduledEvent]):

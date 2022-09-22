@@ -1,15 +1,36 @@
-from datetime import datetime, timedelta
-from typing import List
+from datetime import date, datetime, timedelta
+from typing import List, Tuple
 
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from database.schedule_models import AbsoluteSchedule, ArchivedEvent, ScheduledEvent, WeeklySchedule
 from database.study_models import Study
 from database.survey_models import Survey
 from database.user_models import Participant
+from libs.utils.date_utils import date_to_end_of_day, date_to_start_of_day
 
 
 class NoSchedulesException(Exception): pass
 class UnknownScheduleScenario(Exception): pass
+
+
+# Weekly timings lists code
+def get_start_and_end_of_java_timings_week(now: datetime) -> Tuple[datetime, datetime]:
+    """ study timezone aware week start and end """
+    if now.tzinfo is None:
+        raise TypeError("missing required timezone-aware datetime")
+    now_date: date = now.date()
+    date_sunday_start_of_week = now_date - timedelta(days=now.weekday() + 1)
+    date_saturday_end_of_week = now_date + timedelta(days=5 - now.weekday())  # TODO: Test
+    dt_sunday_start_of_week = date_to_start_of_day(date_sunday_start_of_week, now.tzinfo)
+    dt_saturday_end_of_week = date_to_end_of_day(date_saturday_end_of_week, now.tzinfo)
+    return dt_sunday_start_of_week, dt_saturday_end_of_week
+
+
+def decompose_datetime_to_timings(dt: datetime) -> Tuple[int, int]:
+    """ returns day-index, seconds into day. """
+    # have to convert to sunday-zero-indoexed
+    return (dt.weekday() + 1) % 7, dt.hour * 60 * 60 + dt.minute * 60
+
 
 #
 # Event scheduling

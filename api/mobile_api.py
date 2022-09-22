@@ -2,8 +2,7 @@ import calendar
 import json
 import plistlib
 import time
-from datetime import date, datetime, timedelta
-from typing import Tuple
+from datetime import datetime, timedelta
 
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
@@ -28,9 +27,9 @@ from libs.internal_types import ParticipantRequest, ScheduledEventQuerySet
 from libs.participant_file_uploads import (upload_and_create_file_to_process_and_log,
     upload_problem_file)
 from libs.s3 import get_client_public_key_string, s3_upload
-from libs.schedules import export_weekly_survey_timings, repopulate_all_survey_scheduled_events
+from libs.schedules import (decompose_datetime_to_timings, export_weekly_survey_timings,
+    repopulate_all_survey_scheduled_events)
 from libs.sentry import make_sentry_client, SentryTypes
-from libs.utils.date_utils import date_to_end_of_day, date_to_start_of_day
 from middleware.abort_middleware import abort
 
 
@@ -336,17 +335,6 @@ def get_latest_surveys(request: ParticipantRequest, OS_API=""):
 
 # TODO: move this stuff elsewhere.
 
-def get_start_and_end_of_java_timings_week(now: datetime) -> Tuple[datetime, datetime]:
-    """ study timezone aware week start and end """
-    if now.tzinfo is None:
-        raise TypeError("missing required timezone-aware datetime")
-    now_date: date = now.date()
-    date_sunday_start_of_week = now_date - timedelta(days=now.weekday() + 1)
-    date_saturday_end_of_week = now_date + timedelta(days=5 - now.weekday())  # TODO: Test
-    dt_sunday_start_of_week = date_to_start_of_day(date_sunday_start_of_week, now.tzinfo)
-    dt_saturday_end_of_week = date_to_end_of_day(date_saturday_end_of_week, now.tzinfo)
-    return dt_sunday_start_of_week, dt_saturday_end_of_week
-
 
 def format_survey_for_device(survey: Survey, participant: Participant):
     """ Returns a dict with the values of the survey fields for download to the app """
@@ -359,13 +347,32 @@ def format_survey_for_device(survey: Survey, participant: Participant):
     # weekly defines a list of 7 lists of ints or [[], [], [], [], [], [], []]
     survey_timings = export_weekly_survey_timings(survey)
     
-    # get all non-weekly scheduled events
-    start_of_week, end_of_week = get_start_and_end_of_java_timings_week(survey.study.now())
+    # While it seems complex to force arbitrary non-repeating weekly-style schedules into a
+    # weekly-based representation time, it turns out we only need to observe some rules:
+    # 1) When "now" becomes the time for a survey notification to appear, it will appear.
+    # 2) When the survey time is removed from the weekly timings the notification will disappear.
+    # 3) Time is 1 week long; keep the examined period of time less than 7 days to avoid corner cases.
+    # So, bracket our view of absolute and relative surveys schedule events like this:
+    now = survey.study.now()  # TODO: get participant device timezone
+    now_date = now.date()
+    the_past = \
+        datetime.combine((now_date - timedelta(days=4)), datetime.min.time(), tzinfo=now.tzinfo)
+    the_future = \
+        datetime.combine((now_date + timedelta(days=3)), datetime.min.time(), tzinfo=now.tzinfo)
+    
+    # This query results in a moving window of that "snaps" based on the day at midnight. retains
+    # notifications for 4 days, and gives the app 3 days of failing to check in until it is out of
+    # sync with abosule and relative surveys.
+    # (filter with __lt for the_future since we are "zeroing" to midnight, __gte for the_past.)
     query: ScheduledEventQuerySet = survey.scheduled_events.filter(
-        scheduled_time__gte=start_of_week, scheduled_time__lt=end_of_week, participant=participant
+        scheduled_time__gte=the_past,
+        scheduled_time__lt=the_future,
+        participant=participant,
+        # deleted=False,  # ALWAYS send it. Consider notifications broken.
     ).exclude(weekly_schedule__isnull=False)  # skip where attached weekly schedules are not null
     
     for schedule in query:
+        # The date component is dropped, the representation is now 100% a weekly schedule
         day_index, seconds = decompose_datetime_to_timings(schedule.scheduled_time)
         survey_timings[day_index].append(seconds)
     
@@ -373,12 +380,9 @@ def format_survey_for_device(survey: Survey, participant: Participant):
     for i in range(len(survey_timings)):
         survey_timings[i] = sorted(set(survey_timings[i]))
     
-    # the old timings object does need to be provided
+    # TODO: include schedule event uuids so that we can have full survey state tracking in a v2
+    #   endpoint where we actually send a real schedule with absolute representations of time
+    #   insteadd of the moving window hack.
+    
     survey_dict['timings'] = survey_timings
     return survey_dict
-
-
-def decompose_datetime_to_timings(dt: datetime) -> Tuple[int, int]:
-    """ returns day-index, seconds into day. """
-    # have to convert to sunday-zero-indoexed
-    return (dt.weekday() + 1) % 7, dt.hour * 60 * 60 + dt.minute * 60

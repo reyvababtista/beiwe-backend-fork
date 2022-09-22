@@ -1,7 +1,6 @@
 
 from __future__ import annotations
 
-import uuid
 from datetime import date, datetime, time, timedelta, tzinfo
 from typing import List, Tuple
 
@@ -15,7 +14,7 @@ from database.common_models import TimestampedModel
 from database.survey_models import Survey, SurveyArchive
 
 
-class BadWeekllyCount(Exception): pass
+class BadWeeklyCount(Exception): pass
 
 
 class AbsoluteSchedule(TimestampedModel):
@@ -136,7 +135,7 @@ class WeeklySchedule(TimestampedModel):
         
         # asserts are not bypassed in production. Keep.
         if len(timings) != 7:
-            raise BadWeekllyCount(
+            raise BadWeeklyCount(
                 f"Must have schedule for every day of the week, found {len(timings)} instead."
             )
         survey.weekly_schedules.all().delete()

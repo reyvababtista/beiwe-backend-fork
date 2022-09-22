@@ -1,13 +1,10 @@
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
-from database.schedule_models import BadWeekllyCount, WeeklySchedule
+from database.schedule_models import BadWeeklyCount, WeeklySchedule
 from libs.schedules import NoSchedulesException, export_weekly_survey_timings, get_next_weekly_event_and_schedule
 from tests.common import CommonTestCase
 from constants.testing_constants import MIDNIGHT_EVERY_DAY
 
 from pprint import pprint
-
-
-
 
 
 class TestTimingsSchedules(CommonTestCase):
@@ -38,7 +35,7 @@ class TestTimingsSchedules(CommonTestCase):
             timings[day_of_week].append(0)  # time of day defaults to zero
         # assert tehre are 7 weekly surveys, that they are one per day, at midnight (0)
         self.assertEqual(WeeklySchedule.objects.count(), 7)
-        self.assertEqual(timings, [[0], [0], [0], [0], [0], [0], [0]])
+        self.assertEqual(timings, MIDNIGHT_EVERY_DAY())
         self.assertEqual(timings, export_weekly_survey_timings(self.default_survey))
     
     def test_create_weekly_schedules(self):
@@ -75,12 +72,12 @@ class TestTimingsSchedules(CommonTestCase):
         self.assertEqual(weekly.minute, 2)
     
     def test_create_weekly_schedules_bad_count(self):
-        # for lengsths of litsts of ints 1-10 assert that the appropriate error is raised
+        # for lengths of lists of ints 1-10 assert that the appropriate error is raised
         for i in range(1, 10):
             timings = [[0] for _ in range(i)]
             if len(timings) != 7:
                 self.assertRaises(
-                    BadWeekllyCount, WeeklySchedule.create_weekly_schedules, timings, self.default_survey
+                    BadWeeklyCount, WeeklySchedule.create_weekly_schedules, timings, self.default_survey
                 )
             else:
                 WeeklySchedule.create_weekly_schedules(timings, self.default_survey)

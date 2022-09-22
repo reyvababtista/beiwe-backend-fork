@@ -9,11 +9,11 @@ from database.user_models import Participant
 
 
 class NoSchedulesException(Exception): pass
+class UnknownScheduleScenario(Exception): pass
 
 #
 # Event scheduling
 #
-
 def set_next_weekly(participant: Participant, survey: Survey) -> None:
     ''' Create a next ScheduledEvent for a survey for a particular participant. Uses get_or_create. '''
     schedule_date, schedule = get_next_weekly_event_and_schedule(survey)
@@ -28,6 +28,8 @@ def set_next_weekly(participant: Participant, survey: Survey) -> None:
             absolute_schedule=None,
             scheduled_time=schedule_date,
         )
+    else:
+        raise UnknownScheduleScenario("unknown condition reached")
 
 
 def repopulate_all_survey_scheduled_events(study: Study, participant: Participant = None):
@@ -46,10 +48,11 @@ def repopulate_all_survey_scheduled_events(study: Study, participant: Participan
         repopulate_relative_survey_schedule_events(survey, participant)
 
 
+#TODO: this will need to be rewritten to examine existing weekly schedules
 def repopulate_weekly_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:
     """ Clear existing schedules, get participants, bulk create schedules Weekly events are
-    calculated in a way that we don't bother checking for survey archives, because they only
-    exist in the future. """
+    calculated in a way that we don't bother checking for survey archives, because they only exist
+    in the future. """
     events = survey.scheduled_events.filter(relative_schedule=None, absolute_schedule=None)
     if single_participant:
         events = events.filter(participant=single_participant)
@@ -79,6 +82,7 @@ def repopulate_weekly_survey_schedule_events(survey: Survey, single_participant:
     )
 
 
+#TODO: this will need to be rewritten to examine existing absolute schedules
 def repopulate_absolute_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:
     """
     Creates new ScheduledEvents for the survey's AbsoluteSchedules while deleting the old
@@ -125,6 +129,7 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
             ))
     # instantiate
     ScheduledEvent.objects.bulk_create(new_events)
+
 
 #TODO: this will need to be rewritten to examine existing relative schedules
 def repopulate_relative_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:

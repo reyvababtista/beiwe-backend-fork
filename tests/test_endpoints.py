@@ -38,7 +38,8 @@ from database.system_models import FileAsText, GenericEvent
 from database.user_models import Participant, ParticipantFCMHistory, Researcher
 from libs.copy_study import format_study
 from libs.rsa import get_RSA_cipher
-from libs.schedules import repopulate_absolute_survey_schedule_events
+from libs.schedules import (repopulate_absolute_survey_schedule_events,
+    repopulate_relative_survey_schedule_events)
 from libs.security import generate_easy_alphanumeric_string
 from tests.common import (BasicSessionTestCase, CommonTestCase, DataApiTest, ParticipantSessionTest,
     RedirectSessionApiTest, ResearcherSessionTest, SmartRequestsTestCase)
@@ -2416,7 +2417,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY(), self.default_survey)
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
     
-    def test_weekly_basics(self):
+    def test_weekly_basics2(self):
         self.default_survey
         reference_output = self.BASIC_SURVEY_CONTENT
         reference_output[0]["timings"] = MIDNIGHT_EVERY_DAY()
@@ -2448,6 +2449,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
             # correct weekday for sunday-zero-index
             yield (a_date.weekday() + 1) % 7
     
+    # absolutes
     def test_absolute_schedule_out_of_range_future(self):
         self.default_survey
         self.generate_absolute_schedule(date.today() + timedelta(days=200))
@@ -2455,7 +2457,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         resp = self.smart_post_status_code(200)
         output_survey = json.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
-
+    
     def test_absolute_schedule_out_of_range_past(self):
         self.default_survey
         self.generate_absolute_schedule(date.today() - timedelta(days=200))
@@ -2463,6 +2465,59 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         resp = self.smart_post_status_code(200)
         output_survey = json.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
+    
+    # relatives
+    def test_relative_schedule_basics(self):
+        # test that a relative survey creates schedules that get output in survey timings at all
+        self.generate_relative_schedule(self.default_survey, self.default_intervention, days_after=-1)
+        self.default_populated_intervention_date
+        repopulate_relative_survey_schedule_events(self.default_survey, self.default_participant)
+        resp = self.smart_post_status_code(200)
+        output_survey = json.loads(resp.content.decode())
+        output_basic = self.BASIC_SURVEY_CONTENT
+        timings_out = output_survey[0].pop("timings")
+        timings_basic = output_basic[0].pop("timings")
+        self.assertEqual(output_survey, output_basic)  # assert only the timings have changed
+        self.assertNotEqual(timings_out, timings_basic)
+        timings_basic[3].append(0)
+        self.assertEqual(timings_out, timings_basic)
+    
+    def test_relative_schedule_out_of_range_future(self):
+        self.generate_relative_schedule(self.default_survey, self.default_intervention, days_after=200)
+        self.default_populated_intervention_date
+        repopulate_relative_survey_schedule_events(self.default_survey, self.default_participant)
+        resp = self.smart_post_status_code(200)
+        output_survey = json.loads(resp.content.decode())
+        self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
+    
+    def test_relative_schedule_out_of_range_past(self):
+        self.generate_relative_schedule(self.default_survey, self.default_intervention, days_after=-200)
+        self.default_populated_intervention_date
+        repopulate_relative_survey_schedule_events(self.default_survey, self.default_participant)
+        resp = self.smart_post_status_code(200)
+        output_survey = json.loads(resp.content.decode())
+        self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
+
+    # todo: work out how to iterate over variant relative schedules because that is obnoxious.
+    # def test_something_relative(self):
+    #     start, end = get_start_and_end_of_java_timings_week(timezone.now())
+    
+    #     for day in date_list(start, timedelta(days=1), 7):
+    #         for self.iterate_days_relative_schedules(start, end, )
+    
+    def iterate_days_relative_schedules(self, days_before, days_after, date_of_intervention: date):
+        # generates one relative schedule per day for the range given.
+        # generates an intervention, and (possibly?) scheduled event for the schedule.
+        # generates an intervention date on the default participant intervention date
+        intervention = self.generate_intervention(self.default_study, "an intervention")
+        self.generate_intervention_date(self.default_participant, intervention, date_of_intervention)
+        rel_sched = self.generate_relative_schedule(self.default_survey, intervention, days_after=days_after)
+        
+        for days_relative in range(days_before * -1, days_after):
+            rel_sched.update(days_after=days_relative)
+            repopulate_absolute_survey_schedule_events(self.default_survey, self.default_participant)
+            yield days_relative
+    
 
 
 class TestRegisterParticipant(ParticipantSessionTest):

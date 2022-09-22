@@ -126,7 +126,7 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
     # instantiate
     ScheduledEvent.objects.bulk_create(new_events)
 
-
+#TODO: this will need to be rewritten to examine existing relative schedules
 def repopulate_relative_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:
     """ Creates new ScheduledEvents for the survey's RelativeSchedules while deleting the old
     ScheduledEvents related to the survey. """

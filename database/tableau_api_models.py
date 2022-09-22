@@ -19,10 +19,8 @@ from libs.utils.date_utils import datetime_to_list
 #
 ## GO READ THE MULTILINE STATEMENT AT THE TOP OF services/celery_forest.py
 #
-
-
 class ForestParameters(TimestampedModel):
-    """ Model for storing parameter sets used in Forest analyses."""
+    """ Model for storing parameter sets used in Forest analyses. """
     name = models.TextField(blank=True, null=False)
     notes = models.TextField(blank=True, null=False)
     tree_name = models.TextField(blank=False, null=False, choices=ForestTree.choices())

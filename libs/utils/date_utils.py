@@ -4,6 +4,9 @@ from typing import List, Union
 from django.utils.timezone import make_aware
 
 
+date_or_time = Union[date, datetime]
+
+
 def daterange(
     start: datetime, stop: datetime, step: timedelta = timedelta(days=1), inclusive: bool = False
 ):
@@ -21,6 +24,15 @@ def daterange(
             start = start + step
     if inclusive and start == stop:
         yield start
+
+
+def date_list(start: date_or_time, step: timedelta, count: int) -> List[date_or_time]:
+    """ less complex than daterange, provides a simple list starting on the start time and going for
+    a count of steps. Length of output list is equal to count. """
+    dates = [start]
+    for _ in range(count - 1):
+        dates.append(dates[-1] + step)
+    return dates
 
 
 def datetime_to_list(datetime_obj: Union[date, datetime]) -> List[int]:

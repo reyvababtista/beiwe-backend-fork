@@ -62,6 +62,11 @@ class ReferenceObjectMixin:
         self._default_study = self.generate_study(self.DEFAULT_STUDY_NAME)
         return self._default_study
     
+    @property
+    def default_study(self):
+        """ alias for session_study """
+        return self.session_study
+
     def generate_study(
         self, name: str, encryption_key: str = None, object_id: str = None, is_test: bool = None,
         forest_enabled: bool = None
@@ -183,7 +188,14 @@ class ReferenceObjectMixin:
     
     @property
     def default_intervention(self) -> Intervention:
-        return self.generate_intervention(self.session_study, self.DEFAULT_INTERVENTION_NAME)
+        try:
+            return self._default_intervention
+        except AttributeError:
+            pass
+        self._default_intervention = self.generate_intervention(
+            self.session_study, self.DEFAULT_INTERVENTION_NAME
+        )
+        return self._default_intervention
     
     def generate_intervention(self, study: Study, name: str) -> Intervention:
         intervention = Intervention(study=study, name=name)
@@ -237,20 +249,38 @@ class ReferenceObjectMixin:
     
     @property
     def default_populated_intervention_date(self) -> InterventionDate:
-        return self.generate_intervention_date(self.default_participant, self.default_intervention)
+        try:
+            return self._default_populated_intervention_date
+        except AttributeError:
+            pass
+        self._default_populated_intervention_date = \
+            self.generate_intervention_date(
+                self.default_participant, self.default_intervention, self.DEFAULT_DATE
+            )
+        return self._default_populated_intervention_date
+    
+    @property
+    def default_unpopulated_intervention_date(self) -> InterventionDate:
+        try:
+            return self._default_populated_intervention_date
+        except AttributeError:
+            pass
+        self._default_populated_intervention_date = \
+            self.generate_intervention_date(self.default_participant, self.default_intervention)
+        return self._default_populated_intervention_date
     
     def generate_intervention_date(
         self, participant: Participant, intervention: Intervention, date: date = None
     ) -> InterventionDate:
         intervention_date = InterventionDate(
-            participant=participant, intervention=intervention, date=date or self.DEFAULT_DATE
+            participant=participant, intervention=intervention, date=date
         )
         intervention_date.save()
         return intervention_date
     
     def generate_file_to_process(
         self, path: str, study: Study = None, participant: Participant = None,
-         deleted: bool = False, os_type: str = NULL_OS,
+        deleted: bool = False, os_type: str = NULL_OS,
     ):
         ftp = FileToProcess(
             s3_file_path=path,
@@ -302,7 +332,13 @@ class ReferenceObjectMixin:
     
     @property
     def default_relative_schedule(self) -> RelativeSchedule:
-        return self.generate_relative_schedule(self.default_survey, self.default_intervention)
+        try:
+            return self._default_relative_schedule
+        except AttributeError:
+            pass
+        self._default_relative_schedule = \
+            self.generate_relative_schedule(self.default_survey, self.default_intervention)
+        return self._default_relative_schedule
     
     def generate_relative_schedule(
         self, survey: Survey, intervention: Intervention, days_after: int = 0,

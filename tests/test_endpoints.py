@@ -12,7 +12,6 @@ from django.http.response import FileResponse, HttpResponse, HttpResponseRedirec
 from django.urls import reverse
 from django.utils import timezone
 
-from api.mobile_api import get_start_and_end_of_java_timings_week
 from api.tableau_api import FINAL_SERIALIZABLE_FIELDS
 from config.jinja2 import easy_url
 from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
@@ -38,8 +37,8 @@ from database.system_models import FileAsText, GenericEvent
 from database.user_models import Participant, ParticipantFCMHistory, Researcher
 from libs.copy_study import format_study
 from libs.rsa import get_RSA_cipher
-from libs.schedules import (repopulate_absolute_survey_schedule_events,
-    repopulate_relative_survey_schedule_events)
+from libs.schedules import (get_start_and_end_of_java_timings_week,
+    repopulate_absolute_survey_schedule_events, repopulate_relative_survey_schedule_events)
 from libs.security import generate_easy_alphanumeric_string
 from tests.common import (BasicSessionTestCase, CommonTestCase, DataApiTest, ParticipantSessionTest,
     RedirectSessionApiTest, ResearcherSessionTest, SmartRequestsTestCase)

@@ -29,6 +29,12 @@ class UncatchableError(Exception): pass
 
 ########################### User/Device Decryption #############################
 
+ENABLE_DECRYPTION_LOG = False
+
+def log(*args, **kwargs):
+    if ENABLE_DECRYPTION_LOG:
+        print(*args, **kwargs)
+
 
 class DeviceDataDecryptor():
     
@@ -37,6 +43,7 @@ class DeviceDataDecryptor():
         self.file_name: str = file_name
         self.original_data: bytes = original_data
         self.participant: Participant = participant
+        log(f"decrypting {len(self.original_data)//1024} KB for:", self.file_name)
         
         # storage and error tracking
         self.bad_lines: List[bytes] = []
@@ -58,6 +65,8 @@ class DeviceDataDecryptor():
             self.do_android_decryption()
         elif participant.os_type == IOS_API:
             self.do_ios_decryption()
+        else:
+            raise Exception(f"Unknown operating system: {participant.os_type}")
     
     def do_android_decryption(self):
         """ Android has no exciting features, errors are raised as normal. """
@@ -122,23 +131,26 @@ class DeviceDataDecryptor():
         once to wrap output of the RSA encryption, and once wrapping the AES decryption key. 
         Code factoring is weird due to the need to create and preserve legible stack traces.
         ( traceback.format_exc() gets the current stack trace if there is an error.) """
-        
+        log("extract_aes_key start")
         try:
             key_base64_raw: bytes = self.file_lines[0]
         except IndexError:
             # shouldn't be reachable due to test for emptiness prior in code, keep around anyway.
+            log("extract_aes_key fail 1")
             raise DecryptionKeyInvalidError("There was no decryption key.")
         
         # Test that every byte in the byte-string of the raw key is a valid url-safe base64
         # character this also cuts down some junk files.
         for c in key_base64_raw:
             if c not in URLSAFE_BASE64_CHARACTERS:
+                log(f"extract_aes_key fail 2: '{key_base64_raw.decode()}' character: '{chr(c)}'")
                 raise DecryptionKeyInvalidError(f"Key not base64 encoded: {str(key_base64_raw)}")
         
         # handle the various cases that can occur when extracting from base64.
         try:
             decoded_key: bytes = decode_base64(key_base64_raw)
         except (TypeError, PaddingException, Base64LengthException) as decode_error:
+            log("extract_aes_key fail 3")
             raise DecryptionKeyInvalidError(f"Invalid decryption key: {decode_error}")
         
         base64_key = self.rsa_decrypt(decoded_key)
@@ -146,8 +158,10 @@ class DeviceDataDecryptor():
         try:
             decrypted_key: bytes = decode_base64(base64_key)
             if not decrypted_key:
+                log("extract_aes_key fail 4")
                 raise TypeError(f"decoded key was '{decrypted_key}'")
         except (TypeError, IndexError, PaddingException, Base64LengthException) as decr_error:
+            log("extract_aes_key fail 5")
             raise DecryptionKeyInvalidError(f"Invalid decryption key: {decr_error}")
         
         # If the decoded bits of the key is not exactly 128 bits (16 bytes) that probably means that
@@ -155,10 +169,13 @@ class DeviceDataDecryptor():
         # zeros.  Apps require an update to solve this (in a future rewrite we should use a correct
         # padding algorithm).
         if len(decrypted_key) != 16:
+            log("extract_aes_key 6")
             raise DecryptionKeyInvalidError(f"Decryption key not 128 bits: {decrypted_key}")
         
         if self.participant.os_type == IOS_API:
             self.populate_ios_decryption_key(base64_key)
+        
+        log("extract_aes_key success")
         return decrypted_key
     
     def rsa_decrypt(self, decoded_key: bytes) -> bytes:

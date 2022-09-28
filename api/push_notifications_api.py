@@ -206,7 +206,8 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
             # normal case, firebase or unregistered error
             unscheduled_event.update(status=f"Firebase Error, {MESSAGE_SEND_FAILED_PREFIX} {str(e)}")
             messages.error(request, error_message)
-            if not RUNNING_TEST_OR_IN_A_SHELL:
+            # don't report unregistered
+            if not RUNNING_TEST_OR_IN_A_SHELL and not isinstance(e, UnregisteredError):
                 with make_error_sentry(SentryTypes.elastic_beanstalk):
                     raise
     except Exception:

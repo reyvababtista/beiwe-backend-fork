@@ -2496,7 +2496,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         resp = self.smart_post_status_code(200)
         output_survey = json.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
-
+    
     # todo: work out how to iterate over variant relative schedules because that is obnoxious.
     # def test_something_relative(self):
     #     start, end = get_start_and_end_of_java_timings_week(timezone.now())
@@ -2516,7 +2516,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
             rel_sched.update(days_after=days_relative)
             repopulate_absolute_survey_schedule_events(self.default_survey, self.default_participant)
             yield days_relative
-    
+
 
 
 class TestRegisterParticipant(ParticipantSessionTest):
@@ -2815,6 +2815,26 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.assertIn("The default Firebase app does not exist.", archived_event.status)
         self.assertIn("Firebase Error,", archived_event.status)
         self.validate_scheduled_event(archived_event)
+    
+    
+    @patch("api.push_notifications_api.send_push_notification")
+    @patch("api.push_notifications_api.check_firebase_instance")
+    def test_mocked_firebase_unregistered_error(
+        self, check_firebase_instance: MagicMock, send_push_notification: MagicMock
+    ):
+        # manually invoke some other ValueError to validate that dumb logic.
+        check_firebase_instance.return_value = True
+        from firebase_admin.messaging import UnregisteredError
+        err_msg = 'UnregisteredError occurred'
+        send_push_notification.side_effect = UnregisteredError(err_msg)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertIn("Firebase Error,", archived_event.status)
+        self.assertIn(err_msg, archived_event.status)
+        self.validate_scheduled_event(archived_event)
+    
     
     @patch("api.push_notifications_api.send_push_notification")
     @patch("api.push_notifications_api.check_firebase_instance")

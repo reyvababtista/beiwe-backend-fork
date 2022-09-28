@@ -112,6 +112,12 @@ def developer_send_survey_notification(request: ParticipantRequest):
 @require_POST
 @authenticate_researcher_study_access
 def resend_push_notification(request: ResearcherRequest, study_id: int, patient_id: str):
+    """ Endpoint will resend a selected push notification.
+    Note regarding refactoring: there are exactly 2 parts of the codebase (unless messaging has been
+    merged that send push notifications: here, and celery push notification.  Due to the substantial
+    variation of needing to handle response details these simple don't overlap much.  If and when
+    messaging is merged in this should be revisited. """
+    
     # 400 error if survey_id is not present
     survey_id = request.POST.get("survey_id", None)
     if not survey_id:

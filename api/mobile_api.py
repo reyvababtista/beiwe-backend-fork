@@ -382,7 +382,7 @@ def format_survey_for_device(survey: Survey, participant: Participant):
     
     # TODO: include schedule event uuids so that we can have full survey state tracking in a v2
     #   endpoint where we actually send a real schedule with absolute representations of time
-    #   insteadd of the moving window hack.
+    #   instead of the moving window hack.
     
     survey_dict['timings'] = survey_timings
     return survey_dict

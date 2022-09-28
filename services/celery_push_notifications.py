@@ -112,9 +112,7 @@ def celery_send_push_notification(fcm_token: str, survey_obj_ids: List[str], sch
         
         print(f"Sending push notification to {patient_id} for {survey_obj_ids}...")
         try:
-            send_push_notification(
-                participant, reference_schedule, survey_obj_ids, fcm_token
-            )
+            send_push_notification(participant, reference_schedule, survey_obj_ids, fcm_token)
         # error types are documented at firebase.google.com/docs/reference/fcm/rest/v1/ErrorCode
         except UnregisteredError:
             print("\nUnregisteredError\n")

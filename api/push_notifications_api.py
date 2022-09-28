@@ -135,33 +135,33 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
     )
     
     # create an event for this attempt, update it on all exit scenarios
-    unscheduled_event = ArchivedEvent(
-        survey_archive=survey.archives.order_by("-archive_start").first(),  # the current survey archive
+    unscheduled_archive = ArchivedEvent(
+        survey_archive=survey.most_recent_archive(),  # the current survey archive
         participant=participant,
         schedule_type=f"manual - {request.session_researcher.username}"[:32],  # max length of field
         scheduled_time=now,
         status=RESEND_CLICKED,
     )
-    unscheduled_event.save()
+    unscheduled_archive.save()
     
     # crete a scheduled event to point at, for records and checkin tracking.
-    ScheduledEvent.objects.create(
+    unscheduled_event = ScheduledEvent.objects.create(
         survey=survey,
         participant=participant,
         scheduled_time=now,
-        most_recent_event=unscheduled_event,
+        most_recent_event=unscheduled_archive,
         deleted=True,  # don't continue to send this notification
     )
     
     # failures
     if fcm_token is None:
-        unscheduled_event.update(status=DEVICE_HAS_NO_REGISTERED_TOKEN)
+        unscheduled_archive.update(status=DEVICE_HAS_NO_REGISTERED_TOKEN)
         messages.error(request, error_message)
         return return_redirect
     
     # "participant os"
     if not check_firebase_instance(firebase_check_kwargs):
-        unscheduled_event.update(status=PUSH_NOTIFICATIONS_NOT_CONFIGURED)
+        unscheduled_archive.update(status=PUSH_NOTIFICATIONS_NOT_CONFIGURED)
         messages.error(request, error_message)
         return return_redirect
     
@@ -170,8 +170,9 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
         'survey_ids': json.dumps([survey.object_id]),
         'sent_time': now.strftime(API_TIME_FORMAT),
         'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32)),
+        'schedule_uuid': unscheduled_event.uuid
     }
-
+    
     if participant.os_type == ANDROID_API:
         message = Message(
             android=AndroidConfig(data=data_kwargs, priority='high'), token=fcm_token.token,
@@ -183,35 +184,35 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
             notification=Notification(title="Beiwe", body="You have a survey to take."),
         )
     else:
-        unscheduled_event.update(status=f"{MESSAGE_SEND_FAILED_PREFIX} {BAD_DEVICE_OS}")
+        unscheduled_archive.update(status=f"{MESSAGE_SEND_FAILED_PREFIX} {BAD_DEVICE_OS}")
         messages.error(request, BAD_PARTICPANT_OS)
         return return_redirect
     
     # real error cases (raised directly when running locally, reported to sentry on a server)
     try:
         _response = send_push_notification(message)
-        unscheduled_event.update(status=MESSAGE_SEND_SUCCESS)
+        unscheduled_archive.update(status=MESSAGE_SEND_SUCCESS)
         messages.success(
             request, f'{SUCCESSFULLY_SENT_NOTIFICATION_PREFIX} {participant.patient_id}.'
         )
     except (ValueError, FirebaseError, UnregisteredError) as e:
         # misconfiguration is not its own error type for some reason (and makes this code ugly)
         if isinstance(e, ValueError) and "The default Firebase app does not exist." not in str(e):
-            unscheduled_event.update(status=MESSAGE_SEND_FAILED_UNKNOWN + " (2)")  # presumably a bug
+            unscheduled_archive.update(status=MESSAGE_SEND_FAILED_UNKNOWN + " (2)")  # presumably a bug
             messages.error(request, error_message)
             if not RUNNING_TEST_OR_IN_A_SHELL:
                 with make_error_sentry(SentryTypes.elastic_beanstalk):
                     raise
         else:
             # normal case, firebase or unregistered error
-            unscheduled_event.update(status=f"Firebase Error, {MESSAGE_SEND_FAILED_PREFIX} {str(e)}")
+            unscheduled_archive.update(status=f"Firebase Error, {MESSAGE_SEND_FAILED_PREFIX} {str(e)}")
             messages.error(request, error_message)
             # don't report unregistered
             if not RUNNING_TEST_OR_IN_A_SHELL and not isinstance(e, UnregisteredError):
                 with make_error_sentry(SentryTypes.elastic_beanstalk):
                     raise
     except Exception:
-        unscheduled_event.update(status=MESSAGE_SEND_FAILED_UNKNOWN)  # presumably a bug
+        unscheduled_archive.update(status=MESSAGE_SEND_FAILED_UNKNOWN)  # presumably a bug
         messages.error(request, error_message)
         if not RUNNING_TEST_OR_IN_A_SHELL:
             with make_error_sentry(SentryTypes.elastic_beanstalk):

@@ -2816,7 +2816,6 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.assertIn("Firebase Error,", archived_event.status)
         self.validate_scheduled_event(archived_event)
     
-    
     @patch("api.push_notifications_api.send_push_notification")
     @patch("api.push_notifications_api.check_firebase_instance")
     def test_mocked_firebase_unregistered_error(
@@ -2834,7 +2833,6 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.assertIn("Firebase Error,", archived_event.status)
         self.assertIn(err_msg, archived_event.status)
         self.validate_scheduled_event(archived_event)
-    
     
     @patch("api.push_notifications_api.send_push_notification")
     @patch("api.push_notifications_api.check_firebase_instance")

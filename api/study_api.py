@@ -229,8 +229,7 @@ def get_values_for_participants_table(
     sort_by_column = f"-{sort_by_column}" if sort_in_descending_order else sort_by_column
     
     # ~ is the not operator
-    no_device_id = \
-        ExpressionWrapper(~Q(device_id=''), output_field=BooleanField())
+    no_device_id = ExpressionWrapper(~Q(device_id=''), output_field=BooleanField())
     
     # since field names may not be populated, we need a reference list of all field names
     # ordered to match the ordering on the rendering page.

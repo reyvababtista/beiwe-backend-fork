@@ -51,7 +51,7 @@ def validate_post(request: HttpRequest, require_password: bool, validate_device_
                 log("incorrect password")
                 return False
         
-        if validate_device_id:
+        if validate_device_id:  # no longer in use Sep 28 2022
             if not session_participant.device_id == request.POST['device_id']:
                 log("incorrect device_id")
                 return False
@@ -97,7 +97,7 @@ def authenticate_participant(some_function) -> callable:
             f"first parameter of {some_function.__name__} must be an HttpRequest, was {type(request)}."
         correct_for_basic_auth(request)
         
-        if validate_post(request, require_password=True, validate_device_id=True):
+        if validate_post(request, require_password=True, validate_device_id=False):
             return some_function(*args, **kwargs)
         is_ios = kwargs.get("OS_API", None) == IOS_API
         return abort(401 if is_ios else 403)

@@ -94,8 +94,8 @@ def upload(request: ParticipantRequest, OS_API=""):
     
     except (DecryptionKeyInvalidError, IosDecryptionKeyNotFoundError, IosDecryptionKeyDuplicateError) as e:
         # IOS has a complex issue where it splits files into multiple segments, but the key is only
-        # present on the first section. We wait 3 weeks for ios to upload with a key, eventually
-        # we tell the device to delete the file.
+        # present on the first section. We stash those files and attempt to extract useful
+        # information on the data processing server.
         upload_problem_file(file_contents, participant, s3_file_location, e)
         return HttpResponse(status=200)
     
@@ -164,7 +164,12 @@ def register_user(request: ParticipantRequest, OS_API=""):
     that id.  If the patient id has no device registered it registers this device and logs the
     bluetooth mac address.
     Check the documentation in participant_authentication to ensure you have provided the proper credentials.
-    Returns the encryption key for this patient/user. """
+    Returns the encryption key for this patient/user. 
+    
+    We used to have a test of the device id to require the device could not be changed without
+    contacting the study researcher/admin. It became impossible to maintain this as operating
+    systems changed and blocked device-specific ids. There was a similar test for locking a user to
+    an operating system type that was dropped. """
     
     if (
         'patient_id' not in request.POST
@@ -194,23 +199,6 @@ def register_user(request: ParticipantRequest, OS_API=""):
     mac_address = request.POST.get('bluetooth_id', "none")
     
     participant = request.session_participant
-    if OS_API != IOS_API and participant.device_id and participant.device_id != device_id:
-        # CASE: this patient has a registered a device already and it does not match this device.
-        #   They need to contact the study and unregister their their other device.  The device
-        #   will receive a 405 error and should alert the user accordingly.
-        # Provided a user does not completely reset their device (which resets the device's
-        # unique identifier) the user CAN reregister an existing device, the unlock key they
-        # need to enter to at registration is their old password.
-        # KG: 405 is good for IOS and Android, no need to check OS_API
-        # 2022-08-08: ios can change the device id under unknown triggers probably due to the app 
-        #   getting shifted between accounts / redone ios dev certificates.
-        return abort(405)
-    
-    # if participant.os_type and participant.os_type != OS_API:
-    #     # CASE: this patient has registered, but the user was previously registered with a
-    #     # different device type. To keep the CSV munging code sane and data consistent (don't
-    #     # cross the iOS and Android data streams!) we disallow it.
-    #     return abort(400)
     
     # At this point the device has been checked for validity and will be registered successfully.
     # Any errors after this point will be server errors and return 500 codes. the final return

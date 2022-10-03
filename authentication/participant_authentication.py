@@ -58,7 +58,7 @@ def validate_post(request: HttpRequest, require_password: bool, validate_device_
     except UnreadablePostError:
         return abort(500)
     
-    # attach session participant to request object, defining the ParticipantRequest class.
+    # attach session partipant to request object, defining the ParticipantRequest class.
     request.session_participant = session_participant
     return True
 

@@ -21,7 +21,7 @@ for name, database_model in vars(database_models).items():
         database_model is not UtilityModel and database_model is not TimestampedModel
     ):
         # the queryset and the the relashionship
-        querysets.add(f"{name}QuerySet = Union[QuerySet, List[{name}]]")
+        querysets.add(f"{name}QuerySet = QuerySet[{name}]")
         
         # (just adding some ~fake types here for syntax)
         database_model: Survey
@@ -35,7 +35,7 @@ for name, database_model in vars(database_models).items():
             
             # setup basics
             related_model_name = field_relationship.related_model.__name__
-            related_manager_typing = f"Union[Manager, List[{related_model_name}]]"
+            related_manager_typing = f"Manager[{related_model_name}]"
             # manager setup
             managers.add(f"{related_model_name}Manager = " + related_manager_typing)
         

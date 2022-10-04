@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pprint import pprint
 from random import choice as random_choice
 
 from django.db import models
@@ -51,6 +52,11 @@ class UtilityModel(models.Model):
     def as_dict(self):
         """ Provides a dictionary representation of the object """
         return {field.name: getattr(self, field.name) for field in self._meta.fields}
+    
+    @property
+    def pprint(self):
+        """ shortcut for very common cli usage. """
+        pprint(self.as_dict())
     
     @classmethod
     def summary(cls):
@@ -154,12 +160,13 @@ class UtilityModel(models.Model):
             setattr(self, attr, value)
         self.save(update_fields=kwargs.keys())
     
-    
-    def __str__(self):
+    def __str__(self) -> str:
         """ multipurpose object representation """
-        if hasattr(self, 'study'):
+        if hasattr(self, 'study') and hasattr(self, 'name') and self.name:
+            return f'{self.__class__.__name__} {self.pk} "{self.name}" of Study {self.study.name}'
+        elif hasattr(self, 'study'):
             return f'{self.__class__.__name__} {self.pk} of Study {self.study.name}'
-        elif hasattr(self, 'name'):
+        elif hasattr(self, 'name') and self.name:
             return f'{self.__class__.__name__} {self.name}'
         else:
             return f'{self.__class__.__name__} {self.pk}'

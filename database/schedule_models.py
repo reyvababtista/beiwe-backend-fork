@@ -181,7 +181,7 @@ class WeeklySchedule(TimestampedModel):
             year=start_of_this_week.year,
             month=start_of_this_week.month,
             day=start_of_this_week.day,
-            tzinfo=now.tzinfo,
+            tzinfo=self.survey.study.timezone,
         ) + timedelta(days=self.day_of_week, hours=self.hour, minutes=self.minute)
         event_next_week = event_this_week + timedelta(days=7)
         return event_this_week, event_next_week
@@ -208,6 +208,11 @@ class ScheduledEvent(TimestampedModel):
         RelativeSchedule: ScheduleTypes.relative,
         WeeklySchedule: ScheduleTypes.weekly,
     }
+    
+    @property
+    def scheduled_time_in_correct_tz(self) -> datetime:
+        # TODO: get participant timezone
+        return self.scheduled_time.astimezone(self.survey.study.timezone)
     
     def get_schedule_type(self):
         return self.SCHEDULE_CLASS_LOOKUP[self.get_schedule().__class__]

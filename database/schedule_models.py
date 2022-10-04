@@ -268,7 +268,7 @@ class ArchivedEvent(TimestampedModel):
     schedule_type = models.CharField(null=True, blank=True, max_length=32, db_index=True)
     scheduled_time = models.DateTimeField(null=True, blank=True, db_index=True)
     status = models.TextField(null=False, blank=False, db_index=True)
-    uuid = models.UUIDField(null=True, blank=True, db_index=True)
+    schedule_uuid = models.UUIDField(null=True, blank=True, db_index=True)
     
     @property
     def survey(self):

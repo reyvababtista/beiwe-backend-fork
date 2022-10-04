@@ -179,7 +179,7 @@ def send_push_notification(
         'sent_time': reference_schedule.scheduled_time.strftime(API_TIME_FORMAT),
         'type': 'survey',
         'survey_ids': json.dumps(survey_obj_ids),
-        'schedule_uuid': reference_schedule.uuid
+        'schedule_uuid': reference_schedule.uuid or ""
     }
     
     if participant.os_type == ANDROID_API:

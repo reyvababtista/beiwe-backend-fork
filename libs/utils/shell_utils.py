@@ -35,21 +35,31 @@ P = PARTICIPANT  # Pah, who has time for that.
 def RESEARCHER(username: str or int):
     if isinstance(username, int):
         return Researcher.objects.get(pk=username)
-    return Researcher.objects.get(username=username)
+    try:
+        return Researcher.objects.get(username=username)
+    except Researcher.DoesNotExist:
+        return Researcher.objects.get(username__icontains=username)
+
 
 R = RESEARCHER
 
 
-def SURVEY(object_id: str or int):
-    if isinstance(object_id, int):
-        return Survey.objects.get(pk=object_id)
-    return Survey.objects.get(object_id=object_id)
+def SURVEY(id_or_name: str or int):
+    if isinstance(id_or_name, int):
+        return Survey.objects.get(pk=id_or_name)
+    try:
+        return Survey.objects.get(object_id=id_or_name)
+    except Survey.DoesNotExist:
+        return Survey.objects.get(name__icontains=id_or_name)
 
 
-def STUDY(object_id: str or int):
-    if isinstance(object_id, int):
-        return Study.objects.get(pk=object_id)
-    return Study.objects.get(object_id=object_id)
+def STUDY(id_or_name: str or int):
+    if isinstance(id_or_name, int):
+        return Study.objects.get(pk=id_or_name)
+    try:
+        return Study.objects.get(object_id=id_or_name)
+    except Study.DoesNotExist:
+        return Study.objects.get(name__icontains=id_or_name)
 
 
 def count():

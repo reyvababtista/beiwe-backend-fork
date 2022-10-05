@@ -113,6 +113,7 @@ class Participant(AbstractPasswordUser):
     
     # "Unregistered" means the participant is blocked from uploading further data.
     unregistered = models.BooleanField(default=False)
+    easy_enrollment = models.BooleanField(default=False)
     
     # related field typings (IDE halp)
     archived_events: Manager[ArchivedEvent]

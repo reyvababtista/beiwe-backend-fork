@@ -92,10 +92,8 @@ class RelativeSchedule(TimestampedModel):
     
     @staticmethod
     def create_relative_schedules(timings: List[List[int]], survey: Survey) -> bool:
-        """
-        Creates new RelativeSchedule objects from a frontend-style list of interventions and times
-        If you modify this please update create_relative_schedules_by_name in libs.copy_study too.
-        """
+        """ Creates new RelativeSchedule objects from a frontend-style list of interventions and times
+        If you modify this please update create_relative_schedules_by_name in libs.copy_study too. """
         survey.relative_schedules.all().delete()
         if survey.deleted or not timings:
             return False

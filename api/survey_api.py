@@ -58,10 +58,8 @@ def rename_survey(request: ResearcherRequest, study_id: int = None, survey_id: i
 @require_POST
 @authenticate_researcher_study_access
 def update_survey(request: ResearcherRequest, study_id: int, survey_id: int):
-    """
-    Updates the survey when the 'Save & Deploy button on the edit_survey page is hit. Expects
-    content, weekly_timings, absolute_timings, relative_timings, and settings in the request body
-    """
+    """ Updates the survey when the 'Save & Deploy button on the edit_survey page is hit. Expects
+    content, weekly_timings, absolute_timings, relative_timings, and settings in the request body """
     survey = get_object_or_404(Survey, pk=survey_id)
     
     # BUG: There is an unknown situation where the frontend sends a string requiring an extra

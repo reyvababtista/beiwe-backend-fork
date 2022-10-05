@@ -14,7 +14,7 @@ DEBUG_PARTICIPANT_AUTHENTICATION = False
 
 def log(*args, **kwargs):
     if DEBUG_PARTICIPANT_AUTHENTICATION:
-        print(*args, **kwargs)
+        print("PARTICIPANT AUTH:", *args, **kwargs)
 
 
 def validate_post(request: HttpRequest, require_password: bool, registration: bool) -> bool:
@@ -31,6 +31,7 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
         log("password:", "password" in rp)
         log("device_id:", "device_id" in rp)
         return False
+    log("all parameters present...")
     
     # FIXME: Device Testing. need to check the app expectations on response codes
     #  this used to throw a 400 if the there was no patient_id field in the post request,
@@ -55,7 +56,9 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
             if not session_participant.validate_password(request.POST['password']):
                 log("incorrect password")
                 return False
-    
+            log("password passes validation")
+        else:
+            log("password validation skipped")
     except UnreadablePostError:
         return abort(500)
     

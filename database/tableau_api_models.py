@@ -16,6 +16,7 @@ from database.common_models import TimestampedModel
 from database.user_models import Participant
 from libs.utils.date_utils import datetime_to_list
 
+
 #
 ## GO READ THE MULTILINE STATEMENT AT THE TOP OF services/celery_forest.py
 #
@@ -33,14 +34,14 @@ class ForestParameters(TimestampedModel):
 
 
 class ForestTask(TimestampedModel):
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, db_index=True)
+    participant: Participant = models.ForeignKey('Participant', on_delete=models.PROTECT, db_index=True)
     # the external id is used for endpoints that refer to forest trackers to avoid exposing the
     # primary keys of the model. it is intentionally not the primary key
     external_id = models.UUIDField(default=uuid.uuid4, editable=False)
     
     # forest param can be null, means it used defaults
     # access using forest_param_or_none!
-    forest_param = models.ForeignKey(ForestParameters, null=True, blank=True, on_delete=models.PROTECT)  # blank must be true
+    forest_param: ForestParameters = models.ForeignKey(ForestParameters, null=True, blank=True, on_delete=models.PROTECT)  # blank must be true
     params_dict_cache = models.TextField(blank=True)  # Cache of the params used
     
     forest_tree = models.TextField(choices=ForestTree.choices())
@@ -244,7 +245,7 @@ class ForestTask(TimestampedModel):
 
 
 class SummaryStatisticDaily(TimestampedModel):
-    participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
+    participant: Participant = models.ForeignKey(Participant, on_delete=models.CASCADE)
     date = models.DateField(db_index=True)
     timezone = models.CharField(max_length=10, null=False, blank=False) # abbreviated time zone names are max 4 chars.
     
@@ -321,9 +322,9 @@ class SummaryStatisticDaily(TimestampedModel):
     sycamore_average_time_to_open = models.FloatField(null=True, blank=True)
     sycamore_average_duration = models.FloatField(null=True, blank=True)
     
-    jasmine_task = models.ForeignKey(ForestTask, blank=True, null=True, on_delete=models.PROTECT, related_name="jasmine_summary_statistics")
-    willow_task = models.ForeignKey(ForestTask, blank=True, null=True, on_delete=models.PROTECT, related_name="willow_summary_statistics")
-    sycamore_task = models.ForeignKey(ForestTask, blank=True, null=True, on_delete=models.PROTECT, related_name="sycamore_summary_statistics")
+    jasmine_task: ForestTask = models.ForeignKey(ForestTask, blank=True, null=True, on_delete=models.PROTECT, related_name="jasmine_summary_statistics")
+    willow_task: ForestTask = models.ForeignKey(ForestTask, blank=True, null=True, on_delete=models.PROTECT, related_name="willow_summary_statistics")
+    sycamore_task: ForestTask = models.ForeignKey(ForestTask, blank=True, null=True, on_delete=models.PROTECT, related_name="sycamore_summary_statistics")
     
     class Meta:
         constraints = [

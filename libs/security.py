@@ -6,6 +6,7 @@ import re
 from binascii import Error as base64_error
 from hashlib import pbkdf2_hmac as pbkdf2
 from os import urandom
+from typing import Tuple
 
 from constants.message_strings import NEW_PASSWORD_8_LONG, NEW_PASSWORD_RULES_FAIL
 from constants.security_constants import (EASY_ALPHANUMERIC_CHARS, ITERATIONS,
@@ -71,7 +72,7 @@ def decode_base64(data: bytes, paddiing_fix=0) -> bytes:
             raise Base64LengthException(f"Data provided had invalid length {length} after padding was removed.")
         
         if "incorrect padding" in str(e).lower() or "number of data characters" in str(e).lower():
-            # for unknown reasons sometimes the padding is wrong, probably on corrupted data. 
+            # for unknown reasons sometimes the padding is wrong, probably on corrupted data.
             # Character counts supposed to be divisible by 4. recurring because its easy.
             if paddiing_fix <= 4:
                 paddiing_fix += 1
@@ -83,7 +84,7 @@ def decode_base64(data: bytes, paddiing_fix=0) -> bytes:
         raise
 
 
-def generate_user_hash_and_salt(password: bytes) -> (bytes, bytes):
+def generate_user_hash_and_salt(password: bytes) -> Tuple[bytes, bytes]:
     """ Generates a hash and salt that will match a given input string, and also
         matches the hashing that is done on a user's device.
         Input is anticipated to be any arbitrary string."""
@@ -93,7 +94,7 @@ def generate_user_hash_and_salt(password: bytes) -> (bytes, bytes):
     return password_hashed, salt
 
 
-def generate_hash_and_salt(password: bytes) -> (bytes, bytes):
+def generate_hash_and_salt(password: bytes) -> Tuple[bytes, bytes]:
     """ Generates a hash and salt that will match for a given input string.
         Input is anticipated to be any arbitrary string."""
     salt = encode_base64(urandom(16))

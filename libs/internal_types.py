@@ -10,11 +10,11 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
     InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
 from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
-from database.survey_models import Survey, SurveyArchive, SurveyBase
+from database.survey_models import Survey, SurveyArchive
 from database.system_models import FileAsText, GenericEvent
 from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
-from database.user_models import (AbstractPasswordUser, Participant, ParticipantFCMHistory,
-    ParticipantFieldValue, PushNotificationDisabledEvent, Researcher, StudyRelation)
+from database.user_models import (Participant, ParticipantFCMHistory, ParticipantFieldValue,
+    PushNotificationDisabledEvent, Researcher, StudyRelation)
 
 
 """ This file includes types and typing information that may be missing from your
@@ -51,9 +51,8 @@ class TableauRequest(HttpRequest): pass
 StrOrBytes = Union[str, bytes]
 StrOrParticipantOrStudy = Union[str, Participant, Study]
 
-# Generated with scripts/generate_typing_hax.py on 2022-09-30
+# Generated with scripts/generate_typing_hax.py on 2022-10-04
 AbsoluteScheduleQuerySet = QuerySet[AbsoluteSchedule]
-AbstractPasswordUserQuerySet = QuerySet[AbstractPasswordUser]
 ApiKeyQuerySet = QuerySet[ApiKey]
 ArchivedEventQuerySet = QuerySet[ArchivedEvent]
 ChunkRegistryQuerySet = QuerySet[ChunkRegistry]
@@ -83,7 +82,6 @@ StudyQuerySet = QuerySet[Study]
 StudyRelationQuerySet = QuerySet[StudyRelation]
 SummaryStatisticDailyQuerySet = QuerySet[SummaryStatisticDaily]
 SurveyArchiveQuerySet = QuerySet[SurveyArchive]
-SurveyBaseQuerySet = QuerySet[SurveyBase]
 SurveyQuerySet = QuerySet[Survey]
 UploadTrackingQuerySet = QuerySet[UploadTracking]
 WeeklyScheduleQuerySet = QuerySet[WeeklySchedule]

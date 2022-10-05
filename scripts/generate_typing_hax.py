@@ -17,8 +17,7 @@ managers = set()
 
 for name, database_model in vars(database_models).items():
     if (
-        isinstance(database_model, ModelBase) and UtilityModel in database_model.mro() and
-        database_model is not UtilityModel and database_model is not TimestampedModel
+        isinstance(database_model, ModelBase) and database_model._meta.abstract == False
     ):
         # the queryset and the the relashionship
         querysets.add(f"{name}QuerySet = QuerySet[{name}]")

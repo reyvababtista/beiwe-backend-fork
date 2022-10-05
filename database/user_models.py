@@ -10,22 +10,30 @@ from django.db.models.query import QuerySet
 from constants.user_constants import ANDROID_API, IOS_API, OS_TYPE_CHOICES, ResearcherRole
 from database.common_models import UtilityModel
 from database.models import TimestampedModel
+from database.study_models import Study
 from database.validators import ID_VALIDATOR, STANDARD_BASE_64_VALIDATOR, URL_SAFE_BASE_64_VALIDATOR
 from libs.firebase_config import check_firebase_instance
 from libs.security import (compare_password, device_hash, generate_easy_alphanumeric_string,
     generate_hash_and_salt, generate_random_string, generate_user_hash_and_salt)
 
 
+# this is an import hack to improve IDE assistance
+try:
+    from database.models import (ApiKey, ArchivedEvent, ChunkRegistry, EncryptionErrorMetadata,
+        FileToProcess, ForestTask, InterventionDate, IOSDecryptionKey, LineEncryptionError,
+        ScheduledEvent, StudyField, SummaryStatisticDaily, UploadTracking)
+except ImportError:
+    pass
+
+
 class AbstractPasswordUser(TimestampedModel):
-    """
-    The AbstractPasswordUser (APU) model is used to enable basic password functionality for human
-    users of the database, whatever variety of user they may be.
+    """ The AbstractPasswordUser (APU) model is used to enable basic password functionality for
+    human users of the database, whatever variety of user they may be.
 
     APU descendants have passwords hashed once with sha256 and many times (as defined in
-    settings.py) with PBKDF2, and salted using a cryptographically secure random number
-    generator. The sha256 check duplicates the storage of the password on the mobile device, so
-    that the APU's password is never stored in a reversible manner.
-    """
+    settings.py) with PBKDF2, and salted using a cryptographically secure random number generator.
+    The sha256 check duplicates the storage of the password on the mobile device, so that the APU's
+    password is never stored in a reversible manner. """
     
     password = models.CharField(max_length=44, validators=[URL_SAFE_BASE_64_VALIDATOR],
                                 help_text='A hash of the user\'s password')
@@ -89,8 +97,8 @@ class Participant(AbstractPasswordUser):
         max_length=16, choices=OS_TYPE_CHOICES, blank=True,
         help_text='The type of device the participant is using, if any.'
     )
-    study = models.ForeignKey(
-        'Study', on_delete=models.PROTECT, related_name='participants', null=False
+    study: Study = models.ForeignKey(
+        Study, on_delete=models.PROTECT, related_name='participants', null=False
     )
     
     timezone_name = models.CharField(  # Warning: this is not used yet.
@@ -107,21 +115,21 @@ class Participant(AbstractPasswordUser):
     unregistered = models.BooleanField(default=False)
     
     # related field typings (IDE halp)
-    archived_events: Manager  # schedule_models.ArchivedEvent
-    chunk_registries: Manager  # data_access_models.ChunkRegistry
+    archived_events: Manager[ArchivedEvent]
+    chunk_registries: Manager[ChunkRegistry]
     fcm_tokens: Manager[ParticipantFCMHistory]
     field_values: Manager[ParticipantFieldValue]
-    files_to_process: Manager  # data_access_models.FileToProcess
-    intervention_dates: Manager  # schedule_models.InterventionDate
-    scheduled_events: Manager  # schedule_models.ScheduledEvent
-    upload_trackers: Manager  # profiling_models.UploadTracking
+    files_to_process: Manager[FileToProcess]
+    intervention_dates: Manager[InterventionDate]
+    scheduled_events: Manager[ScheduledEvent]
+    upload_trackers: Manager[UploadTracking]
     # undeclared:
-    encryptionerrormetadata_set: Manager  # profiling_models.EncryptionErrorMetadata
-    foresttask_set: Manager  # tableau_api_models.ForestTask
-    iosdecryptionkey_set: Manager  # data_access_models.IOSDecryptionKey
-    lineencryptionerror_set: Manager  # profiling_models.LineEncryptionError
+    encryptionerrormetadata_set: Manager[EncryptionErrorMetadata]
+    foresttask_set: Manager[ForestTask]
+    iosdecryptionkey_set: Manager[IOSDecryptionKey]
+    lineencryptionerror_set: Manager[LineEncryptionError]
     pushnotificationdisabledevent_set: Manager[PushNotificationDisabledEvent]
-    summarystatisticdaily_set: Manager  # tableau_api_models.SummaryStatisticDaily
+    summarystatisticdaily_set: Manager[SummaryStatisticDaily]
     
     
     @classmethod
@@ -188,14 +196,14 @@ class Participant(AbstractPasswordUser):
 class PushNotificationDisabledEvent(UtilityModel):
     # There may be many events
     # this is (currently) purely for record keeping.
-    participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT)
+    participant: Participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT)
     count = models.IntegerField(null=False)
     timestamp = models.DateTimeField(null=False, blank=False, auto_now_add=True, db_index=True)
 
 
 class ParticipantFCMHistory(TimestampedModel):
     # by making the token unique the solution to problems becomes "reinstall the app"
-    participant = models.ForeignKey("Participant", null=False, on_delete=models.PROTECT, related_name="fcm_tokens")
+    participant: Participant = models.ForeignKey("Participant", null=False, on_delete=models.PROTECT, related_name="fcm_tokens")
     token = models.CharField(max_length=256, blank=False, null=False, db_index=True, unique=True,
                              validators=[MinLengthValidator(1)])
     unregistered = models.DateTimeField(null=True, blank=True)
@@ -203,8 +211,8 @@ class ParticipantFCMHistory(TimestampedModel):
 
 class ParticipantFieldValue(UtilityModel):
     """ These objects can be deleted.  These are values for per-study custom fields for users """
-    participant = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='field_values')
-    field = models.ForeignKey('StudyField', on_delete=models.CASCADE, related_name='field_values')
+    participant: Participant = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='field_values')
+    field: StudyField = models.ForeignKey('StudyField', on_delete=models.CASCADE, related_name='field_values')
     value = models.TextField(null=False, blank=True, default="")
     
     class Meta:
@@ -225,7 +233,7 @@ class Researcher(AbstractPasswordUser):
     access_key_secret_salt = models.CharField(max_length=24, validators=[URL_SAFE_BASE_64_VALIDATOR], blank=True)
     
     # related field typings (IDE halp)
-    api_keys: Manager  # security_models.ApiKey
+    api_keys: Manager[ApiKey]
     study_relations: Manager[StudyRelation]
     
     @classmethod
@@ -276,19 +284,18 @@ class Researcher(AbstractPasswordUser):
             study_id__in=studies).values_list("researcher_id", flat=True).distinct()
         return Researcher.objects.filter(id__in=researchers)
     
-    def get_administered_researchers_by_username(self) -> Researcher:
-        
+    def get_administered_researchers_by_username(self) -> QuerySet[Researcher]:
         return (
             self.get_administered_researchers()
                 .annotate(username_lower=Func(F('username'), function='LOWER'))
                 .order_by('username_lower')
         )
     
-    def get_administered_studies_by_name(self):
+    def get_administered_studies_by_name(self) -> QuerySet[Study]:
         from database.models import Study
         return Study._get_administered_studies_by_name(self)
     
-    def generate_hash_and_salt(self, password: bytes):
+    def generate_hash_and_salt(self, password: bytes) -> Tuple[bytes, bytes]:
         return generate_hash_and_salt(password)
     
     def elevate_to_site_admin(self):
@@ -300,8 +307,8 @@ class Researcher(AbstractPasswordUser):
         study_relation.relationship = ResearcherRole.study_admin
         study_relation.save()
     
-    def validate_access_credentials(self, proposed_secret_key):
-        """ Returns True/False if the provided secret key is correct for this user."""
+    def validate_access_credentials(self, proposed_secret_key: str) -> bool:
+        """ Returns True/False if the provided secret key is correct for this user. """
         return compare_password(
             proposed_secret_key.encode(),
             self.access_key_secret_salt.encode(),
@@ -318,19 +325,17 @@ class Researcher(AbstractPasswordUser):
         self.save()
         return access_key.decode(), secret_key.decode()
     
-    def get_admin_study_relations(self):
+    def get_admin_study_relations(self) -> QuerySet[StudyRelation]:
         return self.study_relations.filter(relationship=ResearcherRole.study_admin)
     
-    def get_researcher_study_relations(self):
+    def get_researcher_study_relations(self) -> QuerySet[StudyRelation]:
         return self.study_relations.filter(relationship=ResearcherRole.researcher)
     
-    def get_researcher_studies_by_name(self):
-        from database.models import Study
+    def get_researcher_studies_by_name(self) -> QuerySet[Study]:
         return Study.get_researcher_studies_by_name(self)
     
-    def get_visible_studies_by_name(self):
+    def get_visible_studies_by_name(self) -> QuerySet[Study]:
         if self.site_admin:
-            from database.models import Study
             return Study.get_all_studies_by_name()
         else:
             return self.get_researcher_studies_by_name()
@@ -350,24 +355,18 @@ class Researcher(AbstractPasswordUser):
     def is_site_admin_or_study_admin(self, study_id: int) -> bool:
         return self.site_admin or self.check_study_admin(study_id)
     
-    def __str__(self):
+    def __str__(self) -> str:
         if self.site_admin:
             return f"{self.username} (Site Admin)"
         return f"{self.username}"
 
 
 class StudyRelation(TimestampedModel):
-    """
-    This is the through-model for defining the relationship between a researcher and a study.
-    There are these relatioships:
-        site admin
-        study admin
-        researcher
-    """
-    study = models.ForeignKey(
-        'Study', on_delete=models.CASCADE, related_name='study_relations', null=False, db_index=True
+    """ This is the through-model for defining the relationship between a researcher and a study. """
+    study: Study = models.ForeignKey(
+        Study, on_delete=models.CASCADE, related_name='study_relations', null=False, db_index=True
     )
-    researcher = models.ForeignKey(
+    researcher: Researcher = models.ForeignKey(
         'Researcher', on_delete=models.CASCADE, related_name='study_relations', null=False, db_index=True
     )
     relationship = models.CharField(max_length=32, null=False, blank=False, db_index=True)

@@ -6,10 +6,17 @@ from django.db.models import Manager
 from database.models import TimestampedModel
 
 
+# this is an import hack to improve IDE assistance
+try:
+    from database.models import Study
+except ImportError:
+    pass
+
+
 class DashboardColorSetting(TimestampedModel):
     """ Database model, details of color settings point at this model. """
     data_type = models.CharField(max_length=32)
-    study = models.ForeignKey("Study", on_delete=models.PROTECT, related_name="dashboard_colors")
+    study: Study = models.ForeignKey("Study", on_delete=models.PROTECT, related_name="dashboard_colors")
     
     # related field typings (IDE halp)
     gradient: Manager[DashboardGradient]
@@ -48,7 +55,7 @@ class DashboardColorSetting(TimestampedModel):
 
 class DashboardGradient(TimestampedModel):
     # It should be the case that there is only one gradient per DashboardColorSettings
-    dashboard_color_setting = models.OneToOneField(
+    dashboard_color_setting: DashboardColorSetting = models.OneToOneField(
         DashboardColorSetting, on_delete=models.PROTECT, related_name="gradient", unique=True,
     )
     
@@ -60,7 +67,7 @@ class DashboardGradient(TimestampedModel):
 
 class DashboardInflection(TimestampedModel):
     # an inflection corresponds to a flag value that has an operator to display a "flag" on the dashboard front end
-    dashboard_color_setting = models.ForeignKey(
+    dashboard_color_setting: DashboardColorSetting = models.ForeignKey(
         DashboardColorSetting, on_delete=models.PROTECT, related_name="inflections"
     )
     

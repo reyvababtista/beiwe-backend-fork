@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 from collections import Counter
 from datetime import datetime, timedelta
 from typing import Dict
 
 from django.db import models
+from django.db.models import QuerySet
+
 from django.utils import timezone
 
 from constants.common_constants import API_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATETIME
@@ -13,6 +17,13 @@ from constants.user_constants import OS_TYPE_CHOICES
 from database.models import TimestampedModel
 from database.user_models import Participant
 from libs.security import chunk_hash
+
+
+# this is an import hack to improve IDE assistance
+try:
+    from database.models import Study, Survey
+except ImportError:
+    pass
 
 
 class UnchunkableDataTypeError(Exception): pass
@@ -33,18 +44,18 @@ class ChunkRegistry(TimestampedModel):
     data_type = models.CharField(max_length=32, db_index=True)
     time_bin = models.DateTimeField(db_index=True)
     file_size = models.IntegerField(null=True, default=None)  # Size (in bytes) of the uncompressed file
-    study = models.ForeignKey(
+    study: Study = models.ForeignKey(
         'Study', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True
     )
-    participant = models.ForeignKey(
+    participant: Participant = models.ForeignKey(
         'Participant', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True
     )
-    survey = models.ForeignKey(
+    survey: Survey = models.ForeignKey(
         'Survey', blank=True, null=True, on_delete=models.PROTECT, related_name='chunk_registries',
         db_index=True
     )
     
-    def s3_retrieve(self):
+    def s3_retrieve(self) -> bytes:
         from libs.s3 import s3_retrieve
         return s3_retrieve(self.chunk_path, self.study.object_id, raw_path=True)
     
@@ -102,7 +113,8 @@ class ChunkRegistry(TimestampedModel):
         chunk.save()
     
     @classmethod
-    def get_chunks_time_range(cls, study_id, user_ids=None, data_types=None, start=None, end=None):
+    def get_chunks_time_range(
+        cls, study_id, user_ids=None, data_types=None, start=None, end=None) -> QuerySet[ChunkRegistry]:
         """This function uses Django query syntax to provide datetimes and have Django do the
         comparison operation, and the 'in' operator to have Django only match the user list
         provided. """
@@ -118,7 +130,7 @@ class ChunkRegistry(TimestampedModel):
         return cls.objects.filter(**query)
     
     @classmethod
-    def get_updated_users_for_study(cls, study, date_of_last_activity):
+    def get_updated_users_for_study(cls, study, date_of_last_activity) -> QuerySet[str]:
         """ Returns a list of patient ids that have had new or updated ChunkRegistry data
         since the datetime provided. """
         # note that date of last activity is actually date of last data processing operation on the
@@ -128,7 +140,7 @@ class ChunkRegistry(TimestampedModel):
         ).values_list("participant__patient_id", flat=True).distinct()
     
     @classmethod
-    def exclude_bad_time_bins(cls):
+    def exclude_bad_time_bins(cls) -> QuerySet[ChunkRegistry]:
         # roughly one month before beiwe launch date
         return cls.objects.exclude(time_bin__lt=EARLIEST_POSSIBLE_DATA_DATETIME)
 
@@ -136,17 +148,17 @@ class ChunkRegistry(TimestampedModel):
 class FileToProcess(TimestampedModel):
     # todo: this should have a max length of 66 characters on audio recordings
     s3_file_path = models.CharField(max_length=256, blank=False, unique=True)
-    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='files_to_process')
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='files_to_process')
+    study: Study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='files_to_process')
+    participant: Participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='files_to_process')
     os_type = models.CharField(max_length=16, choices=OS_TYPE_CHOICES, blank=True, null=False, default="")
     deleted = models.BooleanField(default=False)
     
-    def s3_retrieve(self):
+    def s3_retrieve(self) -> bytes:
         from libs.s3 import s3_retrieve
         return s3_retrieve(self.s3_file_path, self.study, raw_path=True)
-
+    
     @staticmethod
-    def normalize_s3_file_path(file_path: str, study_object_id: str):
+    def normalize_s3_file_path(file_path: str, study_object_id: str) -> str:
         """ whatever the reason for this file path transform is has been lost to the mists of time.
             We force the start of the path to the object id string of the study. """
         if file_path[:24] == study_object_id:
@@ -155,7 +167,7 @@ class FileToProcess(TimestampedModel):
             return study_object_id + '/' + file_path
     
     @classmethod
-    def test_file_path_exists(cls, file_path: str, study_object_id: str):
+    def test_file_path_exists(cls, file_path: str, study_object_id: str) -> bool:
         # identifies whether the provided file path currently exists.
         # we get terrible performance issues in data processing when duplicate files are present
         # in FileToProcess. We added a unique constraint and need to test the condition.
@@ -259,4 +271,4 @@ class IOSDecryptionKey(TimestampedModel):
     # encryption keys are 128 bits base64 encoded, so 24 characters
     file_name = models.CharField(max_length=80, blank=False, unique=True, db_index=True)
     base64_encryption_key = models.CharField(max_length=24, blank=False)
-    participant = models.ForeignKey("Participant", on_delete=models.CASCADE)
+    participant: Participant = models.ForeignKey("Participant", on_delete=models.CASCADE)

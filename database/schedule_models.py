@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, tzinfo
@@ -14,11 +13,18 @@ from database.common_models import TimestampedModel
 from database.survey_models import Survey, SurveyArchive
 
 
+# this is an import hack to improve IDE assistance
+try:
+    from database.models import Participant, Study
+except ImportError:
+    pass
+
+
 class BadWeeklyCount(Exception): pass
 
 
 class AbsoluteSchedule(TimestampedModel):
-    survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='absolute_schedules')
+    survey: Survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='absolute_schedules')
     date = models.DateField(null=False, blank=False)
     hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
     minute = models.PositiveIntegerField(validators=[MaxValueValidator(59)])
@@ -27,7 +33,7 @@ class AbsoluteSchedule(TimestampedModel):
     scheduled_events: Manager[ScheduledEvent]
     
     @property
-    def event_time(self):
+    def event_time(self) -> datetime:
         return datetime(
             year=self.date.year,
             month=self.date.month,
@@ -60,8 +66,8 @@ class AbsoluteSchedule(TimestampedModel):
 
 
 class RelativeSchedule(TimestampedModel):
-    survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='relative_schedules')
-    intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='relative_schedules', null=True)
+    survey: Survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='relative_schedules')
+    intervention: Intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='relative_schedules', null=True)
     days_after = models.IntegerField(default=0)
     # to be clear: these are absolute times of day, not offsets
     hour = models.PositiveIntegerField(validators=[MaxValueValidator(23)])
@@ -188,16 +194,16 @@ class WeeklySchedule(TimestampedModel):
 
 
 class ScheduledEvent(TimestampedModel):
-    survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='scheduled_events')
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='scheduled_events')
-    weekly_schedule = models.ForeignKey('WeeklySchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)
-    relative_schedule = models.ForeignKey('RelativeSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)
-    absolute_schedule = models.ForeignKey('AbsoluteSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)
+    survey: Survey = models.ForeignKey('Survey', on_delete=models.CASCADE, related_name='scheduled_events')
+    participant: Participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='scheduled_events')
+    weekly_schedule: WeeklySchedule = models.ForeignKey('WeeklySchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)
+    relative_schedule: RelativeSchedule = models.ForeignKey('RelativeSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)
+    absolute_schedule: AbsoluteSchedule = models.ForeignKey('AbsoluteSchedule', on_delete=models.CASCADE, related_name='scheduled_events', null=True, blank=True)
     scheduled_time = models.DateTimeField()
     deleted = models.BooleanField(null=False, default=False, db_index=True)
     uuid = models.UUIDField(null=True, blank=True, db_index=True, unique=True)
     checkin_time = models.DateTimeField(null=True, blank=True, db_index=True)
-    most_recent_event = models.ForeignKey("ArchivedEvent", on_delete=models.DO_NOTHING, null=True)
+    most_recent_event: ArchivedEvent = models.ForeignKey("ArchivedEvent", on_delete=models.DO_NOTHING, null=True)
     
     # due to import complexity (needs those classes) this is the best place to stick the lookup dict.
     SCHEDULE_CLASS_LOOKUP = {
@@ -263,21 +269,21 @@ class ScheduledEvent(TimestampedModel):
 class ArchivedEvent(TimestampedModel):
     # The survey archive cannot point to schedule objects because schedule objects can be deleted
     # (not just marked as deleted)
-    survey_archive = models.ForeignKey('SurveyArchive', on_delete=models.PROTECT, related_name='archived_events', db_index=True)
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='archived_events', db_index=True)
+    survey_archive: SurveyArchive = models.ForeignKey('SurveyArchive', on_delete=models.PROTECT, related_name='archived_events', db_index=True)
+    participant: Participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='archived_events', db_index=True)
     schedule_type = models.CharField(null=True, blank=True, max_length=32, db_index=True)
     scheduled_time = models.DateTimeField(null=True, blank=True, db_index=True)
     status = models.TextField(null=False, blank=False, db_index=True)
     uuid = models.UUIDField(null=True, blank=True, db_index=True)
     
     @property
-    def survey(self):
+    def survey(self) -> Survey:
         return self.survey_archive.survey
 
 
 class Intervention(TimestampedModel):
     name = models.TextField()
-    study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='interventions')
+    study: Study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='interventions')
     
     # related field typings (IDE halp)
     intervention_dates: Manager[InterventionDate]
@@ -286,8 +292,8 @@ class Intervention(TimestampedModel):
 
 class InterventionDate(TimestampedModel):
     date = models.DateField(null=True, blank=True)
-    participant = models.ForeignKey('Participant', on_delete=models.CASCADE, related_name='intervention_dates')
-    intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='intervention_dates')
+    participant: Participant = models.ForeignKey('Participant', on_delete=models.CASCADE, related_name='intervention_dates')
+    intervention: Intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='intervention_dates')
     
     class Meta:
         unique_together = ('participant', 'intervention',)

@@ -7,7 +7,7 @@ from typing import Optional
 from dateutil.tz import gettz
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import F, Func, Q
+from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
 from django.utils import timezone
 from django.utils.timezone import localtime
@@ -17,7 +17,6 @@ from constants.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT,
 from constants.user_constants import ResearcherRole
 from database.common_models import UtilityModel
 from database.models import JSONTextField, TimestampedModel
-from database.user_models import Participant, Researcher
 from database.validators import LengthValidator
 
 
@@ -42,6 +41,17 @@ class Study(TimestampedModel):
     )
     deleted = models.BooleanField(default=False)
     forest_enabled = models.BooleanField(default=False)
+    
+    # related field typings (IDE halp)
+    chunk_registries: Manager  # data_access_models.ChunkRegistry
+    dashboard_colors: Manager  # dashboard_models.DashboardColorSetting
+    device_settings: Manager[DeviceSettings]
+    fields: Manager[StudyField]
+    files_to_process: Manager  # data_access_models.FileToProcess
+    interventions: Manager  # schedule_models.Intervention
+    participants: Manager  # user_models.Participant
+    study_relations: Manager  # user_models.StudyRelation
+    surveys: Manager  # survey_models.Survey
     
     def save(self, *args, **kwargs):
         """ Ensure there is a study device settings attached to this study. """
@@ -85,6 +95,7 @@ class Study(TimestampedModel):
         return cls.get_all_studies_by_name().filter(study_relations__researcher=researcher)
     
     def get_researchers(self):
+        from database.user_models import Researcher
         return Researcher.objects.filter(study_relations__study=self)
     
     # We override the as_unpacked_native_python function to not include the encryption key.
@@ -162,6 +173,9 @@ class StudyField(UtilityModel):
     
     class Meta:
         unique_together = (("study", "field_name"),)
+    
+    # related field typings (IDE halp)
+    field_values: Manager  # user_models.ParticipantFieldValue
 
 
 class DeviceSettings(TimestampedModel):

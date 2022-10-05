@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import json
 
 from django.db import models
+from django.db.models import Manager
 
 from constants.study_constants import AUDIO_SURVEY_SETTINGS, IMAGE_SURVEY_SETTINGS
 from database.common_models import JSONTextField, TimestampedModel
@@ -60,6 +63,14 @@ class Survey(SurveyBase):
     # the study field is not inherited because we need to change its related name
     study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='surveys')
     name = models.TextField(blank=True, null=False, default="")
+    
+    # related field typings (IDE halp)
+    absolute_schedules: Manager  # schedule_models.AbsoluteSchedule
+    archives: Manager[SurveyArchive]
+    chunk_registries: Manager  # data_access_models.ChunkRegistry
+    relative_schedules: Manager  # schedule_models.RelativeSchedule
+    scheduled_events: Manager  # schedule_models.ScheduledEvent
+    weekly_schedules: Manager  # schedule_models.WeeklySchedule
     
     @classmethod
     def create_with_object_id(cls, **kwargs):
@@ -193,3 +204,6 @@ class SurveyArchive(SurveyBase):
     """ All fields declared in abstract survey are copied whenever a change is made to a survey """
     archive_start = models.DateTimeField(db_index=True)
     survey = models.ForeignKey('Survey', on_delete=models.PROTECT, related_name='archives', db_index=True)
+    
+    # related field typings (IDE halp)
+    archived_events: Manager  # schedule_models.ArchivedEvent

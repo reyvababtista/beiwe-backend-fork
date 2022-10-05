@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import timedelta
 from typing import Dict, List
 
@@ -8,7 +10,6 @@ from constants.data_stream_constants import (DATA_STREAM_TO_S3_FILE_NAME_STRING,
     UPLOAD_FILE_TYPE_MAPPING)
 from database.common_models import UtilityModel
 from database.models import JSONTextField, Participant, TimestampedModel
-from libs.security import decode_base64, encode_base64
 
 
 class EncryptionErrorMetadata(TimestampedModel):
@@ -17,7 +18,7 @@ class EncryptionErrorMetadata(TimestampedModel):
     number_errors = models.PositiveIntegerField()
     error_lines = JSONTextField()
     error_types = JSONTextField()
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, null=True)
+    participant: Participant = models.ForeignKey(Participant, on_delete=models.PROTECT, null=True)
 
 
 class LineEncryptionError(TimestampedModel):
@@ -50,14 +51,14 @@ class LineEncryptionError(TimestampedModel):
     base64_decryption_key = models.TextField()
     prev_line = models.TextField(blank=True)
     next_line = models.TextField(blank=True)
-    participant = models.ForeignKey(Participant, null=True, on_delete=models.PROTECT)
+    participant: Participant = models.ForeignKey(Participant, null=True, on_delete=models.PROTECT)
 
 
 class UploadTracking(UtilityModel):
     file_path = models.CharField(max_length=256)
     file_size = models.PositiveIntegerField()
     timestamp = models.DateTimeField()
-    participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='upload_trackers')
+    participant: Participant = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='upload_trackers')
     
     @classmethod
     def re_add_files_to_process(cls, number=100):
@@ -143,11 +144,9 @@ class UploadTracking(UtilityModel):
                 ))
         FileToProcess.objects.bulk_create(new_ftps)
     
-    
     @classmethod
-    def get_trailing_count(cls, time_delta):
+    def get_trailing_count(cls, time_delta) -> int:
         return cls.objects.filter(timestamp__gte=timezone.now() - time_delta).count()
-    
     
     @classmethod
     def weekly_stats(cls, days=7, get_usernames=False):

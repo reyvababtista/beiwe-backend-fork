@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import operator
-from datetime import datetime
+from datetime import datetime, tzinfo
 from typing import Optional
 
 from dateutil.tz import gettz
@@ -18,6 +18,14 @@ from constants.user_constants import ResearcherRole
 from database.common_models import UtilityModel
 from database.models import JSONTextField, TimestampedModel
 from database.validators import LengthValidator
+
+
+# this is an import hack to improve IDE assistance
+try:
+    from database.models import (ChunkRegistry, DashboardColorSetting, FileToProcess, Intervention,
+        Participant, ParticipantFieldValue, Researcher, StudyRelation, Survey)
+except ImportError:
+    pass
 
 
 class Study(TimestampedModel):
@@ -43,15 +51,15 @@ class Study(TimestampedModel):
     forest_enabled = models.BooleanField(default=False)
     
     # related field typings (IDE halp)
-    chunk_registries: Manager  # data_access_models.ChunkRegistry
-    dashboard_colors: Manager  # dashboard_models.DashboardColorSetting
+    chunk_registries: Manager[ChunkRegistry]
+    dashboard_colors: Manager[DashboardColorSetting]
     device_settings: Manager[DeviceSettings]
     fields: Manager[StudyField]
-    files_to_process: Manager  # data_access_models.FileToProcess
-    interventions: Manager  # schedule_models.Intervention
-    participants: Manager  # user_models.Participant
-    study_relations: Manager  # user_models.StudyRelation
-    surveys: Manager  # survey_models.Survey
+    files_to_process: Manager[FileToProcess]
+    interventions: Manager[Intervention]
+    participants: Manager[Participant]
+    study_relations: Manager[StudyRelation]
+    surveys: Manager[Survey]
     
     def save(self, *args, **kwargs):
         """ Ensure there is a study device settings attached to this study. """
@@ -69,7 +77,7 @@ class Study(TimestampedModel):
             super().save(*args, **kwargs)
     
     @classmethod
-    def create_with_object_id(cls, **kwargs):
+    def create_with_object_id(cls, **kwargs) -> Study:
         """ Creates a new study with a populated object_id field. """
         study = cls(object_id=cls.generate_objectid_string("object_id"), **kwargs)
         study.save()
@@ -91,39 +99,41 @@ class Study(TimestampedModel):
             )
     
     @classmethod
-    def get_researcher_studies_by_name(cls, researcher):
+    def get_researcher_studies_by_name(cls, researcher) -> QuerySet[Study]:
         return cls.get_all_studies_by_name().filter(study_relations__researcher=researcher)
     
-    def get_researchers(self):
+    def get_researchers(self) -> QuerySet[Researcher]:
         from database.user_models import Researcher
         return Researcher.objects.filter(study_relations__study=self)
     
     # We override the as_unpacked_native_python function to not include the encryption key.
-    def as_unpacked_native_python(self, remove_timestamps=True):
+    def as_unpacked_native_python(self, remove_timestamps=True) -> dict:
         ret = super().as_unpacked_native_python(remove_timestamps=remove_timestamps)
         ret.pop("encryption_key")
         return ret
     
-    def get_earliest_data_time_bin(self, only_after_epoch: bool = True,
-                                   only_before_now: bool = True) -> Optional[datetime]:
+    def get_earliest_data_time_bin(
+        self, only_after_epoch: bool = True, only_before_now: bool = True
+    ) -> Optional[datetime]:
         return self._get_data_time_bin(
             earliest=True,
             only_after_epoch=only_after_epoch,
             only_before_now=only_before_now,
         )
     
-    def get_latest_data_time_bin(self, only_after_epoch: bool = True,
-                                 only_before_now: bool = True) -> Optional[datetime]:
+    def get_latest_data_time_bin(
+            self, only_after_epoch: bool = True, only_before_now: bool = True
+    ) -> Optional[datetime]:
         return self._get_data_time_bin(
             earliest=False,
             only_after_epoch=only_after_epoch,
             only_before_now=only_before_now,
         )
     
-    def _get_data_time_bin(self, earliest=True, only_after_epoch: bool = True,
-                           only_before_now: bool = True) -> Optional[datetime]:
-        """
-        Return the earliest ChunkRegistry time bin datetime for this study.
+    def _get_data_time_bin(
+        self, earliest=True, only_after_epoch: bool = True, only_before_now: bool = True
+    ) -> Optional[datetime]:
+        """ Return the earliest ChunkRegistry time bin datetime for this study.
 
         Note: As of 2021-07-01, running the query as a QuerySet filter or sorting the QuerySet can
               take upwards of 30 seconds. Doing the logic in python speeds this up tremendously.
@@ -131,9 +141,8 @@ class Study(TimestampedModel):
             earliest: if True, will return earliest datetime; if False, will return latest datetime
             only_after_epoch: if True, will filter results only for datetimes after the Unix epoch
                               (1970-01-01T00:00:00Z)
-            only_before_now: if True, will filter results only for datetimes before now
-        """
-        time_bins = self.chunk_registries.values_list("time_bin", flat=True)
+            only_before_now: if True, will filter results only for datetimes before now """
+        time_bins: QuerySet[datetime] = self.chunk_registries.values_list("time_bin", flat=True)
         comparator = operator.lt if earliest else operator.gt
         now = timezone.now()
         desired_time_bin = None
@@ -161,28 +170,26 @@ class Study(TimestampedModel):
         return localtime(localtime(), timezone=self.timezone)  # localtime(localtime(... saves an import... :D
     
     @property
-    def timezone(self):
+    def timezone(self) -> tzinfo:
         """ So pytz.timezone("America/New_York") provides a tzinfo-like object that is wrong by 4
         minutes.  That's insane.  The dateutil gettz function doesn't have that fun insanity. """
         return gettz(self.timezone_name)
 
 
 class StudyField(UtilityModel):
-    study = models.ForeignKey(Study, on_delete=models.PROTECT, related_name='fields')
+    study: Study = models.ForeignKey(Study, on_delete=models.PROTECT, related_name='fields')
     field_name = models.TextField()
     
     class Meta:
         unique_together = (("study", "field_name"),)
     
     # related field typings (IDE halp)
-    field_values: Manager  # user_models.ParticipantFieldValue
+    field_values: Manager[ParticipantFieldValue]
 
 
 class DeviceSettings(TimestampedModel):
-    """
-    The DeviceSettings database contains the structure that defines
-    settings pushed to devices of users in of a study.
-    """
+    """ The DeviceSettings database contains the structure that defines settings pushed to devices
+    of users in of a study. """
     
     # Whether various device options are turned on
     accelerometer = models.BooleanField(default=True)
@@ -240,4 +247,4 @@ class DeviceSettings(TimestampedModel):
     # Consent sections
     consent_sections = JSONTextField(default=DEFAULT_CONSENT_SECTIONS_JSON)
     
-    study = models.OneToOneField('Study', on_delete=models.PROTECT, related_name='device_settings')
+    study: Study = models.OneToOneField(Study, on_delete=models.PROTECT, related_name='device_settings')

@@ -5,6 +5,8 @@ from io import BytesIO
 from typing import List
 from unittest.mock import MagicMock, patch
 
+import time_machine
+from dateutil import tz
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import models
 from django.forms.fields import NullBooleanField
@@ -39,7 +41,7 @@ from libs.copy_study import format_study
 from libs.rsa import get_RSA_cipher
 from libs.schedules import (get_start_and_end_of_java_timings_week,
     repopulate_absolute_survey_schedule_events, repopulate_relative_survey_schedule_events)
-from libs.security import generate_easy_alphanumeric_string
+from libs.security import device_hash, generate_easy_alphanumeric_string
 from tests.common import (BasicSessionTestCase, CommonTestCase, DataApiTest, ParticipantSessionTest,
     RedirectSessionApiTest, ResearcherSessionTest, SmartRequestsTestCase)
 from tests.helpers import DummyThreadPool
@@ -1933,7 +1935,7 @@ class TestDownloadStudyInterventions(DataApiTest):
         json_unpacked = json.loads(resp.content)
         correct_output = {self.DEFAULT_PARTICIPANT_NAME:
                             {self.DEFAULT_SURVEY_OBJECT_ID:
-                                {self.DEFAULT_INTERVENTION_NAME: self.DEFAULT_DATE.isoformat()}}}
+                                {self.DEFAULT_INTERVENTION_NAME: self.CURRENT_DATE.isoformat()}}}
         self.assertDictEqual(json_unpacked, correct_output)
 
 
@@ -2425,6 +2427,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         output_survey = json.loads(resp.content.decode())
         self.assertEqual(output_survey, reference_output)
     
+    @time_machine.travel(datetime(2022, 9, 29, 12, tzinfo=tz.gettz("New_York/America")))
     def test_absolute_schedule_basics(self):
         # test for absolute surveys that they show up regardless of the day of the week they fall on,
         # as long as that day is within the current week.
@@ -2465,11 +2468,12 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         output_survey = json.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
     
-    # relatives
+    @time_machine.travel(datetime(2022, 9, 29, 12, tzinfo=tz.gettz("New_York/America")))
     def test_relative_schedule_basics(self):
+        # this test needds to run on a thursday
         # test that a relative survey creates schedules that get output in survey timings at all
         self.generate_relative_schedule(self.default_survey, self.default_intervention, days_after=-1)
-        self.default_populated_intervention_date
+        self.default_populated_intervention_date.date
         repopulate_relative_survey_schedule_events(self.default_survey, self.default_participant)
         resp = self.smart_post_status_code(200)
         output_survey = json.loads(resp.content.decode())
@@ -2521,9 +2525,14 @@ class TestGetLatestSurveys(ParticipantSessionTest):
 
 class TestRegisterParticipant(ParticipantSessionTest):
     ENDPOINT_NAME = "mobile_api.register_user"
+    DISABLE_CREDENTIALS = True
+    NEW_PASSWORD = "something_new"
+    NEW_PASSWORD_HASHED = device_hash(NEW_PASSWORD.encode()).decode()
     
-    BASIC_PARAMS = {
-            'patient_id': "abc123AB",
+    @property
+    def BASIC_PARAMS(self):
+        return {
+            'patient_id': self.session_participant.patient_id,
             'phone_number': "0000000000",
             'device_id': "pretty_much anything",
             'device_os': "something",
@@ -2534,26 +2543,92 @@ class TestRegisterParticipant(ParticipantSessionTest):
             "manufacturer": "something",
             "model": "something",
             "beiwe_version": "something",
-            "new_password": "something_new"
+            "new_password": self.NEW_PASSWORD,
+            "password": self.DEFAULT_PARTICIPANT_PASSWORD_HASHED
         }
     
     def test_bad_request(self):
-        self.smart_post_status_code(400)
+        self.smart_post_status_code(403)
     
     @patch("api.mobile_api.s3_upload")
     @patch("api.mobile_api.get_client_public_key_string")
-    def test_success_never_registered_before(
+    def test_success_unregistered_before(
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
     ):
         s3_upload.return_value = None
         get_client_public_key_string.return_value = "a_private_key"
-        
         # unregistered participants have no device id
         self.session_participant.update(device_id="")
         resp = self.smart_post_status_code(200, **self.BASIC_PARAMS)
         
         response_dict = json.loads(resp.content)
         self.assertEqual("a_private_key", response_dict["client_public_key"])
+        self.session_participant.refresh_from_db()
+        self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
+    
+    @patch("api.mobile_api.s3_upload")
+    @patch("api.mobile_api.get_client_public_key_string")
+    def test_success_bad_device_id_still_works(
+        self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
+    ):
+        # we blanket disabled device id validation
+        s3_upload.return_value = None
+        get_client_public_key_string.return_value = "a_private_key"
+        # unregistered participants have no device id
+        params = self.BASIC_PARAMS
+        params['device_id'] = "hhhhhhhhhhhhhhhhhhh"
+        self.session_participant.update(device_id="aosnetuhsaronceu")
+        resp = self.smart_post_status_code(200, **params)
+        response_dict = json.loads(resp.content)
+        self.assertEqual("a_private_key", response_dict["client_public_key"])
+        self.session_participant.refresh_from_db()
+        self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
+    
+    @patch("api.mobile_api.s3_upload")
+    @patch("api.mobile_api.get_client_public_key_string")
+    def test_bad_password(
+        self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
+    ):
+        s3_upload.return_value = None
+        get_client_public_key_string.return_value = "a_private_key"
+        params = self.BASIC_PARAMS
+        params['password'] = "nope!"
+        resp = self.smart_post_status_code(403, **params)
+        self.assertEqual(resp.content, b"")
+        self.session_participant.refresh_from_db()
+        self.assertFalse(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
+    
+    @patch("api.mobile_api.s3_upload")
+    @patch("api.mobile_api.get_client_public_key_string")
+    def test_study_easy_enrollment(
+        self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
+    ):
+        s3_upload.return_value = None
+        get_client_public_key_string.return_value = "a_private_key"
+        params = self.BASIC_PARAMS
+        self.default_study.update(easy_enrollment=True)
+        params['password'] = "nope!"
+        resp = self.smart_post_status_code(200, **params)
+        response_dict = json.loads(resp.content)
+        self.assertEqual("a_private_key", response_dict["client_public_key"])
+        self.session_participant.refresh_from_db()
+        self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
+    
+    @patch("api.mobile_api.s3_upload")
+    @patch("api.mobile_api.get_client_public_key_string")
+    def test_participant_easy_enrollment(
+        self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
+    ):
+        s3_upload.return_value = None
+        get_client_public_key_string.return_value = "a_private_key"
+        params = self.BASIC_PARAMS
+        self.default_participant.update(easy_enrollment=True)
+        params['password'] = "nope!"
+        resp = self.smart_post_status_code(200, **params)
+        response_dict = json.loads(resp.content)
+        self.assertEqual("a_private_key", response_dict["client_public_key"])
+        self.session_participant.refresh_from_db()
+        self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
 
 
 class TestMobileUpload(ParticipantSessionTest):

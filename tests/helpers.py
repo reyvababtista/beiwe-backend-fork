@@ -22,7 +22,7 @@ from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
 from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
 from database.user_models import Participant, ParticipantFCMHistory, Researcher, StudyRelation
-from libs.security import generate_easy_alphanumeric_string
+from libs.security import device_hash, generate_easy_alphanumeric_string
 
 
 CURRENT_TEST_HTML_FILEPATH = BEIWE_PROJECT_ROOT + "private/current_test_page.html"
@@ -39,10 +39,14 @@ class ReferenceObjectMixin:
     DEFAULT_SURVEY_OBJECT_ID = 'u1Z3SH7l2xNsw72hN3LnYi96'
     DEFAULT_PARTICIPANT_NAME = "patient1"  # has to be 8 characters
     DEFAULT_PARTICIPANT_PASSWORD = "abcABC123"
+    DEFAULT_PARTICIPANT_PASSWORD_HASHED = device_hash(DEFAULT_PARTICIPANT_PASSWORD.encode()).decode()
     DEFAULT_PARTICIPANT_DEVICE_ID = "default_device_id"
     DEFAULT_INTERVENTION_NAME = "default_intervention_name"
-    # this should be okay even though it changes.
-    DEFAULT_DATE = timezone.now().today().date()
+    
+    # this needs to be a dynamic property in order for the time_machine library to work 
+    @property
+    def CURRENT_DATE(self) -> datetime:
+        return timezone.now().today().date()
     
     # For all defaults make sure to maintain the pattern that includes the use of the save function,
     # this codebase implements a special save function that validates before passing through.
@@ -66,7 +70,7 @@ class ReferenceObjectMixin:
     def default_study(self):
         """ alias for session_study """
         return self.session_study
-
+    
     def generate_study(
         self, name: str, encryption_key: str = None, object_id: str = None, is_test: bool = None,
         forest_enabled: bool = None
@@ -255,7 +259,7 @@ class ReferenceObjectMixin:
             pass
         self._default_populated_intervention_date = \
             self.generate_intervention_date(
-                self.default_participant, self.default_intervention, self.DEFAULT_DATE
+                self.default_participant, self.default_intervention, self.CURRENT_DATE
             )
         return self._default_populated_intervention_date
     

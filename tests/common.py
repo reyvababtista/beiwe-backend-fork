@@ -51,6 +51,11 @@ if VERBOSE_2_OR_3:
     messages.error = monkeypatch_messages(messages.error)
 
 
+class HttpResponse(HttpResponse):
+    # This class exists to improve IDE type interpretation
+    content: bytes
+
+
 class CommonTestCase(TestCase, ReferenceObjectMixin):
     """ This class contains the various test-oriented features, for example the assert_present
     method that handles a common case of some otherwise distracting type coersion. """
@@ -338,6 +343,7 @@ class ResearcherSessionTest(PopulatedResearcherSessionTestCase, SmartRequestsTes
 class ParticipantSessionTest(SmartRequestsTestCase):
     ENDPOINT_NAME = None
     IOS_ENDPOINT_NAME = None
+    DISABLE_CREDENTIALS = False
     
     def setUp(self) -> None:
         """ Populate the session participant variable. """
@@ -345,14 +351,20 @@ class ParticipantSessionTest(SmartRequestsTestCase):
         return super().setUp()
     
     def smart_post(self, *reverse_args, reverse_kwargs=None, **post_params) -> HttpResponse:
-        post_params["patient_id"] = self.session_participant.patient_id
-        post_params["device_id"] = self.DEFAULT_PARTICIPANT_DEVICE_ID
-        # the participant password is special.
-        post_params["password"] = device_hash(self.DEFAULT_PARTICIPANT_PASSWORD.encode()).decode()
+        if not self.DISABLE_CREDENTIALS:
+            post_params["patient_id"] = self.session_participant.patient_id
+            post_params["device_id"] = self.DEFAULT_PARTICIPANT_DEVICE_ID
+            # the participant password is special.
+            post_params["password"] = self.DEFAULT_PARTICIPANT_PASSWORD_HASHED
+        return super().smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
+    
+    def less_smart_post(self, *reverse_args, reverse_kwargs=None, **post_params) -> HttpResponse:
+        """ we need the passthrough and calling super() in an implementation class is dumb.... """
         return super().smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
 
 
 class DataApiTest(SmartRequestsTestCase):
+    DISABLE_CREDENTIALS = False
     
     def setUp(self) -> None:
         self.session_access_key, self.session_secret_key = \
@@ -360,10 +372,11 @@ class DataApiTest(SmartRequestsTestCase):
         return super().setUp()
     
     def smart_post(self, *reverse_args, reverse_kwargs={}, **post_params) -> HttpResponseRedirect:
-        # As smart post, but assert that the request was redirected, and that it points to the
-        # appropriate endpoint.
-        post_params["access_key"] = self.session_access_key
-        post_params["secret_key"] = self.session_secret_key
+        if not self.DISABLE_CREDENTIALS:
+            # As smart post, but assert that the request was redirected, and that it points to the
+            # appropriate endpoint.
+            post_params["access_key"] = self.session_access_key
+            post_params["secret_key"] = self.session_secret_key
         return super().smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
     
     def less_smart_post(self, *reverse_args, reverse_kwargs=None, **post_params) -> HttpResponse:

@@ -63,11 +63,11 @@ class AbstractPasswordUser(TimestampedModel):
         self.set_password(password)
         return password
     
-    def validate_password(self, compare_me):
+    def validate_password(self, compare_me: str) -> bool:
         """ Checks if the input matches the instance's password hash. """
         return compare_password(compare_me.encode(), self.salt.encode(), self.password.encode())
     
-    def as_unpacked_native_python(self, remove_timestamps=True):
+    def as_unpacked_native_python(self, remove_timestamps=True) -> dict:
         ret = super().as_unpacked_native_python(remove_timestamps=remove_timestamps)
         ret.pop("password")
         ret.pop("salt")

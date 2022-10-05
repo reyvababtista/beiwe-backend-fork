@@ -4,7 +4,7 @@ from typing import Tuple
 
 from django.core.validators import MinLengthValidator
 from django.db import models
-from django.db.models import F, Func
+from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
 
 from constants.user_constants import ANDROID_API, IOS_API, OS_TYPE_CHOICES, ResearcherRole
@@ -104,6 +104,24 @@ class Participant(AbstractPasswordUser):
     # "Unregistered" means the participant is blocked from uploading further data.
     unregistered = models.BooleanField(default=False)
     
+    # related field typings (IDE halp)
+    archived_events: Manager  # schedule_models.ArchivedEvent
+    chunk_registries: Manager  # data_access_models.ChunkRegistry
+    fcm_tokens: Manager[ParticipantFCMHistory]
+    field_values: Manager[ParticipantFieldValue]
+    files_to_process: Manager  # data_access_models.FileToProcess
+    intervention_dates: Manager  # schedule_models.InterventionDate
+    scheduled_events: Manager  # schedule_models.ScheduledEvent
+    upload_trackers: Manager  # profiling_models.UploadTracking
+    # undeclared:
+    encryptionerrormetadata_set: Manager  # profiling_models.EncryptionErrorMetadata
+    foresttask_set: Manager  # tableau_api_models.ForestTask
+    iosdecryptionkey_set: Manager  # data_access_models.IOSDecryptionKey
+    lineencryptionerror_set: Manager  # profiling_models.LineEncryptionError
+    pushnotificationdisabledevent_set: Manager[PushNotificationDisabledEvent]
+    summarystatisticdaily_set: Manager  # tableau_api_models.SummaryStatisticDaily
+    
+    
     @classmethod
     def create_with_password(cls, **kwargs) -> Tuple[str, str]:
         """ Creates a new participant with randomly generated patient_id and password. """
@@ -182,9 +200,7 @@ class ParticipantFCMHistory(TimestampedModel):
 
 
 class ParticipantFieldValue(UtilityModel):
-    """
-    These objects can be deleted.  These are values for per-study custom fields for users
-    """
+    """ These objects can be deleted.  These are values for per-study custom fields for users """
     participant = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='field_values')
     field = models.ForeignKey('StudyField', on_delete=models.CASCADE, related_name='field_values')
     value = models.TextField(null=False, blank=True, default="")
@@ -194,12 +210,10 @@ class ParticipantFieldValue(UtilityModel):
 
 
 class Researcher(AbstractPasswordUser):
-    """
-    The Researcher database object contains the password hashes and unique usernames of any
-    researchers, as well as their data access credentials. A Researcher can be attached to
-    multiple Studies, and a Researcher may also be an admin who has extra permissions.
-    A Researcher uses web, so their passwords are hashed accordingly.
-    """
+    """ The Researcher database object contains the password hashes and unique usernames of any
+    researchers, as well as their data access credentials. A Researcher can be attached to multiple
+    Studies, and a Researcher may also be an admin who has extra permissions. A Researcher uses web,
+    so their passwords are hashed accordingly. """
     
     username = models.CharField(max_length=32, unique=True, help_text='User-chosen username, stored in plain text')
     site_admin = models.BooleanField(default=False, help_text='Whether the researcher is also an admin')
@@ -207,6 +221,10 @@ class Researcher(AbstractPasswordUser):
     access_key_id = models.CharField(max_length=64, validators=[STANDARD_BASE_64_VALIDATOR], unique=True, null=True, blank=True)
     access_key_secret = models.CharField(max_length=44, validators=[URL_SAFE_BASE_64_VALIDATOR], blank=True)
     access_key_secret_salt = models.CharField(max_length=24, validators=[URL_SAFE_BASE_64_VALIDATOR], blank=True)
+    
+    # related field typings (IDE halp)
+    api_keys: Manager  # security_models.ApiKey
+    study_relations: Manager[StudyRelation]
     
     @classmethod
     def create_with_password(cls, username, password, **kwargs) -> Researcher:

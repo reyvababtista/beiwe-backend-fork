@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import pickle
 import uuid
@@ -6,13 +8,13 @@ from os.path import join as path_join
 from typing import Optional
 
 from django.db import models
+from django.db.models import Manager
 
 from constants.forest_constants import (DEFAULT_FOREST_PARAMETERS_LOOKUP, ForestTaskStatus,
     ForestTree, ROOT_FOREST_TASK_PATH, SYCAMORE_DATE_FORMAT)
 from database.common_models import TimestampedModel
 from database.user_models import Participant
 from libs.utils.date_utils import datetime_to_list
-
 
 #
 ## GO READ THE MULTILINE STATEMENT AT THE TOP OF services/celery_forest.py
@@ -26,6 +28,10 @@ class ForestParameters(TimestampedModel):
     tree_name = models.TextField(blank=False, null=False, choices=ForestTree.choices())
     json_parameters = models.TextField(blank=False, null=False)
     deleted = models.BooleanField(default=False)
+    
+    # related field typings (IDE halp)
+    # undeclared:
+    foresttask_set: Manager[ForestTask]
 
 
 class ForestTask(TimestampedModel):
@@ -57,6 +63,11 @@ class ForestTask(TimestampedModel):
     
     all_bv_set_s3_key = models.TextField(blank=True)
     all_memory_dict_s3_key = models.TextField(blank=True)
+    
+    # related field typings (IDE halp)
+    jasmine_summary_statistics: Manager[SummaryStatisticDaily]
+    sycamore_summary_statistics: Manager[SummaryStatisticDaily]
+    willow_summary_statistics: Manager[SummaryStatisticDaily]
     
     #
     ## non-fields

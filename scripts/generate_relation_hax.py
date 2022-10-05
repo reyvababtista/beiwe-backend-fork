@@ -1,15 +1,25 @@
 # to generate the below list run this little script.  Don't use * imports.
 from collections import defaultdict
 from typing import Union
-from django.db.models import Manager, QuerySet
+
+from django.db.models import Model
 from django.db.models.base import ModelBase
+from django.db.models.fields.reverse_related import ManyToOneRel, OneToOneRel
+
 from database import models as database_models
 from database.common_models import TimestampedModel, UtilityModel
-from pprint import pprint
-from django.db.models.fields.reverse_related import OneToOneRel, ManyToOneRel
-
 from database.survey_models import Survey
-from datetime import date
+
+"""
+This script prints out type annotations that can be pasted in the static scope of a database model
+that will assist your IDE autocompletion and type tracking for ForeignKey "related_name" attributes.
+The script includes typing information, either as a comment or as the appropriate class in a real
+type annotation whenever the class is declared in the same file and available.
+
+Add to top of files, allows use of types declared later in a file scope in earlier type annotations:
+from __future__ import annotations
+"""
+
 
 related_names = defaultdict(list)
 
@@ -30,25 +40,48 @@ for _, database_model in vars(database_models).items():
                 related_name = field_relationship.related_model.__name__.lower() + "_set"
             else:
                 related_name = field_relationship.related_name
-            related_names[database_model.__name__].append((related_name, field_relationship.related_model.__name__))
+            related_names[database_model].append(
+                (
+                    related_name,
+                    field_relationship.related_model.__name__,
+                    field_relationship.related_model
+                )
+            )
 
 print()
-print("from django.db.models import QuerySet")
+print("from __future__ import annotations")
+print("from django.db.models import Manager")
 print()
-for database_model_name, list_related_names in related_names.items():
+for database_model, list_related_model_stuff in related_names.items():
     print()
-    print(f"{database_model_name}:")
-    print("    # related field typings (enhances ide assistance)")
-    list_related_names.sort()
-    named = [(name, t) for (name, t) in list_related_names if not name.endswith("_set")]
-    unnamed = [(name, t) for (name, t) in list_related_names if name.endswith("_set")]
+    print(f"{database_model.__name__}:")
     
-    for related_name, related_type in named:
-        # print(f"    {related_name}: QuerySet[{related_type}]")
-        print(f"    {related_name}: Union[Manager, List[{related_type}]]")
+    print("    # related field typings (IDE halp)")
+    list_related_model_stuff.sort()
+    named = [(name, t, rt) for (name, t, rt) in list_related_model_stuff if not name.endswith("_set")]
+    unnamed = [(name, t, rt) for (name, t, rt) in list_related_model_stuff if name.endswith("_set")]
+    
+    related_name: str
+    related_type_name: str
+    related_model: Model
+    
+    for related_name, related_type_name, related_model in named:
+        # identify classes in same module
+        if database_model.__module__ != related_model.__module__:
+            # if file_prefix uses lstrip('database.') with that period it... gets weird
+            file_prefix = str(related_model.__module__).lstrip('database').lstrip(".")
+            output = f"    {related_name}: Manager  # {file_prefix}.{related_model.__name__}"
+        else:
+            output = f"    {related_name}: Manager[{related_type_name}]"
+        print(output)
     
     if unnamed:
         print("    # undeclared:")
-        for related_name, related_type in unnamed:
-            # print(f"    {related_name}: QuerySet[{related_type}]")
-            print(f"    {related_name}: Union[Manager, List[{related_type}]]")
+        for related_name, related_type_name, related_model in unnamed:
+            if database_model.__module__ != related_model.__module__:
+                # if file_prefix uses lstrip('database.') with that period it... gets weird
+                file_prefix = str(related_model.__module__).lstrip('database').lstrip(".")
+                output = f"    {related_name}: Manager  # {file_prefix}.{related_model.__name__}"
+            else:
+                output = f"    {related_name}: Manager[{related_type_name}]"
+            print(output)

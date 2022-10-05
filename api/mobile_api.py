@@ -14,7 +14,6 @@ from config.settings import UPLOAD_LOGGING_ENABLED
 from constants.celery_constants import ANDROID_FIREBASE_CREDENTIALS, IOS_FIREBASE_CREDENTIALS
 from constants.message_strings import (DEVICE_IDENTIFIERS_HEADER, INVALID_EXTENSION_ERROR,
     NO_FILE_ERROR, UNKNOWN_ERROR)
-from constants.user_constants import IOS_API
 from database.data_access_models import FileToProcess
 from database.system_models import FileAsText
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,

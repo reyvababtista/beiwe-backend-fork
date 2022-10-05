@@ -50,10 +50,12 @@ class Study(TimestampedModel):
     deleted = models.BooleanField(default=False)
     forest_enabled = models.BooleanField(default=False)
     
+    easy_enrollment = models.BooleanField(default=False)
+    
     # related field typings (IDE halp)
     chunk_registries: Manager[ChunkRegistry]
     dashboard_colors: Manager[DashboardColorSetting]
-    device_settings: Manager[DeviceSettings]
+    device_settings: DeviceSettings
     fields: Manager[StudyField]
     files_to_process: Manager[FileToProcess]
     interventions: Manager[Intervention]

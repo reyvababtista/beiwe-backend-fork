@@ -17,7 +17,7 @@ def log(*args, **kwargs):
         print(*args, **kwargs)
 
 
-def validate_post(request: HttpRequest, require_password: bool, validate_device_id: bool) -> bool:
+def validate_post(request: HttpRequest, require_password: bool, registration: bool) -> bool:
     """Check if user exists, check if the provided passwords match, and if the device id matches."""
     # even if the password won't be checked we want the key to be present.
     try:
@@ -45,16 +45,17 @@ def validate_post(request: HttpRequest, require_password: bool, validate_device_
     except UnreadablePostError:
         return abort(500)
     
+    # check participants and studies for easy enrollment
+    if registration:
+        if session_participant.easy_enrollment or session_participant.study.easy_enrollment:
+            require_password = False
+    
     try:
         if require_password:
             if not session_participant.validate_password(request.POST['password']):
                 log("incorrect password")
                 return False
-        
-        if validate_device_id:  # no longer in use Sep 28 2022
-            if not session_participant.device_id == request.POST['device_id']:
-                log("incorrect device_id")
-                return False
+    
     except UnreadablePostError:
         return abort(500)
     
@@ -73,7 +74,7 @@ def minimal_validation(some_function) -> callable:
             f"first parameter of {some_function.__name__} must be an HttpRequest, was {type(request)}."
         correct_for_basic_auth(request)
         
-        if validate_post(request, require_password=False, validate_device_id=False):
+        if validate_post(request, require_password=False, registration=False):
             return some_function(*args, **kwargs)
         
         # ios requires different http codes
@@ -97,7 +98,7 @@ def authenticate_participant(some_function) -> callable:
             f"first parameter of {some_function.__name__} must be an HttpRequest, was {type(request)}."
         correct_for_basic_auth(request)
         
-        if validate_post(request, require_password=True, validate_device_id=False):
+        if validate_post(request, require_password=True, registration=False):
             return some_function(*args, **kwargs)
         is_ios = kwargs.get("OS_API", None) == IOS_API
         return abort(401 if is_ios else 403)
@@ -108,7 +109,7 @@ def authenticate_participant_registration(some_function) -> callable:
     """ Decorator for functions (pages) that require a user to provide identification. Returns
     403 (forbidden) or 401 (depending on beiwe-api-version) if the identifying info (username,
     password, device ID) are invalid.
-
+    
     In any function wrapped with this decorator provide a parameter named "patient_id" (with the
     user's id) and a parameter named "password" with an SHA256 hashed instance of the user's
     password. """
@@ -119,7 +120,7 @@ def authenticate_participant_registration(some_function) -> callable:
             f"first parameter of {some_function.__name__} must be an HttpRequest, was {type(request)}."
         correct_for_basic_auth(request)
         
-        if validate_post(request, require_password=True, validate_device_id=False):
+        if validate_post(request, require_password=True, registration=True):
             return some_function(*args, **kwargs)
         
         is_ios = kwargs.get("OS_API", None) == IOS_API
@@ -131,26 +132,24 @@ def authenticate_participant_registration(some_function) -> callable:
 #  https on all connections.  Fundamentally we need a rewrite of the participant auth structure to
 #  disconnect it from the user password.  This is a major undertaking.
 def correct_for_basic_auth(request: ParticipantRequest):
-    """
-    Basic auth is used in IOS.
-
+    """ Basic auth is used in IOS.
+    
     If basic authentication exists and is in the correct format, move the patient_id,
     device_id, and password into request.values for processing by the existing user
     authentication functions.
-
+    
     Flask automatically parses a Basic authentication header into request.authorization
-
+    
     If this is set, and the username portion is in the form xxxxxx@yyyyyyy, then assume this is
     patient_id@device_id.
-
+    
     Parse out the patient_id, device_id from username, and then store patient_id, device_id and
     password as if they were passed as parameters (into request.values)
-
+    
     Note:  Because request.values is immutable in Flask, copy it and replace with a mutable dict
     first.
-
-    Check if user exists, check if the provided passwords match.
-    """
+    
+    Check if user exists, check if the provided passwords match. """
     
     if 'HTTP_AUTHORIZATION' in request.META:
         auth = request.META['HTTP_AUTHORIZATION'].split()

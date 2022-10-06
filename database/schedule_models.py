@@ -201,7 +201,7 @@ class ScheduledEvent(TimestampedModel):
     deleted = models.BooleanField(null=False, default=False, db_index=True)
     uuid = models.UUIDField(null=True, blank=True, db_index=True, unique=True)
     checkin_time = models.DateTimeField(null=True, blank=True, db_index=True)
-    most_recent_event: ArchivedEvent = models.ForeignKey("ArchivedEvent", on_delete=models.DO_NOTHING, null=True)
+    most_recent_event: ArchivedEvent = models.ForeignKey("ArchivedEvent", on_delete=models.DO_NOTHING, null=True, blank=True)
     
     # due to import complexity (needs those classes) this is the best place to stick the lookup dict.
     SCHEDULE_CLASS_LOOKUP = {

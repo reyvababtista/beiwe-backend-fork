@@ -6,9 +6,10 @@ import orjson
 
 from database.schedule_models import InterventionDate, RelativeSchedule
 from database.study_models import Study
+from libs.internal_types import DictOfStrStr
 
 
-def intervention_survey_data(study: Study) -> Dict[str, Dict[str, Dict[str, str]]]:
+def intervention_survey_data(study: Study) -> Dict[str, Dict[str, DictOfStrStr]]:
     # this was manually tested to cover multiple interventions per survey, and multiple surveys per intervention
     intervention_dates_data = (
         InterventionDate.objects.filter(

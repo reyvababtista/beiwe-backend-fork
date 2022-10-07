@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Dict, List, Union
 
 from django.db.models import Manager, QuerySet
 from django.http.request import HttpRequest
@@ -48,8 +48,17 @@ class TableauRequest(HttpRequest): pass
 ## Other classes
 #
 
+# Go ahead and add to these, until we update to 3.10 we can't use the | operator for Union
 StrOrBytes = Union[str, bytes]
+DictOfStrStr = Dict[str, str]
+DictOfStrInt = Dict[str, int]
+DictOfIntStr = Dict[int, str]
+DictOfIntInt = Dict[int, int]
+DictOfStrToListOfStr = Dict[str, List[str]]
+
+# used in s3
 StrOrParticipantOrStudy = Union[str, Participant, Study]
+
 
 # Generated with scripts/generate_typing_hax.py on 2022-10-04
 AbsoluteScheduleQuerySet = QuerySet[AbsoluteSchedule]

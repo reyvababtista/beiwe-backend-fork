@@ -35,6 +35,7 @@ def decompose_datetime_to_timings(dt: datetime) -> Tuple[int, int]:
 #
 # Event scheduling
 #
+# FIXME: make this idempotent
 def set_next_weekly(participant: Participant, survey: Survey) -> None:
     ''' Create a next ScheduledEvent for a survey for a particular participant. Uses get_or_create. '''
     schedule_date, schedule = get_next_weekly_event_and_schedule(survey)
@@ -197,13 +198,13 @@ def repopulate_relative_survey_schedule_events(survey: Survey, single_participan
     ScheduledEvent.objects.bulk_create(new_events)
 
 
-def get_next_weekly_event_and_schedule(survey: Survey) -> (datetime, WeeklySchedule):
+def get_next_weekly_event_and_schedule(survey: Survey) -> Tuple[datetime, WeeklySchedule]:
     """ Determines the next time for a particular survey, provides the relevant weekly schedule. """
     now = survey.study.now()
     timings_list = []
     # our possible next weekly event may be this week, or next week; get this week if it hasn't
     # happened, next week if it has.  A survey can have many weekly schedules, grab them all.
-    weekly_schedule: WeeklySchedule
+    
     for weekly_schedule in survey.weekly_schedules.all():
         this_week, next_week = weekly_schedule.get_prior_and_next_event_times(now)
         timings_list.append((this_week if now < this_week else next_week, weekly_schedule))

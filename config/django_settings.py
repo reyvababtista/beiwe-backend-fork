@@ -96,7 +96,16 @@ SHELL_PLUS_POST_IMPORTS = [
     ['libs.utils.dev_utils', "GlobalTimeTracker"],
     
     # s3
-    ["libs.s3", ("s3_list_files", "s3_upload", "s3_upload_plaintext", "s3_retrieve", "s3_retrieve_plaintext")],
+    [
+        "libs.s3",
+        (
+            "s3_list_files", "s3_upload", "s3_upload_plaintext", "s3_retrieve",
+            "s3_retrieve_plaintext"
+        )
+    ],
+    
+    # I need to be able to paste code >_O
+    ["typing", ("List", "Dict", "Tuple", "Union", 'Counter', 'Deque', 'Dict', 'DefaultDict')]
 ]
 SHELL_PLUS_PRE_IMPORTS = []
 

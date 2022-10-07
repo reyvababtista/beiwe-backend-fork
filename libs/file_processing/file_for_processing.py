@@ -1,5 +1,3 @@
-# This file contains the class and necessary functions for the general data container
-# class that we use.
 import sys
 import traceback
 
@@ -13,23 +11,27 @@ class SomeException(Exception): pass
 class SomeException2(Exception): pass
 
 
+# This file contains the class and necessary functions for the general data container
+# class that we use.
+
+
 class FileForProcessing():
     def __init__(self, file_to_process: FileToProcess):
         self.file_to_process: FileToProcess = file_to_process
         self.data_type: str = s3_file_path_to_data_type(file_to_process.s3_file_path)
         self.chunkable: bool = self.data_type in CHUNKABLE_FILES
         self.file_contents: bytes = None
-
+        
         # state tracking
         self.exception: Exception or None = None
         self.traceback: str or None = None
-
+        
         # magically populate at instantiation for now due to networking paradigm.
         self.download_file_contents()
-
+    
     def clear_file_content(self):
-        del self.file_contents
-
+        self.file_contents: bytes = None
+    
     def download_file_contents(self) -> bytes or None:
         """ Handles network errors and updates state accordingly """
         # Try to retrieve the file contents. If any errors are raised, store them to be raised by the
@@ -45,7 +47,7 @@ class FileForProcessing():
             self.traceback = sys.exc_info()
             self.exception = e
             raise SomeException(e)
-
+    
     def raise_data_processing_error(self):
         """
         If we encountered any errors in retrieving the files for processing, they have been

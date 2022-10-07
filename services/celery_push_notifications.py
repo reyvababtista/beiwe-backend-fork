@@ -2,7 +2,7 @@ import json
 import random
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Tuple
 
 from django.utils import timezone
 from firebase_admin.messaging import (AndroidConfig, Message, Notification, QuotaExceededError,
@@ -19,6 +19,7 @@ from database.schedule_models import ScheduledEvent
 from database.user_models import Participant, ParticipantFCMHistory, PushNotificationDisabledEvent
 from libs.celery_control import push_send_celery_app, safe_apply_async
 from libs.firebase_config import check_firebase_instance
+from libs.internal_types import DictOfStrStr, DictOfStrToListOfStr
 from libs.schedules import set_next_weekly
 from libs.sentry import make_error_sentry, SentryTypes
 
@@ -27,8 +28,12 @@ from libs.sentry import make_error_sentry, SentryTypes
 ############################# PUSH NOTIFICATIONS ###############################
 ################################################################################
 
-def get_surveys_and_schedules(now):
-    """ Mostly this function exists to reduce namespace clutter. """
+# TODO: make this a class
+def get_surveys_and_schedules(now: datetime) -> Tuple[DictOfStrToListOfStr, DictOfStrToListOfStr, DictOfStrStr]:
+    """ Mostly this function exists to reduce mess. returns:
+    a mapping of fcm tokens to list of survey object ids
+    a mapping of fcm tokens to list of schedule ids
+    a mapping of fcm tokens to patient ids """
     # get: schedule time is in the past for participants that have fcm tokens.
     # need to filter out unregistered fcms, database schema sucks for that, do it in python. its fine.
     query = ScheduledEvent.objects.filter(
@@ -48,7 +53,6 @@ def get_surveys_and_schedules(now):
         "participant__fcm_tokens__unregistered",
     )
     
-    # defaultdicts = clean code, convert to dicts at end.
     # we need a mapping of fcm tokens (a proxy for participants) to surveys and schedule ids (pks)
     surveys = defaultdict(list)
     schedules = defaultdict(list)

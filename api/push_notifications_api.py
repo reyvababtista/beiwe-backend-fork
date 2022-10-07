@@ -176,7 +176,7 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
         'survey_ids': json.dumps([survey.object_id]),
         'sent_time': now.strftime(API_TIME_FORMAT),
         'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32)),
-        'schedule_uuid': unscheduled_event.uuid
+        'schedule_uuid': unscheduled_event.uuid or "",
     }
     
     if participant.os_type == ANDROID_API:

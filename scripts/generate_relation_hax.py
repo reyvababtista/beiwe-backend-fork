@@ -10,6 +10,7 @@ from database import models as database_models
 from database.common_models import TimestampedModel, UtilityModel
 from database.survey_models import Survey
 
+# FIXME: we don't handle onetoone fields correctly, those aren't managers
 """
 This script prints out type annotations that can be pasted in the static scope of a database model
 that will assist your IDE autocompletion and type tracking for ForeignKey "related_name" attributes.

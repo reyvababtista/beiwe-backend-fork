@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Tuple
 
+from Cryptodome.PublicKey import RSA
 from django.core.validators import MinLengthValidator
 from django.db import models
 from django.db.models import F, Func, Manager
@@ -17,7 +18,19 @@ from libs.security import (compare_password, device_hash, generate_easy_alphanum
     generate_hash_and_salt, generate_random_string, generate_user_hash_and_salt)
 
 
-# this is an import hack to improve IDE assistance
+# This is an import hack to improve IDE assistance.  Most of these imports are cyclical and fail at
+# runtime, but they remain present in the _lexical_ scope of the file.  Python's _parser_ recognizes
+# the symbol name, which in turn allows us to use them in type annotations.  There are no _runtime_
+# errors because type annotations are completely elided from the runtime.  With these annotations
+# your IDE is able to provide type inferencing and other typed assistance throughout the codebase.
+#
+# By attaching some extra type declarations to model classes for django's dynamically generated
+# properties (example: "scheduled_events" on the Participant class below) we magically get type
+# information almost everywhere.  (These can be generated for you automatically by running `python
+# run_script.py generate_relation_hax` and pasting as required.)
+#
+# If you must to use an unimportable class (like ArchivedEvent in the notification_events()
+# convenience method on Participants below) you will need to use a local import.
 try:
     from database.models import (ApiKey, ArchivedEvent, ChunkRegistry, EncryptionErrorMetadata,
         FileToProcess, ForestTask, InterventionDate, IOSDecryptionKey, LineEncryptionError,
@@ -40,7 +53,7 @@ class AbstractPasswordUser(TimestampedModel):
     salt = models.CharField(max_length=24, validators=[URL_SAFE_BASE_64_VALIDATOR])
     
     # This stub function declaration is present because it is used in the set_password funcion below
-    def generate_hash_and_salt(self, password):
+    def generate_hash_and_salt(self, password) -> Tuple[bytes, bytes]:
         """ Generate a password hash and random salt from a given password. This is different
         for different types of APUs, depending on whether they use mobile or web. """
         raise NotImplementedError
@@ -151,13 +164,12 @@ class Participant(AbstractPasswordUser):
         # Create a Participant, and generate for them a password
         participant = cls(patient_id=patient_id, **kwargs)
         password = participant.reset_password()  # this saves participant
-        
         return patient_id, password
     
-    def generate_hash_and_salt(self, password: bytes):
+    def generate_hash_and_salt(self, password: bytes) -> Tuple[bytes, bytes]:
         return generate_user_hash_and_salt(password)
     
-    def debug_validate_password(self, compare_me: str):
+    def debug_validate_password(self, compare_me: str) -> bool:
         """ Checks if the input matches the instance's password hash, but does the hashing for you
         for use on the command line. This is necessary for manually checking that setting and
         validating passwords work. """
@@ -173,13 +185,14 @@ class Participant(AbstractPasswordUser):
         except ParticipantFCMHistory.DoesNotExist:
             return None
     
-    def notification_events(self, **archived_event_filter_kwargs):
+    def notification_events(self, **archived_event_filter_kwargs) -> Manager[ArchivedEvent]:
+        """ convenience methodd for use debugging in the terminal mostly. """
         from database.schedule_models import ArchivedEvent
         return ArchivedEvent.objects.filter(participant=self).filter(
             **archived_event_filter_kwargs
         ).order_by("-scheduled_time")
     
-    def get_private_key(self):
+    def get_private_key(self) -> RSA.RsaKey:
         from libs.s3 import get_client_private_key  # weird import triangle
         return get_client_private_key(self.patient_id, self.study.object_id)
     
@@ -190,7 +203,7 @@ class Participant(AbstractPasswordUser):
             self.os_type == IOS_API and check_firebase_instance(require_ios=True)
         )
     
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.patient_id} of Study "{self.study.name}"'
 
 
@@ -239,10 +252,8 @@ class Researcher(AbstractPasswordUser):
     
     @classmethod
     def create_with_password(cls, username, password, **kwargs) -> Researcher:
-        """
-        Creates a new Researcher with provided username and password. They will initially
-        not be associated with any Study.
-        """
+        """ Creates a new Researcher with provided username and password. They will initially
+        not be associated with any Study. """
         researcher = cls(username=username, **kwargs)
         researcher.set_password(password)
         # todo add check to see if access credentials are in kwargs
@@ -251,18 +262,14 @@ class Researcher(AbstractPasswordUser):
     
     @classmethod
     def create_without_password(cls, username) -> Researcher:
-        """
-        Create a new Researcher with provided username and no password
-        """
+        """ Create a new Researcher with provided username and no password """
         r = cls(username=username, password='fakepassword', salt='cab', site_admin=False)
         r.reset_access_credentials()
         return r
     
     @classmethod
-    def check_password(cls, username, compare_me):
-        """
-        Checks if the provided password matches the hash of the provided Researcher's password.
-        """
+    def check_password(cls, username, compare_me) -> bool:
+        """ Checks if the provided password matches the hash of the provided Researcher's password. """
         if not Researcher.objects.filter(username=username).exists():
             return False
         researcher = Researcher.objects.get(username=username)

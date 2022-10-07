@@ -59,6 +59,9 @@ DictOfStrToListOfStr = Dict[str, List[str]]
 # used in s3
 StrOrParticipantOrStudy = Union[str, Participant, Study]
 
+# A Schedule
+Schedule = Union[WeeklySchedule, RelativeSchedule, AbsoluteSchedule]
+
 
 # Generated with scripts/generate_typing_hax.py on 2022-10-04
 AbsoluteScheduleQuerySet = QuerySet[AbsoluteSchedule]

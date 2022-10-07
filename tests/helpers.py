@@ -1,5 +1,6 @@
 import subprocess
-from datetime import date, datetime
+import uuid
+from datetime import date, datetime, timedelta
 from typing import List
 
 from django.db.models import (AutoField, CharField, DateField, FloatField, ForeignKey, IntegerField,
@@ -17,11 +18,12 @@ from constants.user_constants import ANDROID_API, IOS_API, NULL_OS, ResearcherRo
 from database.common_models import generate_objectid_string
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention,
-    InterventionDate, RelativeSchedule, WeeklySchedule)
+    InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
 from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
 from database.user_models import Participant, ParticipantFCMHistory, Researcher, StudyRelation
+from libs.internal_types import Schedule
 from libs.security import device_hash, generate_easy_alphanumeric_string
 
 
@@ -42,8 +44,9 @@ class ReferenceObjectMixin:
     DEFAULT_PARTICIPANT_PASSWORD_HASHED = device_hash(DEFAULT_PARTICIPANT_PASSWORD.encode()).decode()
     DEFAULT_PARTICIPANT_DEVICE_ID = "default_device_id"
     DEFAULT_INTERVENTION_NAME = "default_intervention_name"
+    DEFAULT_FCM_TOKEN = "abc123"
     
-    # this needs to be a dynamic property in order for the time_machine library to work 
+    # this needs to be a dynamic property in order for the time_machine library to work
     @property
     def CURRENT_DATE(self) -> datetime:
         return timezone.now().today().date()
@@ -229,6 +232,14 @@ class ReferenceObjectMixin:
         return self._default_participant
     
     @property
+    def populate_default_fcm_token(self) -> ParticipantFCMHistory:
+        token = ParticipantFCMHistory(
+            token=self.DEFAULT_FCM_TOKEN, participant=self.default_participant
+        )
+        token.save()
+        return token
+    
+    @property
     def generate_10_default_participants(self) -> List[Participant]:
         return [self.generate_participant(self.session_study) for _ in range(10)]
     
@@ -296,15 +307,6 @@ class ReferenceObjectMixin:
         ftp.save()
         return ftp
     
-    # def generate_scheduled_event(self, survey: Survey, participant: Participant, schedule_type: str) -> ScheduledEvent:
-    #     ScheduledEvent(
-    #         survey_archive
-    #         weekly_schedule
-    #         relative_schedule
-    #         absolute_schedule
-    #         scheduled_time
-    #     )
-    
     #
     # schedule and schedule-adjacent objects
     #
@@ -341,11 +343,11 @@ class ReferenceObjectMixin:
         except AttributeError:
             pass
         self._default_relative_schedule = \
-            self.generate_relative_schedule(self.default_survey, self.default_intervention)
+            self.generate_relative_schedule(self.default_survey)
         return self._default_relative_schedule
     
     def generate_relative_schedule(
-        self, survey: Survey, intervention: Intervention, days_after: int = 0,
+        self, survey: Survey, intervention: Intervention = None, days_after: int = 0,
         hour: int = 0, minute: int = 0,
     ) -> RelativeSchedule:
         relative = RelativeSchedule(
@@ -369,6 +371,56 @@ class ReferenceObjectMixin:
         )
         absolute.save()
         return absolute
+    
+    def generate_absolute_schedule_from_datetime(self, survey: Survey, a_dt: datetime):
+        absolute = AbsoluteSchedule(
+            survey=survey or self.default_survey,
+            date=a_dt.date(),
+            hour=a_dt.hour,
+            minute=a_dt.minute,
+        )
+        absolute.save()
+        return absolute
+    
+    def generate_easy_absolute_schedule_event_with_schedule(self, time: timedelta):
+        """ Note that no intervention is marked, this just creates the schedule basics """
+        schedule = self.generate_absolute_schedule_from_datetime(self.default_survey, time)
+        return self.generate_scheduled_event(
+            self.default_survey, self.default_participant, schedule, time
+        )
+    
+    def generate_easy_relative_schedule_event_with_schedule(self, event_time_offset_now: timedelta):
+        """ Note that no intervention is marked, this just creates the schedule basics """
+        now = timezone.now() + event_time_offset_now
+        schedule = self.generate_relative_schedule(
+            self.default_survey,
+            self.default_intervention,
+            days_after=event_time_offset_now.days,
+            hour=event_time_offset_now.seconds // 60 // 60,  # the offset isn't perfect but 
+            minute=event_time_offset_now.seconds // 60 % 60,  # this is fine for tests...
+        )
+        return self.generate_scheduled_event(
+            self.default_survey, self.default_participant, schedule, now
+        )
+    
+    def generate_scheduled_event(
+        self, survey: Survey, participant: Participant, schedule: Schedule, time: datetime,
+        a_uuid: uuid.UUID = None
+    ) -> ScheduledEvent:
+        scheduled_event = ScheduledEvent(
+            survey=survey,
+            participant=participant,
+            weekly_schedule=schedule if isinstance(schedule, WeeklySchedule) else None,
+            relative_schedule=schedule if isinstance(schedule, RelativeSchedule) else None,
+            absolute_schedule=schedule if isinstance(schedule, AbsoluteSchedule) else None,
+            scheduled_time=time,
+            deleted=False,
+            uuid=a_uuid or uuid.uuid4(),
+            checkin_time=None,
+            most_recent_event=None,
+        )
+        scheduled_event.save()
+        return scheduled_event
     
     #
     ## Forest objects

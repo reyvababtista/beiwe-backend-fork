@@ -8,7 +8,7 @@ from kombu.exceptions import OperationalError
 
 from constants.celery_constants import (CELERY_CONFIG_LOCATION, DATA_PROCESSING_CELERY_SERVICE,
     FOREST_SERVICE, PUSH_NOTIFICATION_SEND_SERVICE, SCRIPTS_SERVICE)
-from constants.common_constants import RUNNING_TEST
+from constants.common_constants import RUNNING_TESTS
 
 
 def safe_apply_async(a_task_for_a_celery_queue, *args, **kwargs):
@@ -43,7 +43,7 @@ class FalseCeleryApp:
     
     def __init__(self, an_function: callable):
         """ at instantiation (aka when used as a decorator) stash the function we wrap """
-        if not RUNNING_TEST:
+        if not RUNNING_TESTS:
             print(f"Instantiating a FalseCeleryApp for {an_function.__name__}.")
         self.an_function = an_function
     
@@ -53,7 +53,7 @@ class FalseCeleryApp:
         This function executes at-import-time because it is a file-global function declaration with
         a celery_app.task(queue=queue_name) decorator. Our hack is to declare a static "task" method
         that does nothing but returns a FalseCelery app. """
-        if not RUNNING_TEST:
+        if not RUNNING_TESTS:
             print(f"task declared, args: {args}, kwargs:{kwargs}")
         return FalseCeleryApp
     
@@ -61,7 +61,7 @@ class FalseCeleryApp:
         """ apply_async is the function we use to queue up tasks.  Our hack is to declare
         our own apply_async function that extracts the "args" parameter.  We pass those
         into our stored function. """
-        if not RUNNING_TEST:
+        if not RUNNING_TESTS:
             print(f"apply_async running, args:{args}, kwargs:{kwargs}")
         if "args" not in kwargs:
             return self.an_function()

@@ -24,6 +24,7 @@ from database.survey_models import Survey
 from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
 from database.user_models import Participant, ParticipantFCMHistory, Researcher, StudyRelation
 from libs.internal_types import Schedule
+from libs.schedules import set_next_weekly
 from libs.security import device_hash, generate_easy_alphanumeric_string
 
 
@@ -402,6 +403,15 @@ class ReferenceObjectMixin:
         return self.generate_scheduled_event(
             self.default_survey, self.default_participant, schedule, now
         )
+    
+    def generate_a_real_weekly_schedule_event_with_schedule(
+        self, day_of_week: int = 0, hour: int = 0, minute: int = 0
+    ):
+        """ The creation of weekly events is weird, it best to use the real machinery and build
+        some unit tests for it. At time of documenting none exist, but there are some integration
+        tests. """
+        self.generate_weekly_schedule(self.default_survey, day_of_week, hour, minute)
+        return set_next_weekly(self.default_participant, self.default_survey)
     
     def generate_scheduled_event(
         self, survey: Survey, participant: Participant, schedule: Schedule, time: datetime,

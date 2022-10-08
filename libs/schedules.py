@@ -35,14 +35,14 @@ def decompose_datetime_to_timings(dt: datetime) -> Tuple[int, int]:
 #
 # Event scheduling
 #
-# FIXME: make this idempotent
-def set_next_weekly(participant: Participant, survey: Survey) -> None:
+def set_next_weekly(participant: Participant, survey: Survey) -> Tuple[ScheduledEvent, int]:
     ''' Create a next ScheduledEvent for a survey for a particular participant. Uses get_or_create. '''
     schedule_date, schedule = get_next_weekly_event_and_schedule(survey)
     
     # this handles the case where the schedule was deleted. This is a corner case that shouldn't happen
     if schedule_date is not None and schedule is not None:
-        ScheduledEvent.objects.get_or_create(
+        # Return so we can write tests easier, its fine
+        return ScheduledEvent.objects.get_or_create(
             survey=survey,
             participant=participant,
             weekly_schedule=schedule,

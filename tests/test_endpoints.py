@@ -9,8 +9,8 @@ import time_machine
 from dateutil import tz
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import models
-from django.forms.fields import NullBooleanField
 from django.http.response import FileResponse, HttpResponse, HttpResponseRedirect
+from django.forms.fields import NullBooleanField
 from django.urls import reverse
 from django.utils import timezone
 
@@ -27,7 +27,7 @@ from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_S
     TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
-    IOS_CERT, MIDNIGHT_EVERY_DAY)
+    IOS_CERT, MIDNIGHT_EVERY_DAY, OCT_6_NOON_2022)
 from constants.user_constants import ALL_RESEARCHER_TYPES, IOS_API, ResearcherRole
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention, ScheduledEvent,
@@ -2427,7 +2427,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         output_survey = json.loads(resp.content.decode())
         self.assertEqual(output_survey, reference_output)
     
-    @time_machine.travel(datetime(2022, 9, 29, 12, tzinfo=tz.gettz("New_York/America")))
+    @time_machine.travel(OCT_6_NOON_2022)
     def test_absolute_schedule_basics(self):
         # test for absolute surveys that they show up regardless of the day of the week they fall on,
         # as long as that day is within the current week.
@@ -2468,7 +2468,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         output_survey = json.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
     
-    @time_machine.travel(datetime(2022, 9, 29, 12, tzinfo=tz.gettz("New_York/America")))
+    @time_machine.travel(OCT_6_NOON_2022)
     def test_relative_schedule_basics(self):
         # this test needds to run on a thursday
         # test that a relative survey creates schedules that get output in survey timings at all

@@ -2,9 +2,12 @@ from typing import List
 
 import zstd
 
+from constants import common_constants
+from constants.common_constants import EARLIEST_POSSIBLE_DATA_TIMESTAMP
 from constants.data_processing_constants import CHUNK_TIMESLICE_QUANTUM
 from constants.data_stream_constants import IDENTIFIERS, IOS_LOG_FILE, UPLOAD_FILE_TYPE_MAPPING
-from libs.file_processing.utility_functions_csvs import clean_java_timecode, unix_time_to_string
+from libs.file_processing.exceptions import BadTimecodeError
+from libs.file_processing.utility_functions_csvs import unix_time_to_string
 
 
 def normalize_s3_file_path(s3_file_path: str) -> str:
@@ -78,8 +81,22 @@ def convert_unix_to_human_readable_timestamps(header: bytes, rows: list) -> List
 def binify_from_timecode(unix_ish_time_code_string: bytes) -> int:
     """ Takes a unix-ish time code (accepts unix millisecond), and returns an
         integer value of the bin it should go in. """
-    actually_a_timecode = clean_java_timecode(unix_ish_time_code_string)  # clean java time codes...
-    return actually_a_timecode // CHUNK_TIMESLICE_QUANTUM  # separate into nice, clean hourly chunks!
+    try:
+        timestamp = int(unix_ish_time_code_string[:10])
+    except ValueError as e:
+        # we need a custom error type to handle this error case
+        raise BadTimecodeError(str(e))
+    
+    if timestamp < EARLIEST_POSSIBLE_DATA_TIMESTAMP:
+        raise BadTimecodeError("data too early")
+    
+    # FIXME: refactor data processing and get rid of this runtime hack
+    if common_constants.LATEST_POSSIBLE_DATA_TIMESTAMP < timestamp:
+        raise BadTimecodeError("data too late")
+    
+    # integer divide by the 3600 (an hour of seconds) to be used as the key in binified data
+    # which acts to separate data into hourly chunks
+    return timestamp // CHUNK_TIMESLICE_QUANTUM
 
 
 def compress(data: bytes) -> bytes:

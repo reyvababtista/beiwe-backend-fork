@@ -1,10 +1,15 @@
-from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
-from database.schedule_models import BadWeeklyCount, WeeklySchedule
-from libs.schedules import NoSchedulesException, export_weekly_survey_timings, get_next_weekly_event_and_schedule
-from tests.common import CommonTestCase
-from constants.testing_constants import MIDNIGHT_EVERY_DAY
+import time
+import unittest
+from datetime import datetime, timedelta
 
-from pprint import pprint
+from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
+from constants.testing_constants import MIDNIGHT_EVERY_DAY
+from database.schedule_models import BadWeeklyCount, WeeklySchedule
+from libs.file_processing.exceptions import BadTimecodeError
+from libs.file_processing.utility_functions_simple import binify_from_timecode
+from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_and_schedule,
+    NoSchedulesException)
+from tests.common import CommonTestCase
 
 
 class TestTimingsSchedules(CommonTestCase):
@@ -105,3 +110,30 @@ class TestTimingsSchedules(CommonTestCase):
         duplicates = WeeklySchedule.create_weekly_schedules(timings, self.default_survey)
         self.assertTrue(duplicates)
         self.assertEqual(WeeklySchedule.objects.count(), 7)
+
+
+class TestBinifyFromTimecode(unittest.TestCase):
+    def test_binify_from_timecode_short_str(self):
+        # str(int(time.mktime(datetime(2023, 1, 10, 2, 13, 7, 453914, tzinfo=dateutil.tz.UTC).timetuple()))
+        self.assertEqual(binify_from_timecode('1673316787'), 464810)
+    
+    def test_binify_from_timecode_short_bytes(self):
+        self.assertEqual(binify_from_timecode(b'1673316787'), 464810)
+    
+    def test_binify_from_timecode_long_bytes(self):
+        self.assertEqual(binify_from_timecode(b'1673316787111'), 464810)
+    
+    def test_binify_from_timecode_long_str(self):
+        # str(int(time.mktime(datetime(2023, 1, 10, 2, 13, 7, 453914, tzinfo=dateutil.tz.UTC).timetuple()))
+        self.assertEqual(binify_from_timecode('1673316787222'), 464810)
+    
+    def test_binify_from_timecode_too_early(self):
+        # should be 1 second too early
+        self.assertRaises(BadTimecodeError, binify_from_timecode, b'1406851199')
+    
+    def test_binify_from_timecode_too_late(self):
+        self.assertRaises(BadTimecodeError, binify_from_timecode, b'9999999999')
+    
+    def test_binify_from_timecode_91_days(self):
+        timestamp = str(int(time.mktime((datetime.utcnow() + timedelta(days=91)).timetuple())))
+        self.assertRaises(BadTimecodeError, binify_from_timecode, timestamp.encode())

@@ -1,4 +1,5 @@
-from datetime import date, datetime
+import time
+from datetime import date, datetime, timedelta
 from posixpath import abspath
 from sys import argv as _argv
 
@@ -19,6 +20,12 @@ EARLIEST_POSSIBLE_DATA_DATETIME = datetime(year=2014, month=8, day=1, tzinfo=UTC
 
 # this is the integer output of time.mktime(EARLIEST_POSSIBLE_DATA_DATETIME.timetuple())
 EARLIEST_POSSIBLE_DATA_TIMESTAMP = 1406851200
+
+# in order to solve a nasty problem that is stalling all data processing in rare cases due to 
+# corrupted data, we need a sanity check inside data processing.  This value is updated at runtime,
+# just in case 90 days somehow isn't enough.
+LATEST_POSSIBLE_DATA_TIMESTAMP = int(time.mktime((datetime.utcnow() + timedelta(days=90)).timetuple()))
+
 
 # The format that dates should be in throughout the codebase
 # 1990-01-31T07:30:04 gets you jan 31 1990 at 7:30:04am

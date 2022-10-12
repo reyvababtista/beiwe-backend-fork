@@ -1,11 +1,15 @@
+import time
 from collections import defaultdict
+from datetime import timedelta
 from multiprocessing.pool import ThreadPool
 from typing import DefaultDict
 
 from cronutils.error_handler import ErrorHandler
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from config.settings import CONCURRENT_NETWORK_OPS
+from constants import common_constants
 from constants.data_stream_constants import (ACCELEROMETER, ANDROID_LOG_FILE, CALL_LOG, IDENTIFIERS,
     SURVEY_DATA_FILES, SURVEY_TIMINGS, WIFI)
 from constants.user_constants import ANDROID_API
@@ -58,6 +62,12 @@ def do_process_user_file_chunks(
     (some conflicts can be most easily resolved by just delaying a file until the next processing
     period, and it solves )
     """
+    
+    # FIXME: this is a gross hack to force some time related safety, which is only ever used deep
+    # inside of data processing.
+    common_constants.LATEST_POSSIBLE_DATA_TIMESTAMP = \
+        int(time.mktime((timezone.now() + timedelta(days=90)).timetuple()))
+    
     # Declare a defaultdict of a tuple of 2 lists
     all_binified_data = defaultdict(lambda: ([], []))
     ftps_to_remove = set()
@@ -233,6 +243,7 @@ def binify_csv_rows(rows_list: list, study_id: str, user_id: str, data_type: str
                 continue
             ret[(study_id, user_id, data_type, timecode, header)].append(row)
     return ret
+
 
 def append_binified_csvs(old_binified_rows: DefaultDict[tuple, list],
                          new_binified_rows: DefaultDict[tuple, list],

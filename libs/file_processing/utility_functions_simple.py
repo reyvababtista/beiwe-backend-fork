@@ -81,6 +81,12 @@ def convert_unix_to_human_readable_timestamps(header: bytes, rows: list) -> List
 def binify_from_timecode(unix_ish_time_code_string: bytes) -> int:
     """ Takes a unix-ish time code (accepts unix millisecond), and returns an
         integer value of the bin it should go in. """
+    # integer divide by the 3600 (an hour of seconds) to be used as the key in binified data
+    # which acts to separate data into hourly chunks
+    return clean_java_timecode(unix_ish_time_code_string) // CHUNK_TIMESLICE_QUANTUM
+
+
+def clean_java_timecode(unix_ish_time_code_string: bytes) -> int:
     try:
         timestamp = int(unix_ish_time_code_string[:10])
     except ValueError as e:
@@ -94,10 +100,7 @@ def binify_from_timecode(unix_ish_time_code_string: bytes) -> int:
     if common_constants.LATEST_POSSIBLE_DATA_TIMESTAMP < timestamp:
         raise BadTimecodeError("data too late")
     
-    # integer divide by the 3600 (an hour of seconds) to be used as the key in binified data
-    # which acts to separate data into hourly chunks
-    return timestamp // CHUNK_TIMESLICE_QUANTUM
-
+    return timestamp
 
 def compress(data: bytes) -> bytes:
     return zstd.compress(

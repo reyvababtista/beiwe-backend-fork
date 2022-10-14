@@ -220,6 +220,10 @@ class DeviceSettings(TimestampedModel):
     # Timer variables
     accelerometer_off_duration_seconds = models.PositiveIntegerField(default=10)
     accelerometer_on_duration_seconds = models.PositiveIntegerField(default=10)
+    ambient_audio_off_duration_seconds = models.PositiveIntegerField(default=10*60)
+    ambient_audio_on_duration_seconds = models.PositiveIntegerField(default=10*60)
+    ambient_audio_bitrate = models.PositiveIntegerField(default=24000)
+    ambient_audio_sampling_rate = models.PositiveIntegerField(default=44100)
     bluetooth_on_duration_seconds = models.PositiveIntegerField(default=60)
     bluetooth_total_duration_seconds = models.PositiveIntegerField(default=300)
     bluetooth_global_offset_seconds = models.PositiveIntegerField(default=0)

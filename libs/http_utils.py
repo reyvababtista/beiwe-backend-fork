@@ -1,4 +1,5 @@
 import functools
+from typing import Callable, Dict, List
 
 from django.http.request import HttpRequest
 from django.urls.base import reverse
@@ -13,7 +14,7 @@ def easy_url(url: str, *args, **kwargs) -> str:
     return reverse(url, args=args, kwargs=kwargs)
 
 
-def checkbox_to_boolean(list_checkbox_params, dict_all_params):
+def checkbox_to_boolean(list_checkbox_params: List[str], dict_all_params: Dict):
     """ Takes a list of strings that are to be processed as checkboxes on a post parameter,
     (checkboxes supply some arbitrary value in a post if they are checked, and no value at all if
     they are not checked.), and a dict of parameters and their values to update.
@@ -23,16 +24,14 @@ def checkbox_to_boolean(list_checkbox_params, dict_all_params):
             dict_all_params[param] = False
         else:
             dict_all_params[param] = True
-    return dict_all_params
 
 
-def string_to_int(list_int_params, dict_all_params):
+def string_to_int(list_int_params: List[str], dict_all_params: Dict):
     for key in list_int_params:
         dict_all_params[key] = int(dict_all_params[key])
-    return dict_all_params
 
 
-def determine_os_api(some_function):
+def determine_os_api(some_function: Callable):
     """ Add this as a decorator to a url function, under (after) the wsgi route
     decorator.  It detects if the url ends in /ios.
     This decorator provides to the function with the new variable "OS_API", which can

@@ -13,12 +13,65 @@ textarea {
     resize: none
 }
 
-.checkbox-custom {
-    height: 34px;
-}
 
-.checkbox-custom input[type="checkbox"] {
+
+.app-settings {
+    vertical-align: top;
+}
+.app-settings input[type="checkbox"] {
+    vertical-align: top;
     position: relative;
+    margin-top: 8pt; 
+    margin-left: 8pt; 
+    margin-right: 2em;
+    float: right;
+}
+.app-settings label {
+    vertical-align: top;
+    font-weight: normal;
+    padding-right: 4em;
+    margin-right: -4em;
+}
+.app-settings input[type="number"] {
+    vertical-align: top;
+    width: 5em;
+    margin-right: 2em; 
+    float: right;
+}
+.app-settings select {
+    vertical-align: top;
+    width: 8em;
+    margin-right: 2em; 
+    float: right;
+}
+.app-settings textarea {
+     vertical-align: top;
+    /* padding-right: 2em;
+    padding-left: 2em;
+    margin: 2em */
+}
+.app-settings hr {
+    clear:both;
+    border: 0px solid transparent;
+    margin: 0.75em;
+}
+.app-settings h3 {
+    vertical-align: top;
+    font-weight: bold;
+    margin: 1em;
+    /* margin-right: -5em; */
+}
+.app-settings-align-70 {
+    text-align: center;
+    width: 70%;
+}
+.app-settings-align-80 {
+    text-align: center;
+    width: 80%;
+}
+.app-settings-align-force {
+    text-align: center !important;
+    width: 100%;
 }
 
 .dropdown_search_field {

@@ -1,7 +1,7 @@
 import json
 import plistlib
 from collections import defaultdict
-from typing import List
+from typing import Any, Dict, List
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -21,6 +21,7 @@ from constants.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID
     ALERT_IOS_VALIDATION_FAILED_TEXT, ALERT_MISC_ERROR_TEXT, ALERT_SPECIFIC_ERROR_TEXT,
     ALERT_SUCCESS_TEXT)
 from constants.user_constants import ResearcherRole
+from database.common_models import UtilityModel
 from database.data_access_models import FileToProcess
 from database.study_models import Study
 from database.survey_models import Survey
@@ -422,19 +423,62 @@ def device_settings(request: ResearcherRequest, study_id=None):
                 readonly=readonly,
             )
         )
-    
     if readonly:
         abort(403)
     
-    params = {k: v for k, v in request.POST.items() if not k.startswith("consent_section")}
-    consent_sections = {k: v for k, v in request.POST.items() if k.startswith("consent_section")}
-    params = checkbox_to_boolean(CHECKBOX_TOGGLES, params)
-    params = string_to_int(TIMER_VALUES, params)
     # the ios consent sections are a json field but the frontend returns something weird,
     # see the documentation in unflatten_consent_sections for details
-    params["consent_sections"] = json.dumps(unflatten_consent_sections(consent_sections))
+    consent_sections = unflatten_consent_sections(
+        {k: v for k, v in request.POST.items() if k.startswith("consent_section")}
+    )
+    params = {
+        k: v for k, v in request.POST.items()
+        if not k.startswith("consent_section") and hasattr(study.device_settings, k)
+    }
+    # numerous data fixes
+    checkbox_to_boolean(CHECKBOX_TOGGLES, params)
+    string_to_int(TIMER_VALUES, params)
+    trim_whitespace(request, params)  # there's a frontend bug where whitespace can get inserted.
+    trim_whitespace(request, consent_sections)
+    
+    # logic to display changes to the user
+    notify_changes(request, params, study.device_settings.as_dict(), "Settings for ")
+    try:
+        # can't be 100% sure that this data is safe to deserialize
+        current_consents = json.loads(study.device_settings.consent_sections)
+        notify_changes(request, consent_sections, current_consents, "iOS Consent Section ")
+    except json.JSONDecodeError:
+        pass
+    
+    params["consent_sections"] = json.dumps(consent_sections)
     study.device_settings.update(**params)
     return redirect(f'/edit_study/{study.id}')
+
+
+def trim_whitespace(request: ResearcherRequest, params: Dict[str, Any], notify: bool = False):
+    """ trims whitespace from all dictionary values,  """
+    for k, v in params.items():
+        if isinstance(v, str):
+            v_trimmed = v.strip()
+            if v_trimmed != v:
+                params[k] = v_trimmed
+                if notify:
+                    messages.info(request, message=f"whitespace was trimmed on {k.replace('_', ' ')}")
+
+
+def notify_changes(
+    request: ResearcherRequest, params: Dict[str, Any], comparee: Dict[str, Any], message_prefix: str = ""
+):
+    """ Determines differences between 2 dictionaries and notifies the user based on key name values. """
+    # convert to string to compare value representations (assumes type conversion is already handled)
+    updated = [k.replace("_", " ").title() for k, v in params.items() if str(comparee[k]) != str(v)]
+    updated.sort()
+    if len(updated) == 1:
+        messages.info(request, message_prefix + f"{updated[0]} was updated.")
+    elif len(updated) > 1:
+        start, end = f"{', '.join(updated)} were all updated.".rsplit(",", 1)
+        end = ", and" + end
+        messages.info(request, message_prefix + start + end)
 
 
 ########################## FIREBASE CREDENTIALS ENDPOINTS ##################################

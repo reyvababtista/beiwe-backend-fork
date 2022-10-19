@@ -86,7 +86,7 @@ def upload(request: ParticipantRequest, OS_API=""):
     # been processed. (ios files with bad decryption keys fail and don't create new FTPs.)
     if FileToProcess.test_file_path_exists(s3_file_location, participant.study.object_id):
         log("400, FileToProcess.test_file_path_exists")
-        return abort(400)
+        return HttpResponse(content="", status=400)
     
     # attempt to decrypt, some scenarios delete remote files even if decryption fails
     try:
@@ -181,7 +181,7 @@ def register_user(request: ParticipantRequest, OS_API=""):
         or 'device_id' not in request.POST
         or 'new_password' not in request.POST
     ):
-        return abort(400)
+        return HttpResponse(content="", status=400)
     
     # CASE: If the id and password combination do not match, the decorator returns a 403 error.
     # the following parameter values are required.
@@ -266,7 +266,7 @@ def set_password(request: ParticipantRequest, OS_API=""):
     Provide the new password in a parameter named "new_password"."""
     new_password = request.POST.get("new_password", None)
     if new_password is None:
-        return abort(400)
+        return HttpResponse(content="", status=400)
     request.session_participant.set_password(new_password)
     return HttpResponse(status=200)
 

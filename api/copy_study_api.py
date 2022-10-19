@@ -1,7 +1,7 @@
 from io import BytesIO
 
 from django.contrib import messages
-from django.http.response import FileResponse
+from django.http.response import FileResponse, HttpResponse
 from django.shortcuts import redirect
 from django.views.decorators.http import require_GET, require_POST
 
@@ -12,7 +12,6 @@ from libs.copy_study import (allowed_file_extension, copy_study_from_json, forma
     unpack_json_study)
 from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
-from middleware.abort_middleware import abort
 
 
 """
@@ -48,7 +47,7 @@ def import_study_settings_file(request: ResearcherRequest, study_id: int):
     file = request.FILES.get('upload', None)
     
     if file is None:
-        return abort(400)
+        return HttpResponse(content="", status=400)
     
     if not allowed_file_extension(file.name):
         messages.warning(request, "You can only upload .json files!")

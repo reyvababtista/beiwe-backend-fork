@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.http.request import HttpRequest
+from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST
 
@@ -14,7 +15,6 @@ from libs.internal_types import ResearcherRequest
 from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.security import check_password_requirements
 from libs.timezone_dropdown import ALL_TIMEZONES
-from middleware.abort_middleware import abort
 
 
 """######################### Study Administration ###########################"""
@@ -68,7 +68,7 @@ def remove_researcher_from_study(request: ResearcherRequest):
     try:
         researcher = Researcher.objects.get(pk=researcher_id)
     except Researcher.DoesNotExist:
-        return abort(404)
+        return HttpResponse(content="", status=404)
     assert_admin(request, study_id)
     assert_researcher_under_admin(request, researcher, study_id)
     StudyRelation.objects.filter(study_id=study_id, researcher_id=researcher_id).delete()
@@ -81,7 +81,7 @@ def remove_researcher_from_study(request: ResearcherRequest):
 def delete_researcher(request: ResearcherRequest, researcher_id):
     # only site admins can delete researchers from the system.
     if not request.session_researcher.site_admin:
-        return abort(403)
+        return HttpResponse(content="", status=403)
     researcher = get_object_or_404(Researcher, pk=researcher_id)
     
     StudyRelation.objects.filter(researcher=researcher).delete()

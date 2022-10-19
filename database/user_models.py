@@ -119,14 +119,25 @@ class Participant(AbstractPasswordUser):
     )
     
     push_notification_unreachable_count = models.SmallIntegerField(default=0, null=False, blank=False)
+    
+    # new checkin logic
     first_push_notification_checkin = models.DateTimeField(null=True, blank=True)
     last_push_notification_checkin = models.DateTimeField(null=True, blank=True)
     last_survey_checkin = models.DateTimeField(null=True, blank=True)
+
+    # pure tracking
+    last_get_latest_surveys = models.DateTimeField(null=True, blank=True)
+    last_upload = models.DateTimeField(null=True, blank=True)
+    last_register_user = models.DateTimeField(null=True, blank=True)
+    last_set_password = models.DateTimeField(null=True, blank=True)
+    last_set_fcm_token = models.DateTimeField(null=True, blank=True)
+    
     deleted = models.BooleanField(default=False)
     
     # "Unregistered" means the participant is blocked from uploading further data.
     unregistered = models.BooleanField(default=False)
     easy_enrollment = models.BooleanField(default=False)
+    
     
     # related field typings (IDE halp)
     archived_events: Manager[ArchivedEvent]

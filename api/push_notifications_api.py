@@ -45,6 +45,7 @@ from libs.sentry import make_error_sentry, SentryTypes
 def set_fcm_token(request: ParticipantRequest):
     """ Sets a participants Firebase Cloud Messaging (FCM) instance token, called whenever a new
     token is generated. Expects a patient_id and and fcm_token in the request body. """
+    request.session_participant.update_only(last_set_fcm_token=timezone.now())
     participant = request.session_participant
     token = request.POST.get('fcm_token', "")
     now = timezone.now()

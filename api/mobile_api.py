@@ -63,6 +63,7 @@ def upload(request: ParticipantRequest, OS_API=""):
     Request:
       - line-by-line-encrypted file contents in parameter "file"
       - file name in parameter "file_name"  """
+    request.session_participant.update_only(last_upload=timezone.now())
     
     # Handle these corner cases first because they requires no database input.
     file_name = request.POST.get("file_name", None)
@@ -174,7 +175,7 @@ def register_user(request: ParticipantRequest, OS_API=""):
     contacting the study researcher/admin. It became impossible to maintain this as operating
     systems changed and blocked device-specific ids. There was a similar test for locking a user to
     an operating system type that was dropped. """
-    
+    request.session_participant.update_only(last_register_user=timezone.now())
     if (
         'patient_id' not in request.POST
         or 'phone_number' not in request.POST
@@ -264,6 +265,7 @@ def register_user(request: ParticipantRequest, OS_API=""):
 def set_password(request: ParticipantRequest, OS_API=""):
     """ After authenticating a user, sets the new password and returns 200.
     Provide the new password in a parameter named "new_password"."""
+    request.session_participant.update_only(last_set_password=timezone.now())
     new_password = request.POST.get("new_password", None)
     if new_password is None:
         return HttpResponse(content="", status=400)
@@ -313,7 +315,7 @@ def get_latest_surveys(request: ParticipantRequest, OS_API=""):
     
     # record that participant checked in.
     now = timezone.now()
-    request.session_participant.update(last_survey_checkin=now)
+    request.session_participant.update_only(last_get_latest_surveys=now)
     
     # if there was a "checkin_uuid" parameter, indicate participant and ScheduledEvent of checkin.
     checkin_uuid = request.POST.get("checkin_uuid", None)

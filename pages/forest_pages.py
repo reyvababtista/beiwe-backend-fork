@@ -3,7 +3,7 @@ import datetime
 from collections import defaultdict
 
 from django.contrib import messages
-from django.http.response import FileResponse
+from django.http.response import FileResponse, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
@@ -22,7 +22,6 @@ from libs.http_utils import easy_url
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest
 from libs.streaming_zip import zip_generator
 from libs.utils.date_utils import daterange
-from middleware.abort_middleware import abort
 from serializers.forest_serializers import ForestTaskCsvSerializer, ForestTaskSerializer
 
 
@@ -91,11 +90,11 @@ def analysis_progress(request: ResearcherRequest, study_id=None):
 def create_tasks(request: ResearcherRequest, study_id=None):
     # Only a SITE admin can queue forest tasks
     if not request.session_researcher.site_admin:
-        return abort(403)
+        return HttpResponse(content="", status=403)
     try:
         study = Study.objects.get(pk=study_id)
     except Study.DoesNotExist:
-        return abort(404)
+        return HttpResponse(content="", status=404)
     
     # FIXME: remove this double endpoint pattern, it is bad.
     if request.method == "GET":
@@ -151,7 +150,7 @@ def download_task_log(request: ResearcherRequest):
 @forest_enabled
 def cancel_task(request: ResearcherRequest, study_id, forest_task_external_id):
     if not request.session_researcher.site_admin:
-        return abort(403)
+        return HttpResponse(content="", status=403)
     
     number_updated = \
         ForestTask.objects.filter(
@@ -178,7 +177,7 @@ def download_task_data(request: ResearcherRequest, study_id, forest_task_externa
             external_id=forest_task_external_id, participant__study_id=study_id
         )
     except ForestTask.DoesNotExist:
-        return abort(404)
+        return HttpResponse(content="", status=404)
     
     chunks = ChunkRegistry.objects.filter(participant=tracker.participant).values(*CHUNK_FIELDS)
     f = FileResponse(
@@ -204,11 +203,11 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
     
     start_date = dates[0] if dates else study.created_on.date()
     end_date = dates[-1] if dates else timezone.now().date()
-
+    
     # start_date = dates[0] if dates and dates[0] >= EARLIEST_POSSIBLE_DATA_DATE else study.created_on.date()
     # end_date = dates[-1] if dates and dates[-1] <= timezone.now().date() else timezone.now().date()
     
-
+    
     return render(
         request,
         "forest/create_tasks.html",

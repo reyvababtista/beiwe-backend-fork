@@ -4,6 +4,7 @@ from typing import Dict
 from django.contrib import messages
 from django.core.paginator import EmptyPage, Paginator
 from django.db.models import F
+from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -17,7 +18,6 @@ from libs.firebase_config import check_firebase_instance
 from libs.http_utils import easy_url
 from libs.internal_types import ArchivedEventQuerySet, ResearcherRequest
 from libs.schedules import repopulate_all_survey_scheduled_events
-from middleware.abort_middleware import abort
 
 
 @require_GET
@@ -33,7 +33,7 @@ def notification_history(request: ResearcherRequest, study_id: int, patient_id: 
     try:
         archived_events_page = archived_events.page(page_number)
     except EmptyPage:
-        return abort(404)
+        return HttpResponse(content="", status=404)
     last_page_number = archived_events.page_range.stop - 1
     
     survey_names = get_survey_names_dict(study)
@@ -62,7 +62,7 @@ def participant_page(request: ResearcherRequest, study_id: int, patient_id: str)
         participant = Participant.objects.get(patient_id=patient_id)
         study = Study.objects.get(id=study_id)
     except (Participant.DoesNotExist, Study.DoesNotExist):
-        return abort(404)
+        return HttpResponse(content="", status=404)
     
     # safety check, enforce fields and interventions to be present for both page load and edit.
     add_fields_and_interventions(participant, study)

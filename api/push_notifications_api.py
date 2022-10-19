@@ -28,7 +28,6 @@ from database.user_models import Participant, ParticipantFCMHistory
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import ParticipantRequest, ResearcherRequest
 from libs.sentry import make_error_sentry, SentryTypes
-from middleware.abort_middleware import abort
 
 
 ################################################################################
@@ -121,7 +120,7 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
     # 400 error if survey_id is not present
     survey_id = request.POST.get("survey_id", None)
     if not survey_id:
-        return abort(400)
+        return HttpResponse(content="", status=400)
     
     # oodles of setup, 404 cases for db queries, the redirect action...
     study = get_object_or_404(Study, pk=study_id)  # rejection should also be handled in decorator

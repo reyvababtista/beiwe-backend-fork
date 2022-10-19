@@ -15,8 +15,10 @@ def abort(http_error_code: int, error_message: str = ""):
 
 
 class AbortMiddleware:
-    """ A midleware that mimics the Flask abort() functionality.  Just call abort(http_error_code),
-    and, by raising a special error, it stops and sends that response. """
+    """ A middleware that mimics the Flask abort() functionality.  Just call abort(http_error_code),
+    and, by raising a special error, it stops and sends that response.
+    Note: using this middleware triggers the database transaction wrapper to discard all database
+    changes made within the body of the view function. """
 
     def __init__(self, get_response: FunctionType):
         # just following the standard passthrough...

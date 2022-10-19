@@ -2376,11 +2376,14 @@ class TestParticipantSetPassword(ParticipantSessionTest):
         self.assertTrue(self.session_participant.debug_validate_password(self.DEFAULT_PARTICIPANT_PASSWORD))
     
     def test_correct_paramater(self):
+        self.assertIsNone(self.default_participant.last_set_password)
         self.smart_post_status_code(200, new_password="jeff")
         self.session_participant.refresh_from_db()
         # participant passwords are weird there's some hashing
         self.assertFalse(self.session_participant.validate_password("jeff"))
         self.assertTrue(self.session_participant.debug_validate_password("jeff"))
+        # test last_set_password_is_set
+        self.assertIsInstance(self.default_participant.last_set_password, datetime)
 
 
 class TestGetLatestSurveys(ParticipantSessionTest):
@@ -2404,10 +2407,14 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         self.assertEqual(resp.content, b"[]")
     
     def test_basic_survey(self):
+        self.assertIsNone(self.default_participant.last_get_latest_surveys)
         self.default_survey
         resp = self.smart_post_status_code(200)
         output_survey = json.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
+        # test last_get_latest_surveys is set
+        self.session_participant.refresh_from_db()
+        self.assertIsInstance(self.default_participant.last_get_latest_surveys, datetime)
     
     def test_weekly_basics(self):
         self.default_survey
@@ -2556,6 +2563,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
     ):
         s3_upload.return_value = None
+        self.assertIsNone(self.default_participant.last_register_user)
         get_client_public_key_string.return_value = "a_private_key"
         # unregistered participants have no device id
         self.session_participant.update(device_id="")
@@ -2565,6 +2573,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
+        self.assertIsInstance(self.default_participant.last_register_user, datetime)
     
     @patch("api.mobile_api.s3_upload")
     @patch("api.mobile_api.get_client_public_key_string")
@@ -2702,11 +2711,15 @@ class TestMobileUpload(ParticipantSessionTest):
     @patch("libs.participant_file_uploads.s3_upload")
     @patch("database.user_models.Participant.get_private_key")
     def test_no_file_content(self, get_private_key: MagicMock, s3_upload: MagicMock):
+        self.assertIsNone(self.default_participant.last_upload)
         get_private_key.return_value = self.PRIVATE_KEY
         self.smart_post_status_code(200, file_name="whatever.csv", file="")
         # big fat nothing happens
         self.assert_no_files_to_process
         self.assertEqual(GenericEvent.objects.count(), 0)
+        # inserting this test for the last_upload update....
+        self.default_participant.refresh_from_db()
+        self.assertIsInstance(self.default_participant.last_upload, datetime)
     
     @patch("libs.participant_file_uploads.s3_upload")
     @patch("database.user_models.Participant.get_private_key")
@@ -2787,6 +2800,7 @@ class TestPushNotificationSetFCMToken(ParticipantSessionTest):
         self.assertIsNone(token_2.unregistered)
     
     def test_reregister_existing_valid(self):
+        self.assertIsNone(self.default_participant.last_set_fcm_token)
         # create a new "valid" registration token (not unregistered)
         token = ParticipantFCMHistory(
             participant=self.session_participant, token="some_value", unregistered=None
@@ -2800,6 +2814,9 @@ class TestPushNotificationSetFCMToken(ParticipantSessionTest):
         second_time = token.last_updated
         self.assertIsNone(token.unregistered)
         self.assertNotEqual(first_time, second_time)
+        # test last_set_fcm_token was set
+        self.session_participant.refresh_from_db()
+        self.assertIsInstance(self.default_participant.last_set_fcm_token, datetime)
     
     def test_reregister_existing_unregister(self):
         # create a new "valid" registration token (not unregistered)

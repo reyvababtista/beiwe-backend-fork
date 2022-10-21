@@ -4,11 +4,11 @@ from datetime import timedelta
 from multiprocessing.pool import ThreadPool
 from typing import DefaultDict
 
-from cronutils.error_handler import ErrorHandler
+from cronutils.error_handler import ErrorHandler, null_error_handler
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from config.settings import CONCURRENT_NETWORK_OPS
+from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
 from constants import common_constants
 from constants.data_stream_constants import (ACCELEROMETER, ANDROID_LOG_FILE, CALL_LOG, IDENTIFIERS,
     SURVEY_DATA_FILES, SURVEY_TIMINGS, WIFI)
@@ -25,6 +25,37 @@ from libs.file_processing.file_for_processing import FileForProcessing
 from libs.file_processing.utility_functions_csvs import csv_to_list
 from libs.file_processing.utility_functions_simple import (binify_from_timecode,
     clean_java_timecode, resolve_survey_id_from_file_name)
+
+
+def easy_run(participant: Participant):
+    """ Just a handy way to just run data processing in the terminal, use with caution, does not
+    test for celery activity. """
+    print(f"processing files for {participant.patient_id}")
+    number_bad_files = 0
+    while True:
+        previous_number_bad_files = number_bad_files
+        starting_length = participant.files_to_process.exclude(deleted=True).count()
+        print("===")
+        print(f"{timezone.now()} processing {participant.patient_id}, {starting_length} files remaining")
+        number_bad_files += do_process_user_file_chunks(
+            page_size=FILE_PROCESS_PAGE_SIZE,
+            error_handler=null_error_handler,
+            position=number_bad_files,
+            participant=participant,
+        )
+        
+        print("previous_number_bad_files:", previous_number_bad_files)
+        print("number_bad_files:", number_bad_files)
+        print("===")
+        # If no files were processed, quit processing
+        if participant.files_to_process.exclude(deleted=True).count() == starting_length:
+            if previous_number_bad_files == number_bad_files:
+                # 2 Cases:
+                #   1) every file broke, blow up. (would cause infinite loop otherwise).
+                #   2) no new files.
+                break
+            else:
+                continue
 
 
 """########################## Hourly Update Tasks ###########################"""
@@ -80,9 +111,9 @@ def do_process_user_file_chunks(
     # A Django query with a slice (e.g. .all()[x:y]) makes a LIMIT query, so it
     # only gets from the database those FTPs that are in the slice.
     # print(participant.as_unpacked_native_python())
-    print(len(participant.files_to_process.exclude(deleted=True).all()))
-    print(page_size)
-    print(position)
+    print("Number Files To Process:", participant.files_to_process.exclude(deleted=True).count())
+    print(f"will process {page_size} files.")
+    print("current count processing within this run:", position)
     
     # TODO: investigate, comment.  ordering by path results in files grouped by type and
     # chronological order, which is perfect for download efficiency... right? would it break anthing?

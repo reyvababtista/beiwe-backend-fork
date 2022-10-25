@@ -131,7 +131,10 @@ class Participant(AbstractPasswordUser):
     last_register_user = models.DateTimeField(null=True, blank=True)
     last_set_password = models.DateTimeField(null=True, blank=True)
     last_set_fcm_token = models.DateTimeField(null=True, blank=True)
-    
+    last_version_code = models.CharField(max_length=32, blank=True, null=True)
+    last_version_name = models.CharField(max_length=32, blank=True, null=True)
+    last_os_version = models.CharField(max_length=32, blank=True, null=True)
+
     deleted = models.BooleanField(default=False)
     
     # "Unregistered" means the participant is blocked from uploading further data.

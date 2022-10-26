@@ -12,9 +12,9 @@ backcall==0.2.0
     # via ipython
 bleach==5.0.1
     # via -r requirements.in
-boto3==1.24.85
+boto3==1.25.1
     # via -r requirements.in
-botocore==1.27.85
+botocore==1.28.1
     # via
     #   boto3
     #   s3transfer
@@ -46,20 +46,20 @@ django-timezone-field==4.1.1
     # via -r requirements.in
 djangorestframework==3.13.1
     # via -r requirements.in
-executing==1.1.0
+executing==1.1.1
     # via stack-data
 firebase-admin==5.4.0
     # via -r requirements.in
-google-api-core[grpc]==2.10.1
+google-api-core[grpc]==2.10.2
     # via
     #   firebase-admin
     #   google-api-python-client
     #   google-cloud-core
     #   google-cloud-firestore
     #   google-cloud-storage
-google-api-python-client==2.64.0
+google-api-python-client==2.65.0
     # via firebase-admin
-google-auth==2.12.0
+google-auth==2.13.0
     # via
     #   google-api-core
     #   google-api-python-client
@@ -72,7 +72,7 @@ google-cloud-core==2.3.2
     # via
     #   google-cloud-firestore
     #   google-cloud-storage
-google-cloud-firestore==2.7.1
+google-cloud-firestore==2.7.2
     # via firebase-admin
 google-cloud-storage==2.5.0
     # via firebase-admin
@@ -84,11 +84,11 @@ googleapis-common-protos==1.56.4
     # via
     #   google-api-core
     #   grpcio-status
-grpcio==1.49.1
+grpcio==1.50.0
     # via
     #   google-api-core
     #   grpcio-status
-grpcio-status==1.49.1
+grpcio-status==1.50.0
     # via google-api-core
 httplib2==0.20.4
     # via
@@ -124,13 +124,13 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-pip-tools==6.8.0
+pip-tools==6.9.0
     # via -r requirements.in
 prompt-toolkit==3.0.31
     # via ipython
 proto-plus==1.22.1
     # via google-cloud-firestore
-protobuf==4.21.7
+protobuf==4.21.8
     # via
     #   google-api-core
     #   google-cloud-firestore
@@ -161,7 +161,7 @@ python-dateutil==2.8.2
     # via
     #   -r requirements.in
     #   botocore
-pytz==2022.4
+pytz==2022.5
     # via
     #   django
     #   django-timezone-field
@@ -195,7 +195,7 @@ tomli==2.0.1
     # via
     #   build
     #   pep517
-traitlets==5.4.0
+traitlets==5.5.0
     # via
     #   ipython
     #   matplotlib-inline
@@ -205,7 +205,7 @@ urllib3==1.26.12
     # via
     #   botocore
     #   requests
-uwsgi==2.0.20
+uwsgi==2.0.21
     # via -r requirements.in
 wcwidth==0.2.5
     # via prompt-toolkit

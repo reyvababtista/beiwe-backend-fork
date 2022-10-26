@@ -37,4 +37,4 @@ boto3
 # this library. but we can't remove it because it is used in migrations.
 django-timezone-field==4.1.1
 
-pip-tools>=6.8.0
+pip-tools>=6.9.0

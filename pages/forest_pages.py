@@ -22,7 +22,7 @@ from database.user_models import Participant
 from forms.django_forms import CreateTasksForm
 from libs.http_utils import easy_url
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest
-from libs.streaming_zip import zip_generator
+from libs.streaming_zip import ZipGenerator
 from libs.utils.date_utils import daterange
 from serializers.forest_serializers import display_true, ForestTaskCsvSerializer
 
@@ -236,7 +236,7 @@ def download_task_data(request: ResearcherRequest, study_id, forest_task_externa
     
     chunks = ChunkRegistry.objects.filter(participant=tracker.participant).values(*CHUNK_FIELDS)
     f = FileResponse(
-        zip_generator(chunks),
+        ZipGenerator(chunks, False),
         content_type="zip",
         as_attachment=True,
         filename=f"{tracker.get_legible_identifier()}.zip",
@@ -255,7 +255,6 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
         .order_by("date")
         .values_list("date", flat=True)
     )
-    
     start_date = dates[0] if dates else study.created_on.date()
     end_date = dates[-1] if dates else timezone.now().date()
     

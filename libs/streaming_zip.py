@@ -1,6 +1,6 @@
 import json
 from multiprocessing.pool import ThreadPool
-from typing import Tuple
+from typing import Generator, Iterable, Tuple
 from zipfile import ZIP_STORED, ZipFile
 
 from constants.data_stream_constants import (IMAGE_FILE, SURVEY_ANSWERS, SURVEY_TIMINGS,
@@ -64,66 +64,75 @@ def batch_retrieve_s3(chunk: dict) -> Tuple[dict, bytes]:
     )
 
 
-# Note: you cannot access the request context inside a generator function
-def zip_generator(files_list, construct_registry=False):
+class ZipGenerator:
     """ Pulls in data from S3 in a multithreaded network operation, constructs a zip file of that
     data. This is a generator, advantage is it starts returning data (file by file, but wrapped
-    in zip compression) almost immediately. """
+    in zip compression) almost immediately.
+    NOTE: does not compress! """
     
-    processed_files = set()
-    duplicate_files = set()
-    pool = ThreadPool(3)
-    # 3 Threads has been heuristically determined to be a good value, it does not cause the server
-    # to be overloaded, and provides more-or-less the maximum data download speed.  This was tested
-    # on an m4.large instance (dual core, 8GB of ram).
-    file_registry = {}
+    def __init__(self, files_list: Iterable[str], construct_registry: bool, threads: int = 3):
+        self.construct_registry = construct_registry
+        self.files_list = files_list
+        self.processed_files = set()
+        self.duplicate_files = set()  # mostly for debugging
+        self.file_registry = {}
+        self.total_bytes = 0
+        self.threads = threads
     
-    zip_output = StreamingBytesIO()
-    zip_input = ZipFile(zip_output, mode="w", compression=ZIP_STORED, allowZip64=True)
-    
-    try:
-        # chunks_and_content is a list of tuples, of the chunk and the content of the file.
-        # chunksize (which is a keyword argument of imap, not to be confused with Beiwe Chunks)
-        # is the size of the batches that are handed to the pool. We always want to add the next
-        # file to retrieve to the pool asap, so we want a chunk size of 1.
-        # (In the documentation there are comments about the timeout, it is irrelevant under this construction.)
-        chunks_and_content = pool.imap_unordered(batch_retrieve_s3, files_list, chunksize=1)
-        total_size = 0
-        for chunk, file_contents in chunks_and_content:
-            if construct_registry:
-                file_registry[chunk['chunk_path']] = chunk["chunk_hash"]
-            file_name = determine_file_name(chunk)
-            if file_name in processed_files:
-                duplicate_files.add((file_name, chunk['chunk_path']))
-                continue
-            processed_files.add(file_name)
+    def __iter__(self) -> Generator[bytes, None, None]:
+        pool = ThreadPool(self.threads)
+        zip_output = StreamingBytesIO()
+        zip_input = ZipFile(zip_output, mode="w", compression=ZIP_STORED, allowZip64=True)
+        try:
+            # chunks_and_content is a list of tuples, of the chunk and the content of the file.
+            # chunksize (which is a keyword argument of imap, not to be confused with Beiwe Chunks)
+            # is the size of the batches that are handed to the pool. We always want to add the next
+            # file to retrieve to the pool asap, so we want a chunk size of 1.
+            # (In the documentation there are comments about the timeout, it is irrelevant under this construction.)
+            chunks_and_content = pool.imap_unordered(batch_retrieve_s3, self.files_list, chunksize=1)
             
-            zip_input.writestr(file_name, file_contents)
-            # These can be large, and we don't want them sticking around in memory as we wait for the yield
-            del file_contents, chunk
+            for chunk, file_contents in chunks_and_content:
+                if self.construct_registry:
+                    self.file_registry[chunk['chunk_path']] = chunk["chunk_hash"]
+                
+                file_name = determine_file_name(chunk)
+                if file_name in self.processed_files:
+                    self.duplicate_files.add((file_name, chunk['chunk_path'], ))
+                    continue
+                self.processed_files.add(file_name)
+                
+                zip_input.writestr(file_name, file_contents)
+                
+                # These can be large, and we don't want them sticking around in memory as we wait
+                # for the yield, and they could be many megabytes and it is about to be duplicated.
+                del file_contents, chunk
+                
+                # write data to your stream
+                one_file_in_a_zip = zip_output.getvalue()
+                self.total_bytes += len(one_file_in_a_zip)
+                yield one_file_in_a_zip
+                # print "%s: %sK, %sM" % (random_id, total_bytes / 1024, total_bytes / 1024 / 1024)
+
+                del one_file_in_a_zip
+                zip_output.empty()
             
-            x = zip_output.getvalue()
-            total_size += len(x)
-            # print "%s: %sK, %sM" % (random_id, total_size / 1024, total_size / 1024 / 1024)
-            yield x  # yield the (compressed) file information
-            del x
-            zip_output.empty()
+            # construct the registry file
+            if self.construct_registry:
+                zip_input.writestr("registry", json.dumps(self.file_registry))
+                yield zip_output.getvalue()
+                zip_output.empty()
             
-        if construct_registry:
-            zip_input.writestr("registry", json.dumps(file_registry))
+            # close, then yield all remaining data in the zip.
+            zip_input.close()
             yield zip_output.getvalue()
-            zip_output.empty()
         
-        # close, then yield all remaining data in the zip.
-        zip_input.close()
-        yield zip_output.getvalue()
-    except DummyError:
-        # The try-except-finally block is here to guarantee the Threadpool is closed and terminated.
-        # we don't handle any errors, we just re-raise any error that shows up.
-        # (with statement does not work.)
-        raise
-    finally:
-        # We rely on the finally block to ensure that the threadpool will be closed and terminated,
-        # and also to print an error to the log if we need to.
-        pool.close()
-        pool.terminate()
+        except DummyError:
+            # The try-except-finally block is here to guarantee the Threadpool is closed and terminated.
+            # we don't handle any errors, we just re-raise any error that shows up.
+            # (a with statement historically is insufficient. I don't know why.)
+            raise
+        finally:
+            # We rely on the finally block to ensure that the threadpool will be closed and terminated,
+            # and also to print an error to the log if we need to.
+            pool.close()
+            pool.terminate()

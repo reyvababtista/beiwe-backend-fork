@@ -1,9 +1,12 @@
 import json
 from datetime import datetime
 
+import orjson
 from dateutil import tz
+from django.db import transaction
 from django.db.models import QuerySet
 from django.http.response import FileResponse
+from django.utils import timezone
 from django.utils.timezone import make_aware
 from django.views.decorators.http import require_http_methods
 
@@ -12,9 +15,10 @@ from constants.common_constants import API_TIME_FORMAT
 from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.data_stream_constants import ALL_DATA_STREAMS
 from database.data_access_models import ChunkRegistry
+from database.profiling_models import DataAccessRecord
 from database.user_models import Participant
 from libs.internal_types import ApiStudyResearcherRequest
-from libs.streaming_zip import zip_generator
+from libs.streaming_zip import ZipGenerator
 from middleware.abort_middleware import abort
 
 
@@ -27,6 +31,7 @@ def log(*args, **kwargs):
 
 @require_http_methods(['POST', "GET"])
 @api_study_credential_check(block_test_studies=True)
+@transaction.non_atomic_requests
 def get_data(request: ApiStudyResearcherRequest):
     """ Required: access key, access secret, study_id
     JSON blobs: data streams, users - default to all
@@ -41,21 +46,37 @@ def get_data(request: ApiStudyResearcherRequest):
     determine_data_streams_for_db_query(request, query_args)
     determine_users_for_db_query(request, query_args)
     determine_time_range_for_db_query(request, query_args)
+    registry_dict = parse_registry(request)
     
     # Do query! (this is actually a generator, it can only be iterated over once)
     get_these_files = handle_database_query(
-        request.api_study.pk, query_args, registry_dict=parse_registry(request)
+        request.api_study.pk, query_args, registry_dict=registry_dict
     )
-    streaming_response = FileResponse(
-        zip_generator(get_these_files, construct_registry='web_form' not in request.POST),
-        content_type="application/zip",
-        as_attachment='web_form' in request.POST,
-        filename="data.zip",
+    # make a record of the query, we are only tracking queries that make it to this point
+    record = DataAccessRecord(
+        researcher=request.api_researcher,
+        query_params=orjson.dumps(query_args).decode(),
+        registry_dict_size=len(registry_dict) if registry_dict else 0,
     )
-    # for unknown reasons this call never happens in django's responding process, and so the
-    # headers, which includes the file name, are never set.
-    streaming_response.set_headers(None)
-    return streaming_response
+    record.save()
+    streaming_zip_file = ZipGenerator(
+        get_these_files, construct_registry='web_form' not in request.POST
+    )
+    try:
+        streaming_response = FileResponse(
+            streaming_zip_file,
+            content_type="application/zip",
+            as_attachment='web_form' in request.POST,
+            filename="data.zip",
+        )
+        # for unknown reasons this call never happens in django's responding process, and so the
+        # headers, which includes the file name, are never set.
+        streaming_response.set_headers(None)
+        return streaming_response
+    except Exception as e:
+        record.update_only(internal_error=True, error=str(e), bytes=streaming_zip_file.total_bytes)
+    finally:
+        record.update_only(time_end=timezone.now(), bytes=streaming_zip_file.total_bytes)
 
 
 def parse_registry(request: ApiStudyResearcherRequest):

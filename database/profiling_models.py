@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Dict, List
 
 from django.db import models
@@ -10,6 +10,12 @@ from constants.data_stream_constants import (DATA_STREAM_TO_S3_FILE_NAME_STRING,
     UPLOAD_FILE_TYPE_MAPPING)
 from database.common_models import UtilityModel
 from database.models import JSONTextField, Participant, TimestampedModel
+
+# this is an import hack to improve IDE assistance
+try:
+    from database.user_models import Researcher
+except ImportError:
+    pass
 
 
 class EncryptionErrorMetadata(TimestampedModel):
@@ -195,3 +201,12 @@ class UploadTracking(UtilityModel):
             del data["totals"]["users"]
         
         return data
+
+
+class DataAccessRecord(TimestampedModel):
+    researcher: Researcher = models.ForeignKey("Researcher", on_delete=models.PROTECT, related_name="data_access_record")
+    query_params = models.TextField(null=False, blank=False)
+    error = models.TextField(null=True, blank=True)
+    registry_dict_size = models.PositiveBigIntegerField(null=False, blank=False)
+    time_end: datetime = models.DateTimeField(null=True, blank=True)
+    bytes = models.PositiveBigIntegerField(null=True, blank=True)

@@ -35,9 +35,9 @@ from libs.security import (compare_password, device_hash, generate_easy_alphanum
 # If you must to use an unimportable class (like ArchivedEvent in the notification_events()
 # convenience method on Participants below) you will need to use a local import.
 try:
-    from database.models import (ApiKey, ArchivedEvent, ChunkRegistry, EncryptionErrorMetadata,
-        FileToProcess, ForestTask, InterventionDate, IOSDecryptionKey, LineEncryptionError,
-        ScheduledEvent, StudyField, SummaryStatisticDaily, UploadTracking)
+    from database.models import (ApiKey, ArchivedEvent, ChunkRegistry, DataAccessRecord,
+        EncryptionErrorMetadata, FileToProcess, ForestTask, InterventionDate, IOSDecryptionKey,
+        LineEncryptionError, ScheduledEvent, StudyField, SummaryStatisticDaily, UploadTracking)
 except ImportError:
     pass
 
@@ -128,7 +128,7 @@ class Participant(AbstractPasswordUser):
     last_push_notification_checkin = models.DateTimeField(null=True, blank=True)
     last_survey_checkin = models.DateTimeField(null=True, blank=True)
     
-    # participant event tracking
+    # pure tracking
     last_get_latest_surveys = models.DateTimeField(null=True, blank=True)
     last_upload = models.DateTimeField(null=True, blank=True)
     last_register_user = models.DateTimeField(null=True, blank=True)
@@ -297,6 +297,7 @@ class Researcher(AbstractPasswordUser):
     # related field typings (IDE halp)
     api_keys: Manager[ApiKey]
     study_relations: Manager[StudyRelation]
+    data_access_record: Manager[DataAccessRecord]
     
     @classmethod
     def create_with_password(cls, username, password, **kwargs) -> Researcher:

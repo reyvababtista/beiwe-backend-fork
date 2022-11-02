@@ -6,6 +6,7 @@ from typing import Optional
 
 from dateutil.tz import gettz
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
@@ -218,9 +219,11 @@ class DeviceSettings(TimestampedModel):
     allow_upload_over_cellular_data = models.BooleanField(default=False)
     
     # Timer variables
+    # accelerometer and gyro frequency interact with the Android special values for certain presets,
+    # so we have to disallow those to avoid extremely weird behavior.
     accelerometer_off_duration_seconds = models.PositiveIntegerField(default=10)
     accelerometer_on_duration_seconds = models.PositiveIntegerField(default=10)
-    accelerometer_frequency = models.PositiveIntegerField(default=10)
+    accelerometer_frequency = models.PositiveIntegerField(default=10, validators=[MinValueValidator(4)])
     ambient_audio_off_duration_seconds = models.PositiveIntegerField(default=10*60)
     ambient_audio_on_duration_seconds = models.PositiveIntegerField(default=10*60)
     ambient_audio_bitrate = models.PositiveIntegerField(default=24000)
@@ -236,15 +239,13 @@ class DeviceSettings(TimestampedModel):
     upload_data_files_frequency_seconds = models.PositiveIntegerField(default=3600)
     voice_recording_max_time_length_seconds = models.PositiveIntegerField(default=240)
     wifi_log_frequency_seconds = models.PositiveIntegerField(default=300)
-    
-    # (originally) iOS-specific timer variables
     gyro_off_duration_seconds = models.PositiveIntegerField(default=600)
     gyro_on_duration_seconds = models.PositiveIntegerField(default=60)
-    gyro_frequency = models.PositiveIntegerField(default=10)
+    gyro_frequency = models.PositiveIntegerField(default=10, validators=[MinValueValidator(4)])
+    
+    # iOS-specific timer variables)
     magnetometer_off_duration_seconds = models.PositiveIntegerField(default=600)
     magnetometer_on_duration_seconds = models.PositiveIntegerField(default=60)
-    
-    # ios-specific
     devicemotion_off_duration_seconds = models.PositiveIntegerField(default=600)
     devicemotion_on_duration_seconds = models.PositiveIntegerField(default=60)
     

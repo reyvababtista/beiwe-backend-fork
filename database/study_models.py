@@ -209,8 +209,8 @@ class DeviceSettings(TimestampedModel):
     
     # Whether iOS-specific data streams are turned on
     proximity = models.BooleanField(default=False)
-    gyro = models.BooleanField(default=False)
-    magnetometer = models.BooleanField(default=False)
+    gyro = models.BooleanField(default=False)  # not ios-specific anymore
+    magnetometer = models.BooleanField(default=False)  # not ios-specific anymore
     devicemotion = models.BooleanField(default=False)
     reachability = models.BooleanField(default=True)
     
@@ -220,6 +220,7 @@ class DeviceSettings(TimestampedModel):
     # Timer variables
     accelerometer_off_duration_seconds = models.PositiveIntegerField(default=10)
     accelerometer_on_duration_seconds = models.PositiveIntegerField(default=10)
+    accelerometer_frequency = models.PositiveIntegerField(default=10)
     ambient_audio_off_duration_seconds = models.PositiveIntegerField(default=10*60)
     ambient_audio_on_duration_seconds = models.PositiveIntegerField(default=10*60)
     ambient_audio_bitrate = models.PositiveIntegerField(default=24000)
@@ -236,11 +237,14 @@ class DeviceSettings(TimestampedModel):
     voice_recording_max_time_length_seconds = models.PositiveIntegerField(default=240)
     wifi_log_frequency_seconds = models.PositiveIntegerField(default=300)
     
-    # iOS-specific timer variables
+    # (originally) iOS-specific timer variables
     gyro_off_duration_seconds = models.PositiveIntegerField(default=600)
     gyro_on_duration_seconds = models.PositiveIntegerField(default=60)
+    gyro_frequency = models.PositiveIntegerField(default=10)
     magnetometer_off_duration_seconds = models.PositiveIntegerField(default=600)
     magnetometer_on_duration_seconds = models.PositiveIntegerField(default=60)
+    
+    # ios-specific
     devicemotion_off_duration_seconds = models.PositiveIntegerField(default=600)
     devicemotion_on_duration_seconds = models.PositiveIntegerField(default=60)
     

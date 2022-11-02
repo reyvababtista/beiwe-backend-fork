@@ -23,7 +23,7 @@ from constants.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID
 from constants.user_constants import ResearcherRole
 from database.common_models import UtilityModel
 from database.data_access_models import FileToProcess
-from database.study_models import Study
+from database.study_models import DeviceSettings, Study
 from database.survey_models import Survey
 from database.system_models import FileAsText
 from database.user_models import Researcher, StudyRelation
@@ -408,6 +408,7 @@ def delete_study(request: ResearcherRequest, study_id=None):
 @require_http_methods(['GET', 'POST'])
 @authenticate_researcher_study_access
 def device_settings(request: ResearcherRequest, study_id=None):
+    # TODO: probably rewrite this entire endpoint with django forms
     study = Study.objects.get(pk=study_id)
     researcher = request.session_researcher
     readonly = not researcher.check_study_admin(study_id) and not researcher.site_admin
@@ -450,9 +451,31 @@ def device_settings(request: ResearcherRequest, study_id=None):
     except json.JSONDecodeError:
         pass
     
+    # final params setup, attempt db update, redirect to edit study page
     params["consent_sections"] = json.dumps(consent_sections)
-    study.device_settings.update(**params)
+    try_update_device_settings(request, params, study)
     return redirect(f'/edit_study/{study.id}')
+
+
+def try_update_device_settings(request: ResearcherRequest, params: Dict[str, Any], study: Study):
+    # attempts to update, backs off if there were any failures, notifies users of bad fields.
+    # (finally a situation where django forms would be better, sorta, I ddon't think it allows
+    # partial updates without mucking around.)
+    try:
+        study.device_settings.update(**params)
+    except ValidationError as e:
+        old_device_settings = DeviceSettings.objects.get(study=study)
+        for field_name in e.error_dict.keys():
+            params.pop(field_name)
+            field_name_nice = field_name.replace("_", " ").title()
+            messages.error(
+                request,
+                f"Uhoh, something was wrong about the value provided for '{field_name_nice}', "
+                "it wos NOT updated."
+            )
+            setattr(study.device_settings, field_name, getattr(old_device_settings, field_name))
+        # save without the bad fields
+        study.device_settings.save()
 
 
 def trim_whitespace(request: ResearcherRequest, params: Dict[str, Any], notify: bool = False):

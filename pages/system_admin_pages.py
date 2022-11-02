@@ -459,27 +459,26 @@ def device_settings(request: ResearcherRequest, study_id=None):
 
 def try_update_device_settings(request: ResearcherRequest, params: Dict[str, Any], study: Study):
     # attempts to update, backs off if there were any failures, notifies users of bad fields.
-    # (finally a situation where django forms would be better, sorta, I ddon't think it allows
+    # (finally a situation where django forms would be better, sorta, I don't think it allows
     # partial updates without mucking around.)
     try:
         study.device_settings.update(**params)
-    except ValidationError as e:
+    except ValidationError as validation_errors:
         old_device_settings = DeviceSettings.objects.get(study=study)
-        for field_name in e.error_dict.keys():
-            params.pop(field_name)
-            field_name_nice = field_name.replace("_", " ").title()
-            messages.error(
-                request,
-                f"Uhoh, something was wrong about the value provided for '{field_name_nice}', "
-                "it wos NOT updated."
-            )
-            setattr(study.device_settings, field_name, getattr(old_device_settings, field_name))
+        
+        # ValidationError.message_dict is the least obtuse way to do this
+        for field, field_messages in validation_errors.message_dict.items():
+            # remove new value from device settings (ugly, whatever)
+            setattr(study.device_settings, field, getattr(old_device_settings, field))
+            for msg in field_messages:
+                messages.error(request, f"{field.replace('_', ' ').title()} wos NOT updated, '{msg}'")
+        
         # save without the bad fields
         study.device_settings.save()
 
 
 def trim_whitespace(request: ResearcherRequest, params: Dict[str, Any], notify: bool = False):
-    """ trims whitespace from all dictionary values,  """
+    """ trims whitespace from all dictionary values """
     for k, v in params.items():
         if isinstance(v, str):
             v_trimmed = v.strip()

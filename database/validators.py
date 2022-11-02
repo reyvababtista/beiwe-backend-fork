@@ -18,9 +18,7 @@ class LengthValidator(object):
             self.code = code
 
     def __call__(self, value):
-        """
-        Validate that the input is of the proper length, otherwise raise ValidationError.
-        """
+        """Validate that the input is of the proper length, otherwise raise ValidationError."""
         if self.length is not None and len(value) != self.length:
             message = self.message.format(self.length, len(value))
             raise ValidationError(message, code=self.code)

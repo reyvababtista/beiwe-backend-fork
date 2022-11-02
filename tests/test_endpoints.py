@@ -2529,7 +2529,6 @@ class TestGetLatestSurveys(ParticipantSessionTest):
             yield days_relative
 
 
-
 class TestRegisterParticipant(ParticipantSessionTest):
     ENDPOINT_NAME = "mobile_api.register_user"
     DISABLE_CREDENTIALS = True
@@ -2555,6 +2554,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         }
     
     def test_bad_request(self):
+        self.skip_next_device_tracker_params
         self.smart_post_status_code(403)
     
     @patch("api.mobile_api.s3_upload")
@@ -2602,6 +2602,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         get_client_public_key_string.return_value = "a_private_key"
         params = self.BASIC_PARAMS
         params['password'] = "nope!"
+        self.skip_next_device_tracker_params
         resp = self.smart_post_status_code(403, **params)
         self.assertEqual(resp.content, b"")
         self.session_participant.refresh_from_db()
@@ -2680,6 +2681,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.smart_post_status_code(200, file_name="whatever")
         self.assert_no_files_to_process
         # no file parameter
+        self.skip_next_device_tracker_params
         self.smart_post_status_code(400, file_name="whatever.csv")
         self.assert_no_files_to_process
         # correct file key, should fail
@@ -2689,6 +2691,7 @@ class TestMobileUpload(ParticipantSessionTest):
     def test_unregistered_participant(self):
         # fails with 400 if the participant is registered.  This behavior has a side effect of
         # deleting data on the device, which seems wrong.
+        self.skip_next_device_tracker_params
         self.smart_post_status_code(400, file_name="whatever.csv")
         self.session_participant.update(unregistered=True)
         self.smart_post_status_code(200, file_name="whatever.csv")
@@ -2699,6 +2702,7 @@ class TestMobileUpload(ParticipantSessionTest):
         # which makes the endpoint return early.  This test will crash with the S3 invalid bucket
         # failure mode if there is no match.
         normalized_file_name = f"{self.session_study.object_id}/whatever.csv"
+        self.skip_next_device_tracker_params
         self.smart_post_status_code(400, file_name=normalized_file_name)
         ftp = self.generate_file_to_process(normalized_file_name)
         self.smart_post_status_code(400, file_name=normalized_file_name, file=object())

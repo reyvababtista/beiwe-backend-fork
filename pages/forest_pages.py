@@ -206,8 +206,6 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
     
     # start_date = dates[0] if dates and dates[0] >= EARLIEST_POSSIBLE_DATA_DATE else study.created_on.date()
     # end_date = dates[-1] if dates and dates[-1] <= timezone.now().date() else timezone.now().date()
-    
-    
     return render(
         request,
         "forest/create_tasks.html",

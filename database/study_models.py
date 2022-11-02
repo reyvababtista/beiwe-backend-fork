@@ -227,7 +227,7 @@ class DeviceSettings(TimestampedModel):
     bluetooth_on_duration_seconds = models.PositiveIntegerField(default=60)
     bluetooth_total_duration_seconds = models.PositiveIntegerField(default=300)
     bluetooth_global_offset_seconds = models.PositiveIntegerField(default=0)
-    check_for_new_surveys_frequency_seconds = models.PositiveIntegerField(default=3600 * 6)
+    check_for_new_surveys_frequency_seconds = models.PositiveIntegerField(default=3600)
     create_new_data_files_frequency_seconds = models.PositiveIntegerField(default=15 * 60)
     gps_off_duration_seconds = models.PositiveIntegerField(default=600)
     gps_on_duration_seconds = models.PositiveIntegerField(default=60)

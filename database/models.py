@@ -13,3 +13,17 @@ from .system_models import *
 from .tableau_api_models import *
 from database.security_models import *
 
+from django.core.validators import ProhibitNullCharactersValidator
+from django.db.models.base import ModelBase
+from django.db.models import fields
+
+
+# dynamically inject the ProhibitNullCharactersValidator validator on all char and text fields.
+# This takes about 1 millisecond (yuck, it changes size on iteration)
+for name, database_model in [(k, v) for k, v in vars().items()]:
+    if isinstance(database_model, ModelBase):
+        for field in database_model._meta.fields:
+            # print(name, field, type(field))
+            if isinstance(field, (fields.CharField, fields.TextField)):
+                if ProhibitNullCharactersValidator not in field.validators:
+                    field.validators.append(ProhibitNullCharactersValidator())

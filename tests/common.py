@@ -13,9 +13,9 @@ from constants.tableau_api_constants import X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET
 from constants.testing_constants import ALL_ROLE_PERMUTATIONS, REAL_ROLES, ResearcherRole
 from database.security_models import ApiKey
 from database.study_models import Study
-from database.user_models import Researcher, StudyRelation
+from database.user_models import Participant, Researcher, StudyRelation
 from libs.internal_types import StrOrBytes
-from libs.security import device_hash
+from libs.security import generate_easy_alphanumeric_string
 from tests.helpers import ReferenceObjectMixin, render_test_html_file
 from urls import urlpatterns
 
@@ -344,11 +344,20 @@ class ParticipantSessionTest(SmartRequestsTestCase):
     ENDPOINT_NAME = None
     IOS_ENDPOINT_NAME = None
     DISABLE_CREDENTIALS = False
+    DEVICE_TRACKING_FIELDS = ("last_version_code", "last_version_name", "last_os_version", )
+    DEVICE_TRACKING_PARAMS = ("version_code", "version_name", "os_version", )
     
     def setUp(self) -> None:
         """ Populate the session participant variable. """
         self.session_participant = self.default_participant
+        self.INJECT_DEVICE_TRACKER_PARAMS = True
         return super().setUp()
+    
+    @property
+    def skip_next_device_tracker_params(self):
+        """ disables the universal tracker field testing for 1 smart_post, disabling means it tests
+        to confirm tnat tracking values did NOT change. """
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
     
     def smart_post(self, *reverse_args, reverse_kwargs=None, **post_params) -> HttpResponse:
         if not self.DISABLE_CREDENTIALS:
@@ -356,7 +365,38 @@ class ParticipantSessionTest(SmartRequestsTestCase):
             post_params["device_id"] = self.DEFAULT_PARTICIPANT_DEVICE_ID
             # the participant password is special.
             post_params["password"] = self.DEFAULT_PARTICIPANT_PASSWORD_HASHED
-        return super().smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
+        
+        if self.INJECT_DEVICE_TRACKER_PARAMS:
+            for tracking_param in self.DEVICE_TRACKING_PARAMS:
+                if tracking_param not in post_params:
+                    post_params[tracking_param] = generate_easy_alphanumeric_string(10)
+        else:
+            orig_vals = Participant.objects.filter(pk=self.session_participant.pk) \
+                            .values(*self.DEVICE_TRACKING_FIELDS).get()
+
+        ret = super().smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
+        tracker_vals = Participant.objects.filter(pk=self.session_participant.pk) \
+                        .values(*self.DEVICE_TRACKING_FIELDS).get()
+        
+        # keep this code explicit or else it becomes unmaintainable
+        if self.INJECT_DEVICE_TRACKER_PARAMS:
+            self.assertEqual(tracker_vals["last_version_code"], post_params["version_code"],
+                             msg="last_version_code did not update")
+            self.assertEqual(tracker_vals["last_version_name"], post_params["version_name"],
+                             msg="last_version_name did not update")
+            self.assertEqual(tracker_vals["last_os_version"], post_params["os_version"],
+                             msg="last_os_version did not update")
+        else:
+            self.assertEqual(tracker_vals["last_version_code"], orig_vals["last_version_code"],
+                             msg="last_version_code updated")
+            self.assertEqual(tracker_vals["last_version_name"], orig_vals["last_version_name"],
+                             msg="last_version_name updated")
+            self.assertEqual(tracker_vals["last_os_version"], orig_vals["last_os_version"],
+                             msg="last_os_version updated")
+        
+        self.INJECT_DEVICE_TRACKER_PARAMS = True
+        return ret
+    
     
     def less_smart_post(self, *reverse_args, reverse_kwargs=None, **post_params) -> HttpResponse:
         """ we need the passthrough and calling super() in an implementation class is dumb.... """

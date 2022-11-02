@@ -125,12 +125,14 @@ class Participant(AbstractPasswordUser):
     last_push_notification_checkin = models.DateTimeField(null=True, blank=True)
     last_survey_checkin = models.DateTimeField(null=True, blank=True)
 
-    # pure tracking
+    # participant event tracking
     last_get_latest_surveys = models.DateTimeField(null=True, blank=True)
     last_upload = models.DateTimeField(null=True, blank=True)
     last_register_user = models.DateTimeField(null=True, blank=True)
     last_set_password = models.DateTimeField(null=True, blank=True)
     last_set_fcm_token = models.DateTimeField(null=True, blank=True)
+    
+    # participant device tracking
     last_version_code = models.CharField(max_length=32, blank=True, null=True)
     last_version_name = models.CharField(max_length=32, blank=True, null=True)
     last_os_version = models.CharField(max_length=32, blank=True, null=True)
@@ -140,7 +142,6 @@ class Participant(AbstractPasswordUser):
     # "Unregistered" means the participant is blocked from uploading further data.
     unregistered = models.BooleanField(default=False)
     easy_enrollment = models.BooleanField(default=False)
-    
     
     # related field typings (IDE halp)
     archived_events: Manager[ArchivedEvent]
@@ -158,7 +159,6 @@ class Participant(AbstractPasswordUser):
     lineencryptionerror_set: Manager[LineEncryptionError]
     pushnotificationdisabledevent_set: Manager[PushNotificationDisabledEvent]
     summarystatisticdaily_set: Manager[SummaryStatisticDaily]
-    
     
     @classmethod
     def create_with_password(cls, **kwargs) -> Tuple[str, str]:

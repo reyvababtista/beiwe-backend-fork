@@ -360,6 +360,9 @@ class ParticipantSessionTest(SmartRequestsTestCase):
         self.INJECT_DEVICE_TRACKER_PARAMS = False
     
     def smart_post(self, *reverse_args, reverse_kwargs=None, **post_params) -> HttpResponse:
+        """ Injects parameters for authentication and confirms the device tracking fields are 
+        tracking. Features can be toggled """
+
         if not self.DISABLE_CREDENTIALS:
             post_params["patient_id"] = self.session_participant.patient_id
             post_params["device_id"] = self.DEFAULT_PARTICIPANT_DEVICE_ID
@@ -396,11 +399,6 @@ class ParticipantSessionTest(SmartRequestsTestCase):
         
         self.INJECT_DEVICE_TRACKER_PARAMS = True
         return ret
-    
-    
-    def less_smart_post(self, *reverse_args, reverse_kwargs=None, **post_params) -> HttpResponse:
-        """ we need the passthrough and calling super() in an implementation class is dumb.... """
-        return super().smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
 
 
 class DataApiTest(SmartRequestsTestCase):

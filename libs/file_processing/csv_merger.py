@@ -94,7 +94,7 @@ class CsvMerger:
             # ourselves (e.g. HeaderMismatchException). Whichever FTP we were processing when the
             # exception was raised gets added to the set of failed FTPs.
             self.failed_ftps.update(ftp_list)
-            print(e)
+            print(str(e))
             try:
                 print(
                     f"FAILED TO UPDATE: study_id:{study_object_id}, patient_id:{patient_id}, "

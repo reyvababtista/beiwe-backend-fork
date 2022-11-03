@@ -66,13 +66,13 @@ class UploadTracking(UtilityModel):
             (this is fairly optimized because it is part of debugging file processing) """
         
         from database.data_access_models import FileToProcess
-        uploads = cls.objects.order_by("-created_on").values_list(
-            "file_path", "participant__study_id", "participant_id"
+        uploads = cls.objects.order_by("-timestamp").values_list(
+            "file_path", "participant__study__object_id", "participant__study_id", "participant_id"
         )[:number]
         new_ftps: List[FileToProcess] = []
         participant: Participant
         participant_cache: Dict[Participant] = {}  # uhg need to cache participants...
-        for i, (file_path, study_id, participant_id) in enumerate(uploads):
+        for i, (file_path, object_id, study_id, participant_id) in enumerate(uploads):
             if participant_id in participant_cache:
                 participant = participant_cache[participant_id]
             else:
@@ -86,12 +86,14 @@ class UploadTracking(UtilityModel):
                 print(f"skipping {file_path}, appears to already be present")
                 continue
             
-            new_ftps.append(FileToProcess(
-                s3_file_path=file_path,
-                study_id=study_id,
-                participant=participant,
-                os_type=participant.os_type,
-            ))
+            new_ftps.append(
+                FileToProcess(
+                    s3_file_path=object_id + "/" + file_path,
+                    study_id=study_id,
+                    participant=participant,
+                    os_type=participant.os_type,
+                )
+            )
         FileToProcess.objects.bulk_create(
             new_ftps
         )
@@ -103,17 +105,17 @@ class UploadTracking(UtilityModel):
         # )
     
     @classmethod
-    def add_files_to_process2(cls, limit=25):
+    def add_files_to_process2(cls, limit=25, data_stream=None):
         """ Re-adds the most recent [limit] files that have been uploaded recently to FiletToProcess.
             (this is fairly optimized because it is part of debugging file processing) """
         from database.data_access_models import FileToProcess
-        
+        data_streams = DATA_STREAM_TO_S3_FILE_NAME_STRING.values() if data_stream is None else [data_stream]
         upload_queries = []
-        for ds in DATA_STREAM_TO_S3_FILE_NAME_STRING.values():
+        for ds in data_streams:
             if ds == "identifiers":
                 continue
             query = (
-                cls.objects.order_by("-created_on")
+                cls.objects.order_by("-timestamp")
                     .filter(file_path__contains=ds)
                     .values_list("file_path",
                                  "participant__study_id",

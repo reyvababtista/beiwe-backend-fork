@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Tuple
+from datetime import datetime
+from typing import Dict, Tuple, Union
 
 from Cryptodome.PublicKey import RSA
 from django.core.validators import MinLengthValidator
@@ -160,6 +161,21 @@ class Participant(AbstractPasswordUser):
     pushnotificationdisabledevent_set: Manager[PushNotificationDisabledEvent]
     summarystatisticdaily_set: Manager[SummaryStatisticDaily]
     
+    @property
+    def recent(self) -> Dict[str, Union[str, datetime]]:
+        return {
+            "last_version_code": self.last_version_code,
+            "last_version_name": self.last_version_name,
+            "last_os_version": self.last_os_version,
+            "last_get_latest_surveys": self.last_get_latest_surveys.astimezone(self.timezone) if self.last_get_latest_surveys else None,
+            "last_push_notification_checkin": self.last_push_notification_checkin.astimezone(self.timezone) if self.last_push_notification_checkin else None,
+            "last_register_user": self.last_register_user.astimezone(self.timezone) if self.last_register_user else None,
+            "last_set_fcm_token": self.last_set_fcm_token.astimezone(self.timezone) if self.last_set_fcm_token else None,
+            "last_set_password": self.last_set_password.astimezone(self.timezone) if self.last_set_password else None,
+            "last_survey_checkin": self.last_survey_checkin.astimezone(self.timezone) if self.last_survey_checkin else None,
+            "last_upload": self.last_upload.astimezone(self.timezone) if self.last_upload else None,
+        }
+
     @classmethod
     def create_with_password(cls, **kwargs) -> Tuple[str, str]:
         """ Creates a new participant with randomly generated patient_id and password. """

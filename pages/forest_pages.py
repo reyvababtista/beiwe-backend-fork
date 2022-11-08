@@ -2,7 +2,9 @@ import csv
 import datetime
 from collections import defaultdict
 
+import orjson
 from django.contrib import messages
+from django.http import HttpResponse
 from django.http.response import FileResponse, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -10,7 +12,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from authentication.admin_authentication import (authenticate_admin,
     authenticate_researcher_study_access, forest_enabled)
-from constants.common_constants import EARLIEST_POSSIBLE_DATA_DATE
+from constants.common_constants import DEV_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATE
 from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import ForestTaskStatus, ForestTree
 from database.data_access_models import ChunkRegistry
@@ -22,7 +24,32 @@ from libs.http_utils import easy_url
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest
 from libs.streaming_zip import zip_generator
 from libs.utils.date_utils import daterange
-from serializers.forest_serializers import ForestTaskCsvSerializer, ForestTaskSerializer
+from serializers.forest_serializers import display_true, ForestTaskCsvSerializer
+
+
+TASK_SERIALIZER_FIELDS = [
+    # raw
+    "data_date_end",
+    "data_date_start",
+    "forest_output_exists",
+    "id",
+    "stacktrace",
+    "status",
+    "total_file_size",
+    # to be popped
+    "external_id",  # -> uuid in the urls
+    "participant__patient_id",  # -> patient_id
+    "params_dict_cache",  # -> params_dict as json encoded string...
+    "forest_param__name",  # -> forest_param_name
+    "forest_param__notes",  # -> forest_param_notes
+    "forest_tree",  # -> forest_tree_display as .title()
+    # datetimes
+    "process_end_time",  # -> dev time format
+    "process_start_time",  # -> dev time format
+    "process_download_end_time",  # -> dev time format
+    "created_on",  # -> dev time format
+]
+
 
 
 @require_GET
@@ -120,15 +147,43 @@ def create_tasks(request: ResearcherRequest, study_id=None):
 @authenticate_researcher_study_access
 @forest_enabled
 def task_log(request: ResearcherRequest, study_id=None):
-    study = Study.objects.get(pk=study_id)
-    forest_tasks = ForestTask.objects.filter(participant__study_id=study_id).order_by("-created_on")
+    query = ForestTask.objects.filter(participant__study_id=study_id)\
+        .order_by("-created_on").values(*TASK_SERIALIZER_FIELDS)
+    tasks = []
+    for task_dict in query:
+        extern_id = task_dict.pop("external_id")
+        # renames (could be optimized in the query, but speedup is negligible)
+        task_dict["forest_param_name"] = task_dict.pop("forest_param__name")
+        task_dict["forest_param_notes"] = task_dict.pop("forest_param__notes")
+        task_dict["patient_id"] = task_dict.pop("participant__patient_id")
+        task_dict["params_dict"] = task_dict.pop("params_dict_cache")
+        # rename and transform
+        task_dict["forest_tree_display"] = task_dict.pop("forest_tree").title()
+        task_dict["created_on_display"] = task_dict.pop("created_on").strftime(DEV_TIME_FORMAT)
+        task_dict["forest_output_exists_display"] = display_true(task_dict["forest_output_exists"])
+        # dates/times that require safety
+        task_dict["process_end_time"] = task_dict["process_end_time"].strftime(DEV_TIME_FORMAT) \
+             if task_dict["process_end_time"] else None
+        task_dict["process_start_time"] = task_dict["process_start_time"].strftime(DEV_TIME_FORMAT) \
+             if task_dict["process_start_time"] else None
+        task_dict["process_download_end_time"] = task_dict["process_download_end_time"].strftime(DEV_TIME_FORMAT) \
+             if task_dict["process_download_end_time"] else None
+        # urls
+        task_dict["cancel_url"] = easy_url(
+            "forest_pages.cancel_task", study_id=study_id, forest_task_external_id=extern_id,
+        )
+        task_dict["download_url"] = easy_url(
+            "forest_pages.download_task_data", study_id=study_id, forest_task_external_id=extern_id,
+        )
+        tasks.append(task_dict)
+    
     return render(
         request,
         "forest/task_log.html",
         context=dict(
-            study=study,
+            study=Study.objects.get(pk=study_id),
             status_choices=ForestTaskStatus,
-            forest_log=ForestTaskSerializer(forest_tasks, many=True).data,
+            forest_log=orjson.dumps(tasks).decode(),  # orjson is very fast and handles the remaining date objects
         )
     )
 

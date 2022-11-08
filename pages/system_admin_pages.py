@@ -21,7 +21,6 @@ from constants.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID
     ALERT_IOS_VALIDATION_FAILED_TEXT, ALERT_MISC_ERROR_TEXT, ALERT_SPECIFIC_ERROR_TEXT,
     ALERT_SUCCESS_TEXT)
 from constants.user_constants import ResearcherRole
-from database.common_models import UtilityModel
 from database.data_access_models import FileToProcess
 from database.study_models import DeviceSettings, Study
 from database.survey_models import Survey

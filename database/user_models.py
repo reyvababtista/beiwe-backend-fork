@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, tzinfo
 from typing import Dict, Tuple, Union
 
 from Cryptodome.PublicKey import RSA
+from dateutil.tz import gettz
 from django.core.validators import MinLengthValidator
 from django.db import models
 from django.db.models import F, Func, Manager
@@ -125,7 +126,7 @@ class Participant(AbstractPasswordUser):
     first_push_notification_checkin = models.DateTimeField(null=True, blank=True)
     last_push_notification_checkin = models.DateTimeField(null=True, blank=True)
     last_survey_checkin = models.DateTimeField(null=True, blank=True)
-
+    
     # participant event tracking
     last_get_latest_surveys = models.DateTimeField(null=True, blank=True)
     last_upload = models.DateTimeField(null=True, blank=True)
@@ -137,7 +138,7 @@ class Participant(AbstractPasswordUser):
     last_version_code = models.CharField(max_length=32, blank=True, null=True)
     last_version_name = models.CharField(max_length=32, blank=True, null=True)
     last_os_version = models.CharField(max_length=32, blank=True, null=True)
-
+    
     deleted = models.BooleanField(default=False)
     
     # "Unregistered" means the participant is blocked from uploading further data.
@@ -175,7 +176,13 @@ class Participant(AbstractPasswordUser):
             "last_survey_checkin": self.last_survey_checkin.astimezone(self.timezone) if self.last_survey_checkin else None,
             "last_upload": self.last_upload.astimezone(self.timezone) if self.last_upload else None,
         }
-
+    
+    @property
+    def timezone(self) -> tzinfo:
+        """ So pytz.timezone("America/New_York") provides a tzinfo-like object that is wrong by 4
+        minutes.  That's insane.  The dateutil gettz function doesn't have that fun insanity. """
+        return gettz(self.timezone_name)
+    
     @classmethod
     def create_with_password(cls, **kwargs) -> Tuple[str, str]:
         """ Creates a new participant with randomly generated patient_id and password. """

@@ -4,9 +4,18 @@ from rest_framework import serializers
 
 from constants.common_constants import DEV_TIME_FORMAT
 from database.tableau_api_models import ForestTask
-from libs.http_utils import easy_url
 
 
+def display_true(a_bool: bool):
+    if a_bool is True:
+        return "Yes"
+    elif a_bool is False:
+        return "No"
+    else:
+        return "Unknown"
+
+
+# FIXME: Get rid of RFS, see forest_pages.task_log for a partial rewrite
 class ForestTaskBaseSerializer(serializers.ModelSerializer):
     created_on_display = serializers.SerializerMethodField()
     forest_tree_display = serializers.SerializerMethodField()
@@ -69,32 +78,3 @@ class ForestTaskBaseSerializer(serializers.ModelSerializer):
 
 class ForestTaskCsvSerializer(ForestTaskBaseSerializer):
     pass
-
-
-class ForestTaskSerializer(ForestTaskBaseSerializer):
-    cancel_url = serializers.SerializerMethodField()
-    # FIXME: this downloads all data, garbage, purge.
-    download_url = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = ForestTaskBaseSerializer.Meta.model
-        fields = [
-            *ForestTaskBaseSerializer.Meta.fields,
-            "cancel_url",
-            "download_url",
-            "stacktrace",
-        ]
-    
-    def get_cancel_url(self, instance):
-        return easy_url(
-            "forest_pages.cancel_task",
-            study_id=instance.participant.study_id,
-            forest_task_external_id=instance.external_id,
-        )
-    
-    def get_download_url(self, instance):
-        return easy_url(
-            "forest_pages.download_task_data",
-            study_id=instance.participant.study_id,
-            forest_task_external_id=instance.external_id,
-        )

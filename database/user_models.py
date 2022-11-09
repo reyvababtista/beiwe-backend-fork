@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, tzinfo
 from typing import Dict, Tuple, Union
-
+from django.utils import timezone
 from Cryptodome.PublicKey import RSA
 from dateutil.tz import gettz
 from django.core.validators import MinLengthValidator
@@ -10,6 +10,7 @@ from django.db import models
 from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
 
+from constants.common_constants import DEV_TIME_FORMAT2
 from constants.user_constants import ANDROID_API, IOS_API, OS_TYPE_CHOICES, ResearcherRole
 from database.common_models import UtilityModel
 from database.models import TimestampedModel
@@ -163,18 +164,28 @@ class Participant(AbstractPasswordUser):
     summarystatisticdaily_set: Manager[SummaryStatisticDaily]
     
     @property
-    def recent(self) -> Dict[str, Union[str, datetime]]:
+    def _recents(self) -> Dict[str, Union[str, datetime]]:
+        self.refresh_from_db()
+        tz = self.timezone
+        now = timezone.now()
         return {
             "last_version_code": self.last_version_code,
             "last_version_name": self.last_version_name,
             "last_os_version": self.last_os_version,
-            "last_get_latest_surveys": self.last_get_latest_surveys.astimezone(self.timezone) if self.last_get_latest_surveys else None,
-            "last_push_notification_checkin": self.last_push_notification_checkin.astimezone(self.timezone) if self.last_push_notification_checkin else None,
-            "last_register_user": self.last_register_user.astimezone(self.timezone) if self.last_register_user else None,
-            "last_set_fcm_token": self.last_set_fcm_token.astimezone(self.timezone) if self.last_set_fcm_token else None,
-            "last_set_password": self.last_set_password.astimezone(self.timezone) if self.last_set_password else None,
-            "last_survey_checkin": self.last_survey_checkin.astimezone(self.timezone) if self.last_survey_checkin else None,
-            "last_upload": self.last_upload.astimezone(self.timezone) if self.last_upload else None,
+            "last_get_latest_surveys": f"{(now - self.last_get_latest_surveys ).total_seconds() // 60} minutes ago"
+                if self.last_get_latest_surveys else None,
+            "last_push_notification_checkin": f"{(now - self.last_push_notification_checkin ).total_seconds() // 60} minutes ago"
+                if self.last_push_notification_checkin else None,
+            "last_register_user": f"{(now - self.last_register_user ).total_seconds() // 60} minutes ago"
+                if self.last_register_user else None,
+            "last_set_fcm_token": f"{(now - self.last_set_fcm_token ).total_seconds() // 60} minutes ago"
+                if self.last_set_fcm_token else None,
+            "last_set_password": f"{(now - self.last_set_password ).total_seconds() // 60} minutes ago"
+                if self.last_set_password else None,
+            "last_survey_checkin": f"{(now - self.last_survey_checkin ).total_seconds() // 60} minutes ago"
+                if self.last_survey_checkin else None,
+            "last_upload": f"{(now - self.last_upload ).total_seconds() // 60} minutes ago"
+                if self.last_upload else None,
         }
     
     @property

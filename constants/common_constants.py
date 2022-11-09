@@ -21,7 +21,7 @@ EARLIEST_POSSIBLE_DATA_DATETIME = datetime(year=2014, month=8, day=1, tzinfo=UTC
 # this is the integer output of time.mktime(EARLIEST_POSSIBLE_DATA_DATETIME.timetuple())
 EARLIEST_POSSIBLE_DATA_TIMESTAMP = 1406851200
 
-# in order to solve a nasty problem that is stalling all data processing in rare cases due to 
+# in order to solve a nasty problem that is stalling all data processing in rare cases due to
 # corrupted data, we need a sanity check inside data processing.  This value is updated at runtime,
 # just in case 90 days somehow isn't enough.
 LATEST_POSSIBLE_DATA_TIMESTAMP = int(time.mktime((datetime.utcnow() + timedelta(days=90)).timetuple()))
@@ -34,6 +34,7 @@ API_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 API_TIME_FORMAT_WITH_TZ = "%Y-%m-%dT%H:%M:%S (%Z)"
 API_DATE_FORMAT = "%Y-%m-%d"
 DEV_TIME_FORMAT = "%Y-%m-%d %H:%M (%Z)"
+DEV_TIME_FORMAT2 = "%Y-%m-%d %H:%M:%S (%Z)"
 DISPLAY_TIME_FORMAT = "%Y-%m-%d %-I:%M%p (%Z)"
 
 # file path for s3 for problem uploads

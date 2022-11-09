@@ -6,19 +6,19 @@
 #
 asgiref==3.5.2
     # via django
-asttokens==2.0.8
+asttokens==2.1.0
     # via stack-data
 backcall==0.2.0
     # via ipython
 bleach==5.0.1
     # via -r requirements.in
-boto3==1.25.1
+boto3==1.26.6
     # via -r requirements.in
-botocore==1.28.1
+botocore==1.29.6
     # via
     #   boto3
     #   s3transfer
-build==0.8.0
+build==0.9.0
     # via pip-tools
 cachecontrol==0.12.11
     # via firebase-admin
@@ -34,7 +34,7 @@ cronutils==0.3.2
     # via -r requirements.in
 decorator==5.1.1
     # via ipython
-django==3.2.15
+django==3.2.16
     # via
     #   -r requirements.in
     #   django-extensions
@@ -46,7 +46,7 @@ django-timezone-field==4.1.1
     # via -r requirements.in
 djangorestframework==3.13.1
     # via -r requirements.in
-executing==1.1.1
+executing==1.2.0
     # via stack-data
 firebase-admin==5.4.0
     # via -r requirements.in
@@ -59,7 +59,7 @@ google-api-core[grpc]==2.10.2
     #   google-cloud-storage
 google-api-python-client==2.65.0
     # via firebase-admin
-google-auth==2.13.0
+google-auth==2.14.1
     # via
     #   google-api-core
     #   google-api-python-client
@@ -74,7 +74,7 @@ google-cloud-core==2.3.2
     #   google-cloud-storage
 google-cloud-firestore==2.7.2
     # via firebase-admin
-google-cloud-storage==2.5.0
+google-cloud-storage==2.6.0
     # via firebase-admin
 google-crc32c==1.5.0
     # via google-resumable-media
@@ -90,13 +90,13 @@ grpcio==1.50.0
     #   grpcio-status
 grpcio-status==1.50.0
     # via google-api-core
-httplib2==0.20.4
+httplib2==0.21.0
     # via
     #   google-api-python-client
     #   google-auth-httplib2
 idna==3.4
     # via requests
-ipython==8.5.0
+ipython==8.6.0
     # via -r requirements.in
 jedi==0.18.1
     # via ipython
@@ -126,11 +126,11 @@ pickleshare==0.7.5
     # via ipython
 pip-tools==6.9.0
     # via -r requirements.in
-prompt-toolkit==3.0.31
+prompt-toolkit==3.0.32
     # via ipython
 proto-plus==1.22.1
     # via google-cloud-firestore
-protobuf==4.21.8
+protobuf==4.21.9
     # via
     #   google-api-core
     #   google-cloud-firestore
@@ -161,7 +161,7 @@ python-dateutil==2.8.2
     # via
     #   -r requirements.in
     #   botocore
-pytz==2022.5
+pytz==2022.6
     # via
     #   django
     #   django-timezone-field
@@ -189,7 +189,7 @@ six==1.16.0
     #   python-dateutil
 sqlparse==0.4.3
     # via django
-stack-data==0.5.1
+stack-data==0.6.0
     # via ipython
 tomli==2.0.1
     # via
@@ -211,7 +211,7 @@ wcwidth==0.2.5
     # via prompt-toolkit
 webencodings==0.5.1
     # via bleach
-wheel==0.37.1
+wheel==0.38.4
     # via pip-tools
 zstd==1.5.2.5
     # via -r requirements.in

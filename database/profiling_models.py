@@ -207,6 +207,6 @@ class DataAccessRecord(TimestampedModel):
     researcher: Researcher = models.ForeignKey("Researcher", on_delete=models.PROTECT, related_name="data_access_record")
     query_params = models.TextField(null=False, blank=False)
     error = models.TextField(null=True, blank=True)
-    registry_dict_size = models.PositiveBigIntegerField(null=False, blank=False)
+    registry_dict_size = models.PositiveBigIntegerField(null=True, blank=True)
     time_end: datetime = models.DateTimeField(null=True, blank=True)
     bytes = models.PositiveBigIntegerField(null=True, blank=True)

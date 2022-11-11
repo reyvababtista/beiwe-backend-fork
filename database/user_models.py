@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime, tzinfo
 from typing import Dict, Tuple, Union
-from django.utils import timezone
+
 from Cryptodome.PublicKey import RSA
 from dateutil.tz import gettz
 from django.core.validators import MinLengthValidator
 from django.db import models
 from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
+from django.utils import timezone
 
-from constants.common_constants import DEV_TIME_FORMAT2
 from constants.user_constants import ANDROID_API, IOS_API, OS_TYPE_CHOICES, ResearcherRole
 from database.common_models import UtilityModel
 from database.models import TimestampedModel

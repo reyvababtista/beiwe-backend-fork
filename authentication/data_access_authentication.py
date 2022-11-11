@@ -20,7 +20,7 @@ DEBUG_API_AUTHENTICATION = False
 
 def log(*args, **kwargs):
     if DEBUG_API_AUTHENTICATION:
-        print(*args, **kwargs)
+        print("api authentication:", *args, **kwargs)
 
 
 def is_object_id(object_id: str) -> bool:
@@ -28,11 +28,13 @@ def is_object_id(object_id: str) -> bool:
     # due to change in django we have to check database queries for byte strings as they get coerced
     # to strings prepended with b'
     if not isinstance(object_id, str) or object_id.startswith("b'"):
+        log("bad objectid type")
         raise BadObjectIdType(str(object_id))
     
     # need to be composed of alphanumerics
     for c in object_id:
         if c not in OBJECT_ID_ALLOWED_CHARS:
+            log("object id disallowed characters")
             return False
     
     return len(object_id) == 24

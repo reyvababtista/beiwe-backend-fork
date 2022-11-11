@@ -41,24 +41,35 @@ def get_data(request: ApiStudyResearcherRequest):
         missing creds or study, invalid researcher or study, researcher does not have access
         researcher creds are invalid
     Returns a zip file of all data files found by the query. """
-    
     query_args = {}
-    determine_data_streams_for_db_query(request, query_args)
-    determine_users_for_db_query(request, query_args)
-    determine_time_range_for_db_query(request, query_args)
-    registry_dict = parse_registry(request)
     
+    try:
+        determine_data_streams_for_db_query(request, query_args)
+        determine_users_for_db_query(request, query_args)
+        determine_time_range_for_db_query(request, query_args)
+        registry_dict = parse_registry(request)
+    except Exception as e:
+        post = dict(request.POST)
+        post["access_key"] = post["secret_key"] = "sanitized"  # guaranteed to be present
+        DataAccessRecord.objects.create(
+            researcher=request.api_researcher,
+            query_params=orjson.dumps(post).decode(),
+            error="did not pass query validation, " + str(e),
+        )
+        raise
     # Do query! (this is actually a generator, it can only be iterated over once)
     get_these_files = handle_database_query(
         request.api_study.pk, query_args, registry_dict=registry_dict
     )
+    
     # make a record of the query, we are only tracking queries that make it to this point
-    record = DataAccessRecord(
+    query_args["study_pk"] = request.api_study.pk  # add the study pk
+    record = DataAccessRecord.objects.create(
         researcher=request.api_researcher,
         query_params=orjson.dumps(query_args).decode(),
         registry_dict_size=len(registry_dict) if registry_dict else 0,
     )
-    record.save()
+    
     streaming_zip_file = ZipGenerator(
         get_these_files, construct_registry='web_form' not in request.POST
     )
@@ -92,11 +103,11 @@ def parse_registry(request: ApiStudyResearcherRequest):
         ret = json.loads(registry)
     except ValueError:
         log("bad json registry")
-        return abort(400)
+        return abort(400, "bad registry")
     
     if not isinstance(ret, dict):
         log("json was not a dict")
-        return abort(400)
+        return abort(400, "bad registry dict")
     
     return ret
 
@@ -133,7 +144,7 @@ def determine_data_streams_for_db_query(request: ApiStudyResearcherRequest, quer
         for data_stream in query_dict['data_types']:
             if data_stream not in ALL_DATA_STREAMS:
                 log("invalid data stream:", data_stream)
-                return abort(404)
+                return abort(404, "bad data stream")
 
 
 def determine_users_for_db_query(request: ApiStudyResearcherRequest, query: dict):
@@ -149,7 +160,7 @@ def determine_users_for_db_query(request: ApiStudyResearcherRequest, query: dict
         # Ensure that all user IDs are patient_ids of actual Participants
         if not Participant.objects.filter(patient_id__in=query['user_ids']).count() == len(query['user_ids']):
             log("invalid participant")
-            return abort(404)
+            return abort(404, "bad patient id")
 
 
 def determine_time_range_for_db_query(request: ApiStudyResearcherRequest, query: dict):

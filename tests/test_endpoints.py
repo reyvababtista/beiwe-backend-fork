@@ -30,6 +30,7 @@ from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID
     IOS_CERT, MIDNIGHT_EVERY_DAY, OCT_6_NOON_2022)
 from constants.user_constants import ALL_RESEARCHER_TYPES, IOS_API, ResearcherRole
 from database.data_access_models import ChunkRegistry, FileToProcess
+from database.profiling_models import DataAccessRecord
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention, ScheduledEvent,
     WeeklySchedule)
 from database.security_models import ApiKey
@@ -2319,6 +2320,7 @@ class TestGetData(DataApiTest):
     ):
         post_kwargs = {"study_pk": self.session_study.id}
         generate_kwargs = {"time_bin": time_bin, "path": file_path}
+        tracking = {"researcher": self.session_researcher, "query_params": {}}
         
         if data_type == SURVEY_TIMINGS:
             generate_kwargs["survey"] = self.default_survey
@@ -2326,6 +2328,7 @@ class TestGetData(DataApiTest):
         if registry is not None:
             post_kwargs["registry"] = registry
             generate_kwargs["hash_value"] = self.REGISTRY_HASH  # strings must match
+            tracking["registry_dict_size"] = True
         else:
             post_kwargs["web_form"] = ""
         
@@ -2334,26 +2337,41 @@ class TestGetData(DataApiTest):
         
         if query_data_streams is not None:
             post_kwargs["data_streams"] = query_data_streams
+            tracking["query_params"]["data_streams"] = query_data_streams
         
         if query_patient_ids is not None:
             post_kwargs["user_ids"] = query_patient_ids
+            tracking["user_ids"] = query_patient_ids
         
         if query_time_bin_start:
             post_kwargs['time_start'] = query_time_bin_start
+            tracking['time_start'] = query_time_bin_start
         if query_time_bin_end:
             post_kwargs['time_end'] = query_time_bin_end
+            tracking['time_end'] = query_time_bin_end
         
+        # clear records, create chunkregistry and post
+        DataAccessRecord.objects.all().delete()  # we automate tihs testing, easiest to clear it
         self.generate_chunkregistry(
             self.session_study, self.default_participant, data_type, **generate_kwargs
         )
         resp: FileResponse = self.smart_post(**post_kwargs)
         
-        # Test for a status code, dufault 200
+        # some basics for testing that DataAccessRecords are created
+        assert DataAccessRecord.objects.count() == 1, (post_kwargs, resp.status_code, DataAccessRecord.objects.count())
+        record = DataAccessRecord.objects.order_by("-created_on").first()
+        self.assertEqual(record.researcher.id, self.session_researcher.id)
+
+        # Test for a status code, default 200
         self.assertEqual(resp.status_code, status_code)
         if resp.status_code != 200:
             # no iteration, clear db
             ChunkRegistry.objects.all().delete()
             return resp.status_code
+        
+        # directly comparing these dictionaries is quite non-trivial, not really worth testing tbh?
+        # post_kwargs.pop("web_form")
+        # self.assertEqual(json.loads(record.query_params), post_kwargs)
         
         # then iterate over the streaming output and concatenate it.
         bytes_list = []

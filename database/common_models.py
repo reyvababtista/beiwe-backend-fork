@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
+from datetime import date, datetime
 from pprint import pprint
 from random import choice as random_choice
 
+import dateutil
 from django.db import models
 from django.db.models.fields import NOT_PROVIDED
 from django.db.models.fields.related import RelatedField
+from django.utils.timezone import localtime
 
+from constants.common_constants import DEV_TIME_FORMAT3
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 
 
@@ -56,7 +60,14 @@ class UtilityModel(models.Model):
     @property
     def pprint(self):
         """ shortcut for very common cli usage. """
-        pprint(self.as_dict())
+        d = self.as_dict()
+        for k, v in d.items():
+            if isinstance(v, datetime):
+                the_one_true_timezone = dateutil.tz.gettz("America/New_York")
+                d[k] = localtime(v, the_one_true_timezone).strftime(DEV_TIME_FORMAT3)
+            elif isinstance(v, date):
+                d[k] = v.isoformat()
+        pprint(d)
     
     @classmethod
     def summary(cls):

@@ -35,6 +35,7 @@ API_TIME_FORMAT_WITH_TZ = "%Y-%m-%dT%H:%M:%S (%Z)"
 API_DATE_FORMAT = "%Y-%m-%d"
 DEV_TIME_FORMAT = "%Y-%m-%d %H:%M (%Z)"
 DEV_TIME_FORMAT2 = "%Y-%m-%d %H:%M:%S (%Z)"
+DEV_TIME_FORMAT3 = "%Y-%m-%d %H:%M:%S . %f (%Z)"  # leave the extra spaces
 DISPLAY_TIME_FORMAT = "%Y-%m-%d %-I:%M%p (%Z)"
 
 # file path for s3 for problem uploads

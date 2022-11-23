@@ -19,12 +19,12 @@
     <link rel="stylesheet" href="/static/css/admin.css" type="text/css"/>
 
     <!-- Sentry Configuration -->
-    <script src="https://cdn.ravenjs.com/3.25.2/angular/raven.min.js" crossorigin="anonymous"></script>
     {% if SENTRY_JAVASCRIPT_DSN and SENTRY_JAVASCRIPT_DSN != 'USE_EMAIL_FALLBACK' %}
+      <script src="https://cdn.ravenjs.com/3.25.2/angular/raven.min.js" crossorigin="anonymous"></script>
       <script>
-      Raven.config('{{ SENTRY_JAVASCRIPT_DSN }}', {
-        debug:true
-      }).install();
+        Raven.config('{{ SENTRY_JAVASCRIPT_DSN }}', {
+          debug:true
+        }).install();
       </script>
     {% endif %}
 

@@ -4,11 +4,10 @@
 
 {% block head %}
   {{ super() }}
-  <link rel="stylesheet" href="/static/css/libraries/bootstrap-datetimepicker.css"  type="text/css"/>
-  <script type="text/javascript" src="{{ ASSETS.MOMENTJS }}"></script>
+  <link rel="stylesheet" href="{{ ASSETS.BOOTSTRAP_DATETIMEPICKER_CSS }}" type="text/css"/>
+  <script type="text/javascript" src="{{ ASSETS.BOOTSTRAP_DATETIMEPICKER }}"></script>
   <script type="text/javascript" src="/static/javascript/libraries/transition.js"></script>
   <script type="text/javascript" src="/static/javascript/libraries/collapse.js"></script>
-  <script type="text/javascript" src="/static/javascript/libraries/bootstrap-datetimepicker.js"></script>
   <script type="text/javascript" src="/static/javascript/data_download_page.js"></script>
   <script>
     var allowedStudies = {{ allowed_studies|tojson }};

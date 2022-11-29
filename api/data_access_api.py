@@ -153,10 +153,13 @@ def determine_users_for_db_query(request: ApiStudyResearcherRequest, query: dict
     Throws a 404 if a user provided does not exist. """
     if 'user_ids' in request.POST:
         try:
-            query['user_ids'] = [user for user in json.loads(request.POST['user_ids'])]
-        except ValueError:
-            query['user_ids'] = request.POST.getlist('user_ids')
-        
+            try:
+                query['user_ids'] = [user for user in json.loads(request.POST['user_ids'])]
+            except ValueError:
+                query['user_ids'] = request.POST.getlist('user_ids')
+        except Exception:
+            return abort(400, "bad patient id")
+
         # Ensure that all user IDs are patient_ids of actual Participants
         if not Participant.objects.filter(patient_id__in=query['user_ids']).count() == len(query['user_ids']):
             log("invalid participant")

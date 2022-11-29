@@ -785,8 +785,8 @@ class TestCreateStudy(ResearcherSessionTest):
         self.set_session_study_relation(ResearcherRole.site_admin)
         params = self.create_study_params()
         params["name"] = "&" * 50
-        resp = self.smart_post_status_code(400, **params)
-        self.assertEqual(resp.content, b"")
+        resp = self.smart_post_status_code(302, **params)
+        self.assert_present(resp.content, b"you provided contained unsafe characters")
 
 
 # FIXME: this test has the annoying un-factored url with post params and url params
@@ -2361,7 +2361,7 @@ class TestGetData(DataApiTest):
         assert DataAccessRecord.objects.count() == 1, (post_kwargs, resp.status_code, DataAccessRecord.objects.count())
         record = DataAccessRecord.objects.order_by("-created_on").first()
         self.assertEqual(record.researcher.id, self.session_researcher.id)
-
+        
         # Test for a status code, default 200
         self.assertEqual(resp.status_code, status_code)
         if resp.status_code != 200:

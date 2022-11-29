@@ -18,9 +18,127 @@
       </li>
     </ol>
 
-    <div class="col-lg-12">
-      <h2>Authorized researchers on this study</h2>
-      <div>
+  <div class="col-xs-12 well">
+    <div class="col-xs-3" >
+      <h2>Edit App settings</h2>
+    </div>
+      <div class="col-xs-9 h2-margins-vertical text-center bold" >
+        <h4>
+          <a href="/device_settings/{{ study.id }}"> 
+            Edit the types of data this study collects and the wording that study participants see in the app
+          </a>
+        </h4>
+    </div>
+  </div>
+
+  {# easy enrollment #}
+  <div class="col-xs-12 well">
+    <h2 class="pull-left col-xs-3">Easy Enrollment</h2>
+    <div class="col-xs-7 h2-middle-margins-vertical">
+      When Easy Enrollment is enabled for a study or a participant the Temporary Password that is otherwised required at registration is ignored.  Any value that passes any validation performed by the app is allowed.
+      <i>(You will be presented with a list of patient ids where Easy Enrollment is manually enabled whenever you disable a study's Easy Enrollment policy.) </i>
+    </div>
+    <form action="{{ easy_url('admin_api.toggle_easy_enrollment_study', study.id) }}" method="get">
+      <button type="submit"
+      {% if study.easy_enrollment %}
+        class="btn btn-warning large-font-size pull-right h2-margins-vertical"
+      {% else %}
+        class="btn btn-success large-font-size pull-right h2-margins-vertical"
+      {% endif %}
+      >
+      {% if study.easy_enrollment %} Disable {% else %} Enable {% endif %}
+      </button>
+    </form>
+  </div>
+
+  {# toggle forest #}
+  <div class="col-xs-12 well">
+    <h2 class="pull-left col-xs-3">Toggle Forest</h2>
+    <div class="col-xs-7 h2-middle-margins-vertical text-center">
+      Enable or disable whether forest analyses are runnable for this study.
+    </div>
+    <form action="/toggle_study_forest_enabled/{{ study.id }}" method="post">
+      {% if study.forest_enabled %}
+        <div class="pull-right h2-margins-vertical">
+          <button class="btn btn-danger large-font-size" type="submit">Disable Forest</button>
+        </div>
+        {% else %}
+        <div class="pull-right h2-margins-vertical">
+          <button class="btn btn-success large-font-size" type="submit">Enable Forest</button>
+        </div>
+      {% endif %}
+    </form>
+    {% comment %} <p>Forest is currently {% if study.forest_enabled %}enabled{% else %}disabled{% endif %}.</p> {% endcomment %}
+  </div>
+
+  {# download intervention data #}
+  <div class="col-xs-12 well">
+    <h2 class="pull-left"> Intervention Data</h2>
+    <div class="pull-right h2-margins-vertical">
+    <form action="{{ easy_url("study_api.download_study_interventions", study_id=study.id) }}" method="post">
+        <button class="btn btn-success large-font-size" type="submit">Download Interventions</button>
+      </div>
+    </form>
+    <div class="col-lg-7 h2-middle-margins-vertical text-center">
+      Download a JSON representation of interventions for all users on this study.
+    </div>
+  </div>
+
+  {# download history of changes to surveys #}
+  <div class="col-xs-12 well">
+    <h2 class="pull-left">Survey History</h2>
+    <div class="col-lg-7 h2-middle-margins-vertical text-center">
+      Download a JSON representation of the entire history of changes to surveys.
+    </div>
+    <form action="{{ easy_url("study_api.download_study_survey_history", study_id=study.id) }}" method="post">
+      <div class="pull-right h3-margins-vertical">
+        <button class="btn btn-success large-font-size" type="submit">Download Surveys</button>
+      </div>
+    </form>
+  </div>
+
+  {# Study timezone #}
+  <div class="col-xs-12 well">
+    <h2>Set Study Timezone</h2>
+    <form action="/set_study_timezone/{{ study.id }}" method="post">
+      <div class="col-xs-10">
+        <select class="form-control" name="new_timezone_name">
+          {% for name, value in timezones %}
+          <option value="{{ name }}" {% if name == study.timezone_name %}selected{% endif %}>{{ value }} </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-xs-2">
+        <button class="btn btn-warning " type="submit">Update Timezone</button>
+      </div>
+      <div class="col-xs-12">
+        <h5 class="h2-margins-vertical">
+          If you change the Study Timezone after surveys are sent to participants, Beiwe will immediately resend any previously sent absolute-date and relative-date surveys.
+        </h5>
+        <h5 class="h2-margins-vertical">
+          Additionally, Forest's daily summary statistics are calculated within the study's time zone.  Changing the time zone here will NOT recalculate existing data.
+        </h5>
+      </div>
+    </form>
+  </div>
+
+  {# Rename study #}
+  <div class="col-xs-12 well">
+    <h2 class="col-xs-12">Rename study</h2>
+    <form action="/rename_study/{{ study.id }}" method="post">
+      <div class="col-md-10">
+        <input type="text" name="new_study_name" value="{{ study['name'] }}" class="form-control">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-warning" type="submit">Update Name</button>
+      </div>
+    </form>
+  </div>
+
+
+  <div class="col-lg-12">
+    <h2>Authorized researchers on this study</h2>
+    <div>
       <table class="list-group table table-striped table-hover" width="100%">
         {% if not study.get_researchers() %}
           <p><i>No researchers are authorized to view or edit this study.</i></p>
@@ -77,7 +195,7 @@
           {% endfor %}
         {% endif %}
       </table>
-    </dev>
+    </div>
   </div>
 
   <div class="col-xs-12 well">
@@ -100,99 +218,6 @@
       </div>
     </form>
   </div>
-
-  <div class="col-xs-12 well">
-    <div class="col-xs-3" >
-      <h2>App settings</h2>
-    </div>
-      <div class="col-xs-9 h2-margins-vertical text-center bold" >
-        <h4>
-          <a href="/device_settings/{{ study.id }}"> 
-            Edit the types of data this study collects and the wording that study participants see in the app
-          </a>
-        </h4>
-    </div>
-  </div>
-
-  <div class="col-xs-12 well">
-    <h2 class="pull-left col-xs-3">Toggle Forest</h2>
-    <div class="col-xs-7 h2-middle-margins-vertical text-center">
-      Enable or disable whether forest analyses are runnable for this study.
-    </div>
-    <form action="/toggle_study_forest_enabled/{{ study.id }}" method="post">
-      {% if study.forest_enabled %}
-        <div class="pull-right h2-margins-vertical">
-          <button class="btn btn-danger" type="submit">Disable Forest</button>
-        </div>
-        {% else %}
-        <div class="pull-right h2-margins-vertical">
-          <button class="btn btn-success" type="submit">Enable Forest</button>
-        </div>
-      {% endif %}
-    </form>
-    {% comment %} <p>Forest is currently {% if study.forest_enabled %}enabled{% else %}disabled{% endif %}.</p> {% endcomment %}
-  </div>
-
-  <div class="col-xs-12 well">
-    <h2 class="pull-left"> Intervention Data</h2>
-    <div class="pull-right h2-margins-vertical">
-    <form action="{{ easy_url("study_api.download_study_interventions", study_id=study.id) }}" method="post">
-        <button class="btn btn-success" type="submit">Download Interventions</button>
-      </div>
-    </form>
-    <div class="col-lg-7 h2-middle-margins-vertical text-center">
-      Download a JSON representation of interventions for all users on this study.
-    </div>
-  </div>
-
-  <div class="col-xs-12 well">
-    <h2 class="pull-left">Survey History</h2>
-    <div class="col-lg-8 h2-middle-margins-vertical text-center">
-      Download a JSON representation of the entire history of changes to surveys.
-    </div>
-    <form action="{{ easy_url("study_api.download_study_survey_history", study_id=study.id) }}" method="post">
-      <div class="pull-right h3-margins-vertical">
-        <button class="btn btn-success" type="submit">Download Surveys</button>
-      </div>
-    </form>
-  </div>
-
-
-  <div class="col-xs-12 well">
-    <h2>Set Study Timezone</h2>
-    <form action="/set_study_timezone/{{ study.id }}" method="post">
-      <div class="col-xs-10">
-        <select class="form-control" name="new_timezone_name">
-          {% for name, value in timezones %}
-          <option value="{{ name }}" {% if name == study.timezone_name %}selected{% endif %}>{{ value }} </option>
-          {% endfor %}
-        </select>
-        </div>
-        <div class="col-xs-2">
-          <button class="btn btn-warning " type="submit">Update Timezone</button>
-        </div>
-        <div class="col-xs-12">
-          <h5 class="h2-margins-vertical">
-            If you change the Study Timezone after surveys are sent to participants, Beiwe will immediately resend any previously sent absolute-date and relative-date surveys.
-          </h5>
-          <h5 class="h2-margins-vertical">
-            Additionally, Forest's daily summary statistics are calculated within the study's time zone.  Changing the time zone here will NOT recalculate existing data.
-          </h5>
-        </div>
-      </form>
-      </div>
-
-    <div class="col-xs-12 well">
-      <h2 class="col-xs-12">Rename study</h2>
-      <form action="/rename_study/{{ study.id }}" method="post">
-        <div class="col-md-10">
-          <input type="text" name="new_study_name" value="{{ study['name'] }}" class="form-control">
-        </div>
-        <div class="col-md-2">
-          <button class="btn btn-warning" type="submit">Update Name</button>
-        </div>
-      </form>
-    </div>
 
     <div class="col-xs-12 well well-lcm">
       <h2 class="col-xs-12">Export/Import study settings</h2>
@@ -223,10 +248,13 @@
     </div>
   </div>
 
-  <div class="col-xs-8 well well-sm">
+  <div class="col-xs-12 well well-sm">
     <h2 class="col-xs-4 "> Delete study</h2>
-    <a class="btn btn-danger col-xs-2 h2-margins-vertical" onclick="confirm_delete_study('{{ study.name|replace("'", "")|replace('"', "") }}', '{{ study.id }}')">
-      <span class="glyphicon glyphicon-trash"></span>&nbsp;Delete study</a>
+    <div class="col-xs-4 h2-margins-vertical"> This action cannot be undone.</div>
+      <div class="col-xs-4 ">
+    <a class="btn btn-danger h2-margins-vertical pull-right" onclick="confirm_delete_study('{{ study.name|replace("'", "")|replace('"', "") }}', '{{ study.id }}')">
+        <span class="glyphicon glyphicon-trash"></span>&nbsp;Delete study</a>
+      </div>
   </div>
 
 </div>

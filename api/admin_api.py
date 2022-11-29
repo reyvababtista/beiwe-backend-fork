@@ -114,6 +114,27 @@ def rename_study(request: ResearcherRequest, study_id=None):
     return redirect(f'/edit_study/{study.pk}')
 
 
+@require_GET
+@authenticate_admin
+def toggle_easy_enrollment_study(request: ResearcherRequest, study_id: int):
+    study = Study.objects.get(id=study_id)
+    study.easy_enrollment = not study.easy_enrollment
+    study.save()
+    if study.easy_enrollment:
+        messages.success(request, f'{study.name} now has Easy Enrollment enabled.')
+    else:
+        messages.success(request, f'{study.name} no longer has Easy Enrollment enabled.')
+        manually_enabled = study.participants.filter(easy_enrollment=True).values_list("patient_id", flat=True)
+        if manually_enabled:
+            patient_ids = ", ".join(manually_enabled)
+            messages.warning(
+                request,
+                 f"The following participants still have Easy Enrollment manually enabled: {patient_ids}"
+            )
+    return redirect(f'/edit_study/{study.pk}')
+
+
+
 """##### Methods responsible for distributing APK file of Android app. #####"""
 
 

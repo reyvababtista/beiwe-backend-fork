@@ -46,7 +46,6 @@ def reset_participant_password(request: ResearcherRequest):
     return participant_page
 
 
-
 @require_POST
 @authenticate_researcher_study_access
 def reset_device(request: ResearcherRequest):
@@ -79,6 +78,37 @@ def reset_device(request: ResearcherRequest):
 
 @require_POST
 @authenticate_researcher_study_access
+def toggle_easy_enrollment(request: ResearcherRequest):
+    """ Block participant from uploading further data """
+    patient_id = request.POST.get('patient_id', None)
+    study_id = request.POST.get('study_id', None)
+    participant_page = redirect(
+        easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id)
+    )
+    try:
+        participant = Participant.objects.get(patient_id=patient_id)
+    except Participant.DoesNotExist:
+        messages.error(request, f'The participant {patient_id} does not exist')
+        return participant_page
+    
+    if participant.study.id != int(study_id):
+        messages.error(
+            request,
+            f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}'
+        )
+        return participant_page
+    
+    participant.easy_enrollment = not participant.easy_enrollment
+    participant.save()
+    if participant.easy_enrollment:
+        messages.success(request, f'{patient_id} now has Easy Enrollment enabled.')
+    else:
+        messages.success(request, f'{patient_id} no longer has Easy Enrollment enabled.')
+    return participant_page
+
+
+@require_POST
+@authenticate_researcher_study_access
 def unregister_participant(request: ResearcherRequest):
     """ Block participant from uploading further data """
     patient_id = request.POST.get('patient_id', None)
@@ -91,7 +121,7 @@ def unregister_participant(request: ResearcherRequest):
         participant = Participant.objects.get(patient_id=patient_id)
     except Participant.DoesNotExist:
         messages.error(request, f'The participant {patient_id} does not exist')
-        return participant_page
+        return participant_page  # okay that is wrong... I don't think we care though, just causes 404?
     
     if participant.study.id != int(study_id):
         messages.error(

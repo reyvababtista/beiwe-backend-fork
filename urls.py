@@ -87,6 +87,7 @@ path('remove_researcher_from_study', admin_api.remove_researcher_from_study)
 path('delete_researcher/<str:researcher_id>', admin_api.delete_researcher)
 path('set_researcher_password', admin_api.set_researcher_password)
 path('rename_study/<str:study_id>', admin_api.rename_study)
+path("toggle_easy_enrollment_study/<int:study_id>", admin_api.toggle_easy_enrollment_study)
 
 # app download
 path("download", admin_api.download_current)
@@ -129,6 +130,7 @@ path('edit_survey/<str:study_id>/<str:survey_id>', survey_designer.render_edit_s
 
 # participant administration
 path('reset_participant_password', participant_administration.reset_participant_password)
+path('toggle_easy_enrollment', participant_administration.toggle_easy_enrollment)
 path('reset_device', participant_administration.reset_device)
 path('unregister_participant', participant_administration.unregister_participant)
 path('create_new_participant', participant_administration.create_new_participant)

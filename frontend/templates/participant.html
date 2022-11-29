@@ -131,6 +131,36 @@
     {% endif %}
   </div>
 
+  {# easy enrollment #}
+  <div class="col-md-12 well">
+    <div class="col-md-5">
+      <div class="h2-middle-margins-vertical text-center row">
+        <form action="/toggle_easy_enrollment" method="post">
+          <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
+          <input type="hidden" name="study_id" value="{{ study.id }}">
+          <button type="submit"
+          {% if participant.easy_enrollment %}
+            class="btn btn-warning large-font-size"
+          {% else %}
+            class="btn btn-success large-font-size"
+          {% endif %}
+          >
+          {% if participant.easy_enrollment %}
+            Disable Easy Enrollment
+          {% else %}
+            Enable Easy Enrollment
+          {% endif %}
+          </button>
+        </form>
+      </div>
+    </div>
+    <div class="col-md-7 h3-margins-vertical">
+      Easy enrollment may enabled on a per-participant basis.
+      <p>
+      When easy enrollment is enabled for a study or a participant the Temporary Password that is otherwised required at registration is ignored.  Any value that passes any validation performed by the app is allowed.
+    </div>
+  </div>
+
   {# Reset Passwordd #}
   <div class="col-md-12 well">
     <div class="col-md-5">
@@ -155,7 +185,6 @@
       participant's current password.
     </div>
   </div>
-
 
   {# Unregister Device #}
   <div class="col-md-12 well">
@@ -189,7 +218,7 @@
         <form action="/unregister_participant" method="post">
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
-          <button type="submit" class="btn btn-warning large-font-size"
+          <button type="submit" class="btn btn-danger large-font-size"
           onclick="return confirm('Are you sure you want to permanently end data collection from {{ participant.patient_id }}?')" 
             {% if participant.unregistered %} disabled {% endif %}>
             Permenantly Retire Participant

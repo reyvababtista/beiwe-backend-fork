@@ -1374,7 +1374,7 @@ class TestParticipantPage(RedirectSessionApiTest):
         self.easy_get(
             self.ENDPOINT_NAME, status_code=200,
             study_id=self.session_study.id, patient_id=self.default_participant.patient_id)
-        
+    
     
     def test_post(self):
         # FIXME: implement real tests here...
@@ -1616,6 +1616,76 @@ class TestResetDevice(RedirectSessionApiTest):
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.device_id, "")
 
+
+class TestToggleParticipantEasyEnrollment(RedirectSessionApiTest):
+    ENDPOINT_NAME = "participant_administration.toggle_easy_enrollment"
+    REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
+    
+    def test_admin(self):
+        self.assertFalse(self.default_study.easy_enrollment)
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_success()
+    
+    def test_researcher(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_success()
+    
+    def test_study_easy_enrollment_enabled(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_study.update(easy_enrollment=True)
+        self._test_success()
+    
+    def _test_success(self):
+        self.assertFalse(self.default_participant.easy_enrollment)
+        self.smart_post(patient_id=self.default_participant.patient_id, study_id=self.session_study.id)
+        self.default_participant.refresh_from_db()
+        self.assertTrue(self.default_participant.easy_enrollment)
+        self.smart_post(patient_id=self.default_participant.patient_id, study_id=self.session_study.id)
+        self.default_participant.refresh_from_db()
+        self.assertFalse(self.default_participant.easy_enrollment)
+    
+    def test_no_relation(self):
+        self.assertFalse(self.default_participant.easy_enrollment)
+        resp = self._smart_post(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.default_participant.refresh_from_db()
+        self.assertFalse(self.default_participant.easy_enrollment)
+
+
+class TestToggleStudyEasyEnrollment(RedirectSessionApiTest):
+    ENDPOINT_NAME = "admin_api.toggle_easy_enrollment_study"
+    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    
+    def test_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test_success()
+    
+    def test_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_success()
+    
+    def _test_success(self):
+        self.assertFalse(self.default_study.easy_enrollment)
+        self.smart_get(self.session_study.id)
+        self.default_study.refresh_from_db()
+        self.assertTrue(self.default_study.easy_enrollment)
+    
+    def test_researcher(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_fail()
+
+    def test_no_relation(self):
+        self.session_researcher.study_relations.all().delete()  # should be redundant
+        self._test_fail()
+
+    def _test_fail(self):
+        self.assertFalse(self.default_study.easy_enrollment)
+        self._smart_post
+        self.easy_get(self.ENDPOINT_NAME, status_code=403, study_id=self.session_study.id)
+        self.default_study.refresh_from_db()
+        self.assertFalse(self.default_study.easy_enrollment)
 
 class TestUnregisterParticipant(RedirectSessionApiTest):
     ENDPOINT_NAME = "participant_administration.unregister_participant"

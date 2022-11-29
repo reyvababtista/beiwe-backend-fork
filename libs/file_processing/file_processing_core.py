@@ -189,10 +189,15 @@ def process_chunkable_file(
 
 
 def process_unchunkable_file(file_for_processing: FileForProcessing, ftps_to_remove: set):
-    # case: unchunkable data file
-    timestamp = clean_java_timecode(
-        file_for_processing.file_to_process.s3_file_path.rsplit("/", 1)[-1][:-4]
-    )
+    try:
+        # if the timecode is bad, we scrap this file. We just don't care.
+        timestamp = clean_java_timecode(
+            file_for_processing.file_to_process.s3_file_path.rsplit("/", 1)[-1][:-4]
+        )
+    except BadTimecodeError:
+        ftps_to_remove.add(file_for_processing.file_to_process.id)
+        return
+
     # Since we aren't binning the data by hour, just create a ChunkRegistry that
     # points to the already existing S3 file.
     try:

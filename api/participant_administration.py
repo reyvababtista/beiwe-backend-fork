@@ -11,6 +11,7 @@ from authentication.admin_authentication import authenticate_researcher_study_ac
 from database.schedule_models import InterventionDate
 from database.study_models import Study
 from database.user_models import Participant, ParticipantFieldValue
+from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
 from libs.s3 import create_client_key_pair, s3_upload
 from libs.schedules import repopulate_all_survey_scheduled_events
@@ -23,25 +24,27 @@ def reset_participant_password(request: ResearcherRequest):
     """ Takes a patient ID and resets its password. Returns the new random password."""
     patient_id = request.POST.get('patient_id', None)
     study_id = request.POST.get('study_id', None)  # this is validated in the decorator
+    participant_page = redirect(
+        easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id)
+    )
     
     try:
         participant = Participant.objects.get(patient_id=patient_id)
     except Participant.DoesNotExist:
         messages.error(request, f'The participant "{bleach.clean(patient_id)}" does not exist')
-        return redirect(f'/view_study/{study_id}/')
+        return participant_page
     
     if participant.study.id != int(study_id):
         messages.error(
             request,
             f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}'
         )
-        # FIXME: this  was a referrer redirect
-        return redirect(f'/view_study/{study_id}/')
+        return participant_page
     
     new_password = participant.reset_password()
     messages.success(request, f'Patient {patient_id}\'s password has been reset to {new_password}.')
-    # FIXME: this  was a referrer redirect
-    return redirect(f'/view_study/{study_id}/')
+    return participant_page
+
 
 
 @require_POST
@@ -49,29 +52,29 @@ def reset_participant_password(request: ResearcherRequest):
 def reset_device(request: ResearcherRequest):
     """ Resets a participant's device. The participant will not be able to connect until they
     register a new device. """
-    
     patient_id = request.POST.get('patient_id', None)
     study_id = request.POST.get('study_id', None)
+    participant_page = redirect(
+        easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id)
+    )
     
     try:
         participant = Participant.objects.get(patient_id=patient_id)
     except Participant.DoesNotExist:
         messages.error(request, f'The participant {patient_id} does not exist')
-        return redirect(f'/view_study/{study_id}/')
+        return participant_page
     
     if participant.study.id != int(study_id):
         messages.error(
             request,
             f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}'
         )
-        # FIXME: this was originally request.referrer
-        return redirect(f'/view_study/{study_id}/')
+        return participant_page
     
     participant.device_id = ""
     participant.save()
     messages.success(request, f'For patient {patient_id}, device was reset; password is untouched.')
-    # FIXME: this was originally request.referrer
-    return redirect(f'/view_study/{study_id}/')
+    return participant_page
 
 
 @require_POST
@@ -80,25 +83,26 @@ def unregister_participant(request: ResearcherRequest):
     """ Block participant from uploading further data """
     patient_id = request.POST.get('patient_id', None)
     study_id = request.POST.get('study_id', None)
+    participant_page = redirect(
+        easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id)
+    )
     
     try:
         participant = Participant.objects.get(patient_id=patient_id)
     except Participant.DoesNotExist:
         messages.error(request, f'The participant {patient_id} does not exist')
-        return redirect(f'/view_study/{study_id}/')
+        return participant_page
     
     if participant.study.id != int(study_id):
         messages.error(
             request,
             f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}'
         )
-        # FIXME: this was a request.referrer redirect
-        return redirect(f'/view_study/{study_id}/')
+        return participant_page
     
     if participant.unregistered:
-        messages.error(request, f'Participant {patient_id} is already unregistered')
-        # FIXME: this was a request.referrer redirect
-        return redirect(f'/view_study/{study_id}/')
+        messages.warning(request, f'Participant {patient_id} is already unregistered')
+        return participant_page
     
     participant.unregistered = True
     participant.save()
@@ -107,8 +111,7 @@ def unregister_participant(request: ResearcherRequest):
         f'{patient_id} was successfully unregisted from the study. '
         'They will not be able to upload further data.'
     )
-    # FIXME: this was a request.referrer redirect
-    return redirect(f'/view_study/{study_id}/')
+    return participant_page
 
 
 @require_POST
@@ -148,6 +151,7 @@ def create_many_patients(request: ResearcherRequest, study_id=None):
     if not filename.endswith('.csv'):
         filename += ".csv"
     
+    # for some reason we have to call set headers manually on FileResponse objects
     f = FileResponse(
         participant_csv_generator(study_id, number_of_new_patients),
         content_type="text/csv",

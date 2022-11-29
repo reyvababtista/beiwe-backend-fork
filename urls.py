@@ -1,6 +1,7 @@
+from typing import List
 from django.conf import settings
 from django.conf.urls.static import static
-from django.urls import path as simplepath
+from django.urls import path as simplepath, URLPattern
 
 from api import (admin_api, copy_study_api, dashboard_api, data_access_api, mobile_api,
     other_researcher_apis, participant_administration, push_notifications_api, study_api,
@@ -25,7 +26,7 @@ def path(route: str, view: callable, name: str = None, kwargs=None):
     urlpatterns.append(simplepath(route_without_slash, view, name=name, kwargs=kwargs))
 
 
-urlpatterns = []
+urlpatterns: List[URLPattern] = []
 
 # session and login
 path("", login_pages.login_page)

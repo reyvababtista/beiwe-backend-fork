@@ -8,6 +8,7 @@ from django.http.response import HttpResponse, HttpResponseRedirect
 from django.test import TestCase
 from django.urls import reverse
 from django.urls.base import resolve
+from django.urls.exceptions import NoReverseMatch
 
 from constants.tableau_api_constants import X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET
 from constants.testing_constants import ALL_ROLE_PERMUTATIONS, REAL_ROLES, ResearcherRole
@@ -20,7 +21,7 @@ from tests.helpers import ReferenceObjectMixin, render_test_html_file
 from urls import urlpatterns
 
 
-ALL_ENDPOINT_NAMES = set([pattern.name for pattern in urlpatterns])
+ENDPOINTS_BY_NAME = {pattern.name: pattern for pattern in urlpatterns}
 
 # this makes print statements during debugging easier to read by bracketting the statement of which
 # test is running with some separater.
@@ -54,6 +55,10 @@ if VERBOSE_2_OR_3:
 class HttpResponse(HttpResponse):
     # This class exists to improve IDE type interpretation
     content: bytes
+
+
+class MisconfiguredTestException(Exception):
+    pass
 
 
 class CommonTestCase(TestCase, ReferenceObjectMixin):
@@ -167,6 +172,35 @@ class CommonTestCase(TestCase, ReferenceObjectMixin):
             return var[-3:]
         else:
             raise TypeError(f"Unhandled type: {type(var)}")
+    
+    def simple_get(self, url: str, status_code=None, **get_kwargs) -> bytes:
+        """ provide a url with, supports a status code check, only get kwargs"""
+        ret = self.client.get(url, **get_kwargs)
+        if status_code is not None:
+            self.assertEqual(status_code, ret.status_code)
+        return ret.content
+    
+    def easy_get(self, view_name: str, status_code=None, **get_kwargs) -> bytes:
+        """ very easy, use endpoint names, no reverse args only kwargs """
+        url = self.smart_reverse(view_name, kwargs=get_kwargs)
+        return self.simple_get(url, status_code=status_code, **get_kwargs)
+    
+    def smart_reverse(self, endpoint_name: str, args: tuple = None, kwargs: dict = None):
+        kwargs = {} if kwargs is None else kwargs
+        args = {} if args is None else args
+        try:
+            return reverse(endpoint_name, args=args, kwargs=kwargs)
+        except NoReverseMatch:
+            if endpoint_name not in ENDPOINTS_BY_NAME:
+                raise MisconfiguredTestException(
+                    f"'{endpoint_name}' is not an endpoint anywhere, check urls.py"
+                )
+            raise MisconfiguredTestException(
+                f"smart_get_redirect error, bad reverse_params/reverse_kwargs for {endpoint_name}:\n"
+                f"pattern: {ENDPOINTS_BY_NAME[endpoint_name].pattern}\n"
+                f"reverse_params: {args}\n"
+                f"reverse_kwargs: {kwargs}"
+            )
 
 
 class BasicSessionTestCase(CommonTestCase):
@@ -179,7 +213,7 @@ class BasicSessionTestCase(CommonTestCase):
     
     def do_login(self, username, password):
         return self.client.post(
-            reverse("login_pages.validate_login"),
+            self.smart_reverse("login_pages.validate_login"),
             data={"username": username, "password": password}
         )
 
@@ -196,10 +230,10 @@ class SmartRequestsTestCase(BasicSessionTestCase):
         ignore = cls.IGNORE_THIS_ENDPOINT
         r_end_name = cls.REDIRECT_ENDPOINT_NAME
         
-        if end_name not in ALL_ENDPOINT_NAMES and end_name != ignore:
+        if end_name not in ENDPOINTS_BY_NAME and end_name != ignore:
             print(f"Test class {cls.__name__}'s ENDPOINT_NAME `{end_name}` does not exist.")
         
-        if r_end_name is not None and r_end_name not in ALL_ENDPOINT_NAMES and r_end_name != ignore:
+        if r_end_name is not None and r_end_name not in ENDPOINTS_BY_NAME and r_end_name != ignore:
             print(f"{cls.__name__}'s REDIRECT_ENDPOINT_NAME {r_end_name}` does not exist.")
         return super().setUpClass()
     
@@ -207,11 +241,9 @@ class SmartRequestsTestCase(BasicSessionTestCase):
         """ A wrapper to do a post request, using reverse on the ENDPOINT_NAME, and with a
         reasonable pattern for providing parameters to both reverse and post. """
         reverse_kwargs = reverse_kwargs or {}
-        # print(f"*reverse_args: {reverse_args}\n**reverse_kwargs: {reverse_kwargs}\n**post_params: {post_params}\n")
-        # print(reverse(self.ENDPOINT_NAME, args=reverse_args))
         self._detect_obnoxious_type_error("smart_post", reverse_args, reverse_kwargs, post_params)
         return self.client.post(
-            reverse(self.ENDPOINT_NAME, args=reverse_args, kwargs=reverse_kwargs), data=post_params
+            self.smart_reverse(self.ENDPOINT_NAME, args=reverse_args, kwargs=reverse_kwargs), data=post_params
         )
     
     def smart_get(self, *reverse_params, reverse_kwargs=None, **get_kwargs) -> HttpResponse:
@@ -220,7 +252,7 @@ class SmartRequestsTestCase(BasicSessionTestCase):
         reverse_kwargs = reverse_kwargs or {}
         # print(f"*reverse_params: {reverse_params}\n**get_kwargs: {get_kwargs}\n**reverse_kwargs: {reverse_kwargs}\n")
         self._detect_obnoxious_type_error("smart_get", reverse_params, reverse_kwargs, get_kwargs)
-        url = reverse(self.ENDPOINT_NAME, args=reverse_params, kwargs=reverse_kwargs)
+        url = self.smart_reverse(self.ENDPOINT_NAME, args=reverse_params, kwargs=reverse_kwargs)
         response = self.client.get(url, **get_kwargs)
         
         # if running in v3 mode we run the open-in-browser code
@@ -228,15 +260,6 @@ class SmartRequestsTestCase(BasicSessionTestCase):
             render_test_html_file(response, url)
         
         return response
-    
-    def smart_get_redirect(self, *reverse_params, get_kwargs=None, **reverse_kwargs) -> HttpResponse:
-        """ As smart_get, but uses REDIRECT_ENDPOINT_NAME. """
-        get_kwargs = get_kwargs or {}
-        # print(f"*reverse_params: {reverse_params}\n**get_kwargs: {get_kwargs}\n**reverse_kwargs: {reverse_kwargs}\n")
-        self._detect_obnoxious_type_error("smart_get_redirect", reverse_params, reverse_kwargs, get_kwargs)
-        return self.client.get(
-            reverse(self.REDIRECT_ENDPOINT_NAME, args=reverse_params, kwargs=reverse_kwargs), **get_kwargs
-        )
     
     def smart_post_status_code(
         self, status_code: int, *reverse_args, reverse_kwargs=None, **post_params
@@ -262,6 +285,14 @@ class SmartRequestsTestCase(BasicSessionTestCase):
         self.assertEqual(resp.status_code, status_code)
         return resp
     
+    def smart_get_redirect(self, *reverse_params, get_kwargs=None, **reverse_kwargs) -> HttpResponse:
+        """ As smart_get, but uses REDIRECT_ENDPOINT_NAME. """
+        get_kwargs = get_kwargs or {}
+        # print(f"*reverse_params: {reverse_params}\n**get_kwargs: {get_kwargs}\n**reverse_kwargs: {reverse_kwargs}\n")
+        self._detect_obnoxious_type_error("smart_get_redirect", reverse_params, reverse_kwargs, get_kwargs)
+        return self.client.get(
+            reverse(self.REDIRECT_ENDPOINT_NAME, args=reverse_params, kwargs=reverse_kwargs), **get_kwargs
+        )
     
     @staticmethod
     def _detect_obnoxious_type_error(function_name: str, args: tuple, kwargs1: dict, kwargs2: dict):
@@ -335,7 +366,6 @@ class RedirectSessionApiTest(PopulatedResearcherSessionTestCase, SmartRequestsTe
         self.assertEqual(resp.status_code, 200)
         return resp.content
 
-
 class ResearcherSessionTest(PopulatedResearcherSessionTestCase, SmartRequestsTestCase):
     ENDPOINT_NAME = None
 
@@ -362,7 +392,7 @@ class ParticipantSessionTest(SmartRequestsTestCase):
     def smart_post(self, *reverse_args, reverse_kwargs=None, **post_params) -> HttpResponse:
         """ Injects parameters for authentication and confirms the device tracking fields are 
         tracking. Features can be toggled """
-
+        
         if not self.DISABLE_CREDENTIALS:
             post_params["patient_id"] = self.session_participant.patient_id
             post_params["device_id"] = self.DEFAULT_PARTICIPANT_DEVICE_ID
@@ -376,7 +406,7 @@ class ParticipantSessionTest(SmartRequestsTestCase):
         else:
             orig_vals = Participant.objects.filter(pk=self.session_participant.pk) \
                             .values(*self.DEVICE_TRACKING_FIELDS).get()
-
+        
         ret = super().smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
         tracker_vals = Participant.objects.filter(pk=self.session_participant.pk) \
                         .values(*self.DEVICE_TRACKING_FIELDS).get()

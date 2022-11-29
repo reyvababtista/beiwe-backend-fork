@@ -6,7 +6,7 @@ from typing import Optional
 
 from dateutil.tz import gettz
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.validators import MaxValueValidator, MinValueValidator
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet

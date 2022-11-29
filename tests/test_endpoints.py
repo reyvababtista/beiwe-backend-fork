@@ -1415,28 +1415,28 @@ class TestImportStudySettingsFile(RedirectSessionApiTest):
     # other post params: device_settings, surveys
     
     def test_no_device_settings_no_surveys(self):
-        resp = self._test(False, False)
-        self.assert_present("Did not alter", resp.content)
-        self.assert_present("Copied 0 Surveys and 0 Audio Surveys", resp.content)
+        content = self._test(False, False)
+        self.assert_present("Did not alter", content)
+        self.assert_present("Copied 0 Surveys and 0 Audio Surveys", content)
     
     def test_device_settings_no_surveys(self):
-        resp = self._test(True, False)
-        self.assert_present("Settings with custom values.", resp.content)
-        self.assert_present("Copied 0 Surveys and 0 Audio Surveys", resp.content)
+        content = self._test(True, False)
+        self.assert_present("Settings with custom values.", content)
+        self.assert_present("Copied 0 Surveys and 0 Audio Surveys", content)
     
     def test_device_settings_and_surveys(self):
-        resp = self._test(True, True)
-        self.assert_present("Settings with custom values.", resp.content)
-        # self.assert_present("Copied 0 Surveys and 0 Audio Surveys", resp.content)
+        content = self._test(True, True)
+        self.assert_present("Settings with custom values.", content)
+        self.assert_present("Copied 0 Surveys and 0 Audio Surveys", content)
     
     def test_bad_filename(self):
-        self._test(True, True, ".exe", success=False)
-        # FIXME: this is not present in the html, it should be
-        # self.assert_present("You can only upload .json files.", resp.content)
+        content = self._test(True, True, ".exe", success=False)
+        # FIXME: this is not present in the html, it should be  - string doesn't appear in codebase...
+        # self.assert_present("You can only upload .json files.", content)
     
     def _test(
         self, device_settings: bool, surveys: bool, extension: str = "json", success: bool = True
-    ) -> HttpResponse:
+    ) -> bytes:
         self.set_session_study_relation(ResearcherRole.site_admin)
         study2 = self.generate_study("study_2")
         self.assertEqual(self.session_device_settings.gps, True)
@@ -1456,7 +1456,7 @@ class TestImportStudySettingsFile(RedirectSessionApiTest):
         if success:
             self.assertEqual(study2.device_settings.gps, not device_settings)
         # return the page, we always need it
-        return self.smart_get_redirect(study2.id)
+        return self.easy_get(self.REDIRECT_ENDPOINT_NAME, status_code=200, study_id=study2.id)
 
 
 class TestICreateSurvey(RedirectSessionApiTest):
@@ -1528,22 +1528,28 @@ class TestRenderEditSurvey(ResearcherSessionTest):
 # FIXME: redirect was based on referrer.
 class TestResetParticipantPassword(RedirectSessionApiTest):
     ENDPOINT_NAME = "participant_administration.reset_participant_password"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.view_study"
+    REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
     def test_success(self):
         self.set_session_study_relation(ResearcherRole.researcher)
         old_password = self.default_participant.password
         self.smart_post(study_id=self.session_study.id, patient_id=self.default_participant.patient_id)
         self.default_participant.refresh_from_db()
-        self.assert_present("password has been reset to",
-                            self.get_redirect_content(self.session_study.id))
+        self.assert_present(
+            "password has been reset to",
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+        )
         self.assertNotEqual(self.default_participant.password, old_password)
     
     def test_bad_participant(self):
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post(study_id=self.session_study.id, patient_id="why hello")
         self.assertFalse(Participant.objects.filter(patient_id="why hello").exists())
-        self.assert_present("does not exist", self.get_redirect_content(self.session_study.id))
+        # self.assert_present("does not exist", self.get_redirect_content(self.session_study.id))
+        self.assert_present(
+            "does not exist",
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+        )
     
     def test_bad_study(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -1551,14 +1557,17 @@ class TestResetParticipantPassword(RedirectSessionApiTest):
         self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
         old_password = self.default_participant.password
         self.smart_post(study_id=study2.id, patient_id=self.default_participant.patient_id)
-        self.assert_present("is not in study", self.get_redirect_content(self.session_study.id))
+        self.assert_present(
+            "is not in study",
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+        )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.password, old_password)
 
 
 class TestResetDevice(RedirectSessionApiTest):
     ENDPOINT_NAME = "participant_administration.reset_device"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.view_study"
+    REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
     def test_bad_study_id(self):
         self.default_participant.update(device_id="12345")
@@ -1574,7 +1583,10 @@ class TestResetDevice(RedirectSessionApiTest):
         study2 = self.generate_study("study2")
         self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
         self.smart_post(patient_id=self.default_participant.patient_id, study_id=study2.id)
-        self.assert_present("is not in study", self.get_redirect_content(self.session_study.id))
+        self.assert_present(
+            "is not in study",
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+        )
         self.assertEqual(Participant.objects.count(), 1)
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.device_id, "12345")
@@ -1584,7 +1596,11 @@ class TestResetDevice(RedirectSessionApiTest):
         self.assertEqual(Participant.objects.count(), 1)
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post(patient_id="invalid", study_id=self.session_study.id)
-        self.assert_present("does not exist", self.get_redirect_content(self.session_study.id))
+        self.assert_present(
+            "does not exist",
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+        )
+        
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.device_id, "12345")
     
@@ -1593,15 +1609,17 @@ class TestResetDevice(RedirectSessionApiTest):
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post(patient_id=self.default_participant.patient_id,
                         study_id=self.session_study.id)
-        self.assert_present("device was reset; password is untouched",
-                            self.get_redirect_content(self.session_study.id))
+        self.assert_present(
+            "device was reset; password is untouched",
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+        )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.device_id, "")
 
 
 class TestUnregisterParticipant(RedirectSessionApiTest):
     ENDPOINT_NAME = "participant_administration.unregister_participant"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.view_study"
+    REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     # most of this was copy-pasted from TestResetDevice
     
     def test_bad_study_id(self):
@@ -1618,7 +1636,10 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
         study2 = self.generate_study("study2")
         self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
         self.smart_post(patient_id=self.default_participant.patient_id, study_id=study2.id)
-        self.assert_present("is not in study", self.get_redirect_content(self.session_study.id))
+        self.assert_present(
+            "is not in study",
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+        )
         self.assertEqual(Participant.objects.count(), 1)
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.unregistered, False)
@@ -1628,7 +1649,11 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
         self.assertEqual(Participant.objects.count(), 1)
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post(patient_id="invalid", study_id=self.session_study.id)
-        self.assert_present("does not exist", self.get_redirect_content(self.session_study.id))
+        self.assert_present(
+            "does not exist",
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+        )
+        # self.assert_present("does not exist", self.get_redirect_content(self.session_study.id))
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.unregistered, False)
     
@@ -1640,7 +1665,8 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
         self.assert_present(
-            "is already unregistered", self.get_redirect_content(self.session_study.id)
+            "is already unregistered",
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
         )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.unregistered, True)
@@ -1653,7 +1679,7 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
         )
         self.assert_present(
             "was successfully unregisted from the study",
-            self.get_redirect_content(self.session_study.id)
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
         )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.unregistered, True)

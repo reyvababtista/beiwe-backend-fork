@@ -176,6 +176,7 @@ class Study(TimestampedModel):
     def timezone(self) -> tzinfo:
         """ So pytz.timezone("America/New_York") provides a tzinfo-like object that is wrong by 4
         minutes.  That's insane.  The dateutil gettz function doesn't have that fun insanity. """
+        # profiling info: gettz takes on the order of 10s of microseconds
         return gettz(self.timezone_name)
 
 

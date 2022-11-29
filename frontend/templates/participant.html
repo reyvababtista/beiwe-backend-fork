@@ -1,182 +1,241 @@
 {% extends "base.html" %}
-{% block title %}Participant Page{% endblock %}
+{% block title %} Participant Page {% endblock %}
 
 {%  block content %}
-  <div class="title">
-    <h1> {{ participant }}</h1>
+<div class="container well">
+  <div class="title col-md-8" col-xs-12>
+    <h1> Participant <b>{{ participant.patient_id }} </b></h1>
+  </div>
+  {# Go to Dashboard button  #}
+  <div class="title col-md-4 col-xs-12">
+    <a class="btn btn-info h2-margins-vertical"
+      href={{ easy_url('dashboard_api.dashboard_participant_page', study_id=study.id, patient_id=participant.patient_id) }}>
+      View <b>{{ participant.patient_id }}</b>'s Collected Data Dashboard
+    </a>
+  </div>
+</div>
+
+<ol class="breadcrumb">
+  <li>
+    <a href="/view_study/{{ study.id }}">{{ study.name }}</a>
+  </li>
+  <li class="active">
+    Edit and View Attributes of Participant <b>{{ participant.patient_id }}</b>
+  </li>
+</ol>
+
+<div class="container">
+
+  <div class="col-md-6 col-sm-12 well">
+    <h3 class="text-center"> <b>Activity Information </b></h3>
+    <table class="table table-hover">
+
+      <!-- Phone OS info -->
+      <tr>
+        <td><b>Phone operating system:</b></td>
+        <td>
+          {% if participant.os_type == "IOS" %} iOS {% elif participant.os_type == "ANDROID" %} Android {% else %} <i>Unknown?</i> {% endif %}
+          {% if participant.last_os_version %}
+            {{ participant.last_os_version }}
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td><b>Beiwe App Version:</b></td>
+        <td>
+          {% if participant.os_type == "IOS" %}
+            {% if participant.last_version_code %}
+              {{ participant.last_version_code }}
+            {% endif %}
+          {% elif participant.os_type == "ANDROID" %}
+            {% if participant.last_version_name %}
+              {{ participant.last_version_name }}
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td><b>Time of Registration</b></td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_register_user, participant.study.timezone) }}</td>
+      </tr>
+      <tr>
+        <td><b>Time of last check-in for updated survey content</b></td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_get_latest_surveys, participant.study.timezone) }}</td>
+      </tr>
+      <tr>
+        <td><b>Time of last file upload event</b></td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_upload, participant.study.timezone) }}</td>
+      </tr>
+  {% comment %}
+  {# This is just going to confuse people until we change the way passwords work. #}
+      <tr>
+        <td><b>Time of last participant password reset</b></td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_set_password, participant.study.timezone) }}</td>
+      </tr>
+  {% endcomment %}
+      <tr>
+        <td><b>Time of last notiifcation credential update</b></td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_set_fcm_token, participant.study.timezone) }}</td>
+      </tr>
+    </table>
   </div>
 
-  <ol class="breadcrumb">
-    <li>
-      <a href="/view_study/{{ study.id }}">{{ study.name }}</a>
-    </li>
-    <li class="active">
-      Edit the attributes of participant {{ participant.patient_id }}
-    </li>
-  </ol>
+  <div class="col-md-6 col-sm-12 well">
+    <h3 class="text-center"> <b>Survey Notifications </b></h3>
+    <p class="text-center">
+      Total notifications or attempts: <b>{{ notification_attempts_count }}</b>
+      &nbsp;&nbsp;
+      <a href="/view_study/{{ study.id }}/participant/{{ participant.patient_id }}/notification_history">Notification History</a>
+    </p>
+    {% if latest_notification_attempt %}
+      <p>Most recent survey notification:</p>
+      <table class="table table-hover" >
+        <tr>
+          <td>Scheduled for:</td>
+          <td>{{ latest_notification_attempt.scheduled_time }}</td>
+        </tr>
+        <tr>
+          <td>Sent or attempted on:</td>
+          <td>{{ latest_notification_attempt.attempted_time }}</td>
+        </tr>
+        <tr>
+          <td>Survey:</td>
+          <td>
+            <a href="/edit_survey/{{ latest_notification_attempt.survey_id }}" target="_blank">
+              {{ latest_notification_attempt.survey_name }}
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td>Survey version:</td>
+          <td>{{ latest_notification_attempt.survey_version }}</td>
+        </tr>
+        <tr>
+          <td>Schedule type:</td>
+          <td>{{ latest_notification_attempt.schedule_type }}</td>
+        </tr>
+        <tr {% if latest_notification_attempt.status == 'success' %} class="tableRowSuccess" {% else %} class="tableRowError" {% endif %}>
+          <td>Status:</td>
+          <td>{{ latest_notification_attempt.status }}</td>
+        </tr>
+      </table>
 
-  {# Go to Dashboard button  #}
-  <a class="btn btn-info"
-    href={{ easy_url('dashboard_api.dashboard_participant_page', study_id=study.id, patient_id=participant.patient_id) }}>
-    Go to Participant Dashboard
-  </a>&nbsp;
+      <form action="{{ easy_url("push_notifications_api.resend_push_notification", study_id=study.id, patient_id=participant.patient_id) }}" method="post">
+      {% if participant.participant_push_enabled %} 
+        <input type="hidden" name="survey_id" value="{{ latest_notification_attempt.survey_id }}">
+        <button class="btn btn-danger center-block" type="submit">
+          Resend Push Notification
+        </button>
+        {% endif %}
+      </form>
+    {% endif %}
+  </div>
 
-  <br><br><br><br>
-
-  <table class="table table-borderless" style="width:auto;">
-    <!-- Reset password -->
-    <tr>
-      <td class="viewParticipantTable"><b>Password:</b></td>
-      <td>
+  {# Reset Passwordd #}
+  <div class="col-md-12 well">
+    <div class="col-md-5">
+      <div class="h2-middle-margins-vertical text-center row">
         <form action="/reset_participant_password" method="post">
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
-          <button type="submit" class="btn btn-warning reset_password_button">Reset Password</button>
+          <button type="submit" class="btn btn-warning large-font-size"
+            {% if participant.device_id %} disabled {% endif %}>
+            Generate a new password for this participant:
+          </button>
         </form>
-      </td>
-    </tr>
-
-    <!-- Unregister smartphone button -->
-    <tr>
-      <td class="viewParticipantTable"><b>Phone registered:</b></td>
-      {% if participant.device_id %}
-        <td>
-          <form action="/reset_device" method="post">
-            <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
-            <input type="hidden" name="study_id" value="{{ study.id }}">
-            <button class="btn btn-warning reset_device_button"
-                    title="Enable this participant to register the Beiwe app on a new phone. This will NOT block their previous or existing phone from uploading data."
-                    type="submit" >
-              Un-Register Smartphone
-            </button>
-          </form>
-       </td>
-      {% else %}
-        <td class="viewParticipantTable">
-          <i>No smartphone registered</i>
-        </td>
-      {% endif %}
-    </tr>
-
-    <!-- Phone OS info -->
-    <tr>
-      <td class="viewParticipantTable">
-        <b>Phone operating system:</b>
-      </td>
-      <td class="viewParticipantTable">
-        {% if participant.os_type %}
-          {{ participant.os_type }}
-        {% else %}
-          <i>unknown</i>
+        {% if participant.device_id %}
+          You may not reset participant passwords on registered devices.
         {% endif %}
-      </td>
-    </tr>
+      </div>
+    </div>
+    <div class="col-md-7 h3-margins-vertical">
+      At registration the participant enters their current password into the temporary password field,
+      and then sets a new password that is used to unlock the app and access new surveys, etc.  The
+      participant may change this password from their device at any time.  You cannot view the 
+      participant's current password.
+    </div>
+  </div>
 
-    <!-- End data collection -->
-    <tr>
-      <td class="viewParticipantTable">
-        <b>End data collection:</b>
-      </td>
-      {% if participant.unregistered %}
-        <td class="viewParticipantTable">
-          <i>Data collection ended. Participant is blocked from uploading additional data from any phone.</i>
-        </td>
-      {% else %}
-        <td>
-          <form action="/unregister_participant" method="post">
-            <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
-            <input type="hidden" name="study_id" value="{{ study.id }}">
-            <button class="btn btn-danger"
-                    onclick="return confirm('Are you sure you want to permanently end data collection from {{ participant.patient_id }}?')"
-                    title="Block this participant from uploading data from any phone. This won't affect data they've already uploaded. Careful! You can't undo this."
-                    type="submit">
-              End Data Collection
-            </button>
-          </form>
-        </td>
-      {% endif %}
-    </tr>
-  </table>
 
-  <br><hr><br>
-  <h3>Survey Notifications</h3>
-  <p>
-    Total notifications or attempts: <b>{{ notification_attempts_count }}</b>
-    &nbsp;&nbsp;
-    <a href="/view_study/{{ study.id }}/participant/{{ participant.patient_id }}/notification_history">Notification History</a>
-  </p>
-  {% if latest_notification_attempt %}
-    <p>Most recent survey notification:</p>
-    <table class="table table-bordered" style="width:auto;">
-      <tr>
-        <td>Scheduled for:</td>
-        <td>{{ latest_notification_attempt.scheduled_time }}</td>
-      </tr>
-      <tr>
-        <td>Sent or attempted on:</td>
-        <td>{{ latest_notification_attempt.attempted_time }}</td>
-      </tr>
-      <tr>
-        <td>Survey:</td>
-        <td>
-          <a href="/edit_survey/{{ latest_notification_attempt.survey_id }}" target="_blank">
-            {{ latest_notification_attempt.survey_name }}
-          </a>
-        </td>
-      </tr>
-      <tr>
-        <td>Survey version:</td>
-        <td>{{ latest_notification_attempt.survey_version }}</td>
-      </tr>
-      <tr>
-        <td>Schedule type:</td>
-        <td>{{ latest_notification_attempt.schedule_type }}</td>
-      </tr>
-      <tr {% if latest_notification_attempt.status == 'success' %} class="tableRowSuccess" {% else %} class="tableRowError" {% endif %}>
-        <td>Status:</td>
-        <td>{{ latest_notification_attempt.status }}</td>
-      </tr>
-    </table>
+  {# Unregister Device #}
+  <div class="col-md-12 well">
+    <div class="col-md-5">
+      <div class="h2-middle-margins-vertical text-center row">
+        <form action="/reset_device" method="post">
+          <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
+          <input type="hidden" name="study_id" value="{{ study.id }}">
+          <button type="submit" class="btn btn-warning large-font-size"
+            {% if not participant.device_id %} disabled {% endif %}>
+            Un-Register Device
+          </button>
+        </form>
+        {% if not participant.device_id %}
+          There is no device registered for this participant
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-md-7 h3-margins-vertical">
+      Resetting a participant's registration password is a two-step process. You should only reset a
+      participant password if you know there is no device registered and uploading data. Click this
+      button if you need to register a new participant or reregister an old participant who has
+      forgotten their password.
+    </div>
+  </div>
 
-    <form action="{{ easy_url("push_notifications_api.resend_push_notification", study_id=study.id, patient_id=participant.patient_id) }}" method="post">
-     {% if participant.participant_push_enabled %} 
-      <input type="hidden" name="survey_id" value="{{ latest_notification_attempt.survey_id }}">
-      <button class="btn btn-danger" type="submit">
-        Resend Push Notification
-      </button>
-      {% endif %}
-    </form>
-  {% endif %}
+  {# End Data Collection #}
+  <div class="col-md-12 well">
+    <div class="col-md-5">
+      <div class="h2-middle-margins-vertical text-center row">
+        <form action="/unregister_participant" method="post">
+          <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
+          <input type="hidden" name="study_id" value="{{ study.id }}">
+          <button type="submit" class="btn btn-warning large-font-size"
+          onclick="return confirm('Are you sure you want to permanently end data collection from {{ participant.patient_id }}?')" 
+            {% if participant.unregistered %} disabled {% endif %}>
+            Permenantly Retire Participant
+          </button>
+        </form>
+        {% if participant.unregistered %}
+          This participant is already retired.
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-md-7 h3-margins-vertical">
+      This action retires this participant entirely, blocking any further data from being uploaded,
+      regardless of the source device.  This does not affect data already uploaded.  Attempts to
+      register a new device with this particpant will fail.  If data is uploaded for this participant
+      the device will be told to delete that data.
+      <br> <b>This operation is final and cannot be undone.</b>
+    </div>
+  </div>
 
-  <br><hr><br>
 
-  <form action="/view_study/{{ study.id }}/participant/{{ participant.patient_id }}" class="form-horizontal" method="POST">
-
-    {% if push_notifications_enabled_for_ios or push_notifications_enabled_for_android %}
-      <h3>Interventions</h3>
-      {% if study.interventions.count() > 0 %}
+  {% if study.interventions.exists() %}
+    <div class="col-md-6 col-sm-12 well">
+      <form action="/view_study/{{ study.id }}/participant/{{ participant.patient_id }}" class="form-horizontal" method="POST">
+      {% if push_notifications_enabled_for_ios or push_notifications_enabled_for_android %}
+        <h3>Interventions</h3>
         {% for intervention_id, intervention_name, intervention_date in intervention_data %}
           <div class="form-group">
             <label class="control-label col-sm-2" for="intervention{{ intervention_id }}" > {{ intervention_name }}</label>
               <div class="col-sm-3">
               {% if intervention_date %}
                 <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}" class="form-control" type="date"
-                       value="{{ intervention_date }}">
+                      value="{{ intervention_date }}">
               {% else %}
                 <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}" class="form-control" type="date">
               {% endif %}
             </div>
           </div>
-        {%  endfor %}
-      {% else %}
-        <p><b>This study does not have any Interventions.</b></p>
+        {% endfor %}
       {% endif %}
-    {% endif %}
-
-    <br>
-
-    <h3>Custom Fields</h3>
-    {% if study.fields.count() > 0 %}
+    </div>
+  {% endif %}
+    
+  {% if study.fields.exists() %}
+    <div class="col-md-6 col-sm-12 well">
+      <h3>Custom Fields</h3>
+    
       {% for field_id, field_name, value in field_values %}
         <div class="form-group">
           <label class="col-sm-2 control-label" for="field{{ field_id }}">{{ field_name }}</label>
@@ -186,16 +245,14 @@
           </div>
         </div>
       {% endfor %}
-    {% else %}
-      <p><b>This study does not have any Custom Fields.</b></p>
-    {% endif %}
-
-
+    </div>
+  {% endif %}
 
     {% if not readonly %}
-      {% if study.interventions.count() > 0 or study.fields.count() > 0 %}
+      {% if study.interventions.exists() or study.fields.exists() %}
         <button class="btn btn-primary btn-block" type="submit">Save Changes</button>
       {% endif %}
     {% endif %}
   </form>
-{%  endblock %}
+  {%  endblock %}
+  </div>

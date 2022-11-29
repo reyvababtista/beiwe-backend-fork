@@ -116,11 +116,6 @@ td.custom-field-value:hover span.custom-field-edit-link {
     display: inline-block;
 }
 
-table>tbody>tr>td.viewParticipantTable {
-    padding-top: 15px;
-    padding-bottom: 15px;
-}
-
 .tableRowSuccess {
     background-color: #dff0d8;
 }
@@ -356,4 +351,9 @@ table>tbody>tr>td.viewParticipantTable {
     margin-top: -0.5em;
     padding-bottom: 0.5em;
     margin-bottom: -0.5em;
+}
+
+
+.large-font-size {
+    font-size: large;
 }

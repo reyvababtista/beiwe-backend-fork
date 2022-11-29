@@ -205,6 +205,9 @@ def register_user(request: ParticipantRequest, OS_API=""):
     
     participant = request.session_participant
     
+    if participant.unregistered:
+        return abort(400)
+    
     # At this point the device has been checked for validity and will be registered successfully.
     # Any errors after this point will be server errors and return 500 codes. the final return
     # will be the encryption key associated with this user.

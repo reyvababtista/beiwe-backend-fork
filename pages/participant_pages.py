@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, tzinfo
 from typing import Dict
 
 from django.contrib import messages
@@ -15,7 +15,7 @@ from database.schedule_models import ArchivedEvent
 from database.study_models import Study
 from database.user_models import Participant
 from libs.firebase_config import check_firebase_instance
-from libs.http_utils import easy_url
+from libs.http_utils import easy_url, really_nice_time_format_with_tz
 from libs.internal_types import ArchivedEventQuerySet, ResearcherRequest
 from libs.schedules import repopulate_all_survey_scheduled_events
 
@@ -140,6 +140,8 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
             latest_notification_attempt=latest_notification_attempt,
             push_notifications_enabled_for_ios=check_firebase_instance(require_ios=True),
             push_notifications_enabled_for_android=check_firebase_instance(require_android=True),
+            study_easy_enrollment=study.easy_enrollment,
+            participant_easy_enrollment=participant.easy_enrollment,
         )
     )
 
@@ -170,18 +172,12 @@ def get_survey_names_dict(study: Study):
     return survey_names
 
 
-def get_notification_details(archived_event: Dict, study_timezone: str, survey_names: Dict):
-    # Maybe there's a less janky way to get timezone name, but I don't know what it is:
-    #  Nah its cool, this might be verbose but handles all the special cases.
-    timezone_short_name = study_timezone.tzname(datetime.now().astimezone(study_timezone))
-    
-    def format_datetime(dt):
-        return dt.astimezone(study_timezone).strftime('%A %b %-d, %Y, %-I:%M %p') + " (" + timezone_short_name + ")"
+def get_notification_details(archived_event: Dict, study_timezone: tzinfo, survey_names: Dict):
     
     notification = {}
     if archived_event is not None:
-        notification['scheduled_time'] = format_datetime(archived_event['scheduled_time'])
-        notification['attempted_time'] = format_datetime(archived_event['created_on'])
+        notification['scheduled_time'] = really_nice_time_format_with_tz(archived_event['scheduled_time'], study_timezone)
+        notification['attempted_time'] = really_nice_time_format_with_tz(archived_event['created_on'], study_timezone)
         notification['survey_name'] = survey_names[archived_event['survey_id']]
         notification['survey_id'] = archived_event['survey_id']
         notification['survey_version'] = archived_event['survey_version'].strftime('%Y-%m-%d')

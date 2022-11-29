@@ -1,9 +1,12 @@
 import functools
-from typing import Callable, Dict, List
+from datetime import datetime, tzinfo
+from typing import Callable, Dict, List, Union
 
+from dateutil import tz
 from django.http.request import HttpRequest
 from django.urls.base import reverse
 
+from constants.common_constants import API_TIME_FORMAT_WITH_TZ
 from constants.user_constants import ANDROID_API, IOS_API
 from libs.internal_types import ParticipantRequest
 
@@ -13,6 +16,26 @@ def easy_url(url: str, *args, **kwargs) -> str:
     variables.  (Imported in the jinja templates.) """
     return reverse(url, args=args, kwargs=kwargs)
 
+
+def astimezone_with_tz(dt: datetime, timezone: Union[tzinfo, str]):
+    """ context processor function for converting and displaying a time with a timezone """
+    if isinstance(timezone, str):
+        timezone = tz.gettz(timezone)
+    return dt.astimezone(timezone).strftime(API_TIME_FORMAT_WITH_TZ)
+
+
+def time_with_tz(dt: datetime):
+    """ context processor function for displaying a time with a timezone """
+    return dt.strftime(API_TIME_FORMAT_WITH_TZ)
+
+
+def really_nice_time_format_with_tz(dt: datetime, timezone: Union[tzinfo, str]):
+    """ output looks like Tuesday Aug 25, 2020, 4:31 PM (EST) """
+    # getting that timezone shortname is odd because it actually depends on the time of the event
+    if isinstance(timezone, str):
+        timezone = tz.gettz(timezone)
+    final_dt = dt.astimezone(timezone)
+    return final_dt.strftime('%A %b %-d, %Y, %-I:%M %p') + " (" + timezone.tzname(final_dt) + ")"
 
 def checkbox_to_boolean(list_checkbox_params: List[str], dict_all_params: Dict):
     """ Takes a list of strings that are to be processed as checkboxes on a post parameter,

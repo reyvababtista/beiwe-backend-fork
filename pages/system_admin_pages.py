@@ -323,7 +323,8 @@ def create_study(request: ResearcherRequest):
         if not RUNNING_TEST_OR_IN_A_SHELL:
             with make_error_sentry(SentryTypes.elastic_beanstalk):
                 raise Exception("Someone tried to create a study with unsafe characters in its name.")
-        return abort(400)
+        messages.error(request, 'the study name you provided contained unsafe characters and was rejected, please try again.')
+        return redirect('/create_study')
     
     try:
         new_study = Study.create_with_object_id(

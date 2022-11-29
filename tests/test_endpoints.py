@@ -6,11 +6,10 @@ from typing import List
 from unittest.mock import MagicMock, patch
 
 import time_machine
-from dateutil import tz
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import models
-from django.http.response import FileResponse, HttpResponse, HttpResponseRedirect
 from django.forms.fields import NullBooleanField
+from django.http.response import FileResponse, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 
@@ -1371,10 +1370,11 @@ class TestParticipantPage(RedirectSessionApiTest):
     
     def test_get(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
-        # This isn't a pure redirect endpoint, we need get to have a 200
-        resp = super(RedirectSessionApiTest, self) \
-            .smart_get(self.session_study.id, self.default_participant.patient_id)
-        self.assertEqual(resp.status_code, 200)
+        # This isn't a pure redirect endpoint, we need to test for a 200
+        self.easy_get(
+            self.ENDPOINT_NAME, status_code=200,
+            study_id=self.session_study.id, patient_id=self.default_participant.patient_id)
+        
     
     def test_post(self):
         # FIXME: implement real tests here...

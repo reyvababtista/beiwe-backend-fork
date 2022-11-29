@@ -31,6 +31,8 @@ def time_with_tz(dt: datetime):
 
 def really_nice_time_format_with_tz(dt: datetime, timezone: Union[tzinfo, str]):
     """ output looks like Tuesday Aug 25, 2020, 4:31 PM (EST) """
+    if dt is None:
+        return ""
     # getting that timezone shortname is odd because it actually depends on the time of the event
     if isinstance(timezone, str):
         timezone = tz.gettz(timezone)

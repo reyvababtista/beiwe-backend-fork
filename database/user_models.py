@@ -18,7 +18,7 @@ from database.study_models import Study
 from database.validators import ID_VALIDATOR, STANDARD_BASE_64_VALIDATOR, URL_SAFE_BASE_64_VALIDATOR
 from libs.firebase_config import check_firebase_instance
 from libs.security import (compare_password, device_hash, generate_easy_alphanumeric_string,
-    generate_hash_and_salt, generate_random_string, generate_user_hash_and_salt)
+    generate_hash_and_salt, generate_random_string, generate_participant_hash_and_salt)
 
 
 # This is an import hack to improve IDE assistance.  Most of these imports are cyclical and fail at
@@ -215,7 +215,7 @@ class Participant(AbstractPasswordUser):
         return patient_id, password
     
     def generate_hash_and_salt(self, password: bytes) -> Tuple[bytes, bytes]:
-        return generate_user_hash_and_salt(password)
+        return generate_participant_hash_and_salt(password)
     
     def debug_validate_password(self, compare_me: str) -> bool:
         """ Checks if the input matches the instance's password hash, but does the hashing for you

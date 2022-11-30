@@ -63,7 +63,7 @@ class MisconfiguredTestException(Exception):
 
 # This parameter sets the password iteration count for researchers, which directly adds to the
 # runtime of ALL researcher tests.  If we use the default value it is literally minimum 10x slower.
-Researcher.DESIRED_PBKDF2_ITERATIONS = 1000
+Researcher.DESIRED_PBKDF2_ITERATIONS = 1001
 
 
 class CommonTestCase(TestCase, ReferenceObjectMixin):

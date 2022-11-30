@@ -317,11 +317,17 @@ class Researcher(AbstractPasswordUser):
             return generate_hash_and_salt_sha256(password, self.pbkdf2_iterations)
     
     def validate_password(self, compare_me: str) -> bool:
+        # Completely override the superclass.
         # depending on the pbkdf2_iterations value call the appropriate password comparison function
         if self.pbkdf2_iterations < 1000:
             raise Exception("iterations must be 1000 or higher")
         elif self.pbkdf2_iterations == 1000:
-            return super().validate_password(compare_me)
+            # whenever we encounter an old-style password THAT PASSES OLD-STYLE VALIDATION DUH
+            # use the now-known correct password to apply the new-style password.
+            ret = compare_password(compare_me.encode(), self.salt.encode(), self.password.encode())
+            if ret:
+                self.set_password(compare_me)
+            return ret
         else:
             return compare_password_sha256(
                 compare_me.encode(), self.salt.encode(), self.password.encode(), self.pbkdf2_iterations

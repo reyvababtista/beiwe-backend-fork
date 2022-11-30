@@ -84,7 +84,7 @@ def decode_base64(data: bytes, paddiing_fix=0) -> bytes:
         raise
 
 
-def generate_user_hash_and_salt(password: bytes) -> Tuple[bytes, bytes]:
+def generate_participant_hash_and_salt(password: bytes) -> Tuple[bytes, bytes]:
     """ Generates a hash and salt that will match a given input string, and also
         matches the hashing that is done on a user's device.
         Input is anticipated to be any arbitrary string."""
@@ -109,24 +109,6 @@ def compare_password(proposed_password: bytes, salt: bytes, real_password_hash: 
         Expects the real password to be a base64 encoded string. """
     proposed_hash = encode_base64(pbkdf2('sha1', proposed_password, salt, iterations=ITERATIONS, dklen=32))
     return proposed_hash == real_password_hash
-
-
-def generate_user_password_and_salt() -> (bytes, bytes, bytes):
-    """ Generates a random password, and an associated hash and salt.
-        The password is an uppercase alphanumeric string,
-        the password hash and salt are base64 encoded strings. """
-    password = generate_easy_alphanumeric_string().encode()
-    password_hash, salt = generate_user_hash_and_salt(password)
-    return password, password_hash, salt
-
-
-def generate_admin_password_and_salt() -> (bytes, bytes, bytes):
-    """ Generates a random password, and an associated hash and salt.
-        The password is an uppercase alphanumeric string,
-        the password hash and salt are base64 encoded strings. """
-    password = generate_easy_alphanumeric_string().encode()
-    password_hash, salt = generate_hash_and_salt(password)
-    return password, password_hash, salt
 
 
 ################################################################################

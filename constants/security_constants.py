@@ -7,7 +7,6 @@ UPPERCASE_REGEX = "[A-Z]"
 NUMBER_REGEX = "[0-9]"
 PASSWORD_REQUIREMENT_REGEX_LIST = [SYMBOL_REGEX, LOWERCASE_REGEX, UPPERCASE_REGEX, NUMBER_REGEX]
 
-ITERATIONS = 1000  # number of SHA iterations in password hashing
 EASY_ALPHANUMERIC_CHARS = string.ascii_lowercase + '123456789'  # intentionally does not have 0
 
 BASE64_GENERIC_ALLOWED_CHARACTERS = string .ascii_lowercase + string.ascii_uppercase + string.digits + "/+"

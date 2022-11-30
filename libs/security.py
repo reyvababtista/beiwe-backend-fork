@@ -9,8 +9,7 @@ from os import urandom
 from typing import Tuple
 
 from constants.message_strings import NEW_PASSWORD_8_LONG, NEW_PASSWORD_RULES_FAIL
-from constants.security_constants import (EASY_ALPHANUMERIC_CHARS, ITERATIONS,
-    PASSWORD_REQUIREMENT_REGEX_LIST)
+from constants.security_constants import EASY_ALPHANUMERIC_CHARS, PASSWORD_REQUIREMENT_REGEX_LIST
 
 
 # Seed the random number subsystem with some good entropy.
@@ -90,7 +89,8 @@ def generate_participant_hash_and_salt(password: bytes) -> Tuple[bytes, bytes]:
         Input is anticipated to be any arbitrary string."""
     salt = encode_base64(urandom(16))
     password = device_hash(password)
-    password_hashed = encode_base64(pbkdf2('sha1', password, salt, iterations=ITERATIONS, dklen=32))
+    # this iterations value has to be hardcoded without updating the device authentication mechanism
+    password_hashed = encode_base64(pbkdf2('sha1', password, salt, iterations=1000, dklen=32))
     return password_hashed, salt
 
 
@@ -98,7 +98,16 @@ def generate_hash_and_salt(password: bytes) -> Tuple[bytes, bytes]:
     """ Generates a hash and salt that will match for a given input string.
         Input is anticipated to be any arbitrary string."""
     salt = encode_base64(urandom(16))
-    password_hashed = encode_base64(pbkdf2('sha1', password, salt, iterations=ITERATIONS, dklen=32))
+    # this iterations value has to be hardcoded without updating the device authentication mechanism
+    password_hashed = encode_base64(pbkdf2('sha1', password, salt, iterations=1000, dklen=32))
+    return password_hashed, salt
+
+
+def generate_hash_and_salt_sha256(password: bytes, iterations: int) -> Tuple[bytes, bytes]:
+    """ Generates a hash and salt that will match for a given input string.
+        Input is anticipated to be any arbitrary string."""
+    salt = encode_base64(urandom(16))
+    password_hashed = encode_base64(pbkdf2('sha256', password, salt, iterations=iterations, dklen=32))
     return password_hashed, salt
 
 
@@ -107,7 +116,20 @@ def compare_password(proposed_password: bytes, salt: bytes, real_password_hash: 
         True if the hash results are identical.
         Expects the proposed password to be a base64 encoded string.
         Expects the real password to be a base64 encoded string. """
-    proposed_hash = encode_base64(pbkdf2('sha1', proposed_password, salt, iterations=ITERATIONS, dklen=32))
+    # this iterations value has to be hardcoded without updating the device authentication mechanism
+    proposed_hash = encode_base64(pbkdf2('sha1', proposed_password, salt, iterations=1000, dklen=32))
+    return proposed_hash == real_password_hash
+
+
+def compare_password_sha256(
+    proposed_password: bytes, salt: bytes, real_password_hash: bytes, iterations: int
+) -> bool:
+    """ Compares a proposed password with a salt and a real password, returns
+        True if the hash results are identical.
+        Expects the proposed password to be a base64 encoded string.
+        Expects the real password to be a base64 encoded string. """
+    # this iterations value has to be hardcoded without updating the device authentication mechanism
+    proposed_hash = encode_base64(pbkdf2('sha256', proposed_password, salt, iterations=iterations, dklen=32))
     return proposed_hash == real_password_hash
 
 

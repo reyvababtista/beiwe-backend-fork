@@ -17,8 +17,9 @@ from database.models import TimestampedModel
 from database.study_models import Study
 from database.validators import ID_VALIDATOR, STANDARD_BASE_64_VALIDATOR, URL_SAFE_BASE_64_VALIDATOR
 from libs.firebase_config import check_firebase_instance
-from libs.security import (compare_password, device_hash, generate_easy_alphanumeric_string,
-    generate_hash_and_salt, generate_random_string, generate_participant_hash_and_salt)
+from libs.security import (compare_password, compare_password_sha256, device_hash,
+    generate_easy_alphanumeric_string, generate_hash_and_salt, generate_hash_and_salt_sha256,
+    generate_participant_hash_and_salt, generate_random_string)
 
 
 # This is an import hack to improve IDE assistance.  Most of these imports are cyclical and fail at
@@ -286,6 +287,8 @@ class Researcher(AbstractPasswordUser):
     researchers, as well as their data access credentials. A Researcher can be attached to multiple
     Studies, and a Researcher may also be an admin who has extra permissions. A Researcher uses web,
     so their passwords are hashed accordingly. """
+    DESIRED_PBKDF2_ITERATIONS = 310000  # as of late 2022 this is a recommended value,
+    pbkdf2_iterations = models.PositiveIntegerField(default=1000, null=False, blank=False)
     
     username = models.CharField(max_length=32, unique=True, help_text='User-chosen username, stored in plain text')
     site_admin = models.BooleanField(default=False, help_text='Whether the researcher is also an admin')
@@ -299,13 +302,38 @@ class Researcher(AbstractPasswordUser):
     study_relations: Manager[StudyRelation]
     data_access_record: Manager[DataAccessRecord]
     
+    def set_password(self, password: bytes):
+        # override the superclass, inject updated iterations count whenever a new password is set
+        self.pbkdf2_iterations = self.DESIRED_PBKDF2_ITERATIONS
+        return super().set_password(password)
+    
+    def generate_hash_and_salt(self, password: bytes) -> Tuple[bytes, bytes]:
+        # depending on the pbkdf2_iterations value call the appropriate hash/salt function
+        if self.pbkdf2_iterations < 1000:
+            raise Exception("iterations must be 1000 or higher")
+        elif self.pbkdf2_iterations == 1000:
+            return generate_hash_and_salt(password)
+        else:
+            return generate_hash_and_salt_sha256(password, self.pbkdf2_iterations)
+    
+    def validate_password(self, compare_me: str) -> bool:
+        # depending on the pbkdf2_iterations value call the appropriate password comparison function
+        if self.pbkdf2_iterations < 1000:
+            raise Exception("iterations must be 1000 or higher")
+        elif self.pbkdf2_iterations == 1000:
+            return super().validate_password(compare_me)
+        else:
+            return compare_password_sha256(
+                compare_me.encode(), self.salt.encode(), self.password.encode(), self.pbkdf2_iterations
+            )
+    
     @classmethod
     def create_with_password(cls, username, password, **kwargs) -> Researcher:
         """ Creates a new Researcher with provided username and password. They will initially
         not be associated with any Study. """
         researcher = cls(username=username, **kwargs)
         researcher.set_password(password)
-        # todo add check to see if access credentials are in kwargs
+        # TODO: add check to see if access credentials are in kwargs
         researcher.reset_access_credentials()
         return researcher
     
@@ -351,9 +379,6 @@ class Researcher(AbstractPasswordUser):
     def get_administered_studies_by_name(self) -> QuerySet[Study]:
         from database.models import Study
         return Study._get_administered_studies_by_name(self)
-    
-    def generate_hash_and_salt(self, password: bytes) -> Tuple[bytes, bytes]:
-        return generate_hash_and_salt(password)
     
     def elevate_to_site_admin(self):
         self.site_admin = True

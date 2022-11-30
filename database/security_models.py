@@ -7,7 +7,7 @@ from django.db import models
 from database.common_models import TimestampedModel
 from database.user_models import Researcher
 from database.validators import STANDARD_BASE_64_VALIDATOR, URL_SAFE_BASE_64_VALIDATOR
-from libs.security import compare_password, generate_hash_and_salt, generate_random_string
+from libs.security import compare_password_sha1, generate_hash_and_salt_sha1, generate_random_string
 
 
 class ApiKey(TimestampedModel):
@@ -23,12 +23,10 @@ class ApiKey(TimestampedModel):
     
     @classmethod
     def generate(cls, researcher: Researcher, **kwargs) -> ApiKey:
-        """
-        Create ApiKey with newly generated credentials credentials.
-        """
+        """ Create ApiKey with newly generated credentials credentials. """
         access_key = generate_random_string()[:64]
         secret_key = generate_random_string()[:64]
-        secret_hash, secret_salt = generate_hash_and_salt(secret_key)
+        secret_hash, secret_salt = generate_hash_and_salt_sha1(secret_key)
         
         api_key = cls.objects.create(
             access_key_id=access_key.decode(),
@@ -42,20 +40,16 @@ class ApiKey(TimestampedModel):
     
     @property
     def access_key_secret_plaintext(self) -> Optional[str]:
-        """
-        Returns the value of the plaintext version of `access_key_secret` if it is cached on this
-        instance and immediately deletes it.
-        """
+        """ Returns the value of the plaintext version of `access_key_secret` if it is cached on this
+        instance and immediately deletes it. """
         plaintext = self._access_key_secret_plaintext
         if plaintext:
             del self._access_key_secret_plaintext
         return plaintext
     
     def proposed_secret_key_is_valid(self, proposed_secret_key) -> bool:
-        """
-        Checks if the proposed secret key is valid for this ApiKey.
-        """
-        return compare_password(
+        """ Checks if the proposed secret key is valid for this ApiKey. """
+        return compare_password_sha1(
             proposed_secret_key.encode(),
             self.access_key_secret_salt.encode(),
             self.access_key_secret.encode(),

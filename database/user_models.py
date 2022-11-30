@@ -17,8 +17,8 @@ from database.models import TimestampedModel
 from database.study_models import Study
 from database.validators import ID_VALIDATOR, STANDARD_BASE_64_VALIDATOR, URL_SAFE_BASE_64_VALIDATOR
 from libs.firebase_config import check_firebase_instance
-from libs.security import (compare_password, compare_password_sha256, device_hash,
-    generate_easy_alphanumeric_string, generate_hash_and_salt, generate_hash_and_salt_sha256,
+from libs.security import (compare_password_sha1, compare_password_sha512, device_hash,
+    generate_easy_alphanumeric_string, generate_hash_and_salt_sha1, generate_hash_and_salt_sha512,
     generate_participant_hash_and_salt, generate_random_string)
 
 
@@ -52,9 +52,9 @@ class AbstractPasswordUser(TimestampedModel):
     The sha256 check duplicates the storage of the password on the mobile device, so that the APU's
     password is never stored in a reversible manner. """
     
-    password = models.CharField(max_length=44, validators=[URL_SAFE_BASE_64_VALIDATOR],
+    password = models.CharField(max_length=88, validators=[URL_SAFE_BASE_64_VALIDATOR],
                                 help_text='A hash of the user\'s password')
-    salt = models.CharField(max_length=24, validators=[URL_SAFE_BASE_64_VALIDATOR])
+    salt = models.CharField(max_length=48, validators=[URL_SAFE_BASE_64_VALIDATOR])
     
     # This stub function declaration is present because it is used in the set_password funcion below
     def generate_hash_and_salt(self, password) -> Tuple[bytes, bytes]:
@@ -82,7 +82,7 @@ class AbstractPasswordUser(TimestampedModel):
     
     def validate_password(self, compare_me: str) -> bool:
         """ Checks if the input matches the instance's password hash. """
-        return compare_password(compare_me.encode(), self.salt.encode(), self.password.encode())
+        return compare_password_sha1(compare_me.encode(), self.salt.encode(), self.password.encode())
     
     def as_unpacked_native_python(self, remove_timestamps=True) -> dict:
         ret = super().as_unpacked_native_python(remove_timestamps=remove_timestamps)
@@ -223,7 +223,7 @@ class Participant(AbstractPasswordUser):
         for use on the command line. This is necessary for manually checking that setting and
         validating passwords work. """
         compare_me = device_hash(compare_me.encode())
-        return compare_password(compare_me, self.salt.encode(), self.password.encode())
+        return compare_password_sha1(compare_me, self.salt.encode(), self.password.encode())
     
     def assign_fcm_token(self, fcm_instance_id: str):
         ParticipantFCMHistory.objects.create(participant=self, token=fcm_instance_id)
@@ -287,7 +287,9 @@ class Researcher(AbstractPasswordUser):
     researchers, as well as their data access credentials. A Researcher can be attached to multiple
     Studies, and a Researcher may also be an admin who has extra permissions. A Researcher uses web,
     so their passwords are hashed accordingly. """
-    DESIRED_PBKDF2_ITERATIONS = 310000  # as of late 2022 this is a recommended value,
+    # as of late 2022 this is a recommended value for sha512, old value was 1000 and was sha1 (bad!)
+    DESIRED_PBKDF2_ITERATIONS = 120000
+    
     pbkdf2_iterations = models.PositiveIntegerField(default=1000, null=False, blank=False)
     
     username = models.CharField(max_length=32, unique=True, help_text='User-chosen username, stored in plain text')
@@ -312,9 +314,9 @@ class Researcher(AbstractPasswordUser):
         if self.pbkdf2_iterations < 1000:
             raise Exception("iterations must be 1000 or higher")
         elif self.pbkdf2_iterations == 1000:
-            return generate_hash_and_salt(password)
+            return generate_hash_and_salt_sha1(password)
         else:
-            return generate_hash_and_salt_sha256(password, self.pbkdf2_iterations)
+            return generate_hash_and_salt_sha512(password, self.pbkdf2_iterations)
     
     def validate_password(self, compare_me: str) -> bool:
         # Completely override the superclass.
@@ -322,16 +324,16 @@ class Researcher(AbstractPasswordUser):
         if self.pbkdf2_iterations < 1000:
             raise Exception("iterations must be 1000 or higher")
         elif self.pbkdf2_iterations == 1000:
-            # whenever we encounter an old-style password THAT PASSES OLD-STYLE VALIDATION DUH
-            # use the now-known correct password to apply the new-style password.
-            ret = compare_password(compare_me.encode(), self.salt.encode(), self.password.encode())
-            if ret:
-                self.set_password(compare_me)
-            return ret
+            ret = compare_password_sha1(compare_me.encode(), self.salt.encode(), self.password.encode())
         else:
-            return compare_password_sha256(
+            ret = compare_password_sha512(
                 compare_me.encode(), self.salt.encode(), self.password.encode(), self.pbkdf2_iterations
             )
+        # whenever we encounter an older password (THAT PASSES OLD-STYLE VALIDATION DUHURR!)
+        # use the now-known-correct password value to apply the new-style password.
+        if ret and self.pbkdf2_iterations != self.DESIRED_PBKDF2_ITERATIONS:
+            self.set_password(compare_me)
+        return ret
     
     @classmethod
     def create_with_password(cls, username, password, **kwargs) -> Researcher:
@@ -397,7 +399,7 @@ class Researcher(AbstractPasswordUser):
     
     def validate_access_credentials(self, proposed_secret_key: str) -> bool:
         """ Returns True/False if the provided secret key is correct for this user. """
-        return compare_password(
+        return compare_password_sha1(
             proposed_secret_key.encode(),
             self.access_key_secret_salt.encode(),
             self.access_key_secret.encode(),
@@ -406,7 +408,7 @@ class Researcher(AbstractPasswordUser):
     def reset_access_credentials(self) -> Tuple[str, str]:
         access_key = generate_random_string()[:64]
         secret_key = generate_random_string()[:64]
-        secret_hash, secret_salt = generate_hash_and_salt(secret_key)
+        secret_hash, secret_salt = generate_hash_and_salt_sha1(secret_key)
         self.access_key_id = access_key.decode()
         self.access_key_secret = secret_hash.decode()
         self.access_key_secret_salt = secret_salt.decode()

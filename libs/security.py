@@ -94,7 +94,7 @@ def generate_participant_hash_and_salt(password: bytes) -> Tuple[bytes, bytes]:
     return password_hashed, salt
 
 
-def generate_hash_and_salt(password: bytes) -> Tuple[bytes, bytes]:
+def generate_hash_and_salt_sha1(password: bytes) -> Tuple[bytes, bytes]:
     """ Generates a hash and salt that will match for a given input string.
         Input is anticipated to be any arbitrary string."""
     salt = encode_base64(urandom(16))
@@ -103,15 +103,15 @@ def generate_hash_and_salt(password: bytes) -> Tuple[bytes, bytes]:
     return password_hashed, salt
 
 
-def generate_hash_and_salt_sha256(password: bytes, iterations: int) -> Tuple[bytes, bytes]:
+def generate_hash_and_salt_sha512(password: bytes, iterations: int) -> Tuple[bytes, bytes]:
     """ Generates a hash and salt that will match for a given input string.
         Input is anticipated to be any arbitrary string."""
-    salt = encode_base64(urandom(16))
-    password_hashed = encode_base64(pbkdf2('sha256', password, salt, iterations=iterations, dklen=32))
+    salt = encode_base64(urandom(32))
+    password_hashed = encode_base64(pbkdf2('sha512', password, salt, iterations=iterations, dklen=64))
     return password_hashed, salt
 
 
-def compare_password(proposed_password: bytes, salt: bytes, real_password_hash: bytes) -> bool:
+def compare_password_sha1(proposed_password: bytes, salt: bytes, real_password_hash: bytes) -> bool:
     """ Compares a proposed password with a salt and a real password, returns
         True if the hash results are identical.
         Expects the proposed password to be a base64 encoded string.
@@ -121,7 +121,7 @@ def compare_password(proposed_password: bytes, salt: bytes, real_password_hash: 
     return proposed_hash == real_password_hash
 
 
-def compare_password_sha256(
+def compare_password_sha512(
     proposed_password: bytes, salt: bytes, real_password_hash: bytes, iterations: int
 ) -> bool:
     """ Compares a proposed password with a salt and a real password, returns
@@ -129,7 +129,7 @@ def compare_password_sha256(
         Expects the proposed password to be a base64 encoded string.
         Expects the real password to be a base64 encoded string. """
     # this iterations value has to be hardcoded without updating the device authentication mechanism
-    proposed_hash = encode_base64(pbkdf2('sha256', proposed_password, salt, iterations=iterations, dklen=32))
+    proposed_hash = encode_base64(pbkdf2('sha512', proposed_password, salt, iterations=iterations, dklen=64))
     return proposed_hash == real_password_hash
 
 

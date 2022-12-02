@@ -64,7 +64,7 @@ class TestLoginPages(BasicSessionTestCase):
         self.do_default_login()
         response = self.client.post(reverse("login_pages.login_page"))
         self.assertEqual(response.status_code, 302)
-        self.assert_resolve_equal(response.url, reverse("admin_pages.choose_study"))
+        self.assert_response_url_equal(response.url, reverse("admin_pages.choose_study"))
         # this should uniquely identify the login page
         self.assertNotIn(b'<form method="POST" action="/validate_login">', response.content)
     
@@ -72,12 +72,12 @@ class TestLoginPages(BasicSessionTestCase):
         self.session_researcher  # create the default researcher
         r = self.do_default_login()
         self.assertEqual(r.status_code, 302)
-        self.assert_resolve_equal(r.url, reverse("admin_pages.choose_study"))
+        self.assert_response_url_equal(r.url, reverse("admin_pages.choose_study"))
     
     def test_logging_in_fail(self):
         r = self.do_default_login()
         self.assertEqual(r.status_code, 302)
-        self.assert_resolve_equal(r.url, reverse("login_pages.login_page"))
+        self.assert_response_url_equal(r.url, reverse("login_pages.login_page"))
     
     def test_logging_out(self):
         # create the default researcher, login, logout, attempt going to main page,
@@ -86,7 +86,7 @@ class TestLoginPages(BasicSessionTestCase):
         self.client.get(reverse("admin_pages.logout_admin"))
         r = self.client.get(reverse("admin_pages.choose_study"))
         self.assertEqual(r.status_code, 302)
-        self.assert_resolve_equal(r.url, reverse("login_pages.login_page"))
+        self.assert_response_url_equal(r.url, reverse("login_pages.login_page"))
 
 
 class TestChooseStudy(ResearcherSessionTest):
@@ -740,7 +740,11 @@ class TestCreateStudy(ResearcherSessionTest):
     def get_the_new_study(self):
         return Study.objects.get(name=self.NEW_STUDY_NAME)
     
-    def create_study_params(self, *except_these: List[str]):
+    @property
+    def assert_no_new_study(self):
+        self.assertFalse(Study.objects.filter(name=self.NEW_STUDY_NAME).exists())
+    
+    def create_study_params(self):
         """ keys are: name, encryption_key, is_test, copy_existing_study, forest_enabled """
         params = dict(
             name=self.NEW_STUDY_NAME,
@@ -749,27 +753,66 @@ class TestCreateStudy(ResearcherSessionTest):
             copy_existing_study="",
             forest_enabled="false",
         )
-        for k in except_these:
-            params.pop(k)
         return params
     
     def test_load_page(self):
         # only site admins can load the page
         for user_role in ALL_TESTING_ROLES:
             self.assign_role(self.session_researcher, user_role)
-            self.smart_post_status_code(302 if user_role == ResearcherRole.site_admin else 403)
+            self.smart_get_status_code(200 if user_role == ResearcherRole.site_admin else 403)
+
+    def test_posts_redirect(self):
+        # only site admins can load the page
+        for user_role in ALL_TESTING_ROLES:
+            self.assign_role(self.session_researcher, user_role)
+            self.smart_post_status_code(
+                302 if user_role == ResearcherRole.site_admin else 403, **self.create_study_params()
+            )
     
-    def test_create_study_success(self):
+    def test_create_study_researcher(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_create_study(False)
+    
+    def test_create_study_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_create_study(False)
+    
+    def test_create_study_site_admin(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
-        resp = self.smart_post_status_code(302, **self.create_study_params())
-        self.assertIsInstance(resp, HttpResponseRedirect)
-        target_url = easy_url(
-            "system_admin_pages.device_settings", study_id=self.get_the_new_study.id
-        )
-        self.assert_resolve_equal(resp.url, target_url)
-        resp = self.client.get(target_url)
-        self.assertEqual(resp.status_code, 200)
-        self.assert_present(f"Successfully created study {self.get_the_new_study.name}.", resp.content)
+        self._test_create_study(True)
+    
+    def test_create_study_researcher_and_site_admin(self):
+        # unable to replicate hassan's bug - he must have his the special characters bug
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.session_researcher.update(site_admin=True)
+        self._test_create_study(True)
+    
+    def test_create_study_study_admin_and_site_admin(self):
+        # unable to replicate hassan's bug - he must have his the special characters bug
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.session_researcher.update(site_admin=True)
+        self._test_create_study(True)
+    
+    def _test_create_study(self, success):
+        study_count = Study.objects.count()
+        device_settings_count = DeviceSettings.objects.count()
+        resp = self.smart_post_status_code(302 if success else 403, **self.create_study_params())
+        if success:
+            self.assertIsInstance(resp, HttpResponseRedirect)
+            target_url = easy_url(
+                "system_admin_pages.device_settings", study_id=self.get_the_new_study.id
+            )
+            self.assert_response_url_equal(resp.url, target_url)
+            resp = self.client.get(target_url)
+            self.assertEqual(resp.status_code, 200)
+            self.assert_present(f"Successfully created study {self.get_the_new_study.name}.", resp.content)
+            self.assertEqual(study_count + 1, Study.objects.count())
+            self.assertEqual(device_settings_count + 1, DeviceSettings.objects.count())
+        else:
+            self.assertIsInstance(resp, HttpResponse)
+            self.assertEqual(study_count, Study.objects.count())
+            self.assertEqual(device_settings_count, DeviceSettings.objects.count())
+            self.assert_no_new_study
     
     def test_create_study_long_name(self):
         # this situation reports to sentry manually, the response is a hard 400, no calls to messages
@@ -778,6 +821,7 @@ class TestCreateStudy(ResearcherSessionTest):
         params["name"] = "a"*10000
         resp = self.smart_post_status_code(400, **params)
         self.assertEqual(resp.content, b"")
+        self.assert_no_new_study
     
     def test_create_study_bad_name(self):
         # this situation reports to sentry manually, the response is a hard 400, no calls to messages
@@ -786,6 +830,7 @@ class TestCreateStudy(ResearcherSessionTest):
         params["name"] = "&" * 50
         resp = self.smart_post_status_code(302, **params)
         self.assert_present(resp.content, b"you provided contained unsafe characters")
+        self.assert_no_new_study
 
 
 # FIXME: this test has the annoying un-factored url with post params and url params
@@ -807,7 +852,7 @@ class TestToggleForest(RedirectSessionApiTest):
         self.session_study.update(forest_enabled=not enable)  # directly mutate the database.
         # resp = self.smart_post(study_id=self.session_study.id)  # nope this does not follow the normal pattern
         resp = self.smart_post(self.session_study.id)
-        self.assert_resolve_equal(resp.url, redirect_endpoint)
+        self.assert_response_url_equal(resp.url, redirect_endpoint)
         self.session_study.refresh_from_db()
         if enable:
             self.assertTrue(self.session_study.forest_enabled)
@@ -1675,11 +1720,11 @@ class TestToggleStudyEasyEnrollment(RedirectSessionApiTest):
     def test_researcher(self):
         self.set_session_study_relation(ResearcherRole.researcher)
         self._test_fail()
-
+    
     def test_no_relation(self):
         self.session_researcher.study_relations.all().delete()  # should be redundant
         self._test_fail()
-
+    
     def _test_fail(self):
         self.assertFalse(self.default_study.easy_enrollment)
         self._smart_post

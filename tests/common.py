@@ -75,7 +75,7 @@ class CommonTestCase(TestCase, ReferenceObjectMixin):
             print("==")
         return super().tearDown()
     
-    def assert_resolve_equal(self, a: str, b: str):
+    def assert_response_url_equal(self, a: str, b: str):
         # when a url comes in from a response object (e.g. response.url) the / characters are
         # encoded in html escape format.  This causes an error in the call to resolve
         a = a.replace(r"%2F", "/")

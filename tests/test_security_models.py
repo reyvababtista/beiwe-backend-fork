@@ -13,7 +13,6 @@ class ApiKeyTests(CommonTestCase):
         self.assertEqual(ApiKey.objects.count(), current_count + 1)
         self.assertTrue(api_key.access_key_id)
         self.assertTrue(api_key.access_key_secret)
-        self.assertTrue(api_key.access_key_secret_salt)
         self.assertEqual(api_key.researcher, self.session_researcher)
         
         # Check that the secret key is accessible

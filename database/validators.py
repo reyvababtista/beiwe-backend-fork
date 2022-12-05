@@ -8,7 +8,7 @@ class LengthValidator(object):
     length = None  # If length is None, no validation is done
     message = 'Ensure this value has exactly {} characters (it has {}).'
     code = 'invalid'
-
+    
     def __init__(self, length=None, message=None, code=None):
         if length is not None:
             self.length = length
@@ -16,13 +16,13 @@ class LengthValidator(object):
             self.message = message
         if code is not None:
             self.code = code
-
+    
     def __call__(self, value):
         """Validate that the input is of the proper length, otherwise raise ValidationError."""
         if self.length is not None and len(value) != self.length:
             message = self.message.format(self.length, len(value))
             raise ValidationError(message, code=self.code)
-
+    
     def __eq__(self, other):
         return (
             isinstance(other, LengthValidator)
@@ -30,7 +30,7 @@ class LengthValidator(object):
             and self.message == other.message
             and self.code == other.code
         )
-
+    
     def __ne__(self, other):
         return not (self == other)
 
@@ -42,5 +42,17 @@ class LengthValidator(object):
 # validator accordingly.
 ID_VALIDATOR = RegexValidator('^[1-9a-z]+$', message='This field can only contain characters 1-9 and a-z.')
 # Base 64 encodings can end in up to two = symbols for padding.
-URL_SAFE_BASE_64_VALIDATOR = RegexValidator('^[0-9a-zA-Z_\-]+={0,2}$')
-STANDARD_BASE_64_VALIDATOR = RegexValidator('^[0-9a-zA-Z+/]+={0,2}$')
+_b64_chars = "[0-9a-zA-Z+/]"
+_b64_chars_with_padding = _b64_chars + "+={0,2}"
+_b64_chars_url = "[0-9a-zA-Z_\-]"
+_b64_chars_url_with_padding = _b64_chars_url + "+={0,2}"
+_valid_algorithms = "(sha1|sha256)"
+
+URL_SAFE_BASE_64_VALIDATOR = RegexValidator(f'^{_b64_chars_url_with_padding}$')
+STANDARD_BASE_64_VALIDATOR = RegexValidator(f'^{_b64_chars_with_padding}$')
+
+# the django password format is "alorithm$iterations$password_hash_in_b64$password_salt_in_b64"
+# we currently differ only in that we were using url safe b64 for... reasons.
+PASSWORD_VALIDATOR = RegexValidator(
+    f"^{_valid_algorithms}\$[0-9]+\${_b64_chars_url_with_padding}\${_b64_chars_url_with_padding}$"
+)

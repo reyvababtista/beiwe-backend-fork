@@ -6,6 +6,7 @@ from typing import List
 from unittest.mock import MagicMock, patch
 
 import time_machine
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import models
 from django.forms.fields import NullBooleanField
@@ -760,7 +761,7 @@ class TestCreateStudy(ResearcherSessionTest):
         for user_role in ALL_TESTING_ROLES:
             self.assign_role(self.session_researcher, user_role)
             self.smart_get_status_code(200 if user_role == ResearcherRole.site_admin else 403)
-
+    
     def test_posts_redirect(self):
         # only site admins can load the page
         for user_role in ALL_TESTING_ROLES:
@@ -1904,10 +1905,16 @@ class TestApiCredentialCheck(DataApiTest):
         # 400, missing parameter
         self.assertEqual(400, resp.status_code)
     
-    def test_wrong_secret_key_db(self):
+    def test_regex_validation(self):
         # Weird, but keep it, useful when debugging this test.
         self.session_researcher.access_key_secret = "apples"
-        self.session_researcher.save()
+        self.assertRaises(ValidationError, self.session_researcher.save)
+    
+    def test_wrong_secret_key_db(self):
+        # Weird, but keep it, useful when debugging this test.
+        the_id = self.session_researcher.id  # instantiate the researcher, get their id
+        # have to bypass validation
+        Researcher.objects.filter(id=the_id).update(access_key_secret="apples")
         resp = self.smart_post()
         # key doesn't match, forbidden
         self.assertEqual(403, resp.status_code)

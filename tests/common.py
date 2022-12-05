@@ -35,16 +35,14 @@ s3.S3_BUCKET = Exception   # force disable potentially active s3 connections.
 
 # extra printout of calls to the messages library
 if VERBOSE_2_OR_3:
-    
     def monkeypatch_messages(function: callable):
         """ This function wraps the messages library and directs it to the terminal for easy
         behavior identification, the original function is then called. """
         def intercepted(request, message, extra_tags='', fail_silently=False):
             print(f"from messages.{function.__name__}(): '{message}'")
-            return function(request, message, extra_tags=extra_tags, fail_silently=fail_silently)
-        
+            return function(request, message, extra_tags=extra_tags, fail_silently=fail_silently)  
         return intercepted
-    
+    # this is equivalent to using a function wrapper
     messages.debug = monkeypatch_messages(messages.debug)
     messages.info = monkeypatch_messages(messages.info)
     messages.success = monkeypatch_messages(messages.success)
@@ -63,8 +61,9 @@ class MisconfiguredTestException(Exception):
 
 # This parameter sets the password iteration count for researchers, which directly adds to the
 # runtime of ALL researcher tests.  If we use the default value it is literally minimum 10x slower.
-Researcher.DESIRED_PBKDF2_ITERATIONS = 1001
-
+Researcher.DESIRED_ITERATIONS = 1000
+Participant.DESIRED_ITERATIONS = 1000
+ApiKey.DESIRED_ITERATIONS = 1000
 
 class CommonTestCase(TestCase, ReferenceObjectMixin):
     """ This class contains the various test-oriented features, for example the assert_present

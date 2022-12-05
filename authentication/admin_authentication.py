@@ -34,13 +34,13 @@ def authenticate_researcher_login(some_function):
         request: ResearcherRequest = args[0]
         assert isinstance(request, HttpRequest), \
             f"first parameter of {some_function.__name__} must be an HttpRequest, was {type(request)}."
-
+        
         if check_is_logged_in(request):
             populate_session_researcher(request)
             return some_function(*args, **kwargs)
         else:
             return redirect("/")
-
+    
     return authenticate_and_call
 
 
@@ -65,14 +65,24 @@ def log_in_researcher(request: ResearcherRequest, username: str):
 
 
 def check_is_logged_in(request: ResearcherRequest):
-    """ automatically logs out the researcher if their session is timed out. """
-    if EXPIRY_NAME in request.session:
-        if assert_session_unexpired(request):
-            return SESSION_UUID in request.session
-        else:
-            log("session had expired")
+    """ automatically log out the researcher if their session is timed out, extend session if the
+    user is already logged in. """
+    if EXPIRY_NAME not in request.session:
+        # no session expiry present at all, user is not logged in.
+        log("no session expiry present")
+        return False
+    
+    if SESSION_UUID not in request.session:
+        # no session uuid present at all, user is not logged in.
+        log("no session key present")
+        return False
+    
+    if assert_session_unexpired(request):
+        # update the session expiry for another 6 hours
+        request.session[EXPIRY_NAME] = datetime.now() + timedelta(hours=6)
+        return True
     else:
-        log("expiry (cookie value) was missing")
+        log("session had expired")
     logout_researcher(request)
     return False
 
@@ -120,24 +130,24 @@ def assert_researcher_under_admin(request: ResearcherRequest, researcher: Resear
     if session_researcher.site_admin:
         log("site admin checking for researcher")
         return
-
+    
     if researcher.site_admin:
         messages.warning(request, "This user is a site administrator, action rejected.")
         log("target researcher is a site admin")
         return abort(403)
-
+    
     kwargs = dict(relationship=ResearcherRole.study_admin)
     if study is not None:
         kwargs['study'] = study
-
+    
     if researcher.study_relations.filter(**kwargs).exists():
         messages.warning(request, "This user is a study administrator, action rejected.")
         log("target researcher is a study administrator")
         return abort(403)
-
+    
     session_studies = set(session_researcher.get_admin_study_relations().values_list("study_id", flat=True))
     researcher_studies = set(researcher.get_researcher_study_relations().values_list("study_id", flat=True))
-
+    
     if not session_studies.intersection(researcher_studies):
         messages.warning(request, "You are not an administrator for that researcher, action rejected.")
         log("session researcher is not an administrator of target researcher")
@@ -164,29 +174,29 @@ def authenticate_researcher_study_access(some_function):
         request: ResearcherRequest = args[0]
         assert isinstance(request, HttpRequest), \
             f"first parameter of {some_function.__name__} must be an HttpRequest, was {type(request)}."
-
+        
         if not check_is_logged_in(request):
             log("researcher is not logged in")
             return redirect("/")
-
+        
         populate_session_researcher(request)
-
+        
         try:
             # first get from kwargs, then from the POST request, either one is fine
             survey_id = kwargs.get('survey_id', request.POST.get('survey_id', None))
             study_id = kwargs.get('study_id', request.POST.get('study_id', None))
         except UnreadablePostError:
             return abort(500)
-
+        
         # Check proper usage
         if survey_id is None and study_id is None:
             log("no survey or study provided")
             return abort(400)
-
+        
         if survey_id is not None and study_id is None:
             log("survey was provided but no study was provided")
             return abort(400)
-
+        
         # We want the survey_id check to execute first if both args are supplied, surveys are
         # attached to studies but do not supply the study id.
         if survey_id:
@@ -195,16 +205,16 @@ def authenticate_researcher_study_access(some_function):
             if not studies.exists():
                 log("no such study 1")
                 return abort(404)
-
+            
             # Check that researcher is either a researcher on the study or a site admin,
             # and populate study_id variable
             study_id = studies.values_list('pk', flat=True).get()
-
+        
         # assert that such a study exists
         if not Study.objects.filter(pk=study_id, deleted=False).exists():
             log("no such study 2")
             return abort(404)
-
+        
         # always allow site admins, allow all types of study relations
         if not request.session_researcher.site_admin:
             try:
@@ -214,20 +224,20 @@ def authenticate_researcher_study_access(some_function):
             except StudyRelation.DoesNotExist:
                 log("no study relationship for researcher")
                 return abort(403)
-
+            
             if relation not in ALL_RESEARCHER_TYPES:
                 log("invalid study relationship for researcher")
                 return abort(403)
-
+        
         return some_function(*args, **kwargs)
-
+    
     return authenticate_and_call
 
 
 def get_researcher_allowed_studies_as_query_set(request: ResearcherRequest):
     if request.session_researcher.site_admin:
         return Study.get_all_studies_by_name()
-
+    
     return Study.get_all_studies_by_name().filter(
         id__in=request.session_researcher.study_relations.values_list("study", flat=True)
     )
@@ -240,7 +250,7 @@ def get_researcher_allowed_studies(request: ResearcherRequest) -> List[Dict]:
     kwargs = {}
     if not request.session_researcher.site_admin:
         kwargs = dict(study_relations__researcher=request.session_researcher)
-
+    
     return [
         study_info_dict for study_info_dict in
         Study.get_all_studies_by_name().filter(**kwargs).values("name", "object_id", "id", "is_test")
@@ -262,15 +272,15 @@ def authenticate_admin(some_function):
     @functools.wraps(some_function)
     def authenticate_and_call(*args, **kwargs):
         request: ResearcherRequest = args[0]
-
+        
         # this is debugging code for the django frontend server port
         if not isinstance(request, HttpRequest):
             raise TypeError(f"request was a {type(request)}, expected {HttpRequest}")
-
+        
         # Check for regular login requirement
         if not check_is_logged_in(request):
             return redirect("/")
-
+        
         populate_session_researcher(request)
         session_researcher = request.session_researcher
         # if researcher is not a site admin assert that they are a study admin somewhere, then test
@@ -279,7 +289,7 @@ def authenticate_admin(some_function):
             if not session_researcher.study_relations.filter(relationship=ResearcherRole.study_admin).exists():
                 log("not study admin anywhere")
                 return abort(403)
-
+            
             # fail if there is a study_id and it either does not exist or the researcher is not an
             # admin on that study.
             if 'study_id' in kwargs:
@@ -290,9 +300,9 @@ def authenticate_admin(some_function):
                 ).exists():
                     log("not study admin on study")
                     return abort(403)
-
+        
         return some_function(*args, **kwargs)
-
+    
     return authenticate_and_call
 
 
@@ -304,10 +314,10 @@ def forest_enabled(func):
             study = Study.objects.get(id=kwargs.get("study_id", None))
         except Study.DoesNotExist:
             return abort(404)
-
+        
         if not study.forest_enabled:
             return abort(404)
-
+        
         return func(*args, **kwargs)
-
+    
     return wrapped

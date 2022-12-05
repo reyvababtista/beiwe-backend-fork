@@ -46,7 +46,7 @@ class ReferenceObjectMixin:
     DEFAULT_PARTICIPANT_DEVICE_ID = "default_device_id"
     DEFAULT_INTERVENTION_NAME = "default_intervention_name"
     DEFAULT_FCM_TOKEN = "abc123"
-    
+    SOME_SHA1_PASSWORD_COMPONENTS = 'sha1$1000$zsk387ts02hDMRAALwL2SL3nVHFgMs84UcZRYIQWYNQ=$hllJauvRYDJMQpXQKzTdwQ=='
     # this needs to be a dynamic property in order for the time_machine library to work
     @property
     def CURRENT_DATE(self) -> datetime:
@@ -152,8 +152,8 @@ class ReferenceObjectMixin:
         optional. """
         researcher = Researcher(
             username=name or generate_easy_alphanumeric_string(),
-            password='zsk387ts02hDMRAALwL2SL3nVHFgMs84UcZRYIQWYNQ=',
-            salt='hllJauvRYDJMQpXQKzTdwQ==',  # these will get immediately overwritten
+            password=self.SOME_SHA1_PASSWORD_COMPONENTS,
+            access_key_secret=self.SOME_SHA1_PASSWORD_COMPONENTS,
             site_admin=relation_to_session_study == ResearcherRole.site_admin,
         )
         # set password saves...
@@ -250,6 +250,7 @@ class ReferenceObjectMixin:
             os_type=IOS_API if ios else ANDROID_API,
             study=study,
             device_id=device_id or self.DEFAULT_PARTICIPANT_DEVICE_ID,
+            password=self.SOME_SHA1_PASSWORD_COMPONENTS,
         )
         participant.set_password(self.DEFAULT_PARTICIPANT_PASSWORD)  # saves
         return participant

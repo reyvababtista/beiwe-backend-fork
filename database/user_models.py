@@ -15,11 +15,11 @@ from constants.user_constants import ANDROID_API, IOS_API, OS_TYPE_CHOICES, Rese
 from database.common_models import UtilityModel
 from database.models import TimestampedModel
 from database.study_models import Study
-from database.validators import ID_VALIDATOR, STANDARD_BASE_64_VALIDATOR, URL_SAFE_BASE_64_VALIDATOR
+from database.validators import ID_VALIDATOR, PASSWORD_VALIDATOR, STANDARD_BASE_64_VALIDATOR
 from libs.firebase_config import check_firebase_instance
-from libs.security import (compare_password_sha1, compare_password_sha512, device_hash,
-    generate_easy_alphanumeric_string, generate_hash_and_salt_sha1, generate_hash_and_salt_sha512,
-    generate_participant_hash_and_salt, generate_random_string)
+from libs.security import (BadDjangoKeyFormatting, compare_password, device_hash,
+    django_password_components, generate_easy_alphanumeric_string, generate_hash_and_salt,
+    generate_random_bytestring, generate_random_string, to_django_password_components)
 
 
 # This is an import hack to improve IDE assistance.  Most of these imports are cyclical and fail at
@@ -51,16 +51,13 @@ class AbstractPasswordUser(TimestampedModel):
     settings.py) with PBKDF2, and salted using a cryptographically secure random number generator.
     The sha256 check duplicates the storage of the password on the mobile device, so that the APU's
     password is never stored in a reversible manner. """
+    DESIRED_ALGORITHM = None
+    DESIRED_ITERATIONS = None
     
-    password = models.CharField(max_length=88, validators=[URL_SAFE_BASE_64_VALIDATOR],
-                                help_text='A hash of the user\'s password')
-    salt = models.CharField(max_length=48, validators=[URL_SAFE_BASE_64_VALIDATOR])
+    password = models.CharField(max_length=256, validators=[PASSWORD_VALIDATOR])
     
-    # This stub function declaration is present because it is used in the set_password funcion below
-    def generate_hash_and_salt(self, password) -> Tuple[bytes, bytes]:
-        """ Generate a password hash and random salt from a given password. This is different
-        for different types of APUs, depending on whether they use mobile or web. """
-        raise NotImplementedError
+    def generate_hash_and_salt(self, password: bytes) -> Tuple[bytes, bytes]:
+        return generate_hash_and_salt(self.DESIRED_ALGORITHM, self.DESIRED_ITERATIONS, password)
     
     def set_password(self, password: str):
         """ Sets the instance's password hash to match the hash of the provided string. """
@@ -70,8 +67,9 @@ class AbstractPasswordUser(TimestampedModel):
         # passed in as bytes, causing failures in passing length validation.
         # -- this was caused by the new django behavior that casts bytestrings to their string
         #    representation silently.  Fix is to insert decode statements
-        self.password = password_hash.decode()
-        self.salt = salt.decode()
+        self.password = to_django_password_components(
+            self.DESIRED_ALGORITHM, self.DESIRED_ITERATIONS, password_hash, salt
+        )
         self.save()
     
     def reset_password(self):
@@ -81,16 +79,25 @@ class AbstractPasswordUser(TimestampedModel):
         return password
     
     def validate_password(self, compare_me: str) -> bool:
-        """ Checks if the input matches the instance's password hash. """
-        return compare_password_sha1(compare_me.encode(), self.salt.encode(), self.password.encode())
+        """ Extract the current password info, run comparison, will in-place-upgrade the existing 
+        password hash if there is a match """
+        try:
+            algorithm, iterations, current_password_hash, salt = django_password_components(self.password)
+        except BadDjangoKeyFormatting:
+            return False
+        
+        it_matched = compare_password(algorithm, iterations, compare_me.encode(), current_password_hash, salt)
+        # whenever we encounter an older password (THAT PASSES OLD-STYLE VALIDATION DUHURR!)
+        # use the now-known-correct password value to apply the new-style password.
+        if it_matched and (iterations != self.DESIRED_ITERATIONS or algorithm != self.DESIRED_ALGORITHM):
+            self.set_password(compare_me)
+        return it_matched
     
     def as_unpacked_native_python(self, remove_timestamps=True) -> dict:
         ret = super().as_unpacked_native_python(remove_timestamps=remove_timestamps)
         ret.pop("password")
-        ret.pop("salt")
         ret.pop("access_key_id")
         ret.pop("access_key_secret")
-        ret.pop("access_key_secret_salt")
         return ret
     
     class Meta:
@@ -101,6 +108,8 @@ class Participant(AbstractPasswordUser):
     """ The Participant database object contains the password hashes and unique usernames of any
     participants in the study, as well as information about the device the participant is using.
     A Participant uses mobile, so their passwords are hashed accordingly. """
+    DESIRED_ALGORITHM = "sha1"   # Yes, Bad, but this password doesn't actually protect access to data.
+    DESIRED_ITERATIONS = "1000"  # We will be completely reworking participant authentication soon anyway.
     
     patient_id = models.CharField(
         max_length=8, unique=True, validators=[ID_VALIDATOR],
@@ -117,7 +126,7 @@ class Participant(AbstractPasswordUser):
     study: Study = models.ForeignKey(
         Study, on_delete=models.PROTECT, related_name='participants', null=False
     )
-    
+    # see timezone property
     timezone_name = models.CharField(  # Warning: this is not used yet.
         max_length=256, default="America/New_York", null=False, blank=False
     )
@@ -167,26 +176,18 @@ class Participant(AbstractPasswordUser):
     @property
     def _recents(self) -> Dict[str, Union[str, datetime]]:
         self.refresh_from_db()
-        tz = self.timezone
         now = timezone.now()
         return {
             "last_version_code": self.last_version_code,
             "last_version_name": self.last_version_name,
             "last_os_version": self.last_os_version,
-            "last_get_latest_surveys": f"{(now - self.last_get_latest_surveys ).total_seconds() // 60} minutes ago"
-                if self.last_get_latest_surveys else None,
-            "last_push_notification_checkin": f"{(now - self.last_push_notification_checkin ).total_seconds() // 60} minutes ago"
-                if self.last_push_notification_checkin else None,
-            "last_register_user": f"{(now - self.last_register_user ).total_seconds() // 60} minutes ago"
-                if self.last_register_user else None,
-            "last_set_fcm_token": f"{(now - self.last_set_fcm_token ).total_seconds() // 60} minutes ago"
-                if self.last_set_fcm_token else None,
-            "last_set_password": f"{(now - self.last_set_password ).total_seconds() // 60} minutes ago"
-                if self.last_set_password else None,
-            "last_survey_checkin": f"{(now - self.last_survey_checkin ).total_seconds() // 60} minutes ago"
-                if self.last_survey_checkin else None,
-            "last_upload": f"{(now - self.last_upload ).total_seconds() // 60} minutes ago"
-                if self.last_upload else None,
+            "last_get_latest_surveys": f"{(now - self.last_get_latest_surveys ).total_seconds() // 60} minutes ago" if self.last_get_latest_surveys else None,
+            "last_push_notification_checkin": f"{(now - self.last_push_notification_checkin ).total_seconds() // 60} minutes ago" if self.last_push_notification_checkin else None,
+            "last_register_user": f"{(now - self.last_register_user ).total_seconds() // 60} minutes ago" if self.last_register_user else None,
+            "last_set_fcm_token": f"{(now - self.last_set_fcm_token ).total_seconds() // 60} minutes ago" if self.last_set_fcm_token else None,
+            "last_set_password": f"{(now - self.last_set_password ).total_seconds() // 60} minutes ago" if self.last_set_password else None,
+            "last_survey_checkin": f"{(now - self.last_survey_checkin ).total_seconds() // 60} minutes ago" if self.last_survey_checkin else None,
+            "last_upload": f"{(now - self.last_upload ).total_seconds() // 60} minutes ago" if self.last_upload else None,
         }
     
     @property
@@ -198,7 +199,6 @@ class Participant(AbstractPasswordUser):
     @classmethod
     def create_with_password(cls, **kwargs) -> Tuple[str, str]:
         """ Creates a new participant with randomly generated patient_id and password. """
-        
         # Ensure that a unique patient_id is generated. If it is not after
         # twenty tries, raise an error.
         patient_id = generate_easy_alphanumeric_string()
@@ -216,14 +216,13 @@ class Participant(AbstractPasswordUser):
         return patient_id, password
     
     def generate_hash_and_salt(self, password: bytes) -> Tuple[bytes, bytes]:
-        return generate_participant_hash_and_salt(password)
+        """ The Participant's device runs sha256 on the input password before sending it. """
+        return super().generate_hash_and_salt(device_hash(password))
     
     def debug_validate_password(self, compare_me: str) -> bool:
-        """ Checks if the input matches the instance's password hash, but does the hashing for you
-        for use on the command line. This is necessary for manually checking that setting and
-        validating passwords work. """
-        compare_me = device_hash(compare_me.encode())
-        return compare_password_sha1(compare_me, self.salt.encode(), self.password.encode())
+        """ Hardcoded values for a test, this is for a test. """
+        _algorithm, _iterations, password, salt = django_password_components(self.password)
+        return compare_password('sha1', 1000, device_hash(compare_me.encode()), password, salt)
     
     def assign_fcm_token(self, fcm_instance_id: str):
         ParticipantFCMHistory.objects.create(participant=self, token=fcm_instance_id)
@@ -287,54 +286,21 @@ class Researcher(AbstractPasswordUser):
     researchers, as well as their data access credentials. A Researcher can be attached to multiple
     Studies, and a Researcher may also be an admin who has extra permissions. A Researcher uses web,
     so their passwords are hashed accordingly. """
-    # as of late 2022 this is a recommended value for sha512, old value was 1000 and was sha1 (bad!)
-    DESIRED_PBKDF2_ITERATIONS = 120000
-    
-    pbkdf2_iterations = models.PositiveIntegerField(default=1000, null=False, blank=False)
+    DESIRED_ITERATIONS = 310000  # 2022 recommendation pbkdf2 iterations for sha256 is 310,000
+    DESIRED_ALGORITHM = "sha256"
     
     username = models.CharField(max_length=32, unique=True, help_text='User-chosen username, stored in plain text')
     site_admin = models.BooleanField(default=False, help_text='Whether the researcher is also an admin')
     
     access_key_id = models.CharField(max_length=64, validators=[STANDARD_BASE_64_VALIDATOR], unique=True, null=True, blank=True)
-    access_key_secret = models.CharField(max_length=44, validators=[URL_SAFE_BASE_64_VALIDATOR], blank=True)
-    access_key_secret_salt = models.CharField(max_length=24, validators=[URL_SAFE_BASE_64_VALIDATOR], blank=True)
+    access_key_secret = models.CharField(max_length=256, validators=[PASSWORD_VALIDATOR], blank=True)
     
     # related field typings (IDE halp)
     api_keys: Manager[ApiKey]
     study_relations: Manager[StudyRelation]
     data_access_record: Manager[DataAccessRecord]
     
-    def set_password(self, password: bytes):
-        # override the superclass, inject updated iterations count whenever a new password is set
-        self.pbkdf2_iterations = self.DESIRED_PBKDF2_ITERATIONS
-        return super().set_password(password)
-    
-    def generate_hash_and_salt(self, password: bytes) -> Tuple[bytes, bytes]:
-        # depending on the pbkdf2_iterations value call the appropriate hash/salt function
-        if self.pbkdf2_iterations < 1000:
-            raise Exception("iterations must be 1000 or higher")
-        elif self.pbkdf2_iterations == 1000:
-            return generate_hash_and_salt_sha1(password)
-        else:
-            return generate_hash_and_salt_sha512(password, self.pbkdf2_iterations)
-    
-    def validate_password(self, compare_me: str) -> bool:
-        # Completely override the superclass.
-        # depending on the pbkdf2_iterations value call the appropriate password comparison function
-        if self.pbkdf2_iterations < 1000:
-            raise Exception("iterations must be 1000 or higher")
-        elif self.pbkdf2_iterations == 1000:
-            ret = compare_password_sha1(compare_me.encode(), self.salt.encode(), self.password.encode())
-        else:
-            ret = compare_password_sha512(
-                compare_me.encode(), self.salt.encode(), self.password.encode(), self.pbkdf2_iterations
-            )
-        # whenever we encounter an older password (THAT PASSES OLD-STYLE VALIDATION DUHURR!)
-        # use the now-known-correct password value to apply the new-style password.
-        if ret and self.pbkdf2_iterations != self.DESIRED_PBKDF2_ITERATIONS:
-            self.set_password(compare_me)
-        return ret
-    
+    ## User Creation and Passwords
     @classmethod
     def create_with_password(cls, username, password, **kwargs) -> Researcher:
         """ Creates a new Researcher with provided username and password. They will initially
@@ -346,48 +312,14 @@ class Researcher(AbstractPasswordUser):
         return researcher
     
     @classmethod
-    def create_without_password(cls, username) -> Researcher:
-        """ Create a new Researcher with provided username and no password """
-        r = cls(username=username, password='fakepassword', salt='cab', site_admin=False)
-        r.reset_access_credentials()
-        return r
-    
-    @classmethod
-    def check_password(cls, username, compare_me) -> bool:
+    def check_password(cls, username: str, compare_me: str) -> bool:
         """ Checks if the provided password matches the hash of the provided Researcher's password. """
         if not Researcher.objects.filter(username=username).exists():
             return False
         researcher = Researcher.objects.get(username=username)
         return researcher.validate_password(compare_me)
     
-    @classmethod
-    def filter_alphabetical(self, *args, **kwargs) -> QuerySet[Researcher]:
-        """ Sort the Researchers a-z by username ignoring case, exclude special user types. """
-        return (
-            Researcher.objects
-                .annotate(username_lower=Func(F('username'), function='LOWER'))
-                .order_by('username_lower')
-                .filter(*args, **kwargs)
-        )
-    
-    def get_administered_researchers(self) -> QuerySet[Researcher]:
-        studies = self.study_relations.filter(
-            relationship=ResearcherRole.study_admin).values_list("study_id", flat=True)
-        researchers = StudyRelation.objects.filter(
-            study_id__in=studies).values_list("researcher_id", flat=True).distinct()
-        return Researcher.objects.filter(id__in=researchers)
-    
-    def get_administered_researchers_by_username(self) -> QuerySet[Researcher]:
-        return (
-            self.get_administered_researchers()
-                .annotate(username_lower=Func(F('username'), function='LOWER'))
-                .order_by('username_lower')
-        )
-    
-    def get_administered_studies_by_name(self) -> QuerySet[Study]:
-        from database.models import Study
-        return Study._get_administered_studies_by_name(self)
-    
+    ## User Roles
     def elevate_to_site_admin(self):
         self.site_admin = True
         self.save()
@@ -397,23 +329,77 @@ class Researcher(AbstractPasswordUser):
         study_relation.relationship = ResearcherRole.study_admin
         study_relation.save()
     
+    ## Access Credentials
     def validate_access_credentials(self, proposed_secret_key: str) -> bool:
-        """ Returns True/False if the provided secret key is correct for this user. """
-        return compare_password_sha1(
-            proposed_secret_key.encode(),
-            self.access_key_secret_salt.encode(),
-            self.access_key_secret.encode(),
-        )
+        """ Extract the current credential info, run comparison, will in-place-upgrade the existing
+        password hash if there is a match """
+        try:
+            algorithm, iterations, current_password_hash, salt = django_password_components(self.access_key_secret)
+        except BadDjangoKeyFormatting:
+            return False
+        
+        it_matched = compare_password(
+            algorithm, iterations, proposed_secret_key.encode(), current_password_hash, salt)
+        # whenever we encounter an older password (THAT PASSES OLD-STYLE VALIDATION DUHURR!)
+        # use the now-known-correct password value to apply the new-style password.
+        if it_matched and (iterations != self.DESIRED_ITERATIONS or algorithm != self.DESIRED_ALGORITHM):
+            self.set_access_credentials(self.access_key_id, proposed_secret_key)
+        return it_matched
     
     def reset_access_credentials(self) -> Tuple[str, str]:
-        access_key = generate_random_string()[:64]
-        secret_key = generate_random_string()[:64]
-        secret_hash, secret_salt = generate_hash_and_salt_sha1(secret_key)
-        self.access_key_id = access_key.decode()
-        self.access_key_secret = secret_hash.decode()
-        self.access_key_secret_salt = secret_salt.decode()
+        """ Replaces access credentials with """
+        access_key = generate_random_string(64)
+        secret_key = generate_random_bytestring(64)
+        self.set_access_credentials(access_key, secret_key)
+        return access_key, secret_key.decode()
+    
+    def set_access_credentials(self, access_key: str, secret_key: bytes) -> Tuple[bytes, bytes]:
+        secret_hash, secret_salt = self.generate_hash_and_salt(secret_key)
+        self.access_key_id = access_key
+        self.access_key_secret = to_django_password_components(
+            self.DESIRED_ALGORITHM, self.DESIRED_ITERATIONS, secret_hash, secret_salt
+        )
         self.save()
-        return access_key.decode(), secret_key.decode()
+        return secret_hash, secret_salt
+    
+    ## Logic
+    def is_study_admin(self) -> bool:
+        return self.get_admin_study_relations().exists()
+    
+    def is_an_admin(self) -> bool:
+        return self.site_admin or self.is_study_admin()
+    
+    def check_study_admin(self, study_id: int) -> bool:
+        return self.study_relations.filter(
+            relationship=ResearcherRole.study_admin, study_id=study_id).exists()
+    
+    def is_site_admin_or_study_admin(self, study_id: int) -> bool:
+        return self.site_admin or self.check_study_admin(study_id)
+    
+    ## Filters
+    @classmethod
+    def filter_alphabetical(cls, *args, **kwargs) -> QuerySet[Researcher]:
+        """ Sort the Researchers a-z by username ignoring case, exclude special user types. """
+        return Researcher.objects \
+                .annotate(username_lower=Func(F('username'), function='LOWER')) \
+                .order_by('username_lower') \
+                .filter(*args, **kwargs)
+    
+    def get_administered_researchers(self) -> QuerySet[Researcher]:
+        studies = self.study_relations.filter(
+            relationship=ResearcherRole.study_admin).values_list("study_id", flat=True)
+        researchers = StudyRelation.objects.filter(
+            study_id__in=studies).values_list("researcher_id", flat=True).distinct()
+        return Researcher.objects.filter(id__in=researchers)
+    
+    def get_administered_researchers_by_username(self) -> QuerySet[Researcher]:
+        return self.get_administered_researchers() \
+                .annotate(username_lower=Func(F('username'), function='LOWER')) \
+                .order_by('username_lower')
+    
+    def get_administered_studies_by_name(self) -> QuerySet[Study]:
+        from database.models import Study
+        return Study._get_administered_studies_by_name(self)
     
     def get_admin_study_relations(self) -> QuerySet[StudyRelation]:
         return self.study_relations.filter(relationship=ResearcherRole.study_admin)
@@ -424,26 +410,13 @@ class Researcher(AbstractPasswordUser):
     def get_researcher_studies_by_name(self) -> QuerySet[Study]:
         return Study.get_researcher_studies_by_name(self)
     
+    ## Display
     def get_visible_studies_by_name(self) -> QuerySet[Study]:
+        # site admins [probably] don't have StudyRelations
         if self.site_admin:
             return Study.get_all_studies_by_name()
         else:
             return self.get_researcher_studies_by_name()
-    
-    def is_study_admin(self) -> bool:
-        return self.get_admin_study_relations().exists()
-    
-    def is_an_admin(self) -> bool:
-        return self.site_admin or self.is_study_admin()
-    
-    def check_study_admin(self, study_id: int) -> bool:
-        return self.study_relations.filter(
-            relationship=ResearcherRole.study_admin,
-            study_id=study_id,
-        ).exists()
-    
-    def is_site_admin_or_study_admin(self, study_id: int) -> bool:
-        return self.site_admin or self.check_study_admin(study_id)
     
     def __str__(self) -> str:
         if self.site_admin:
@@ -465,6 +438,6 @@ class StudyRelation(TimestampedModel):
         unique_together = ["study", "researcher"]
     
     def __str__(self):
-        return "%s is a %s in %s" % (self.researcher.username,
-                                     self.relationship.replace("_", " ").title(),
-                                     self.study.name)
+        return "%s is a %s in %s" % (
+            self.researcher.username, self.relationship.replace("_", " ").title(), self.study.name
+        )

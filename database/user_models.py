@@ -392,13 +392,7 @@ class Researcher(AbstractPasswordUser):
             study_id__in=studies).values_list("researcher_id", flat=True).distinct()
         return Researcher.objects.filter(id__in=researchers)
     
-    def get_administered_researchers_by_username(self) -> QuerySet[Researcher]:
-        return self.get_administered_researchers() \
-                .annotate(username_lower=Func(F('username'), function='LOWER')) \
-                .order_by('username_lower')
-    
     def get_administered_studies_by_name(self) -> QuerySet[Study]:
-        from database.models import Study
         return Study._get_administered_studies_by_name(self)
     
     def get_admin_study_relations(self) -> QuerySet[StudyRelation]:
@@ -410,7 +404,6 @@ class Researcher(AbstractPasswordUser):
     def get_researcher_studies_by_name(self) -> QuerySet[Study]:
         return Study.get_researcher_studies_by_name(self)
     
-    ## Display
     def get_visible_studies_by_name(self) -> QuerySet[Study]:
         # site admins [probably] don't have StudyRelations
         if self.site_admin:
@@ -418,6 +411,7 @@ class Researcher(AbstractPasswordUser):
         else:
             return self.get_researcher_studies_by_name()
     
+    ## Display
     def __str__(self) -> str:
         if self.site_admin:
             return f"{self.username} (Site Admin)"

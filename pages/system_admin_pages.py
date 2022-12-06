@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.db.models import F, Func
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from markupsafe import escape, Markup
@@ -52,7 +53,9 @@ def get_administerable_researchers(request: ResearcherRequest) -> List[Researche
     if request.session_researcher.site_admin:
         return Researcher.filter_alphabetical()
     else:
-        return request.session_researcher.get_administered_researchers_by_username()
+        return request.session_researcher.get_administered_researchers() \
+                .annotate(username_lower=Func(F('username'), function='LOWER')) \
+                .order_by('username_lower')
 
 
 def unflatten_consent_sections(consent_sections_dict: dict):

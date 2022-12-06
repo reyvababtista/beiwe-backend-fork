@@ -9,7 +9,7 @@ from django.db.models.query import Prefetch
 from django.db.models.query_utils import Q
 from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_GET, require_http_methods, require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 
 from authentication.admin_authentication import authenticate_researcher_study_access
 from constants.common_constants import API_DATE_FORMAT
@@ -20,18 +20,18 @@ from libs.internal_types import ResearcherRequest
 from libs.intervention_export import intervention_survey_data, survey_history_export
 
 
-@require_GET
+@require_POST
 @authenticate_researcher_study_access
 def study_participants_api(request: ResearcherRequest, study_id: int):
     study: Study = Study.objects.get(pk=study_id)
     # `draw` is passed by DataTables. It's automatically incremented, starting with 1 on the page
     # load, and then 2 with the next call to this API endpoint, and so on.
-    draw = int(request.GET.get('draw'))
-    start = int(request.GET.get('start'))
-    length = int(request.GET.get('length'))
-    sort_by_column_index = int(request.GET.get('order[0][column]'))
-    sort_in_descending_order = request.GET.get('order[0][dir]') == 'desc'
-    contains_string = request.GET.get('search[value]')
+    draw = int(request.POST.get('draw'))
+    start = int(request.POST.get('start'))
+    length = int(request.POST.get('length'))
+    sort_by_column_index = int(request.POST.get('order[0][column]'))
+    sort_in_descending_order = request.POST.get('order[0][dir]') == 'desc'
+    contains_string = request.POST.get('search[value]')
     total_participants_count = Participant.objects.filter(study_id=study_id).count()
     filtered_participants_count = filtered_participants(study, contains_string).count()
     data = get_values_for_participants_table(

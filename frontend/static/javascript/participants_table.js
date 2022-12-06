@@ -3,7 +3,10 @@ $(document).ready(function(){
     $("#participantList").DataTable({
         "processing": true,
         "serverSide": true,
-        "ajax": "/study/" + studyId + "/get_participants_api",
+        "ajax": {
+            url: "/study/" + studyId + "/get_participants_api/",
+            type: 'POST'  // Get request size ballooned past 4k characters, so use POST
+        },
         "columnDefs": [
             // Format the second column (index 1) to be a link to the View Participant page
             {"targets": 1, "render": function(data, type, row, meta) {

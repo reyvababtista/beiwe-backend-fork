@@ -35,11 +35,10 @@ class LengthValidator(object):
         return not (self == other)
 
 
-# These validators are used by CharFields in the Researcher and Participant models to ensure
-# that those fields' values fit the given regex. The max length requirement is handled by
-# the CharField, but the validator ensures that only certain characters are present
-# in the field value. If the ID or hashes are changed, be sure to modify or create a new
-# validator accordingly.
+# These validators are used by CharFields in the Researcher and Participant models to ensure that
+# those fields' values fit the given regex. The max length requirement is handled by the CharField,
+# but the validator ensures that only certain characters are present in the field value. If the ID
+# or hashes are changed, be sure to modify or create a new validator accordingly.
 ID_VALIDATOR = RegexValidator('^[1-9a-z]+$', message='This field can only contain characters 1-9 and a-z.')
 # Base 64 encodings can end in up to two = symbols for padding.
 _b64_chars = "[0-9a-zA-Z+/]"

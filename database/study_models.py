@@ -87,7 +87,7 @@ class Study(TimestampedModel):
         return study
     
     @classmethod
-    def get_all_studies_by_name(cls) -> Study:
+    def get_all_studies_by_name(cls) -> QuerySet[Study]:
         """ Sort the un-deleted Studies a-z by name, ignoring case. """
         return (cls.objects
                 .filter(deleted=False)

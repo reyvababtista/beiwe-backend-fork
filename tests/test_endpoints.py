@@ -1294,7 +1294,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         self.default_participant.update(created_on=self.SOME_TIMESTAMP)
         self.set_session_study_relation(ResearcherRole.researcher)
         # this endpoint uses get args, for which we have to pass in the dict as the "data" kwarg
-        resp = self.smart_get_status_code(200, self.session_study.id, data=self.DEFAULT_PARAMETERS)
+        resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
         content = json.loads(resp.content.decode())
         correct_content = {
             "draw": 1,

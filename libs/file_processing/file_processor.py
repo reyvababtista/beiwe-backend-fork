@@ -2,7 +2,7 @@ from collections import defaultdict
 from multiprocessing.pool import ThreadPool
 
 from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
-from database.user_models import Participant
+from database.user_models_participant import Participant
 
 
 class FileProcessor():

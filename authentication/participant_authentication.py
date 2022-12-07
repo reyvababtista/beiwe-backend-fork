@@ -4,7 +4,7 @@ from django.http import UnreadablePostError
 from django.http.request import HttpRequest
 
 from constants.user_constants import IOS_API
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.internal_types import ParticipantRequest
 from middleware.abort_middleware import abort
 

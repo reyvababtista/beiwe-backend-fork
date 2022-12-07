@@ -5,7 +5,7 @@ from constants.forest_constants import ForestTaskStatus, ForestTree
 from constants.tableau_api_constants import (HEADER_IS_REQUIRED, SERIALIZABLE_FIELD_NAMES,
     SERIALIZABLE_FIELD_NAMES_DROPDOWN, VALID_QUERY_PARAMETERS, X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET)
 from database.tableau_api_models import ForestTask
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from forms.django_form_fields import CommaSeparatedListCharField, CommaSeparatedListChoiceField
 
 

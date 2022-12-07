@@ -15,7 +15,7 @@ from constants.data_stream_constants import (CHUNKABLE_FILES, IDENTIFIERS,
     REVERSE_UPLOAD_FILE_TYPE_MAPPING)
 from constants.user_constants import OS_TYPE_CHOICES
 from database.models import TimestampedModel
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.security import chunk_hash
 
 

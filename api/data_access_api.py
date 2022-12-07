@@ -16,7 +16,7 @@ from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.data_stream_constants import ALL_DATA_STREAMS
 from database.data_access_models import ChunkRegistry
 from database.profiling_models import DataAccessRecord
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.internal_types import ApiStudyResearcherRequest
 from libs.streaming_zip import ZipGenerator
 from middleware.abort_middleware import abort

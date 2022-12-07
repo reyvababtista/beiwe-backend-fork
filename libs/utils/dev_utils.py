@@ -10,7 +10,7 @@ from time import perf_counter
 from types import FunctionType, MethodType
 
 from database.survey_models import Survey
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.security import generate_easy_alphanumeric_string
 
 

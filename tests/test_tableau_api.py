@@ -8,7 +8,7 @@ from authentication.tableau_authentication import (check_tableau_permissions,
 from constants.tableau_api_constants import (SERIALIZABLE_FIELD_NAMES, X_ACCESS_KEY_ID,
     X_ACCESS_KEY_SECRET)
 from database.security_models import ApiKey
-from database.user_models import StudyRelation
+from database.user_models_researcher import StudyRelation
 from tests.common import ResearcherSessionTest, TableauAPITest
 from tests.helpers import compare_dictionaries
 

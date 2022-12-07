@@ -5,7 +5,7 @@ from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from database.schedule_models import AbsoluteSchedule, ArchivedEvent, ScheduledEvent, WeeklySchedule
 from database.study_models import Study
 from database.survey_models import Survey
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.utils.date_utils import date_to_end_of_day, date_to_start_of_day
 
 

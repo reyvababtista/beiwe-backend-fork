@@ -10,7 +10,7 @@ from constants.data_stream_constants import SURVEY_DATA_FILES
 from database.data_access_models import ChunkRegistry
 from database.survey_models import Survey
 from database.system_models import GenericEvent
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.file_processing.exceptions import ChunkFailedToExist
 from libs.file_processing.utility_functions_csvs import (construct_csv_string, csv_to_list,
     unix_time_to_string)

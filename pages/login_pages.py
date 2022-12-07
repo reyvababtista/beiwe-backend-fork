@@ -2,7 +2,7 @@ from django.http.request import HttpRequest
 from django.shortcuts import redirect, render, reverse
 from django.contrib import messages
 from authentication import admin_authentication
-from database.user_models import Researcher
+from database.user_models_researcher import Researcher
 
 
 def login_page(request: HttpRequest):

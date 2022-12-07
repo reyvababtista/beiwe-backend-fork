@@ -106,7 +106,7 @@ class Study(TimestampedModel):
         return cls.get_all_studies_by_name().filter(study_relations__researcher=researcher)
     
     def get_researchers(self) -> QuerySet[Researcher]:
-        from database.user_models import Researcher
+        from database.user_models_researcher import Researcher
         return Researcher.objects.filter(study_relations__study=self)
     
     # We override the as_unpacked_native_python function to not include the encryption key.

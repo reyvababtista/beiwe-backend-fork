@@ -5,7 +5,7 @@ from typing import Optional
 from django.db import models
 
 from database.common_models import TimestampedModel
-from database.user_models import Researcher
+from database.user_models_researcher import Researcher
 from database.validators import PASSWORD_VALIDATOR, STANDARD_BASE_64_VALIDATOR
 from libs.security import (BadDjangoKeyFormatting, compare_password, django_password_components,
     generate_hash_and_salt, generate_random_bytestring, generate_random_string,

@@ -14,7 +14,8 @@ from constants.tableau_api_constants import X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET
 from constants.testing_constants import ALL_ROLE_PERMUTATIONS, REAL_ROLES, ResearcherRole
 from database.security_models import ApiKey
 from database.study_models import Study
-from database.user_models import Participant, Researcher, StudyRelation
+from database.user_models_participant import Participant
+from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import StrOrBytes
 from libs.security import generate_easy_alphanumeric_string
 from tests.helpers import ReferenceObjectMixin, render_test_html_file
@@ -40,7 +41,7 @@ if VERBOSE_2_OR_3:
         behavior identification, the original function is then called. """
         def intercepted(request, message, extra_tags='', fail_silently=False):
             print(f"from messages.{function.__name__}(): '{message}'")
-            return function(request, message, extra_tags=extra_tags, fail_silently=fail_silently)  
+            return function(request, message, extra_tags=extra_tags, fail_silently=fail_silently)
         return intercepted
     # this is equivalent to using a function wrapper
     messages.debug = monkeypatch_messages(messages.debug)

@@ -22,7 +22,8 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
 from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
-from database.user_models import Participant, ParticipantFCMHistory, Researcher, StudyRelation
+from database.user_models_participant import Participant, ParticipantFCMHistory
+from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import Schedule
 from libs.schedules import set_next_weekly
 from libs.security import device_hash, generate_easy_alphanumeric_string

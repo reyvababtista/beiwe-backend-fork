@@ -18,7 +18,7 @@ from constants.forest_constants import ForestTaskStatus, ForestTree
 from database.data_access_models import ChunkRegistry
 from database.study_models import Study
 from database.tableau_api_models import ForestTask, SummaryStatisticDaily
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from forms.django_forms import CreateTasksForm
 from libs.http_utils import easy_url
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest

@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 from authentication.admin_authentication import authenticate_researcher_study_access
 from database.schedule_models import InterventionDate
 from database.study_models import Study
-from database.user_models import Participant, ParticipantFieldValue
+from database.user_models_participant import Participant, ParticipantFieldValue
 from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
 from libs.s3 import create_client_key_pair, s3_upload

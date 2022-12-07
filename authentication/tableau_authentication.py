@@ -10,7 +10,7 @@ from constants.tableau_api_constants import (APIKEY_NO_ACCESS_MESSAGE,
     X_ACCESS_KEY_SECRET)
 from database.security_models import ApiKey
 from database.study_models import Study
-from database.user_models import StudyRelation
+from database.user_models_researcher import StudyRelation
 from forms.django_forms import AuthenticationForm
 from libs.internal_types import TableauRequest
 

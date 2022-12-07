@@ -13,7 +13,7 @@ from django.db.models import Manager
 from constants.forest_constants import (DEFAULT_FOREST_PARAMETERS_LOOKUP, ForestTaskStatus,
     ForestTree, ROOT_FOREST_TASK_PATH, SYCAMORE_DATE_FORMAT)
 from database.common_models import TimestampedModel
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.utils.date_utils import datetime_to_list
 
 

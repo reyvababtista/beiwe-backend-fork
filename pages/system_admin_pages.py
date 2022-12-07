@@ -26,7 +26,7 @@ from database.data_access_models import FileToProcess
 from database.study_models import DeviceSettings, Study
 from database.survey_models import Survey
 from database.system_models import FileAsText
-from database.user_models import Researcher, StudyRelation
+from database.user_models_researcher import Researcher, StudyRelation
 from libs.copy_study import copy_study_from_json, format_study, unpack_json_study
 from libs.firebase_config import get_firebase_credential_errors, update_firebase_instance
 from libs.http_utils import checkbox_to_boolean, string_to_int

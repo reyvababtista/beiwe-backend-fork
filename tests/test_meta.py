@@ -1,10 +1,10 @@
 from unittest.case import skip
 
 import urls
-
 from database.study_models import Study
 from database.survey_models import Survey
-from database.user_models import Participant, Researcher
+from database.user_models_participant import Participant
+from database.user_models_researcher import Researcher
 from tests.common import CommonTestCase, SmartRequestsTestCase
 
 
@@ -59,6 +59,7 @@ class TestAllEndpoints(CommonTestCase):
         # keep these imports local, don't pollute the global namespace, that may confuse the testrunner
         from tests import (test_endpoints, test_meta, test_models, test_security_models,
             test_tableau_api)
+
         # get all the tests and check that there is a test for every endpoint
         all_the_tests = []
         all_the_tests.extend(vars(test_endpoints).values())
@@ -75,7 +76,7 @@ class TestAllEndpoints(CommonTestCase):
             and obj.ENDPOINT_NAME is not None
             and obj.ENDPOINT_NAME != SmartRequestsTestCase.IGNORE_THIS_ENDPOINT
         }
-
+        
         for obj_endpoint_name in test_classes_by_endpoint_name.keys():
             if obj_endpoint_name in names_of_paths_counter:
                 names_of_paths_counter[obj_endpoint_name] += 1

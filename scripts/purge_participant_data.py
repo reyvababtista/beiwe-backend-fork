@@ -20,7 +20,7 @@ from config.settings import S3_BUCKET
 from constants.common_constants import API_TIME_FORMAT
 from constants.data_processing_constants import CHUNKS_FOLDER
 from database.data_access_models import ChunkRegistry
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.s3 import conn as s3_conn, s3_list_files, s3_list_versions
 
 

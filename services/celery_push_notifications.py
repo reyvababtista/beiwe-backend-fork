@@ -16,7 +16,8 @@ from constants.schedule_constants import ScheduleTypes
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from constants.user_constants import ANDROID_API
 from database.schedule_models import ScheduledEvent
-from database.user_models import Participant, ParticipantFCMHistory, PushNotificationDisabledEvent
+from database.user_models_participant import (Participant, ParticipantFCMHistory,
+    PushNotificationDisabledEvent)
 from libs.celery_control import push_send_celery_app, safe_apply_async
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import DictOfStrStr, DictOfStrToListOfStr

@@ -10,7 +10,7 @@ import requests
 from constants.user_constants import ResearcherRole
 from data_access_api_reference import download_data
 from database.study_models import Study
-from database.user_models import Researcher, StudyRelation
+from database.user_models_researcher import Researcher, StudyRelation
 
 
 try:

@@ -15,7 +15,7 @@ from authentication.admin_authentication import authenticate_researcher_study_ac
 from constants.common_constants import API_DATE_FORMAT
 from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
-from database.user_models import Participant, ParticipantFieldValue
+from database.user_models_participant import Participant, ParticipantFieldValue
 from libs.internal_types import ResearcherRequest
 from libs.intervention_export import intervention_survey_data, survey_history_export
 

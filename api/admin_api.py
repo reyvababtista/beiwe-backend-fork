@@ -10,7 +10,7 @@ from authentication.admin_authentication import (assert_admin, assert_researcher
 from config.settings import DOWNLOADABLE_APK_URL
 from constants.user_constants import ResearcherRole
 from database.study_models import Study
-from database.user_models import Researcher, StudyRelation
+from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import ResearcherRequest
 from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.security import check_password_requirements

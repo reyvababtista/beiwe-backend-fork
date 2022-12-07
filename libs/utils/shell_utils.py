@@ -13,7 +13,8 @@ from database.profiling_models import UploadTracking
 from database.schedule_models import ArchivedEvent, ScheduledEvent
 from database.study_models import Study
 from database.survey_models import Survey
-from database.user_models import Participant, Researcher
+from database.user_models_participant import Participant
+from database.user_models_researcher import Researcher
 from libs.utils.dev_utils import disambiguate_participant_survey, TxtClr
 
 

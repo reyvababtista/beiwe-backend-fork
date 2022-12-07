@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from config.settings import FILE_PROCESS_PAGE_SIZE
 from constants.celery_constants import DATA_PROCESSING_CELERY_QUEUE
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.celery_control import (FalseCeleryApp, get_processing_active_job_ids,
     processing_celery_app, safe_apply_async)
 from libs.file_processing.file_processing_core import do_process_user_file_chunks

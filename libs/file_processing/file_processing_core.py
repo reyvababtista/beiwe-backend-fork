@@ -14,7 +14,7 @@ from constants.data_stream_constants import (ACCELEROMETER, ANDROID_LOG_FILE, CA
     SURVEY_DATA_FILES, SURVEY_TIMINGS, WIFI)
 from constants.user_constants import ANDROID_API
 from database.data_access_models import ChunkRegistry, FileToProcess
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.file_processing.batched_network_operations import batch_upload
 from libs.file_processing.csv_merger import CsvMerger
 from libs.file_processing.data_fixes import (fix_app_log_file, fix_call_log_csv, fix_identifier_csv,

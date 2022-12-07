@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 from typing import Dict, List
 
 from django.db import models
@@ -9,11 +9,13 @@ from django.utils import timezone
 from constants.data_stream_constants import (DATA_STREAM_TO_S3_FILE_NAME_STRING,
     UPLOAD_FILE_TYPE_MAPPING)
 from database.common_models import UtilityModel
-from database.models import JSONTextField, Participant, TimestampedModel
+from database.models import JSONTextField, TimestampedModel
+from database.user_models_participant import Participant
+
 
 # this is an import hack to improve IDE assistance
 try:
-    from database.user_models import Researcher
+    from database.user_models_researcher import Researcher
 except ImportError:
     pass
 

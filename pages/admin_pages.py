@@ -13,7 +13,7 @@ from constants.message_strings import (NEW_API_KEY_MESSAGE, NEW_PASSWORD_MISMATC
 from constants.user_constants import ResearcherRole
 from database.security_models import ApiKey
 from database.study_models import Study
-from database.user_models import Researcher, StudyRelation
+from database.user_models_researcher import Researcher, StudyRelation
 from forms.django_forms import DisableApiKeyForm, NewApiKeyForm
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import ResearcherRequest

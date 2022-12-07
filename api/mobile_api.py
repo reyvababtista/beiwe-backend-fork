@@ -19,7 +19,7 @@ from database.data_access_models import FileToProcess
 from database.schedule_models import ScheduledEvent
 from database.survey_models import Survey
 from database.system_models import FileAsText
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
     IosDecryptionKeyDuplicateError, IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
 from libs.http_utils import determine_os_api

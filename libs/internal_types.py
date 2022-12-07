@@ -13,8 +13,9 @@ from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey, SurveyArchive
 from database.system_models import FileAsText, GenericEvent
 from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
-from database.user_models import (Participant, ParticipantFCMHistory, ParticipantFieldValue,
-    PushNotificationDisabledEvent, Researcher, StudyRelation)
+from database.user_models_participant import (Participant, ParticipantFCMHistory,
+    ParticipantFieldValue, PushNotificationDisabledEvent)
+from database.user_models_researcher import Researcher, StudyRelation
 
 
 """ This file includes types and typing information that may be missing from your

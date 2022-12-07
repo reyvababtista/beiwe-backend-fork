@@ -9,7 +9,7 @@ from constants.security_constants import URLSAFE_BASE64_CHARACTERS
 from constants.user_constants import ANDROID_API, IOS_API
 from database.data_access_models import IOSDecryptionKey
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.security import Base64LengthException, decode_base64, encode_base64, PaddingException
 
 

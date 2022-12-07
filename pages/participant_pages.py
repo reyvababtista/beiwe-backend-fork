@@ -13,7 +13,7 @@ from authentication.admin_authentication import authenticate_researcher_study_ac
 from constants.common_constants import API_DATE_FORMAT
 from database.schedule_models import ArchivedEvent
 from database.study_models import Study
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.firebase_config import check_firebase_instance
 from libs.http_utils import easy_url, really_nice_time_format_with_tz
 from libs.internal_types import ArchivedEventQuerySet, ResearcherRequest

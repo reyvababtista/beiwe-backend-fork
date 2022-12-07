@@ -24,7 +24,7 @@ from constants.user_constants import ANDROID_API, IOS_API
 from database.schedule_models import ArchivedEvent, ScheduledEvent
 from database.study_models import Study
 from database.survey_models import Survey
-from database.user_models import Participant, ParticipantFCMHistory
+from database.user_models_participant import Participant, ParticipantFCMHistory
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import ParticipantRequest, ResearcherRequest
 from libs.sentry import make_error_sentry, SentryTypes

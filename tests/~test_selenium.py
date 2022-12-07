@@ -24,7 +24,7 @@ from selenium.webdriver.chrome.options import Options
 
 from django.test import TransactionTestCase, SimpleTestCase
 from database.study_models import Study
-from database.user_models import Researcher
+from database.user_models_common import Researcher
 from pages import admin_pages
 
 PAGE_RESPONSES = {

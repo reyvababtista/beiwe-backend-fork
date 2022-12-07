@@ -1,13 +1,11 @@
 import json
-from django.http import FileResponse
 
 from django.http.response import HttpResponse
-from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
 
 from authentication.data_access_authentication import (api_credential_check,
     api_study_credential_check)
-from database.user_models import StudyRelation
+from database.user_models_researcher import StudyRelation
 from libs.internal_types import ApiResearcherRequest, ApiStudyResearcherRequest
 from libs.intervention_export import intervention_survey_data
 

@@ -13,7 +13,7 @@ from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_D
 from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
 from database.data_access_models import ChunkRegistry
 from database.study_models import Study
-from database.user_models import Participant
+from database.user_models_participant import Participant
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest
 from middleware.abort_middleware import abort
 

@@ -37,7 +37,8 @@ from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
 from database.system_models import FileAsText, GenericEvent
-from database.user_models import Participant, ParticipantFCMHistory, Researcher
+from database.user_models_participant import Participant, ParticipantFCMHistory
+from database.user_models_researcher import Researcher
 from libs.copy_study import format_study
 from libs.rsa import get_RSA_cipher
 from libs.schedules import (get_start_and_end_of_java_timings_week,
@@ -2879,7 +2880,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assert_one_file_to_process
     
     @patch("libs.participant_file_uploads.s3_upload")
-    @patch("database.user_models.Participant.get_private_key")
+    @patch("database.user_models_participant.Participant.get_private_key")
     def test_no_file_content(self, get_private_key: MagicMock, s3_upload: MagicMock):
         self.assertIsNone(self.default_participant.last_upload)
         get_private_key.return_value = self.PRIVATE_KEY
@@ -2892,7 +2893,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertIsInstance(self.default_participant.last_upload, datetime)
     
     @patch("libs.participant_file_uploads.s3_upload")
-    @patch("database.user_models.Participant.get_private_key")
+    @patch("database.user_models_participant.Participant.get_private_key")
     def test_decryption_key_bad_padding(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
         self.smart_post_status_code(200, file_name="whatever.csv", file="some_content")
@@ -2902,7 +2903,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertIn("Decryption key not 128 bits", GenericEvent.objects.get().note)
     
     @patch("libs.participant_file_uploads.s3_upload")
-    @patch("database.user_models.Participant.get_private_key")
+    @patch("database.user_models_participant.Participant.get_private_key")
     def test_decryption_key_not_base64(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
         self.smart_post_status_code(200, file_name="whatever.csv", file="some_content/\\")
@@ -2911,7 +2912,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertIn("Key not base64 encoded:", GenericEvent.objects.get().note)
     
     @patch("libs.participant_file_uploads.s3_upload")
-    @patch("database.user_models.Participant.get_private_key")
+    @patch("database.user_models_participant.Participant.get_private_key")
     def test_bad_base64_length(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
         self.smart_post_status_code(200, file_name="whatever.csv", file=b"some_content1")

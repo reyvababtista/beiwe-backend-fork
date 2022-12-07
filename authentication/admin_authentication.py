@@ -12,7 +12,7 @@ from django.utils.timezone import is_naive
 from constants.user_constants import (ALL_RESEARCHER_TYPES, EXPIRY_NAME, ResearcherRole,
     SESSION_NAME, SESSION_UUID)
 from database.study_models import Study
-from database.user_models import Researcher, StudyRelation
+from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import ResearcherRequest
 from libs.security import generate_easy_alphanumeric_string
 from middleware.abort_middleware import abort

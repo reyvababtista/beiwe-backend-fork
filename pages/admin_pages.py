@@ -18,6 +18,7 @@ from forms.django_forms import DisableApiKeyForm, NewApiKeyForm
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import ResearcherRequest
 from libs.security import check_password_requirements
+from middleware.abort_middleware import abort
 from serializers.tableau_serializers import ApiKeySerializer
 
 
@@ -119,11 +120,14 @@ def manage_credentials(request: ResearcherRequest):
 @require_POST
 @authenticate_researcher_login
 def reset_admin_password(request: ResearcherRequest):
-    username = request.session_researcher.username
-    current_password = request.POST['current_password']
-    new_password = request.POST['new_password']
-    confirm_new_password = request.POST['confirm_new_password']
+    try:
+        current_password = request.POST['current_password']
+        new_password = request.POST['new_password']
+        confirm_new_password = request.POST['confirm_new_password']
+    except KeyError:
+        return abort(400)
     
+    username = request.session_researcher.username
     if not Researcher.check_password(username, current_password):
         messages.warning(request, WRONG_CURRENT_PASSWORD)
         return redirect('admin_pages.manage_credentials')

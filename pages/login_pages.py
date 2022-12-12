@@ -1,6 +1,8 @@
-from django.http.request import HttpRequest
-from django.shortcuts import redirect, render, reverse
 from django.contrib import messages
+from django.http.request import HttpRequest
+from django.shortcuts import redirect, render
+from django.urls import reverse
+
 from authentication import admin_authentication
 from database.user_models_researcher import Researcher
 
@@ -18,8 +20,10 @@ def validate_login(request: HttpRequest):
         password = request.POST.get("password", None)
         if username and password and Researcher.check_password(username, password):
             admin_authentication.log_in_researcher(request, username)
+            # this redirect happens even when the password needs to be reset, the next level of
+            # redirection occurs when the browser follows the reddirect
             return redirect("/choose_study")
         else:
             messages.warning(request, "Incorrect username & password combination; try again.")
-
+    
     return redirect(reverse("login_pages.login_page"))

@@ -242,7 +242,34 @@ class TestLoginPages(BasicSessionTestCase):
             return easy_url("admin_pages.view_study", study_id=self.session_study.id)
         else:
             return reverse("admin_pages.choose_study")
-
+    
+    def test_password_redirect_ignored_endpoint_manage_credentials(self):
+        # test that the password redirect is ignored for manage credentials page
+        self.session_researcher
+        self.do_default_login()
+        self.session_researcher.update(password_force_reset=True)
+        resp = self.client.get(reverse("admin_pages.manage_credentials"))
+        self.assertIsInstance(resp, HttpResponse)
+        self.assertEqual(resp.status_code, 200)
+    
+    def test_password_redirect_ignored_endpoint_logout(self):
+        # test that the password redirect is ignored logout endpoint
+        self.session_researcher
+        self.do_default_login()
+        self.session_researcher.update(password_force_reset=True)
+        resp = self.client.get(reverse("admin_pages.logout_admin"))
+        self.assertIsInstance(resp, HttpResponseRedirect)
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.url, reverse("login_pages.login_page"))  # that's the / endpoint
+    
+    def test_password_redirect_ignored_endpoint_reset_password(self):
+        # test that the password redirect is ignored for the set password endpoint
+        self.session_researcher
+        self.do_default_login()
+        self.session_researcher.update(password_force_reset=True)
+        resp = self.client.post(reverse("admin_pages.reset_admin_password"))
+        self.assertIsInstance(resp, HttpResponse)
+        self.assertEqual(resp.status_code, 400)
 
 class TestChooseStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.choose_study"

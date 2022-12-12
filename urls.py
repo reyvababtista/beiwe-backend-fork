@@ -32,12 +32,12 @@ urlpatterns: List[URLPattern] = []
 path("", login_pages.login_page)
 path("validate_login", login_pages.validate_login)
 path("choose_study", admin_pages.choose_study)
-path("logout", admin_pages.logout_admin)
+path("logout", admin_pages.logout_admin)  # note: excluded from password reset redirection
 
 # Admin
 path("view_study/<int:study_id>", admin_pages.view_study)
-path("manage_credentials", admin_pages.manage_credentials)
-path("reset_admin_password", admin_pages.reset_admin_password)
+path("manage_credentials", admin_pages.manage_credentials)  # note: excluded from password reset redirection
+path("reset_admin_password", admin_pages.reset_admin_password)  # note: excluded from password reset redirection
 path("reset_download_api_credentials", admin_pages.reset_download_api_credentials)
 path("new_api_key", admin_pages.new_tableau_api_key)
 path("disable_tableau_api_key", admin_pages.disable_tableau_api_key)

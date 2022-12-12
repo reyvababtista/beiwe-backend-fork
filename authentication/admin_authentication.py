@@ -29,6 +29,7 @@ def log(*args, **kwargs):
         print(*args, **kwargs)
 
 
+
 # Top level authentication wrappers
 def authenticate_researcher_login(some_function):
     """ Decorator for functions (pages) that require a login, redirect to login page on failure. """
@@ -119,8 +120,8 @@ def determine_password_reset_redirect(request: ResearcherRequest) -> Optional[Ht
     to the password age warning.  This function will be called on every page load and could cause
     duplicates, but I don't have a better solution right now. """
     # case: the password reset page would otherwise not be infinitely redirected to itself.
-    # TODO: make this an import of url matches from urls
-    if request.get_raw_uri().endswith("manage_credentials"):
+    # need to allow user to log out too.
+    if request.get_raw_uri().endswith(("manage_credentials", "reset_admin_password", "logout")):
         return None
     
     if request.session_researcher.password_force_reset:

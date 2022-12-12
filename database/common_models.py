@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+from ast import Dict, Tuple
 from datetime import date, datetime
 from pprint import pprint
 from random import choice as random_choice
+from typing import Any, List
 
 import dateutil
 from django.db import models
@@ -30,6 +32,8 @@ class JSONTextField(models.TextField):
 class UtilityModel(models.Model):
     """ Provides numerous utility functions and enhancements.
         All Models should subclass UtilityModel. """
+    
+    id: int  # this attribute is not correctly populated in some IDEs
     
     @classmethod
     def nice_count(cls):
@@ -127,26 +131,35 @@ class UtilityModel(models.Model):
         ret.update(self._related)
         return ret
     
-    def as_unpacked_native_python(self, remove_timestamps=True) -> dict:
-        """ Collect all of the fields of the model and return their values in a python dict,
-        with json fields appropriately deserialized. """
-        field_dict = {}
+    @classmethod
+    def local_field_names(cls) -> List[str]:
+        return [f.name for f in cls._meta.fields if not isinstance(f, RelatedField)]
+    
+    def as_unpacked_native_python(self, field_names: Tuple[str]) -> Dict[str, Any]:
+        """ This function returns a dictionary of the desired fields, unpacking any JSONTextField.
+        DO NOT MAKE A VERSION OF THIS THAT TRIVIALLY RETURNS THE ENTIRE MODEL'S DATA. We had that
+        and it caused numerous bugs, security issues, and wasted time. If you want to do that use
+        the local_field_names() methods to get the field names.
+        Will raise value errors if you pass in invalid field names."""
+        
+        # check if the field names are valid
+        real_field_names = self.__class__.local_field_names()  # data structure optimization?
+        for field_name in field_names:
+            if field_name not in real_field_names:
+                raise ValueError(f"Field name {field_name} is not a valid field name for this model.")
+        
+        ret = {}
         for field in self._meta.fields:
-            field_name = field.name
-            if isinstance(field, RelatedField):
-                # Don't include related fields in the dict
-                pass
+            if field.name not in field_names:
+                continue
             elif isinstance(field, JSONTextField):
                 # If the field is a JSONTextField, load the field's value before returning
-                field_raw_val = getattr(self, field_name)
-                field_dict[field_name] = json.loads(field_raw_val)
-            elif remove_timestamps and (field_name == "created_on" or field_name == "last_updated"):
-                continue
+                ret[field.name] = json.loads(getattr(self, field.name))
             else:
                 # Otherwise, just return the field's value directly
-                field_dict[field_name] = getattr(self, field_name)
+                ret[field.name] = getattr(self, field.name)
         
-        return field_dict
+        return ret
     
     def save(self, *args, **kwargs):
         # Raise a ValidationError if any data is invalid

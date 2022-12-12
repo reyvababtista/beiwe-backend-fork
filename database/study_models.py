@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import operator
 from datetime import datetime, tzinfo
-from typing import Optional
+from typing import List, Optional
 
 from dateutil.tz import gettz
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
@@ -35,6 +35,8 @@ class Study(TimestampedModel):
     # usually is) the researcher is immediately shown the DeviceSettings to edit. The code
     # to create the DeviceSettings object is in database.signals.populate_study_device_settings.
     
+    STUDY_EXPORT_FIELDS = ["name", "is_test", "timezone_name", "deleted", "forest_enabled", "id", "object_id"]
+    
     name = models.TextField(unique=True, help_text='Name of the study; can be of any length')
     encryption_key = models.CharField(
         max_length=32, validators=[LengthValidator(32)],
@@ -52,6 +54,12 @@ class Study(TimestampedModel):
     forest_enabled = models.BooleanField(default=False)
     
     easy_enrollment = models.BooleanField(default=False)
+    
+    
+    # password settings
+    password_minimum_length = models.PositiveIntegerField(default=8, validators=[MinValueValidator(8), MaxValueValidator(100)])
+    password_max_age_enabled = models.BooleanField(default=False)
+    password_max_age_days = models.PositiveIntegerField(default=365, validators=[MinValueValidator(30), MaxValueValidator(365)])
     
     # related field typings (IDE halp)
     chunk_registries: Manager[ChunkRegistry]
@@ -108,12 +116,6 @@ class Study(TimestampedModel):
     def get_researchers(self) -> QuerySet[Researcher]:
         from database.user_models_researcher import Researcher
         return Researcher.objects.filter(study_relations__study=self)
-    
-    # We override the as_unpacked_native_python function to not include the encryption key.
-    def as_unpacked_native_python(self, remove_timestamps=True) -> dict:
-        ret = super().as_unpacked_native_python(remove_timestamps=remove_timestamps)
-        ret.pop("encryption_key")
-        return ret
     
     def get_earliest_data_time_bin(
         self, only_after_epoch: bool = True, only_before_now: bool = True
@@ -194,6 +196,14 @@ class StudyField(UtilityModel):
 class DeviceSettings(TimestampedModel):
     """ The DeviceSettings database contains the structure that defines settings pushed to devices
     of users in of a study. """
+    
+    def export(self) -> List[str]:
+        """ DeviceSettings is a special case where we want to export all fields.  Do not add fields
+        to this model that cannot be trivially exported inside as_unpacked_native_python. """
+        field_names = self.local_field_names()
+        field_names.remove("created_on")
+        field_names.remove("last_updated")
+        return self.as_unpacked_native_python(field_names)
     
     # Whether various device options are turned on
     accelerometer = models.BooleanField(default=True)

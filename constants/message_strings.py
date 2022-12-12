@@ -89,6 +89,9 @@ ALERT_SPECIFIC_ERROR_TEXT = \
 ## Admin Pages
 RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE = "Your Data-Download API access credentials have been reset."
 NEW_API_KEY_MESSAGE = "New Tableau API credentials have been generated for you!"
+PASSWORD_WILL_EXPIRE = "Your password will expire in {days} days, reset it to clear this reminder."
+PASSWORD_EXPIRED = "Your password has expired, please reset your password."
+PASSWORD_RESET_FORCED = "You have had your password administratively reset, please set a new password."
 
 # self password reset
 PASSWORD_RESET_SUCCESS = "Your password has been reset!"

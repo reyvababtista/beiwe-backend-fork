@@ -17,6 +17,7 @@ from constants.message_strings import (DEVICE_CHECKED_IN, DEVICE_IDENTIFIERS_HEA
     INVALID_EXTENSION_ERROR, NO_FILE_ERROR, UNKNOWN_ERROR)
 from database.data_access_models import FileToProcess
 from database.schedule_models import ScheduledEvent
+from database.study_models import DeviceSettings
 from database.survey_models import Survey
 from database.system_models import FileAsText
 from database.user_models_participant import Participant
@@ -229,8 +230,6 @@ def register_user(request: ParticipantRequest, OS_API=""):
     participant.device_id = device_id
     participant.os_type = OS_API
     participant.set_password(request.POST['new_password'])  # set password saves the model
-    device_settings = participant.study.device_settings.as_unpacked_native_python()
-    device_settings.pop('_id', None)
     
     # set up FCM files
     firebase_plist_data = None
@@ -249,7 +248,7 @@ def register_user(request: ParticipantRequest, OS_API=""):
     
     return_obj = {
         'client_public_key': get_client_public_key_string(patient_id, participant.study.object_id),
-        'device_settings': device_settings,
+        'device_settings': participant.study.device_settings.export(),
         'ios_plist': firebase_plist_data,
         'android_firebase_json': firebase_json_data,
         'study_name': participant.study.name,
@@ -343,10 +342,8 @@ def get_latest_surveys(request: ParticipantRequest, OS_API=""):
 
 def format_survey_for_device(survey: Survey, participant: Participant):
     """ Returns a dict with the values of the survey fields for download to the app """
-    survey_dict = survey.as_unpacked_native_python()
+    survey_dict = survey.as_unpacked_native_python(Survey.SURVEY_DEVICE_EXPORT_FIELDS)
     # Make the dict look like the old Mongolia-style dict that the frontend is expecting
-    survey_dict.pop('id')
-    survey_dict.pop('deleted')
     survey_dict['_id'] = survey_dict.pop('object_id')
     
     # weekly defines a list of 7 lists of ints or [[], [], [], [], [], [], []]

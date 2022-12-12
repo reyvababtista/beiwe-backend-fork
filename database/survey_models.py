@@ -32,6 +32,10 @@ class SurveyBase(TimestampedModel):
         (IMAGE_SURVEY, IMAGE_SURVEY)
     )
     
+    # for some reasons these nee to have diverged
+    SURVEY_EXPORT_FIELDS = ["content", "survey_type", "settings", "object_id", "name", "id"]
+    SURVEY_DEVICE_EXPORT_FIELDS = ["content", "survey_type", "settings", "object_id", "name"]
+    
     content = JSONTextField(default='[]', help_text='JSON blob containing information about the survey questions.')
     survey_type = models.CharField(max_length=16, choices=SURVEY_TYPE_CHOICES, help_text='What type of survey this is.')
     settings = JSONTextField(default='{}', help_text='JSON blob containing settings for the survey.')

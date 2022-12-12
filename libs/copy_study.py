@@ -8,7 +8,7 @@ from constants.copy_study_constants import (ABSOLUTE_SCHEDULE_KEY, DEVICE_SETTIN
 from database.common_models import JSONTextField
 from database.schedule_models import (AbsoluteSchedule, Intervention, RelativeSchedule,
     WeeklySchedule)
-from database.study_models import Study
+from database.study_models import DeviceSettings, Study
 from database.survey_models import Survey
 from libs.schedules import repopulate_all_survey_scheduled_events
 
@@ -27,7 +27,7 @@ def unpack_json_study(json_string: str) -> Union[dict, List[str], List[dict]]:
 
 def format_study(study: Study) -> str:
     """ Serializes a study, including surveys, their schedules, device settings, and interventions. """
-    device_settings = study.device_settings.as_unpacked_native_python()
+    device_settings = study.device_settings.export()
     purge_unnecessary_fields(device_settings)
     return json.dumps(
         {
@@ -43,7 +43,7 @@ def format_surveys(study: Study) -> List[dict]:
     surveys = []
     for survey in study.surveys.filter(deleted=False):
         # content, cleanup, then schedules.
-        survey_content = survey.as_unpacked_native_python()
+        survey_content = survey.as_unpacked_native_python(Survey.SURVEY_EXPORT_FIELDS)
         purge_unnecessary_fields(survey_content)
         survey_content[WEEKLY_SCHEDULE_KEY] = survey.weekly_timings()
         survey_content[ABSOLUTE_SCHEDULE_KEY] = survey.absolute_timings()
@@ -73,7 +73,7 @@ def copy_study_from_json(
         if STUDY_KEY in old_device_settings:
             old_device_settings.pop(STUDY_KEY)
         update_device_settings(old_device_settings, new_study)
-
+    
     if interventions:
         # The "key" value for intervention on relative survey schedule exports is the name,
         # we can't have duplicate Interventions.  Behavior is that they get merged.
@@ -82,7 +82,7 @@ def copy_study_from_json(
             [Intervention(name=name, study=new_study)
                 for name in interventions if name not in extant_interventions]
         )
-
+    
     if surveys_to_copy:
         add_new_surveys(new_study, surveys_to_copy)
 
@@ -92,7 +92,7 @@ def update_device_settings(new_device_settings: dict, study: Study):
     updates the provided study's device settings.  Handles the cases of different legacy
     serialization of the consent_sections parameter. """
     purge_unnecessary_fields(new_device_settings)
-
+    
     # ah, it looks like the bug we had was that you can just send dictionary directly
     # into a textfield and it uses the __repr__ or __str__ or __unicode__ function, causing
     # weirdnesses if as_unpacked_native_python is called because json does not want to use double quotes.
@@ -117,23 +117,23 @@ def add_new_surveys(study: Study, new_survey_settings: List[Dict]):
         absolute_schedules = survey_settings.pop(ABSOLUTE_SCHEDULE_KEY, None)
         relative_schedules = survey_settings.pop(RELATIVE_SCHEDULE_KEY, None)
         schedules_bug_type_check(weekly_schedules, absolute_schedules, relative_schedules)
-
+        
         # convert JSONTextFields to json
         for field in Survey._meta.fields:
             if isinstance(field, JSONTextField):
                 survey_settings[field.name] = json.dumps(survey_settings[field.name])
-
+        
         # case: due to serialization problems (since fixed in a migration) we need to test
         # for this particular scenario and replace a javascript null / Python None with a default.
         if survey_settings[SURVEY_CONTENT_KEY] == "null":
             survey_settings[SURVEY_CONTENT_KEY] = Survey._meta.get_field(SURVEY_CONTENT_KEY).default
-
+        
         # create survey, schedules, schedule events.
         survey = Survey.create_with_object_id(study=study, **survey_settings)
         AbsoluteSchedule.create_absolute_schedules(absolute_schedules, survey)
         WeeklySchedule.create_weekly_schedules(weekly_schedules, survey)
         create_relative_schedules_by_name(relative_schedules, survey)
-
+        
         # and if the context is adding surveys to an existing study this must execute.
         repopulate_all_survey_scheduled_events(study)
 
@@ -144,7 +144,7 @@ def create_relative_schedules_by_name(timings: List[List[int]], survey: Survey) 
     survey.relative_schedules.all().delete()  # should always be empty
     if survey.deleted or not timings:
         return
-
+    
     # Older versions of beiwe failed to export interventions and instead provide integer database
     # keys.  We can detect this case because json preserves the typing of numerics.  You can check
     # the prior commit for a method to identify possible cases where we would populate existing

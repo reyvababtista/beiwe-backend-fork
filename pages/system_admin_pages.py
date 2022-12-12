@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db.models import F, Func
+from django.db.models import F, Func, QuerySet
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from markupsafe import escape, Markup
@@ -40,7 +40,7 @@ from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
 ####################################################################################################
 
 
-def get_administerable_studies_by_name(request: ResearcherRequest) -> List[Study]:
+def get_administerable_studies_by_name(request: ResearcherRequest) -> QuerySet[Study]:
     """ Site admins see all studies, study admins see only studies they are admins on. """
     if request.session_researcher.site_admin:
         return Study.get_all_studies_by_name()
@@ -107,7 +107,6 @@ def validate_ios_credentials(credentials: str) -> bool:
 def manage_researchers(request: ResearcherRequest):
     # get the study names that each user has access to, but only those that the current admin  also
     # has access to.
-    
     if request.session_researcher.site_admin:
         session_ids = Study.objects.exclude(deleted=True).values_list("id", flat=True)
     else:
@@ -119,7 +118,9 @@ def manage_researchers(request: ResearcherRequest):
         allowed_studies = Study.get_all_studies_by_name().filter(
             study_relations__researcher=researcher, study_relations__study__in=session_ids,
         ).values_list('name', flat=True)
-        researcher_list.append((researcher.as_unpacked_native_python(), list(allowed_studies)))
+        researcher_list.append(
+            ({'username': researcher.username, 'id': researcher.id}, list(allowed_studies))
+        )
     
     return render(request, 'manage_researchers.html', context=dict(admins=researcher_list))
 
@@ -253,14 +254,11 @@ def create_new_researcher(request: ResearcherRequest):
 @require_GET
 @authenticate_admin
 def manage_studies(request: ResearcherRequest):
-    studies = [
-        study.as_unpacked_native_python() for study in get_administerable_studies_by_name(request)
-    ]
     return render(
         request,
         'manage_studies.html',
         context=dict(
-            studies=studies,
+            studies=list(get_administerable_studies_by_name(request).values("id", "name")),
             unprocessed_files_count=FileToProcess.objects.count(),
         )
     )
@@ -306,8 +304,9 @@ def create_study(request: ResearcherRequest):
         return abort(403)
     
     # FIXME: get rid of dual endpoint pattern, it is a bad idea.
+    
     if request.method == 'GET':
-        studies = [study.as_unpacked_native_python() for study in Study.get_all_studies_by_name()]
+        studies = list(Study.get_all_studies_by_name().values("name", "id"))
         return render(request, 'create_study.html', context=dict(studies=studies))
     
     name = request.POST.get('name', '')
@@ -422,8 +421,8 @@ def device_settings(request: ResearcherRequest, study_id=None):
             request,
             "device_settings.html",
             context=dict(
-                study=study.as_unpacked_native_python(),
-                settings=study.device_settings.as_unpacked_native_python(),
+                study=study.as_unpacked_native_python(Study.STUDY_EXPORT_FIELDS),
+                settings=study.device_settings.export(),
                 readonly=readonly,
             )
         )

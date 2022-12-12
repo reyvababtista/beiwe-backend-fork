@@ -60,12 +60,5 @@ class AbstractPasswordUser(TimestampedModel):
             self.set_password(compare_me)
         return it_matched
     
-    def as_unpacked_native_python(self, remove_timestamps=True) -> dict:
-        ret = super().as_unpacked_native_python(remove_timestamps=remove_timestamps)
-        ret.pop("password")
-        ret.pop("access_key_id")
-        ret.pop("access_key_secret")
-        return ret
-    
     class Meta:
         abstract = True

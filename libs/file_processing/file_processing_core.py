@@ -110,7 +110,7 @@ def do_process_user_file_chunks(
     
     # A Django query with a slice (e.g. .all()[x:y]) makes a LIMIT query, so it
     # only gets from the database those FTPs that are in the slice.
-    # print(participant.as_unpacked_native_python())
+    # print(participant.as_dict())
     print("Number Files To Process:", participant.files_to_process.exclude(deleted=True).count())
     print(f"will process {page_size} files.")
     print("current count processing within this run:", position)

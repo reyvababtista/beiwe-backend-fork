@@ -5,6 +5,7 @@ from typing import Tuple
 from django.db import models
 from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
+from django.utils import timezone
 
 from constants.user_constants import ResearcherRole
 from database.models import TimestampedModel
@@ -15,19 +16,7 @@ from libs.security import (BadDjangoKeyFormatting, compare_password, django_pass
     generate_random_bytestring, generate_random_string, to_django_password_components)
 
 
-# This is an import hack to improve IDE assistance.  Most of these imports are cyclical and fail at
-# runtime, but they remain present in the _lexical_ scope of the file.  Python's _parser_ recognizes
-# the symbol name, which in turn allows us to use them in type annotations.  There are no _runtime_
-# errors because type annotations are completely elided from the runtime.  With these annotations
-# your IDE is able to provide type inferencing and other typed assistance throughout the codebase.
-#
-# By attaching some extra type declarations to model classes for django's dynamically generated
-# properties (example: "scheduled_events" on the Participant class below) we magically get type
-# information almost everywhere.  (These can be generated for you automatically by running `python
-# run_script.py generate_relation_hax` and pasting as required.)
-#
-# If you must to use an unimportable class (like ArchivedEvent in the notification_events()
-# convenience method on Participants below) you will need to use a local import.
+# This is an import hack to improve IDE assistance.
 try:
     from database.models import ApiKey, DataAccessRecord
 except ImportError:
@@ -47,6 +36,9 @@ class Researcher(AbstractPasswordUser):
     
     access_key_id = models.CharField(max_length=64, validators=[STANDARD_BASE_64_VALIDATOR], unique=True, null=True, blank=True)
     access_key_secret = models.CharField(max_length=256, validators=[PASSWORD_VALIDATOR], blank=True)
+    
+    password_last_changed = models.DateTimeField(null=False, blank=False, default=timezone.now)
+    password_force_reset = models.BooleanField(default=False)
     
     # related field typings (IDE halp)
     api_keys: Manager[ApiKey]

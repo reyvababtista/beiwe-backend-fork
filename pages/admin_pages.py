@@ -49,7 +49,7 @@ def choose_study(request: ResearcherRequest):
         request,
         'choose_study.html',
         context=dict(
-            studies=[obj.as_unpacked_native_python() for obj in allowed_studies],
+            studies=list(allowed_studies.values("name", "id")),
             is_admin=request.session_researcher.is_an_admin(),
         )
     )

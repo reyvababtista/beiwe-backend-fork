@@ -23,8 +23,9 @@ from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_D
 from constants.data_stream_constants import ACCELEROMETER, ALL_DATA_STREAMS, SURVEY_TIMINGS
 from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_UNKNOWN,
     MESSAGE_SEND_SUCCESS, NEW_PASSWORD_8_LONG, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_RULES_FAIL,
-    PASSWORD_RESET_SUCCESS, PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED,
-    TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
+    PASSWORD_EXPIRED, PASSWORD_RESET_FORCED, PASSWORD_RESET_SUCCESS, PASSWORD_WILL_EXPIRE,
+    PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY,
+    WRONG_CURRENT_PASSWORD)
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT, MIDNIGHT_EVERY_DAY, OCT_6_NOON_2022)
@@ -52,6 +53,8 @@ from tests.helpers import DummyThreadPool
 class TestLoginPages(BasicSessionTestCase):
     """ Basic authentication test, make sure that the machinery for logging a user
     in and out are functional at setting and clearing a session. """
+    
+    THE_PAST = datetime(2010, 1, 1, tzinfo=timezone.utc)
     
     def test_load_login_page_while_not_logged_in(self):
         # make sure the login page loads without logging you in when it should not
@@ -89,6 +92,156 @@ class TestLoginPages(BasicSessionTestCase):
         r = self.client.get(reverse("admin_pages.choose_study"))
         self.assertEqual(r.status_code, 302)
         self.assert_response_url_equal(r.url, reverse("login_pages.login_page"))
+    
+    # tests for different combinations of conditions to redirect someone to the password reset page
+    # when a condition has been matched
+    def test_password_reset_forced_empty_researcher(self):
+        self.session_researcher.update(password_force_reset=True)
+        self._test_password_reset_redirect_logic(PASSWORD_RESET_FORCED)
+    
+    def test_password_reset_forced_researcher_with_relation_no_details(self):
+        self.session_researcher.update(password_force_reset=True)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_password_reset_redirect_logic(PASSWORD_RESET_FORCED)
+    
+    def test_password_reset_forced_study_admin_with_relation_no_details(self):
+        self.session_researcher.update(password_force_reset=True)
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_password_reset_redirect_logic(PASSWORD_RESET_FORCED)
+    
+    def test_password_reset_forced_site_admin_with_relation_no_details(self):
+        self.session_researcher.update(password_force_reset=True)
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test_password_reset_redirect_logic(PASSWORD_RESET_FORCED)
+    
+    def test_password_reset_forced_empty_researcher_2_studies(self):
+        self.session_researcher.update(password_force_reset=True)
+        self.generate_study("study 1")
+        self.generate_study("study 2")
+        self._test_password_reset_redirect_logic(PASSWORD_RESET_FORCED)
+    
+    def test_password_reset_forced_researcher_with_relation_no_details_2_studies(self):
+        self.session_researcher.update(password_force_reset=True)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        study2 = self.generate_study("study 2")
+        self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
+        self._test_password_reset_redirect_logic(PASSWORD_RESET_FORCED)
+    
+    def test_password_reset_forced_study_admin_with_relation_no_details_2_studies(self):
+        self.session_researcher.update(password_force_reset=True)
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        study2 = self.generate_study("study 2")
+        self.generate_study_relation(self.session_researcher, study2, ResearcherRole.study_admin)
+        self._test_password_reset_redirect_logic(PASSWORD_RESET_FORCED)
+    
+    def test_password_reset_forced_site_admin_with_relation_no_details_2_studies(self):
+        self.session_researcher.update(password_force_reset=True)
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.generate_study("study 2")
+        self._test_password_reset_redirect_logic(PASSWORD_RESET_FORCED)
+    
+    def test_password_expired(self):
+        # test that there is a study with an expiration, and the password is expired
+        self.session_researcher.update(password_last_changed=timezone.now() - timedelta(days=40))
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.session_study.update(password_max_age_enabled=True, password_max_age_days=30),
+        self._test_password_reset_redirect_logic(PASSWORD_EXPIRED)
+    
+    def _test_password_reset_redirect_logic(self, error_message: str):
+        # password reset redirects initially to the choose study page, then to the manage credentials page
+        response = self.do_default_login()
+        self.assert_response_url_equal(response.url, reverse("admin_pages.choose_study"))
+        response2 = self.client.get(response.url)
+        self.assert_response_url_equal(response2.url, reverse("admin_pages.manage_credentials"))
+        response3 = self.client.get(reverse("admin_pages.manage_credentials"))
+        self.assertEqual(response3.status_code, 200)
+        self.assert_present(error_message, response3.content)
+    
+    def test_password_not_even_expired(self):
+        # test that there is not even a study with an expiration
+        self.session_researcher.update(password_last_changed=self.THE_PAST)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.session_study.update(password_max_age_enabled=False)  # its already false
+        self._test_password_not_expired()
+    
+    def test_password_not_expired(self):
+        # test that there is a study with an expiration, but the password is not expired
+        self.session_researcher.update(password_last_changed=timezone.now() - timedelta(days=20))
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.session_study.update(password_max_age_enabled=True, password_max_age_days=30),
+        self._test_password_not_expired()
+    
+    def test_password_almost_expired(self):
+        # test that there is a study with an expiration, and the password is expired
+        self.session_researcher.update(password_last_changed=timezone.now() - timedelta(days=25))
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.session_study.update(password_max_age_enabled=True, password_max_age_days=30),
+        self._test_password_almost_expired()
+    
+    def test_password_almost_expired_2(self):
+        # as above but with 2 studies with different password max age settings, get the lowest.
+        self.session_researcher.update(password_last_changed=timezone.now() - timedelta(days=25))
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.session_study.update(password_max_age_enabled=True, password_max_age_days=40)
+        study2 = self.generate_study("study 2")
+        study2.update(password_max_age_enabled=True, password_max_age_days=30)
+        self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
+        # ug this one bypasses all the special logic I put together and just loads the choose study
+        # page with the message.
+        response = self.do_default_login()
+        self.assert_response_url_equal(response.url, reverse("admin_pages.choose_study"))
+        response2 = self.client.get(response.url)
+        self.assertEqual(response2.status_code, 200)
+        self.assert_present(PASSWORD_WILL_EXPIRE.format(days=5), response2.content)
+        self.assert_not_present(PASSWORD_EXPIRED, response2.content)
+        self.assert_not_present(PASSWORD_RESET_FORCED, response2.content)
+    
+    def _test_password_almost_expired(self):
+        # this one redirects initially to choose study page,then to the view study page with a message.
+        # expects a password to expire in 5 days
+        response2 = self._test_initial_redirect()
+        response3 = self.client.get(response2.url)
+        self.assertEqual(response3.status_code, 200)
+        self.assert_present(PASSWORD_WILL_EXPIRE.format(days=5), response3.content)
+        self.assert_not_present(PASSWORD_EXPIRED, response3.content)
+        self.assert_not_present(PASSWORD_RESET_FORCED, response3.content)
+    
+    def _test_password_not_expired(self):
+        # password reset redirects initially to the choose study page, then to the view study page
+        response2 = self._test_initial_redirect()
+        response3 = self.client.get(response2.url)
+        self.assertEqual(response3.status_code, 200)
+        # none of the password messages should be visible
+        self.assert_not_present(PASSWORD_WILL_EXPIRE, response3.content)
+        self.assert_not_present(PASSWORD_EXPIRED, response3.content)
+        self.assert_not_present(PASSWORD_RESET_FORCED, response3.content)
+    
+    def _test_initial_redirect(self):
+        # these tests are a distraction from the details of tests that run other logic, but it
+        # still needs to be tested.  Most of the complexity is in determine_2nd_redirect
+        response = self.do_default_login()
+        self.assert_response_url_equal(response.url, reverse("admin_pages.choose_study"))
+        response2 = self.client.get(response.url)
+        # its not always a redirect, sometimes it actually loads the page, but if it is a redirect
+        # we run the logic to test it.
+        self.assert_response_url_equal(response2.url, self.determine_2nd_redirect)
+        return response2
+    
+    @property
+    def determine_2nd_redirect(self):
+        # when there is 1 study redirect to that view study page, otherwise show the choose study
+        # page (the login page always says redirect to choose_study, the logic to then redirect is
+        # part of the choose study endpoint)
+        # 2 cases: site admin, or not site admin
+        if self.session_researcher.site_admin:
+            if Study.objects.count() == 1:
+                return easy_url("admin_pages.view_study", study_id=self.session_study.id)
+            else:
+                return reverse("admin_pages.choose_study")
+        if self.session_researcher.study_relations.count() == 1:
+            return easy_url("admin_pages.view_study", study_id=self.session_study.id)
+        else:
+            return reverse("admin_pages.choose_study")
 
 
 class TestChooseStudy(ResearcherSessionTest):
@@ -117,8 +270,7 @@ class TestViewStudy(ResearcherSessionTest):
     """ view_study is pretty simple, no custom content in the :
     tests push_notifications_enabled, study.is_test, study.forest_enabled
     populates html elements with custom field values
-    populates html elements of survey buttons
-    """
+    populates html elements of survey buttons """
     
     ENDPOINT_NAME = "admin_pages.view_study"
     
@@ -931,7 +1083,7 @@ class TestDeviceSettings(ResearcherSessionTest):
         
         # extract data from database (it is all default values, unpacking jsonstrings)
         # created_on and last_updated are already absent
-        post_params = self.session_device_settings.as_unpacked_native_python()
+        post_params = self.session_device_settings.export()
         old_device_settings = copy(post_params)
         post_params.pop("id")
         post_params.pop("consent_sections")  # this is not present in the form
@@ -946,7 +1098,7 @@ class TestDeviceSettings(ResearcherSessionTest):
         
         # Test database update, get new data, extract consent sections.
         self.assertEqual(DeviceSettings.objects.count(), 1)
-        new_device_settings = DeviceSettings.objects.first().as_unpacked_native_python()
+        new_device_settings = DeviceSettings.objects.first().export()
         new_device_settings.pop("id")
         old_consent_sections = old_device_settings.pop("consent_sections")
         new_consent_sections = new_device_settings.pop("consent_sections")
@@ -1448,7 +1600,7 @@ class TestExportStudySettingsFile(ResearcherSessionTest):
         self.assertIn("surveys", output_survey)
         self.assertIn("interventions", output_survey)
         output_device_settings: dict = output_survey["device_settings"]
-        real_device_settings = self.session_device_settings.as_unpacked_native_python()
+        real_device_settings = self.session_device_settings.export()
         # confirm that all elements are equal for the dicts
         for k, v in output_device_settings.items():
             self.assertEqual(v, real_device_settings[k])

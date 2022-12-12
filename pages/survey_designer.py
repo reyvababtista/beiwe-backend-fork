@@ -16,7 +16,7 @@ def render_edit_survey(request: ResearcherRequest, study_id: int, survey_id: int
         request,
         'edit_survey.html',
         dict(
-            survey=survey.as_unpacked_native_python(),
+            survey=survey.as_unpacked_native_python(Survey.SURVEY_EXPORT_FIELDS),
             study=survey.study,
             domain_name=DOMAIN_NAME,  # used in a Javascript alert, see survey-editor.js
             interventions_dict={

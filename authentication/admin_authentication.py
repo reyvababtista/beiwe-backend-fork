@@ -1,18 +1,21 @@
 import functools
 from datetime import datetime, timedelta
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from django.contrib import messages
+from django.db.models import QuerySet
 from django.http import UnreadablePostError
 from django.http.request import HttpRequest
-from django.shortcuts import redirect
+from django.shortcuts import HttpResponseRedirect, redirect
 from django.utils import timezone
 from django.utils.timezone import is_naive
 
+from constants.message_strings import PASSWORD_EXPIRED, PASSWORD_RESET_FORCED, PASSWORD_WILL_EXPIRE
 from constants.user_constants import (ALL_RESEARCHER_TYPES, EXPIRY_NAME, ResearcherRole,
     SESSION_NAME, SESSION_UUID)
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
+from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
 from libs.security import generate_easy_alphanumeric_string
 from middleware.abort_middleware import abort
@@ -37,7 +40,8 @@ def authenticate_researcher_login(some_function):
         
         if check_is_logged_in(request):
             populate_session_researcher(request)
-            return some_function(*args, **kwargs)
+            goto_redirect = determine_password_reset_redirect(request)
+            return goto_redirect if goto_redirect else some_function(*args, **kwargs)
         else:
             return redirect("/")
     
@@ -108,6 +112,40 @@ def populate_session_researcher(request: ResearcherRequest):
     except Researcher.DoesNotExist:
         log("could not identify researcher in session")
         return abort(400)
+
+
+def determine_password_reset_redirect(request: ResearcherRequest) -> Optional[HttpResponseRedirect]:
+    """ This function will manage the popup messages for the researcher.  Currently this is limited
+    to the password age warning.  This function will be called on every page load and could cause
+    duplicates, but I don't have a better solution right now. """
+    # case: the password reset page would otherwise not be infinitely redirected to itself.
+    # TODO: make this an import of url matches from urls
+    if request.get_raw_uri().endswith("manage_credentials"):
+        return None
+    
+    if request.session_researcher.password_force_reset:
+        log("password reset forced")
+        messages.error(request, PASSWORD_RESET_FORCED)
+        return redirect(easy_url("admin_pages.manage_credentials"))
+    
+    # get smallest password max age from studies the researcher is on
+    max_age_days = request.session_researcher.study_relations \
+                       .filter(study__password_max_age_enabled=True) \
+                       .order_by("study__password_max_age_days") \
+                       .values_list("study__password_max_age_days", flat=True) \
+                       .first()
+    
+    if max_age_days:
+        log("any password reset checks")
+        # determine the age of the password, if it is within 7 days of expiring warn the user,
+        # if it is expired force them to the reset password page.
+        password_age_days = (timezone.now() - request.session_researcher.password_last_changed).days
+        if password_age_days > max_age_days:
+            messages.error(request, PASSWORD_EXPIRED)
+            log("password expired, redirecting")
+            return redirect(easy_url("admin_pages.manage_credentials"))
+        elif password_age_days > max_age_days - 7:
+            messages.warning(request, PASSWORD_WILL_EXPIRE.format(days=max_age_days - password_age_days))
 
 
 def assert_admin(request: ResearcherRequest, study_id: int):
@@ -234,7 +272,7 @@ def authenticate_researcher_study_access(some_function):
     return authenticate_and_call
 
 
-def get_researcher_allowed_studies_as_query_set(request: ResearcherRequest):
+def get_researcher_allowed_studies_as_query_set(request: ResearcherRequest) -> QuerySet[Study]:
     if request.session_researcher.site_admin:
         return Study.get_all_studies_by_name()
     
@@ -301,7 +339,9 @@ def authenticate_admin(some_function):
                     log("not study admin on study")
                     return abort(403)
         
-        return some_function(*args, **kwargs)
+        # determine whether to redirect to password the password reset page
+        goto_redirect = determine_password_reset_redirect(request)
+        return goto_redirect if goto_redirect else some_function(*args, **kwargs)
     
     return authenticate_and_call
 

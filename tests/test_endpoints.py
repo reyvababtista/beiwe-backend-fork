@@ -270,6 +270,21 @@ class TestLoginPages(BasicSessionTestCase):
         resp = self.client.post(reverse("admin_pages.reset_admin_password"))
         self.assertIsInstance(resp, HttpResponse)
         self.assertEqual(resp.status_code, 400)
+    
+    def test_admin_decorator(self):
+        # We don't have an integration test for determine_password_reset_redirect, this is kind of a
+        # proxy test that the already-tested logic of the password reset logic is included in the
+        # authenticate_admin decorator
+        self.session_researcher.update(password_force_reset=True)
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.do_default_login()
+        name = self.session_study.name
+        resp = self.client.post(easy_url("admin_api.rename_study", study_id=self.session_study.id))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.url, reverse("admin_pages.manage_credentials"))
+        self.session_study.refresh_from_db()
+        self.assertEqual(self.session_study.name, name)
+
 
 class TestChooseStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.choose_study"

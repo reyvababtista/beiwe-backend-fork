@@ -2,15 +2,12 @@ import base64
 import codecs
 import hashlib
 import random
-import re
 from binascii import Error as base64_error
 from hashlib import pbkdf2_hmac as pbkdf2
 from os import urandom
 from typing import Tuple
 
-from constants.message_strings import NEW_PASSWORD_8_LONG, NEW_PASSWORD_RULES_FAIL
-from constants.security_constants import (BASE64_GENERIC_ALLOWED_CHARACTERS,
-    EASY_ALPHANUMERIC_CHARS, PASSWORD_REQUIREMENT_REGEX_LIST)
+from constants.security_constants import BASE64_GENERIC_ALLOWED_CHARACTERS, EASY_ALPHANUMERIC_CHARS
 
 
 # Custom Error Classes
@@ -86,16 +83,6 @@ def device_hash(data: bytes) -> bytes:
 ################################################################################
 ################################## Passwords ###################################
 ################################################################################
-
-def check_password_requirements(password) -> Tuple[bool, str]:
-    """ Runs all the password requirement tests for researcher passwords. """
-    if len(password) < 8:
-        return False, NEW_PASSWORD_8_LONG
-    for regex in PASSWORD_REQUIREMENT_REGEX_LIST:
-        if not re.search(regex, password):
-            return False, NEW_PASSWORD_RULES_FAIL
-    return True, None
-
 
 def django_password_components(password: str) -> Tuple[str, int, bytes, bytes]:
     """ In anticipation of adopting the django user model we are adopting the django password format.

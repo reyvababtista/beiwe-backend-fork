@@ -21,7 +21,7 @@ def validate_login(request: HttpRequest):
         if username and password and Researcher.check_password(username, password):
             admin_authentication.log_in_researcher(request, username)
             # this redirect happens even when the password needs to be reset, the next level of
-            # redirection occurs when the browser follows the reddirect
+            # redirection occurs when the browser follows the redirect
             return redirect("/choose_study")
         else:
             messages.warning(request, "Incorrect username & password combination; try again.")

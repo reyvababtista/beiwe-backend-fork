@@ -17,7 +17,7 @@ from database.user_models_researcher import Researcher, StudyRelation
 from forms.django_forms import DisableApiKeyForm, NewApiKeyForm
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import ResearcherRequest
-from libs.security import check_password_requirements
+from libs.password_validation import check_password_requirements, get_min_password_requirement
 from middleware.abort_middleware import abort
 from serializers.tableau_serializers import ApiKeySerializer
 
@@ -101,18 +101,18 @@ def manage_credentials(request: ResearcherRequest):
     #  of this database entity do not require special serialization or deserialization, and the use
     #  of the serializer is complex enough to obscure functionality.  This use of the serializer
     #  requires that you be an expert in the DRF.
-    serializer = ApiKeySerializer(
-        ApiKey.objects.filter(researcher=request.session_researcher), many=True)
+    srlzr = ApiKeySerializer(ApiKey.objects.filter(researcher=request.session_researcher), many=True)
     return render(
         request,
         'manage_credentials.html',
         context=dict(
             is_admin=request.session_researcher.is_an_admin(),
-            api_keys=sorted(serializer.data, reverse=True, key=lambda x: x['created_on']),
+            api_keys=sorted(srlzr.data, reverse=True, key=lambda x: x['created_on']),
             new_api_access_key=request.session.pop("new_access_key", None),
             new_api_secret_key=request.session.pop("new_secret_key", None),
             new_tableau_key_id=request.session.pop("new_tableau_key_id", None),
             new_tableau_secret_key=request.session.pop("new_tableau_secret_key", None),
+            min_password_length=get_min_password_requirement(request.session_researcher),
         )
     )
 
@@ -132,7 +132,7 @@ def reset_admin_password(request: ResearcherRequest):
         messages.warning(request, WRONG_CURRENT_PASSWORD)
         return redirect('admin_pages.manage_credentials')
     
-    success, msg = check_password_requirements(new_password)
+    success, msg = check_password_requirements(request.session_researcher, new_password)
     if msg:
         messages.warning(request, msg)
     if not success:
@@ -142,7 +142,8 @@ def reset_admin_password(request: ResearcherRequest):
         return redirect('admin_pages.manage_credentials')
     
     # this is effectively sanitized by the hash operation
-    Researcher.objects.get(username=username).set_password(new_password)
+    request.session_researcher.set_password(new_password)
+    request.session_researcher.update(password_force_reset=False)
     messages.warning(request, PASSWORD_RESET_SUCCESS)
     return redirect('admin_pages.manage_credentials')
 

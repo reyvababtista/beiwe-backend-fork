@@ -22,10 +22,10 @@ from constants.common_constants import API_DATE_FORMAT, BEIWE_PROJECT_ROOT
 from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_DATA_STREAMS
 from constants.data_stream_constants import ACCELEROMETER, ALL_DATA_STREAMS, SURVEY_TIMINGS
 from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_UNKNOWN,
-    MESSAGE_SEND_SUCCESS, NEW_PASSWORD_8_LONG, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_RULES_FAIL,
-    PASSWORD_EXPIRED, PASSWORD_RESET_FORCED, PASSWORD_RESET_SUCCESS, PASSWORD_WILL_EXPIRE,
-    PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY,
-    WRONG_CURRENT_PASSWORD)
+    MESSAGE_SEND_SUCCESS, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG, NEW_PASSWORD_RULES_FAIL,
+    PASSWORD_EXPIRED, PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS,
+    PASSWORD_WILL_EXPIRE, PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED,
+    TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT, MIDNIGHT_EVERY_DAY, OCT_6_NOON_2022)
@@ -52,7 +52,8 @@ from tests.helpers import DummyThreadPool
 
 class TestLoginPages(BasicSessionTestCase):
     """ Basic authentication test, make sure that the machinery for logging a user
-    in and out are functional at setting and clearing a session. """
+    in and out are functional at setting and clearing a session. 
+    THIS CLASS DOES NOT AUTO INSTANTIATE THE DEFAULT RESEARCHER, YOU MUST DO THAT MANUALLY. """
     
     THE_PAST = datetime(2010, 1, 1, tzinfo=timezone.utc)
     
@@ -284,6 +285,30 @@ class TestLoginPages(BasicSessionTestCase):
         self.assertEqual(resp.url, reverse("admin_pages.manage_credentials"))
         self.session_study.refresh_from_db()
         self.assertEqual(self.session_study.name, name)
+    
+    def test_session_expiry(self):
+        # set up the current time, then we will travel into the future to test the session expiry
+        # in a loop, hour by hour, testing that we redirect to the login page after 18 hours
+        self.session_researcher
+        start = datetime.now()
+        check_1_happened = False
+        check_2_happened = False
+        for hour in range(0, 24):
+            self.do_default_login()
+            # the +1 minute ensures we are passing the hour mark
+            with time_machine.travel(start + timedelta(hours=hour, minutes=1)):
+                if hour < 18:
+                    resp = self.client.get(reverse("admin_pages.choose_study"))
+                    self.assertEqual(resp.status_code, 200)
+                    check_1_happened = True
+                else:
+                    resp = self.client.get(reverse("admin_pages.choose_study"))
+                    self.assertEqual(resp.status_code, 302)
+                    self.assertEqual(resp.url, reverse("login_pages.login_page"))
+                    check_2_happened = True
+        # make sure we actually tested both cases
+        self.assertTrue(check_1_happened)
+        self.assertTrue(check_2_happened)
 
 
 class TestChooseStudy(ResearcherSessionTest):
@@ -384,9 +409,9 @@ class TestResetAdminPassword(RedirectSessionApiTest):
             confirm_new_password=self.DEFAULT_RESEARCHER_PASSWORD + "1",
         )
         # we are ... teleologically correct here mimicking the code...
-        researcher = self.session_researcher
-        self.assertFalse(researcher.check_password(researcher.username, self.DEFAULT_RESEARCHER_PASSWORD))
-        self.assertTrue(researcher.check_password(researcher.username, self.DEFAULT_RESEARCHER_PASSWORD + "1"))
+        r = self.session_researcher
+        self.assertFalse(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
+        self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD + "1"))
         # Always stick the check for the string after the check for the db mutation.
         self.assert_present(PASSWORD_RESET_SUCCESS, self.get_redirect_content())
     
@@ -396,9 +421,9 @@ class TestResetAdminPassword(RedirectSessionApiTest):
             new_password=self.DEFAULT_RESEARCHER_PASSWORD + "1",
             confirm_new_password=self.DEFAULT_RESEARCHER_PASSWORD + "1",
         )
-        researcher = self.session_researcher
-        self.assertTrue(researcher.check_password(researcher.username, self.DEFAULT_RESEARCHER_PASSWORD))
-        self.assertFalse(researcher.check_password(researcher.username, self.DEFAULT_RESEARCHER_PASSWORD + "1"))
+        r = self.session_researcher
+        self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
+        self.assertFalse(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD + "1"))
         self.assert_present(WRONG_CURRENT_PASSWORD, self.get_redirect_content())
     
     def test_reset_admin_password_rules_fail(self):
@@ -408,9 +433,9 @@ class TestResetAdminPassword(RedirectSessionApiTest):
             new_password=non_default,
             confirm_new_password=non_default,
         )
-        researcher = self.session_researcher
-        self.assertTrue(researcher.check_password(researcher.username, self.DEFAULT_RESEARCHER_PASSWORD))
-        self.assertFalse(researcher.check_password(researcher.username, non_default))
+        r = self.session_researcher
+        self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
+        self.assertFalse(r.check_password(r.username, non_default))
         self.assert_present(NEW_PASSWORD_RULES_FAIL, self.get_redirect_content())
     
     def test_reset_admin_password_too_short(self):
@@ -420,10 +445,37 @@ class TestResetAdminPassword(RedirectSessionApiTest):
             new_password=non_default,
             confirm_new_password=non_default,
         )
-        researcher = self.session_researcher
-        self.assertTrue(researcher.check_password(researcher.username, self.DEFAULT_RESEARCHER_PASSWORD))
-        self.assertFalse(researcher.check_password(researcher.username, non_default))
-        self.assert_present(NEW_PASSWORD_8_LONG, self.get_redirect_content())
+        r = self.session_researcher
+        self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
+        self.assertFalse(r.check_password(r.username, non_default))
+        self.assert_present(NEW_PASSWORD_N_LONG.format(length=8), self.get_redirect_content())
+    
+    def test_reset_admin_password_too_short_study_setting(self):
+        self.session_study.update(password_minimum_length=20)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        non_default = "aA1#aA1#aA1#aA1#"  # 10 chars
+        self.smart_post(
+            current_password=self.DEFAULT_RESEARCHER_PASSWORD,
+            new_password=non_default,
+            confirm_new_password=non_default,
+        )
+        r = self.session_researcher
+        self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
+        self.assertFalse(r.check_password(r.username, non_default))
+        self.assert_present(NEW_PASSWORD_N_LONG.format(length=20), self.get_redirect_content())
+    
+    def test_reset_admin_password_too_short_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        non_default = "aA1#aA1#aA1#aA1#"  # 10 chars
+        self.smart_post(
+            current_password=self.DEFAULT_RESEARCHER_PASSWORD,
+            new_password=non_default,
+            confirm_new_password=non_default,
+        )
+        r = self.session_researcher
+        self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
+        self.assertFalse(r.check_password(r.username, non_default))
+        self.assert_present(NEW_PASSWORD_N_LONG.format(length=20), self.get_redirect_content())
     
     def test_reset_admin_password_mismatch(self):
         # has to pass the length and character checks
@@ -1421,26 +1473,64 @@ class TestDeleteResearcher(ResearcherSessionTest):
         self.assertEqual(Researcher.objects.filter(id=r2.id).count(), 0 if success else 1)
 
 
-# FIXME: add failure case tests, user type tests
 class TestSetResearcherPassword(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.set_researcher_password"
     
-    def test(self):
+    def test_site_admin_on_a_null_user(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
         r2 = self.generate_researcher()
+        self._test_successful_change(r2)
+    
+    def test_site_admin_on_researcher(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        r2 = self.generate_researcher()
+        self.generate_study_relation(r2, self.default_study, ResearcherRole.researcher)
+        self._test_successful_change(r2)
+    
+    def test_site_admin_on_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        r2 = self.generate_researcher()
+        self.generate_study_relation(r2, self.default_study, ResearcherRole.study_admin)
+        self._test_successful_change(r2)
+    
+    def test_site_admin_on_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        r2 = self.generate_researcher()
+        self.generate_study_relation(r2, self.default_study, ResearcherRole.site_admin)
+        self._test_cannot_change(r2, PASSWORD_RESET_SITE_ADMIN)
+    
+    def _test_successful_change(self, r2: Researcher):
         self.smart_post(
             researcher_id=r2.id,
             password=self.DEFAULT_RESEARCHER_PASSWORD + "1",
         )
         # we are ... teleologically correct here mimicking the code...
         r2.refresh_from_db()
+        self.assertTrue(r2.password_force_reset)
         self.assertTrue(
             r2.check_password(r2.username, self.DEFAULT_RESEARCHER_PASSWORD + "1")
         )
         self.assertFalse(
             r2.check_password(r2.username, self.DEFAULT_RESEARCHER_PASSWORD)
         )
-
+    
+    def _test_cannot_change(self, r2: Researcher, message: str = None):
+        ret = self.smart_post(
+            researcher_id=r2.id,
+            password=self.DEFAULT_RESEARCHER_PASSWORD + "1",
+        )
+        if message:
+            content = self.easy_get("system_admin_pages.edit_researcher", researcher_pk=r2.id)
+            self.assert_present(message, content)
+        r2.refresh_from_db()
+        self.assertFalse(r2.password_force_reset)
+        self.assertFalse(
+            r2.check_password(r2.username, self.DEFAULT_RESEARCHER_PASSWORD + "1")
+        )
+        self.assertTrue(
+            r2.check_password(r2.username, self.DEFAULT_RESEARCHER_PASSWORD)
+        )
+        return ret
 
 # fixme: add user type tests
 class TestRenameStudy(RedirectSessionApiTest):

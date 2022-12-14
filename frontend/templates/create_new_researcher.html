@@ -4,25 +4,32 @@
 
 {% block content %}
 
-    <div class="row">
+    <div>
         <h3>Add New Researcher</h3>
     </div>
 
     <br>
 
-    <div class="row col-md-4">
+    <div class="col-xs-8 well">
         <form action="/create_new_researcher" method="post">
         	<div class="form-group">
         		<label for="admin_id">Username</label>
-	            <input type="text" name="admin_id" id="admin_id" class="form-control">
+	            <input type="text" name="admin_id" id="admin_id" class="form-control"pattern="[a-zA-Z0-9]{5,}" 
+				oninvalid="setCustomValidity('Must have at least 6 characters, letters and numbers only')">
           	</div>
+			<b>You may provide any characters with a minimum length of 8 to the password field below.</b>
+        <ul class="list">
+          <li class="list-item">The researcher will be required to reset their password when they log in.</li>
+          <li class="list-item">Password rules will be enforced based on study password settings.</li>
+        </ul>
           	<div class="form-group">
           		<label for="password">Password</label>
-          		<input type="text" name="password" id="password" class="form-control">
+          		<input type="text" name="password" id="password" class="form-control" pattern=".{8,}" 
+				oninvalid="setCustomValidity('Must have at least 8 characters')">
           	</div>
-	        <input type="submit" class="btn btn-success" value="Add new researcher">
+	        <input type="submit" class="btn btn-success" value="Create Researcher">
 
-	        <a href="/manage_researchers" class="btn btn-warning pull-right">Cancel</a>
+	        <a href="/manage_researchers" class="btn btn-warning pull-right">Back</a>
 
         </form>
     </div>

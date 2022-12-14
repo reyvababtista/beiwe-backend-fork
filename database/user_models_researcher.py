@@ -38,7 +38,7 @@ class Researcher(AbstractPasswordUser):
     access_key_secret = models.CharField(max_length=256, validators=[PASSWORD_VALIDATOR], blank=True)
     
     password_last_changed = models.DateTimeField(null=False, blank=False, default=timezone.now)
-    password_force_reset = models.BooleanField(default=False)
+    password_force_reset = models.BooleanField(default=True)
     
     # related field typings (IDE halp)
     api_keys: Manager[ApiKey]
@@ -55,6 +55,12 @@ class Researcher(AbstractPasswordUser):
         # TODO: add check to see if access credentials are in kwargs
         researcher.reset_access_credentials()
         return researcher
+    
+    def set_password(self, password: str):
+        """ Updates the password_last_changed field and then runs normal password setting logic. """
+        self.password_last_changed = timezone.now()
+        # set_password calls save()
+        super().set_password(password)
     
     @classmethod
     def check_password(cls, username: str, compare_me: str) -> bool:

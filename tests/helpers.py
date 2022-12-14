@@ -107,11 +107,11 @@ class ReferenceObjectMixin:
     def generate_study_relation(self, researcher: Researcher, study: Study, relation: str) -> StudyRelation:
         """ Creates a study relation based on the input values, returns it. """
         if relation is None:
-            self.session_researcher.study_relations.filter(study=self.session_study).delete()
+            researcher.study_relations.filter(study=self.session_study).delete()
             return relation
         
         if relation == ResearcherRole.site_admin:
-            self.session_researcher.update(site_admin=True)
+            researcher.update(site_admin=True)
             return relation
         relation = StudyRelation(researcher=researcher, study=study, relationship=relation)
         relation.save()
@@ -156,6 +156,7 @@ class ReferenceObjectMixin:
             password=self.SOME_SHA1_PASSWORD_COMPONENTS,
             access_key_secret=self.SOME_SHA1_PASSWORD_COMPONENTS,
             site_admin=relation_to_session_study == ResearcherRole.site_admin,
+            password_force_reset=False,  # is True by default, makes no sense in a test context
         )
         # set password saves...
         researcher.set_password(self.DEFAULT_RESEARCHER_PASSWORD)

@@ -20,7 +20,7 @@ from constants.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID
     ALERT_ANDROID_VALIDATION_FAILED_TEXT, ALERT_DECODE_ERROR_TEXT, ALERT_EMPTY_TEXT,
     ALERT_FIREBASE_DELETED_TEXT, ALERT_IOS_DELETED_TEXT, ALERT_IOS_SUCCESS_TEXT,
     ALERT_IOS_VALIDATION_FAILED_TEXT, ALERT_MISC_ERROR_TEXT, ALERT_SPECIFIC_ERROR_TEXT,
-    ALERT_SUCCESS_TEXT)
+    ALERT_SUCCESS_TEXT, NEW_PASSWORD_N_LONG)
 from constants.user_constants import ResearcherRole
 from database.data_access_models import FileToProcess
 from database.study_models import DeviceSettings, Study
@@ -244,9 +244,13 @@ def create_new_researcher(request: ResearcherRequest):
     if Researcher.objects.filter(username=username).exists():
         messages.error(request, f"There is already a researcher with username {username}")
         return redirect('/create_new_researcher')
+    
+    if len(password) < 8:
+        messages.error(request, NEW_PASSWORD_N_LONG.format(length=8))
+        return redirect('/create_new_researcher')
     else:
         researcher = Researcher.create_with_password(username, password)
-        return redirect(f'/edit_researcher/{researcher.pk}')
+    return redirect(f'/edit_researcher/{researcher.pk}')
 
 
 """########################### Study Pages ##################################"""

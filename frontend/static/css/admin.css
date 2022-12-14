@@ -1,3 +1,5 @@
+@charset "utf-8";
+
 #logout {
 	background: #333;
 	color: #eaecee;
@@ -356,4 +358,14 @@ td.custom-field-value:hover span.custom-field-edit-link {
 
 .large-font-size {
     font-size: large;
+}
+
+
+/* password validation color hint */
+.valid {
+  color: green;
+}
+
+.invalid {
+  color: red;
 }

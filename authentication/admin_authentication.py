@@ -29,7 +29,6 @@ def log(*args, **kwargs):
         print(*args, **kwargs)
 
 
-
 # Top level authentication wrappers
 def authenticate_researcher_login(some_function):
     """ Decorator for functions (pages) that require a login, redirect to login page on failure. """
@@ -65,7 +64,7 @@ def logout_researcher(request: HttpRequest):
 def log_in_researcher(request: ResearcherRequest, username: str):
     """ populate session for a researcher """
     request.session[SESSION_UUID] = generate_easy_alphanumeric_string()
-    request.session[EXPIRY_NAME] = datetime.now() + timedelta(hours=6)
+    request.session[EXPIRY_NAME] = datetime.now() + timedelta(hours=18)
     request.session[SESSION_NAME] = username
 
 

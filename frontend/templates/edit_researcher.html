@@ -95,17 +95,16 @@
     <div class="row">
       <h4>Reset Password</h4>
       <div class="well">
-        <b>Passwords require all of the following:</b>
+        <b>You may provide any characters with a minimum length of 8 to the password reset field below.</b>
         <ul class="list">
-          <li class="list-item">at least one lower case letter</li>
-          <li class="list-item">at least one upper case letter</li>
-          <li class="list-item">at least one numeric character</li>
-          <li class="list-item">at least one special character (! @ # $ % ^ [ ] etc.)</li>
+          <li class="list-item">The researcher will be required to reset their password on their next login.</li>
+          <li class="list-item">Password rules will be enforced based on study password settings.</li>
         </ul>
       </div>
       <form action="/set_researcher_password" method="post">
         <div class="form-inline">
-          <input type="text" name="password" class="form-control">
+          <input type="text" name="password" class="form-control" pattern=".{8,}" 
+				         oninvalid="setCustomValidity('Must have at least 8 characters')">
           <input type="hidden" name="researcher_id" value="{{ edit_researcher.id }}">
           <input type="submit" class="btn btn-warning" value="Reset Password">
         </div>

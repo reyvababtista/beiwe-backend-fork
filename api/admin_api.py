@@ -8,12 +8,13 @@ from django.views.decorators.http import require_GET, require_POST
 from authentication.admin_authentication import (assert_admin, assert_researcher_under_admin,
     authenticate_admin, authenticate_researcher_login)
 from config.settings import DOWNLOADABLE_APK_URL
+from constants.message_strings import NEW_PASSWORD_N_LONG, PASSWORD_RESET_SITE_ADMIN
 from constants.user_constants import ResearcherRole
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import ResearcherRequest
+from libs.password_validation import check_password_requirements
 from libs.schedules import repopulate_all_survey_scheduled_events
-from libs.security import check_password_requirements
 from libs.timezone_dropdown import ALL_TIMEZONES
 
 
@@ -92,14 +93,20 @@ def delete_researcher(request: ResearcherRequest, researcher_id):
 @require_POST
 @authenticate_admin
 def set_researcher_password(request: ResearcherRequest):
+    """ This is the endpoint that an admin uses to set another researcher's password.
+    This endpoint accepts any value as long as it is 8 characters, but puts the researcher into a
+    forced password reset state. """
     researcher = Researcher.objects.get(pk=request.POST.get('researcher_id', None))
     assert_researcher_under_admin(request, researcher)
+    if researcher.site_admin:
+        messages.warning(request, PASSWORD_RESET_SITE_ADMIN)
+        return redirect(f'/edit_researcher/{researcher.pk}')
     new_password = request.POST.get('password', '')
-    success, msg = check_password_requirements(new_password)
-    if success:
-        researcher.set_password(new_password)
+    if len(new_password) < 8:
+        messages.warning(request, NEW_PASSWORD_N_LONG.format(length=8))
     else:
-        messages.warning(request, msg)
+        researcher.set_password(new_password)
+        researcher.update(password_force_reset=True)
     return redirect(f'/edit_researcher/{researcher.pk}')
 
 

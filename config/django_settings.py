@@ -123,15 +123,6 @@ PROJECT_ROOT = "."
 ROOT_URLCONF = "urls"
 STATIC_ROOT = "frontend/static/"
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [
-    # "frontend/",
-    # "frontend/static/",
-    # "frontend/static/javascript/",
-    # "frontend/static/css/",
-    # "frontend/static/fonts/",
-    # "frontend/static/images/",
-    # "frontend/templates/",
-]
 
 TEMPLATES = [
     {

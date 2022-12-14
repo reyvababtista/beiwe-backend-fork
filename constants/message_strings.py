@@ -92,12 +92,13 @@ NEW_API_KEY_MESSAGE = "New Tableau API credentials have been generated for you!"
 PASSWORD_WILL_EXPIRE = "Your password will expire in {days} days, reset it to clear this reminder."
 PASSWORD_EXPIRED = "Your password has expired, please reset your password."
 PASSWORD_RESET_FORCED = "You have had your password administratively reset, please set a new password."
+PASSWORD_RESET_SITE_ADMIN = "You cannot manually set a password of a site admin. If you must do so please contact your system administrator."
 
 # self password reset
 PASSWORD_RESET_SUCCESS = "Your password has been reset!"
 WRONG_CURRENT_PASSWORD = "The Current Password you have entered is invalid"
 NEW_PASSWORD_MISMATCH = "New Password does not match Confirm New Password"
-NEW_PASSWORD_8_LONG = "Your New Password must be at least 8 characters long."
+NEW_PASSWORD_N_LONG = "Your New Password must be at least {length} characters long."
 NEW_PASSWORD_RULES_FAIL = "Your New Password must contain at least one symbol, one number, one lowercase, and one uppercase character."
 
 # tableau key messages

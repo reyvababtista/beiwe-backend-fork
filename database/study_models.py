@@ -56,7 +56,7 @@ class Study(TimestampedModel):
     easy_enrollment = models.BooleanField(default=False)
     
     # Researcher password settings
-    password_minimum_length = models.PositiveIntegerField(default=8, validators=[MinValueValidator(8), MaxValueValidator(100)])
+    password_minimum_length = models.PositiveIntegerField(default=8, validators=[MinValueValidator(8), MaxValueValidator(20)])
     password_max_age_enabled = models.BooleanField(default=False)
     password_max_age_days = models.PositiveIntegerField(default=365, validators=[MinValueValidator(30), MaxValueValidator(365)])
     

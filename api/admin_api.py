@@ -8,7 +8,7 @@ from django.views.decorators.http import require_GET, require_POST
 from authentication.admin_authentication import (assert_admin, assert_researcher_under_admin,
     authenticate_admin, authenticate_researcher_login)
 from config.settings import DOWNLOADABLE_APK_URL
-from constants.message_strings import NEW_PASSWORD_N_LONG, PASSWORD_RESET_SITE_ADMIN
+from constants.message_strings import NEW_PASSWORD_N_LONG, PASSWORD_RESET_FAIL_SITE_ADMIN
 from constants.user_constants import ResearcherRole
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
@@ -99,7 +99,7 @@ def set_researcher_password(request: ResearcherRequest):
     researcher = Researcher.objects.get(pk=request.POST.get('researcher_id', None))
     assert_researcher_under_admin(request, researcher)
     if researcher.site_admin:
-        messages.warning(request, PASSWORD_RESET_SITE_ADMIN)
+        messages.warning(request, PASSWORD_RESET_FAIL_SITE_ADMIN)
         return redirect(f'/edit_researcher/{researcher.pk}')
     new_password = request.POST.get('password', '')
     if len(new_password) < 8:

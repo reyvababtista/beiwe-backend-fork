@@ -10,13 +10,15 @@ from django.shortcuts import HttpResponseRedirect, redirect
 from django.utils import timezone
 from django.utils.timezone import is_naive
 
-from constants.message_strings import PASSWORD_EXPIRED, PASSWORD_RESET_FORCED, PASSWORD_WILL_EXPIRE
+from constants.message_strings import (PASSWORD_EXPIRED, PASSWORD_RESET_FORCED,
+    PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE)
 from constants.user_constants import (ALL_RESEARCHER_TYPES, EXPIRY_NAME, ResearcherRole,
     SESSION_NAME, SESSION_UUID)
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
+from libs.password_validation import get_min_password_requirement
 from libs.security import generate_easy_alphanumeric_string
 from middleware.abort_middleware import abort
 
@@ -118,18 +120,26 @@ def determine_password_reset_redirect(request: ResearcherRequest) -> Optional[Ht
     """ This function will manage the popup messages for the researcher.  Currently this is limited
     to the password age warning.  This function will be called on every page load and could cause
     duplicates, but I don't have a better solution right now. """
-    # case: the password reset page would otherwise not be infinitely redirected to itself.
-    # need to allow user to log out too.
+    # case: the password reset page would otherwise be infinitely redirected to itself.
+    # need to allow user to log out and set a new password, all other endpoints will result in 302
     if request.get_raw_uri().endswith(("manage_credentials", "reset_admin_password", "logout")):
         return None
     
-    if request.session_researcher.password_force_reset:
+    researcher = request.session_researcher
+    
+    # if the researcher has a forced password reset, or the researcher is on a study that requires
+    # a minimum password length, force them to the reset password page.
+    if researcher.password_force_reset:
         log("password reset forced")
         messages.error(request, PASSWORD_RESET_FORCED)
         return redirect(easy_url("admin_pages.manage_credentials"))
+    if researcher.password_min_length < get_min_password_requirement(researcher):
+        log("password reset min length")
+        messages.error(request, PASSWORD_RESET_SITE_ADMIN if researcher.site_admin else PASSWORD_RESET_TOO_SHORT)
+        return redirect(easy_url("admin_pages.manage_credentials"))
     
     # get smallest password max age from studies the researcher is on
-    max_age_days = request.session_researcher.study_relations \
+    max_age_days = researcher.study_relations \
                        .filter(study__password_max_age_enabled=True) \
                        .order_by("study__password_max_age_days") \
                        .values_list("study__password_max_age_days", flat=True) \
@@ -139,7 +149,7 @@ def determine_password_reset_redirect(request: ResearcherRequest) -> Optional[Ht
         log("any password reset checks")
         # determine the age of the password, if it is within 7 days of expiring warn the user,
         # if it is expired force them to the reset password page.
-        password_age_days = (timezone.now() - request.session_researcher.password_last_changed).days
+        password_age_days = (timezone.now() - researcher.password_last_changed).days
         if password_age_days > max_age_days:
             messages.error(request, PASSWORD_EXPIRED)
             log("password expired, redirecting")

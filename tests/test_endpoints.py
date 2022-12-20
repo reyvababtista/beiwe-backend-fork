@@ -23,7 +23,8 @@ from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_D
 from constants.data_stream_constants import ACCELEROMETER, ALL_DATA_STREAMS, SURVEY_TIMINGS
 from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_UNKNOWN,
     MESSAGE_SEND_SUCCESS, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG, NEW_PASSWORD_RULES_FAIL,
-    PASSWORD_EXPIRED, PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS,
+    PASSWORD_EXPIRED, PASSWORD_RESET_FAIL_SITE_ADMIN, PASSWORD_RESET_FORCED,
+    PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS, PASSWORD_RESET_TOO_SHORT,
     PASSWORD_WILL_EXPIRE, PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED,
     TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
@@ -284,7 +285,7 @@ class TestLoginPages(BasicSessionTestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp.url, reverse("admin_pages.manage_credentials"))
         self.session_study.refresh_from_db()
-        self.assertEqual(self.session_study.name, name)
+        self.assertEqual(self.session_study.name, name)  # assert name didn't change
     
     def test_session_expiry(self):
         # set up the current time, then we will travel into the future to test the session expiry
@@ -309,7 +310,37 @@ class TestLoginPages(BasicSessionTestCase):
         # make sure we actually tested both cases
         self.assertTrue(check_1_happened)
         self.assertTrue(check_2_happened)
-
+    
+    def test_password_too_short_site_admin(self):
+        # test that the password too short redirect applies to admin endpoints
+        self.assertEquals(self.session_researcher.password_min_length, len(self.DEFAULT_RESEARCHER_PASSWORD))
+        self.session_researcher.update_only(password_min_length=8)
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.do_default_login()
+        # random endpoint that will trigger a redirect
+        resp = self.client.post(easy_url("admin_api.rename_study", study_id=self.session_study.id))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.url, reverse("admin_pages.manage_credentials"))
+        page = self.simple_get(resp.url, status_code=200).content
+        self.assert_present(PASSWORD_RESET_SITE_ADMIN, page)
+        # assert that this behavior does not rely on the force reset flag
+        self.assertFalse(self.session_researcher.password_force_reset)
+    
+    def test_password_too_short_researcher(self):
+        # test that the password too short redirect applies to admin endpoints
+        self.assertEquals(self.session_researcher.password_min_length, len(self.DEFAULT_RESEARCHER_PASSWORD))
+        self.session_study.update_only(password_minimum_length=20)
+        self.session_researcher.update_only(password_min_length=8)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.do_default_login()
+        # random endpoint that will trigger a redirect
+        resp = self.simple_get(easy_url("admin_pages.choose_study"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.url, reverse("admin_pages.manage_credentials"))
+        page = self.simple_get(resp.url, status_code=200).content
+        self.assert_present(PASSWORD_RESET_TOO_SHORT, page)
+        # assert that this behavior does not rely on the force reset flag
+        self.assertFalse(self.session_researcher.password_force_reset)
 
 class TestChooseStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.choose_study"
@@ -1226,6 +1257,121 @@ class TestDeviceSettings(ResearcherSessionTest):
                 self.assertNotEqual(old_consent_sections[outer_key][inner_key], v2)
 
 
+class TestChangeSurveySecuritySettings(ResearcherSessionTest):
+    ENDPOINT_NAME = "system_admin_pages.change_study_security_settings"
+    password_length = len(ResearcherSessionTest.DEFAULT_RESEARCHER_PASSWORD)
+    @property
+    def DEFAULTS(self):
+        """ Default post params, all cause changes to database """
+        return {
+            "password_minimum_length": "15",
+            "password_max_age_enabled": "on",
+            "password_max_age_days": "90",
+        }
+    
+    def test_valid_values(self):
+        # need to set password length so that we don't crap out at password length of 13 due to a reset
+        self.session_researcher.update_only(password_min_length=20)
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        params = self.DEFAULTS
+        
+        # test all valid of password length plus 2 invalid values
+        for i in range(8, 21):
+            params["password_minimum_length"] = i
+            self.smart_post_status_code(302, self.session_study.id, **params)
+            self.session_study.refresh_from_db()
+            self.assertEqual(self.session_study.password_minimum_length, i)
+        for i in [0, 7, 21, 1000]:
+            params["password_minimum_length"] = i
+            self.smart_post_status_code(302, self.session_study.id, **params)
+            self.session_study.refresh_from_db()
+            self.assertEqual(self.session_study.password_minimum_length, 20)
+        
+        params["password_minimum_length"] = 15  # reset to something valid so the next test works
+        
+        # test valid selectable values for password age, then invalid values at the ends
+        for i in ["30", "60", "90", "180", "365"]:
+            params["password_max_age_days"] = i
+            self.smart_post_status_code(302, self.session_study.id, **params)
+            self.session_study.refresh_from_db()
+            self.assertEqual(self.session_study.password_max_age_days, int(i))
+        for i in ["0","29", "366", "1000"]:
+            params["password_max_age_days"] = i
+            self.smart_post_status_code(302, self.session_study.id, **params)
+            self.session_study.refresh_from_db()
+            self.assertEqual(self.session_study.password_max_age_days, 365)
+    
+    def test_missing_all_fields(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.assertEqual(self.session_researcher.password_min_length, self.password_length)
+        self.assertEqual(self.session_study.password_max_age_enabled, False)  # defaults
+        self.assertEqual(self.session_study.password_minimum_length, 8)
+        self.assertEqual(self.session_study.password_max_age_days, 365)
+        ret = self.smart_post_status_code(302, self.session_study.id)
+        self.assertEqual(ret.url,
+            easy_url("system_admin_pages.study_security_page", self.session_study.id))
+        page = self.easy_get("system_admin_pages.study_security_page", study_id=self.session_study.id).content
+        
+        self.assert_present("Minimum Password Length", page)
+        # self.assert_present("Enable Maximum Password Age", page)  # checkboxes do not provide a value if they are unchecked
+        self.assert_present("Maximum Password Age (days)", page)
+        self.session_study.refresh_from_db()
+        # assert no changes
+        self.assertEqual(self.session_study.password_max_age_enabled, False)
+        self.assertEqual(self.session_study.password_minimum_length, 8)
+        self.assertEqual(self.session_study.password_max_age_days, 365)
+        self.session_researcher.refresh_from_db()
+        self.assertEqual(self.session_researcher.password_force_reset, False)
+    
+    def test_enable_max_age_enabled(self):
+        # set up a bunch of researchers
+        r_not_related = self.generate_researcher("not related")
+        r_related = self.generate_researcher("researcher")
+        r_long = self.generate_researcher("longresearcher")  # won't require password reset
+        r_long.set_password("a"*20)
+        self.generate_study_relation(r_related, self.session_study, ResearcherRole.researcher)
+        self.generate_study_relation(r_long, self.session_study, ResearcherRole.researcher)
+        self.assertEqual(self.session_researcher.password_min_length, self.password_length)
+        self.assertEqual(r_not_related.password_min_length, self.password_length)
+        self.assertEqual(r_related.password_min_length, self.password_length)
+        self.assertEqual(r_long.password_min_length, 20)
+        # setup and do post
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        ret = self.smart_post_status_code(302, self.session_study.id, **self.DEFAULTS)
+        self.assertEqual(ret.url, easy_url("system_admin_pages.edit_study", self.session_study.id))
+        self.session_study.refresh_from_db()
+        # assert changes
+        self.assertEqual(self.session_study.password_max_age_enabled, True)
+        self.assertEqual(self.session_study.password_minimum_length, 15)
+        self.assertEqual(self.session_study.password_max_age_days, 90)
+        # session researcher should have a password reset
+        self.session_researcher.refresh_from_db()
+        r_not_related.refresh_from_db()
+        r_related.refresh_from_db()
+        r_long.refresh_from_db()
+        # make sure force reset is not in use, we don't rely on it.
+        self.assertEqual(self.session_researcher.password_force_reset, False)
+        self.assertEqual(r_related.password_force_reset, False)
+        self.assertEqual(r_not_related.password_force_reset, False)
+        self.assertEqual(r_long.password_force_reset, False)
+
+
+class TestEditSurveySecuritySettings(ResearcherSessionTest):
+    ENDPOINT_NAME = "system_admin_pages.study_security_page"
+    
+    def test_researcher(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_get_status_code(403, self.session_study.id)
+    
+    def test_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.smart_get_status_code(200, self.session_study.id)
+    
+    def test_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.smart_get_status_code(200, self.session_study.id)
+
+
 class TestManageFirebaseCredentials(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
     
@@ -1497,7 +1643,7 @@ class TestSetResearcherPassword(ResearcherSessionTest):
         self.set_session_study_relation(ResearcherRole.site_admin)
         r2 = self.generate_researcher()
         self.generate_study_relation(r2, self.default_study, ResearcherRole.site_admin)
-        self._test_cannot_change(r2, PASSWORD_RESET_SITE_ADMIN)
+        self._test_cannot_change(r2, PASSWORD_RESET_FAIL_SITE_ADMIN)
     
     def _test_successful_change(self, r2: Researcher):
         self.smart_post(
@@ -1520,7 +1666,7 @@ class TestSetResearcherPassword(ResearcherSessionTest):
             password=self.DEFAULT_RESEARCHER_PASSWORD + "1",
         )
         if message:
-            content = self.easy_get("system_admin_pages.edit_researcher", researcher_pk=r2.id)
+            content = self.easy_get("system_admin_pages.edit_researcher", researcher_pk=r2.id).content
             self.assert_present(message, content)
         r2.refresh_from_db()
         self.assertFalse(r2.password_force_reset)
@@ -1787,7 +1933,7 @@ class TestImportStudySettingsFile(RedirectSessionApiTest):
         if success:
             self.assertEqual(study2.device_settings.gps, not device_settings)
         # return the page, we always need it
-        return self.easy_get(self.REDIRECT_ENDPOINT_NAME, status_code=200, study_id=study2.id)
+        return self.easy_get(self.REDIRECT_ENDPOINT_NAME, status_code=200, study_id=study2.id).content
 
 
 class TestICreateSurvey(RedirectSessionApiTest):
@@ -1868,7 +2014,7 @@ class TestResetParticipantPassword(RedirectSessionApiTest):
         self.default_participant.refresh_from_db()
         self.assert_present(
             "password has been reset to",
-            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         self.assertNotEqual(self.default_participant.password, old_password)
     
@@ -1879,7 +2025,9 @@ class TestResetParticipantPassword(RedirectSessionApiTest):
         # self.assert_present("does not exist", self.get_redirect_content(self.session_study.id))
         self.assert_present(
             "does not exist",
-            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+            self.easy_get(
+                "admin_pages.view_study", status_code=200, study_id=self.session_study.id
+            ).content
         )
     
     def test_bad_study(self):
@@ -1890,7 +2038,7 @@ class TestResetParticipantPassword(RedirectSessionApiTest):
         self.smart_post(study_id=study2.id, patient_id=self.default_participant.patient_id)
         self.assert_present(
             "is not in study",
-            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.password, old_password)
@@ -1916,7 +2064,7 @@ class TestResetDevice(RedirectSessionApiTest):
         self.smart_post(patient_id=self.default_participant.patient_id, study_id=study2.id)
         self.assert_present(
             "is not in study",
-            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         self.assertEqual(Participant.objects.count(), 1)
         self.default_participant.refresh_from_db()
@@ -1929,7 +2077,7 @@ class TestResetDevice(RedirectSessionApiTest):
         self.smart_post(patient_id="invalid", study_id=self.session_study.id)
         self.assert_present(
             "does not exist",
-            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         
         self.default_participant.refresh_from_db()
@@ -1942,7 +2090,7 @@ class TestResetDevice(RedirectSessionApiTest):
                         study_id=self.session_study.id)
         self.assert_present(
             "device was reset; password is untouched",
-            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.device_id, "")
@@ -2014,7 +2162,7 @@ class TestToggleStudyEasyEnrollment(RedirectSessionApiTest):
     def _test_fail(self):
         self.assertFalse(self.default_study.easy_enrollment)
         self._smart_post
-        self.easy_get(self.ENDPOINT_NAME, status_code=403, study_id=self.session_study.id)
+        self.easy_get(self.ENDPOINT_NAME, status_code=403, study_id=self.session_study.id).content
         self.default_study.refresh_from_db()
         self.assertFalse(self.default_study.easy_enrollment)
 
@@ -2039,7 +2187,7 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
         self.smart_post(patient_id=self.default_participant.patient_id, study_id=study2.id)
         self.assert_present(
             "is not in study",
-            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         self.assertEqual(Participant.objects.count(), 1)
         self.default_participant.refresh_from_db()
@@ -2052,7 +2200,7 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
         self.smart_post(patient_id="invalid", study_id=self.session_study.id)
         self.assert_present(
             "does not exist",
-            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         # self.assert_present("does not exist", self.get_redirect_content(self.session_study.id))
         self.default_participant.refresh_from_db()
@@ -2067,7 +2215,7 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
         )
         self.assert_present(
             "is already unregistered",
-            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.unregistered, True)
@@ -2080,7 +2228,7 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
         )
         self.assert_present(
             "was successfully unregisted from the study",
-            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id)
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.unregistered, True)

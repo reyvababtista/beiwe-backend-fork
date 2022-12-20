@@ -170,11 +170,9 @@ def new_tableau_api_key(request: ResearcherRequest):
         has_tableau_api_permissions=True,
         readable_name=form.cleaned_data['readable_name'],
     )
-    msg = NEW_API_KEY_MESSAGE #% (api_key.access_key_id, api_key.access_key_secret_plaintext)
-    
     request.session["new_tableau_key_id"] = api_key.access_key_id
     request.session["new_tableau_secret_key"] = api_key.access_key_secret_plaintext
-    messages.warning(request, Markup(msg))
+    messages.warning(request, Markup(NEW_API_KEY_MESSAGE))
     return redirect("admin_pages.manage_credentials")
 
 

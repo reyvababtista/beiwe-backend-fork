@@ -38,7 +38,7 @@ class ReferenceObjectMixin:
     because they are so common. """
     
     DEFAULT_RESEARCHER_NAME = "session_researcher"
-    DEFAULT_RESEARCHER_PASSWORD = "abcABC123!@#"
+    DEFAULT_RESEARCHER_PASSWORD = "abcABC123!@#" * 2  # we want a very long password for testing
     DEFAULT_STUDY_NAME = "session_study"
     DEFAULT_SURVEY_OBJECT_ID = 'u1Z3SH7l2xNsw72hN3LnYi96'
     DEFAULT_PARTICIPANT_NAME = "patient1"  # has to be 8 characters

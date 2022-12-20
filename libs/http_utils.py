@@ -39,6 +39,7 @@ def really_nice_time_format_with_tz(dt: datetime, timezone: Union[tzinfo, str]):
     final_dt = dt.astimezone(timezone)
     return final_dt.strftime('%A %b %-d, %Y, %-I:%M %p') + " (" + timezone.tzname(final_dt) + ")"
 
+
 def checkbox_to_boolean(list_checkbox_params: List[str], dict_all_params: Dict):
     """ Takes a list of strings that are to be processed as checkboxes on a post parameter,
     (checkboxes supply some arbitrary value in a post if they are checked, and no value at all if

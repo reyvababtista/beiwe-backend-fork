@@ -14,7 +14,7 @@ from database.user_models_common import AbstractPasswordUser
 from database.validators import PASSWORD_VALIDATOR, STANDARD_BASE_64_VALIDATOR
 from libs.security import (BadDjangoKeyFormatting, compare_password, django_password_components,
     generate_random_bytestring, generate_random_string, to_django_password_components)
-
+from django.core.validators import MaxValueValidator, MinValueValidator
 
 # This is an import hack to improve IDE assistance.
 try:
@@ -38,7 +38,10 @@ class Researcher(AbstractPasswordUser):
     access_key_secret = models.CharField(max_length=256, validators=[PASSWORD_VALIDATOR], blank=True)
     
     password_last_changed = models.DateTimeField(null=False, blank=False, default=timezone.now)
-    password_force_reset = models.BooleanField(default=True)
+    password_force_reset = models.BooleanField(default=True)  # new researchers must reset their password
+    # in principle it is somewhat unsafe to store this, but the cryptographic search space is only
+    # halved, and it needs to be stored Somewhere, either here or in the current session.
+    password_min_length = models.SmallIntegerField(default=8, validators=[MinValueValidator(8)])
     
     # related field typings (IDE halp)
     api_keys: Manager[ApiKey]
@@ -59,7 +62,8 @@ class Researcher(AbstractPasswordUser):
     def set_password(self, password: str):
         """ Updates the password_last_changed field and then runs normal password setting logic. """
         self.password_last_changed = timezone.now()
-        # set_password calls save()
+        self.password_min_length = len(password)
+        # set_password calls save(), and we don't want to set values if it fails
         super().set_password(password)
     
     @classmethod

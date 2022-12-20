@@ -123,8 +123,6 @@ def manage_researchers(request: ResearcherRequest):
         researcher_list.append(
             ({'username': researcher.username, 'id': researcher.id}, list(allowed_studies))
         )
-    
-    print(len(researcher_list))
     return render(request, 'manage_researchers.html', context=dict(admins=researcher_list))
 
 

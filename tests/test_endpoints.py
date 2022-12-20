@@ -1846,7 +1846,30 @@ class CreateManyParticipant(ResearcherSessionTest):
 
 
 class TestAPIGetStudies(DataApiTest):
+    
     ENDPOINT_NAME = "other_researcher_apis.get_studies"
+    
+    def test_data_access_credential_upgrade(self):
+        # check our assumptions make sense, set algorithm to sha1 and generate old-style credentials
+        self.assertEqual(Researcher.DESIRED_ALGORITHM, "sha256")  # testing assumption
+        self.assertEqual(Researcher.DESIRED_ITERATIONS, 1000)  # testing assumption
+        self.session_researcher.DESIRED_ALGORITHM = "sha1"
+        self.session_access_key, self.session_secret_key = self.session_researcher.reset_access_credentials()
+        self.session_researcher.DESIRED_ALGORITHM = "sha256"
+        # grab the old-style credentials, run the test_no_study test to confirm it works at all.
+        original_database_value = self.session_researcher.access_key_secret
+        resp = self.smart_post_status_code(200)
+        self.assertEqual(Study.objects.count(), 0)
+        self.assertEqual(json.loads(resp.content), {})
+        # get any new credentials, make sure they're sha256
+        self.session_researcher.refresh_from_db()
+        self.assertNotEqual(original_database_value, self.session_researcher.access_key_secret)
+        self.assertIn("sha1", original_database_value)
+        self.assertIn("sha256", self.session_researcher.access_key_secret)
+        # and then make sure the same password works again!
+        resp = self.smart_post_status_code(200)
+        self.assertEqual(Study.objects.count(), 0)
+        self.assertEqual(json.loads(resp.content), {})
     
     def test_no_study(self):
         resp = self.smart_post_status_code(200)

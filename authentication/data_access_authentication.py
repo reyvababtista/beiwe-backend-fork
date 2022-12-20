@@ -117,6 +117,7 @@ def api_get_and_validate_credentials(request: HttpRequest) -> Tuple[str, str]:
         access_key = request.POST.get("access_key", None)
         secret_key = request.POST.get("secret_key", None)
     except UnreadablePostError:
+        log("unreadable post 1")
         return abort(500)
     
     # reject empty strings and value-not-present cases
@@ -169,8 +170,9 @@ def api_get_study_confirm_exists(request: ResearcherRequest) -> Study:
         study_object_id = request.POST.get('study_id', None)
         study_pk = request.POST.get('study_pk', None)
     except UnreadablePostError:
+        log("unreadable post 2")
         return abort(500)
-
+    
     if study_object_id is not None:
         
         # If the ID is incorrectly sized, we return a 400

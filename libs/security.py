@@ -114,7 +114,8 @@ def to_django_password_components(algorithm: str, iterations: int, password_hash
 def generate_hash_and_salt(algorithm: str, iterations: int, password: bytes) -> Tuple[bytes, bytes]:
     """ Generates a hash and salt that will match for a given input string based on the algorithm
     and iteration count. """
-    assert isinstance(password, bytes)
+    if not isinstance(password, bytes):
+        raise TypeError("invalid password, password must be a byte string.")
     salt = encode_base64(urandom(16 if algorithm in ('sha1', 'sha256') else 32))
     password_hashed = password_hash(algorithm, iterations, password, salt)
     return password_hashed, salt

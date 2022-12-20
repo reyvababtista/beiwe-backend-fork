@@ -4,6 +4,7 @@ from django import forms
 from constants.forest_constants import ForestTaskStatus, ForestTree
 from constants.tableau_api_constants import (HEADER_IS_REQUIRED, SERIALIZABLE_FIELD_NAMES,
     SERIALIZABLE_FIELD_NAMES_DROPDOWN, VALID_QUERY_PARAMETERS, X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET)
+from database.study_models import Study
 from database.tableau_api_models import ForestTask
 from database.user_models_participant import Participant
 from forms.django_form_fields import CommaSeparatedListCharField, CommaSeparatedListChoiceField
@@ -152,3 +153,12 @@ class ApiQueryForm(forms.Form):
             k: v for k, v in self.cleaned_data.items()
             if k in VALID_QUERY_PARAMETERS and (v or v is False)
         }
+
+
+class StudySecuritySettingsForm(forms.ModelForm):
+    
+    class Meta:
+        fields = ["password_minimum_length", "password_max_age_enabled", "password_max_age_days"]
+        model = Study
+    
+    password_max_age_enabled = forms.CheckboxInput()

@@ -92,7 +92,9 @@ NEW_API_KEY_MESSAGE = "New Tableau API credentials have been generated for you!"
 PASSWORD_WILL_EXPIRE = "Your password will expire in {days} days, reset it to clear this reminder."
 PASSWORD_EXPIRED = "Your password has expired, please reset your password."
 PASSWORD_RESET_FORCED = "You have had your password administratively reset, please set a new password."
-PASSWORD_RESET_SITE_ADMIN = "You cannot manually set a password of a site admin. If you must do so please contact your system administrator."
+PASSWORD_RESET_FAIL_SITE_ADMIN = "You cannot manually set a password of a site admin. If you must do so please contact your system administrator."
+PASSWORD_RESET_SITE_ADMIN = "Site Administrators must reset their passwords to ensure they are at least 20 characters in length."
+PASSWORD_RESET_TOO_SHORT = "A study you are authorized on has a new minimum password length requirement, update your password to continue."
 
 # self password reset
 PASSWORD_RESET_SUCCESS = "Your password has been reset!"

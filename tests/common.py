@@ -16,7 +16,7 @@ from database.security_models import ApiKey
 from database.study_models import Study
 from database.user_models_participant import Participant
 from database.user_models_researcher import Researcher, StudyRelation
-from libs.internal_types import StrOrBytes
+from libs.internal_types import ResponseOrRedirect, StrOrBytes
 from libs.security import generate_easy_alphanumeric_string
 from tests.helpers import ReferenceObjectMixin, render_test_html_file
 from urls import urlpatterns
@@ -178,14 +178,14 @@ class CommonTestCase(TestCase, ReferenceObjectMixin):
         else:
             raise TypeError(f"Unhandled type: {type(var)}")
     
-    def simple_get(self, url: str, status_code=None, **get_kwargs) -> bytes:
+    def simple_get(self, url: str, status_code=None, **get_kwargs) -> ResponseOrRedirect:
         """ provide a url with, supports a status code check, only get kwargs"""
         ret = self.client.get(url, **get_kwargs)
         if status_code is not None:
             self.assertEqual(status_code, ret.status_code)
-        return ret.content
+        return ret
     
-    def easy_get(self, view_name: str, status_code=None, **get_kwargs) -> bytes:
+    def easy_get(self, view_name: str, status_code=None, **get_kwargs) -> ResponseOrRedirect:
         """ very easy, use endpoint names, no reverse args only kwargs """
         url = self.smart_reverse(view_name, kwargs=get_kwargs)
         return self.simple_get(url, status_code=status_code, **get_kwargs)

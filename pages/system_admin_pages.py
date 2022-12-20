@@ -27,10 +27,12 @@ from database.study_models import DeviceSettings, Study
 from database.survey_models import Survey
 from database.system_models import FileAsText
 from database.user_models_researcher import Researcher, StudyRelation
+from forms.django_forms import StudySecuritySettingsForm
 from libs.copy_study import copy_study_from_json, format_study, unpack_json_study
 from libs.firebase_config import get_firebase_credential_errors, update_firebase_instance
-from libs.http_utils import checkbox_to_boolean, string_to_int
+from libs.http_utils import checkbox_to_boolean, easy_url, string_to_int
 from libs.internal_types import ResearcherRequest
+from libs.password_validation import get_min_password_requirement
 from libs.sentry import make_error_sentry, SentryTypes
 from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
 
@@ -122,6 +124,7 @@ def manage_researchers(request: ResearcherRequest):
             ({'username': researcher.username, 'id': researcher.id}, list(allowed_studies))
         )
     
+    print(len(researcher_list))
     return render(request, 'manage_researchers.html', context=dict(admins=researcher_list))
 
 
@@ -411,10 +414,54 @@ def delete_study(request: ResearcherRequest, study_id=None):
     return redirect("system_admin_pages.manage_studies")
 
 
+@require_GET
+@authenticate_admin
+def study_security_page(request: ResearcherRequest, study_id: int):
+    study = Study.objects.get(id=study_id)
+    assert_admin(request, study_id)
+    return render(
+        request,
+        'study_security_settings.html',
+        context=dict(
+            study=study,
+            min_password_length=get_min_password_requirement(request.session_researcher),
+        )
+    )
+
+
+@require_POST
+@authenticate_admin
+def change_study_security_settings(request: ResearcherRequest, study_id=None):
+    study = Study.objects.get(pk=study_id)
+    assert_admin(request, study_id)
+    nice_names = {
+        "password_minimum_length": "Minimum Password Length",
+        "password_max_age_enabled": "Enable Maximum Password Age",
+        "password_max_age_days": "Maximum Password Age (days)",
+    }
+    
+    form = StudySecuritySettingsForm(request.POST, instance=study)
+    if not form.is_valid():
+        # extract errors from the django form and display them using django messages
+        for field, errors in form.errors.items():
+            for error in errors:
+                # make field names nicer for the error message
+                messages.warning(request, f"{nice_names.get(field, field)}: {error}")
+        return redirect(easy_url("system_admin_pages.study_security_page", study_id=study.pk))
+    
+    # success: save and display changes, redirect to edit study
+    form.save()
+    for field_name in form.changed_data:
+        messages.success(
+            request, f"Updated {nice_names.get(field_name, field_name)} to {getattr(study, field_name)}"
+        )
+    return redirect(easy_url("system_admin_pages.edit_study", study.pk))
+
+
 @require_http_methods(['GET', 'POST'])
 @authenticate_researcher_study_access
 def device_settings(request: ResearcherRequest, study_id=None):
-    # TODO: probably rewrite this entire endpoint with django forms
+    # TODO: probably rewrite this entire endpoint with django forms....
     study = Study.objects.get(pk=study_id)
     researcher = request.session_researcher
     readonly = not researcher.check_study_admin(study_id) and not researcher.site_admin
@@ -423,7 +470,7 @@ def device_settings(request: ResearcherRequest, study_id=None):
     if request.method == 'GET':
         return render(
             request,
-            "device_settings.html",
+            "study_device_settings.html",
             context=dict(
                 study=study.as_unpacked_native_python(Study.STUDY_EXPORT_FIELDS),
                 settings=study.device_settings.export(),

@@ -68,6 +68,9 @@ path("edit_study/<int:study_id>", system_admin_pages.edit_study)
 path("create_study", system_admin_pages.create_study)
 path("toggle_study_forest_enabled/<int:study_id>", system_admin_pages.toggle_study_forest_enabled)
 path("delete_study/<int:study_id>", system_admin_pages.delete_study)
+path("edit_study_security/<int:study_id>", system_admin_pages.study_security_page)
+path("change_study_security_settings/<int:study_id>", system_admin_pages.change_study_security_settings)
+
 path("device_settings/<int:study_id>", system_admin_pages.device_settings)
 path("manage_firebase_credentials", system_admin_pages.manage_firebase_credentials)
 path("upload_backend_firebase_cert", system_admin_pages.upload_backend_firebase_cert)
@@ -76,6 +79,7 @@ path("upload_ios_firebase_cert", system_admin_pages.upload_ios_firebase_cert)
 path("delete_backend_firebase_cert", system_admin_pages.delete_backend_firebase_cert)
 path("delete_android_firebase_cert", system_admin_pages.delete_android_firebase_cert)
 path("delete_ios_firebase_cert", system_admin_pages.delete_ios_firebase_cert)
+
 
 # data access web form
 path("data_access_web_form", data_access_web_form.data_api_web_form_page)

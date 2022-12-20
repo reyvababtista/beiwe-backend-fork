@@ -1,3 +1,4 @@
+from django.http.response import HttpResponse, HttpResponseRedirect
 from typing import Dict, List, Union
 
 from django.db.models import Manager, QuerySet
@@ -44,6 +45,9 @@ class ParticipantRequest(HttpRequest):
 
 
 class TableauRequest(HttpRequest): pass
+
+# used in tests
+ResponseOrRedirect = Union[HttpResponse, HttpResponseRedirect]
 
 #
 ## Other classes

@@ -341,6 +341,19 @@ class TestLoginPages(BasicSessionTestCase):
         self.assert_present(PASSWORD_RESET_TOO_SHORT, page)
         # assert that this behavior does not rely on the force reset flag
         self.assertFalse(self.session_researcher.password_force_reset)
+    
+    def test_force_logout(self):
+        self.session_researcher
+        resp = self.do_default_login()
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.url, reverse("admin_pages.choose_study"))
+        self.simple_get(resp.url, status_code=200)  # page loads as normal
+        self.session_researcher.force_global_logout()
+        resp = self.simple_get(resp.url, status_code=302)  # page redirects to login
+        self.session_researcher.refresh_from_db()
+        self.assertEqual(self.session_researcher.web_sessions.count(), 0)
+        self.assertEqual(resp.url, reverse("login_pages.login_page"))
+
 
 class TestChooseStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.choose_study"
@@ -434,17 +447,25 @@ class TestResetAdminPassword(RedirectSessionApiTest):
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
     def test_reset_admin_password_success(self):
-        self.smart_post(
+        resp = self.smart_post_status_code(
+            302,
             current_password=self.DEFAULT_RESEARCHER_PASSWORD,
             new_password=self.DEFAULT_RESEARCHER_PASSWORD + "1",
             confirm_new_password=self.DEFAULT_RESEARCHER_PASSWORD + "1",
         )
-        # we are ... teleologically correct here mimicking the code...
+        # the initial redirect is to the normal endpoint
+        self.assertEqual(resp.url, easy_url(self.REDIRECT_ENDPOINT_NAME))
+        
         r = self.session_researcher
+        r.refresh_from_db()
         self.assertFalse(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
         self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD + "1"))
-        # Always stick the check for the string after the check for the db mutation.
-        self.assert_present(PASSWORD_RESET_SUCCESS, self.get_redirect_content())
+        r.force_global_logout()
+        self.assertEqual(self.session_researcher.web_sessions.count(), 0)
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME, 302)
+        self.assertEqual(resp.url, easy_url("login_pages.login_page"))
+        resp = self.easy_get("login_pages.login_page", 200)
+        self.assert_present(PASSWORD_RESET_SUCCESS, resp.content)
     
     def test_reset_admin_password_wrong(self):
         self.smart_post(
@@ -1659,6 +1680,7 @@ class TestSetResearcherPassword(ResearcherSessionTest):
         self.assertFalse(
             r2.check_password(r2.username, self.DEFAULT_RESEARCHER_PASSWORD)
         )
+        self.assertEqual(r2.web_sessions.count(), 0)
     
     def _test_cannot_change(self, r2: Researcher, message: str = None):
         ret = self.smart_post(
@@ -1676,6 +1698,7 @@ class TestSetResearcherPassword(ResearcherSessionTest):
         self.assertTrue(
             r2.check_password(r2.username, self.DEFAULT_RESEARCHER_PASSWORD)
         )
+        self.assertEqual(self.session_researcher.web_sessions.count(), 1)
         return ret
 
 # fixme: add user type tests

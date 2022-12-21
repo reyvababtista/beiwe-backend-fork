@@ -13,7 +13,6 @@ from constants.user_constants import ResearcherRole
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import ResearcherRequest
-from libs.password_validation import check_password_requirements
 from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.timezone_dropdown import ALL_TIMEZONES
 
@@ -107,6 +106,7 @@ def set_researcher_password(request: ResearcherRequest):
     else:
         researcher.set_password(new_password)
         researcher.update(password_force_reset=True)
+        researcher.force_global_logout()
     return redirect(f'/edit_researcher/{researcher.pk}')
 
 

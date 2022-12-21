@@ -2,19 +2,22 @@ from __future__ import annotations
 
 from typing import Tuple
 
+from django.contrib.sessions.backends.db import SessionStore as DBStore
+from django.contrib.sessions.base_session import AbstractBaseSession
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
 from django.utils import timezone
 
-from constants.user_constants import ResearcherRole
+from constants.user_constants import ResearcherRole, SESSION_NAME
 from database.models import TimestampedModel
 from database.study_models import Study
 from database.user_models_common import AbstractPasswordUser
 from database.validators import PASSWORD_VALIDATOR, STANDARD_BASE_64_VALIDATOR
 from libs.security import (BadDjangoKeyFormatting, compare_password, django_password_components,
     generate_random_bytestring, generate_random_string, to_django_password_components)
-from django.core.validators import MaxValueValidator, MinValueValidator
+
 
 # This is an import hack to improve IDE assistance.
 try:
@@ -47,6 +50,7 @@ class Researcher(AbstractPasswordUser):
     api_keys: Manager[ApiKey]
     study_relations: Manager[StudyRelation]
     data_access_record: Manager[DataAccessRecord]
+    web_sessions: Manager[ResearcherSession]
     
     ## User Creation and Passwords
     @classmethod
@@ -61,9 +65,10 @@ class Researcher(AbstractPasswordUser):
     
     def set_password(self, password: str):
         """ Updates the password_last_changed field and then runs normal password setting logic. """
+        # okay we can't stick a forced logout here, that is too broad of a use.
         self.password_last_changed = timezone.now()
         self.password_min_length = len(password)
-        # set_password calls save(), and we don't want to set values if it fails
+        # set_password calls save(), and we don't want to set values if it (somehow) fails
         super().set_password(password)
     
     @classmethod
@@ -73,6 +78,11 @@ class Researcher(AbstractPasswordUser):
             return False
         researcher = Researcher.objects.get(username=username)
         return researcher.validate_password(compare_me)
+    
+    def force_global_logout(self):
+        """ Deletes all sessions for this user, forcing a logout and automatic redirection to the
+        login page of any and all active website sessions. """
+        self.web_sessions.all().delete()
     
     ## User Roles
     def elevate_to_site_admin(self):
@@ -190,3 +200,41 @@ class StudyRelation(TimestampedModel):
         return "%s is a %s in %s" % (
             self.researcher.username, self.relationship.replace("_", " ").title(), self.study.name
         )
+
+
+## Custom Session classes for Researchers
+# In order to associate sessions with researchers, we need to create a custom session model
+# this code is based off the stackoverflow answer found here:
+# https://stackoverflow.com/questions/59617751/how-to-make-a-django-user-inactive-and-invalidate-all-their-sessions
+
+class ResearcherSession(AbstractBaseSession):
+    # Custom session model which stores user foreignkey to asssociate sessions with particular users.
+    researcher: Researcher = models.ForeignKey(
+        Researcher, null=True, on_delete=models.CASCADE, related_name="web_sessions"
+    )
+    
+    @classmethod
+    def get_session_store_class(cls):
+        return SessionStore
+
+
+# this class literally needs to be named SessionStore
+# This class implements a django session backend using the custom session model above
+class SessionStore(DBStore):
+    
+    @classmethod
+    def get_model_class(cls):
+        return ResearcherSession
+    
+    def create_model_instance(self, data: dict):
+        """ Using the session, grab the researcher and create a (now queryable!) database session """
+        quick_session: ResearcherSession = super().create_model_instance(data)
+        try:
+            # this value is the session key from a cookie.  Get the researcher attached to the session
+            user_id = data.get(SESSION_NAME)
+            user = Researcher.objects.get(username=user_id)
+        except Researcher.DoesNotExist:
+            user = None
+        
+        quick_session.researcher = user
+        return quick_session

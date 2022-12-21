@@ -42,7 +42,7 @@ def authenticate_researcher_login(some_function):
         
         if check_is_logged_in(request):
             populate_session_researcher(request)
-            goto_redirect = determine_password_reset_redirect(request)
+            goto_redirect = determine_any_redirects(request)
             return goto_redirect if goto_redirect else some_function(*args, **kwargs)
         else:
             return redirect("/")
@@ -61,6 +61,8 @@ def logout_researcher(request: HttpRequest):
         del request.session[SESSION_UUID]
     if EXPIRY_NAME in request.session:
         del request.session[EXPIRY_NAME]
+    if SESSION_NAME in request.session:
+        del request.session[SESSION_NAME]
 
 
 def log_in_researcher(request: ResearcherRequest, username: str):
@@ -73,6 +75,7 @@ def log_in_researcher(request: ResearcherRequest, username: str):
 def check_is_logged_in(request: ResearcherRequest):
     """ automatically log out the researcher if their session is timed out, extend session if the
     user is already logged in. """
+    
     if EXPIRY_NAME not in request.session:
         # no session expiry present at all, user is not logged in.
         log("no session expiry present")
@@ -104,7 +107,7 @@ def assert_session_unexpired(request: ResearcherRequest):
 
 def populate_session_researcher(request: ResearcherRequest):
     # this function defines the ResearcherRequest, which is purely for IDE assistence
-    username = request.session.get("researcher_username", None)
+    username = request.session.get(SESSION_NAME, None)
     if username is None:
         log("researcher username was not present in session")
         return abort(400)
@@ -116,16 +119,15 @@ def populate_session_researcher(request: ResearcherRequest):
         return abort(400)
 
 
-def determine_password_reset_redirect(request: ResearcherRequest) -> Optional[HttpResponseRedirect]:
-    """ This function will manage the popup messages for the researcher.  Currently this is limited
-    to the password age warning.  This function will be called on every page load and could cause
-    duplicates, but I don't have a better solution right now. """
+def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponseRedirect]:
+    """ Check for all Researcher user states where the session needs to be redirected.  This
+    function is called on every page load. Currently includes password reset and password expiry."""
+    researcher = request.session_researcher
+    
     # case: the password reset page would otherwise be infinitely redirected to itself.
     # need to allow user to log out and set a new password, all other endpoints will result in 302
     if request.get_raw_uri().endswith(("manage_credentials", "reset_admin_password", "logout")):
         return None
-    
-    researcher = request.session_researcher
     
     # if the researcher has a forced password reset, or the researcher is on a study that requires
     # a minimum password length, force them to the reset password page.
@@ -135,7 +137,9 @@ def determine_password_reset_redirect(request: ResearcherRequest) -> Optional[Ht
         return redirect(easy_url("admin_pages.manage_credentials"))
     if researcher.password_min_length < get_min_password_requirement(researcher):
         log("password reset min length")
-        messages.error(request, PASSWORD_RESET_SITE_ADMIN if researcher.site_admin else PASSWORD_RESET_TOO_SHORT)
+        messages.error(
+            request, PASSWORD_RESET_SITE_ADMIN if researcher.site_admin else PASSWORD_RESET_TOO_SHORT
+        )
         return redirect(easy_url("admin_pages.manage_credentials"))
     
     # get smallest password max age from studies the researcher is on
@@ -277,7 +281,8 @@ def authenticate_researcher_study_access(some_function):
                 log("invalid study relationship for researcher")
                 return abort(403)
         
-        return some_function(*args, **kwargs)
+        goto_redirect = determine_any_redirects(request)
+        return goto_redirect if goto_redirect else some_function(*args, **kwargs)
     
     return authenticate_and_call
 
@@ -350,7 +355,7 @@ def authenticate_admin(some_function):
                     return abort(403)
         
         # determine whether to redirect to password the password reset page
-        goto_redirect = determine_password_reset_redirect(request)
+        goto_redirect = determine_any_redirects(request)
         return goto_redirect if goto_redirect else some_function(*args, **kwargs)
     
     return authenticate_and_call

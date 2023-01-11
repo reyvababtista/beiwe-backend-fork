@@ -4,19 +4,17 @@
 
 {% block content %}
 
-  <div class="row">
-    <h3>Researcher {{ edit_researcher.username }}</h3>
+  <div class="col-xs-12 h3-margins-vertical">
+    <h3>Researcher <b>{{ edit_researcher.username }}</b></h3>
   </div>
-
   <br>
 
-  <div class="row">
-
+  <div class="col-xs-12">
     <table class="list-group table table-striped" width="100%">
       <tr>
-        <th>Authorized Study</th>
-        <th>Permissions/Role</th>
-        <th>Actions</th>
+        <th><h4>Authorized Study</h4></th>
+        <th><h4>Permissions/Role</h4></th>
+        <th><h4>Actions</h4></th>
       </tr>
 
       {% if not edit_study_info %}
@@ -28,7 +26,7 @@
       {% for relationship, is_administrator_of, study in edit_study_info %}
         <tr>
           <td>
-            <b>{{ study.name }}</b>
+            <i>{{ study.name }}</i>
           </td>
           <td>
             {{ relationship }} &nbsp;&nbsp;
@@ -73,7 +71,7 @@
     </table>
   </div>
 
-  <div class="row">
+  <div class="col-xs-12">
     <h5>Authorize this researcher on an additional study:</h5>
     <form action="/add_researcher_to_study" method="post">
       <div class="form-inline">
@@ -87,12 +85,11 @@
         <button type="submit" class="btn btn-info add_researcher_to_study_button">Add researcher to study</button>
       </div>
     </form>
+    <br><br><br>
   </div>
 
-  <br><br><br><br>
-
   {% if editable_password %}
-    <div class="row">
+    <div class={% if editable_mfa %}"col-md-6"{% else %}"col-md-12"{% endif %}>
       <h4>Reset Password</h4>
       <div class="well">
         <b>You may provide any characters with a minimum length of 8 to the password reset field below.</b>
@@ -109,8 +106,26 @@
           <input type="submit" class="btn btn-warning" value="Reset Password">
         </div>
       </form>
+      <br><br><br>
     </div>
-    <br><br><br><br>
+  {% endif %}
+
+  {% if editable_mfa %}
+    <div class={% if editable_password %}"col-md-6"{% else %}"col-md-12"{% endif %}>
+      <h4>Reset Multifactor Authentication</h4>
+      <div class="well">
+          This will clear the MFA token for the researcher, if they are authorized on any studies that will require MFA they will be redirected at next login to the Manage Credentials page and directed to generate a new MFA token.
+          
+          <form action="{{ easy_url("system_admin_pages.reset_researcher_mfa", edit_researcher.pk) }}" method="post">
+            <input type="submit" class="btn btn-warning h2-middle-margins-vertical margin-left-1" value="Reset MFA" {% if not edit_researcher.mfa_token %}disabled{%endif%}>
+          </form>
+          {% if not edit_researcher.mfa_token %}
+            <p></p>
+            <p class="text-danger">This researcher does not have a MFA enabled.</p>
+          {% endif %}
+      </div>
+    <br><br><br>
+  </div>
   {% endif %}
 
   <div class="row">

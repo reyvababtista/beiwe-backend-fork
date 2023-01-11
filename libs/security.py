@@ -131,7 +131,7 @@ def password_hash(algorithm: str, iterations: int, proposed_password: bytes, sal
     if not iterations:
         raise SecurityError(f"password hashing received invalid iterations: '{iterations}'")
     dklen = 32 if algorithm in ('sha1', 'sha256') else 64
-    return encode_base64(hashlib.pbkdf2_hmacpbkdf2(algorithm, proposed_password, salt, iterations, dklen))
+    return encode_base64(hashlib.pbkdf2_hmac(algorithm, proposed_password, salt, iterations, dklen))
 
 
 ################################################################################

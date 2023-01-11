@@ -43,6 +43,21 @@
 
     <div class="col-xs-12 well">
       <div class="col-lg-9 col-md-12">
+         You can enable Multifactor Authentication for researchers on this study, Beiwe will then require that researchers use a second factor authentication code to log in.  Beiwe currently supports time-based one-time passwords (TOTP), which users configure with a mobile app like Google Authenticator or Authy.  This feature can also be enabled at-will by any user, it can be configured on the manage credentials page.
+         <p><p>
+         <i>(Note: if you do not have MFA configured and you enable it, you will be forcibly redirected to the manage credentials page.)
+      </div>
+      <div class="col-lg-3 col-md-12">
+        <div class="checkbox-fix">
+          <label for="mfa_required" class="checkbox-label-fill">Require MFA:</label>
+          <input class="security-check" type="checkbox" id="mfa_required" name="mfa_required"
+            {% if study.mfa_required %}checked{% endif %} />
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xs-12 well">
+      <div class="col-lg-9 col-md-12">
         Your study may fall under a security policy requiring periodic password resets, and Beiwe supports this feature for compliance purposes. However, best practices
         like <a href="https://pages.nist.gov/800-63-3/sp800-63b.html">NIST's Digital Identity Guidelines</a> recommend against
         mandatory periodic resets as they encourage the use of weak passwords.

@@ -41,6 +41,7 @@ path("reset_admin_password", admin_pages.reset_admin_password)  # note: excluded
 path("reset_download_api_credentials", admin_pages.reset_download_api_credentials)
 path("new_api_key", admin_pages.new_tableau_api_key)
 path("disable_tableau_api_key", admin_pages.disable_tableau_api_key)
+path("reset_mfa_self", admin_pages.reset_mfa_self)
 
 # Dashboard
 path("dashboard/<int:study_id>", dashboard_api.dashboard_page)
@@ -65,6 +66,8 @@ path("demote_researcher", system_admin_pages.demote_study_admin)
 path("create_new_researcher", system_admin_pages.create_new_researcher)
 path("manage_studies", system_admin_pages.manage_studies)
 path("edit_study/<int:study_id>", system_admin_pages.edit_study)
+path("reset_researcher_mfa/<int:researcher_id>", system_admin_pages.reset_researcher_mfa)
+
 path("create_study", system_admin_pages.create_study)
 path("toggle_study_forest_enabled/<int:study_id>", system_admin_pages.toggle_study_forest_enabled)
 path("delete_study/<int:study_id>", system_admin_pages.delete_study)

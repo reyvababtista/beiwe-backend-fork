@@ -6,6 +6,7 @@ from markupsafe import Markup
 from authentication.admin_authentication import (authenticate_researcher_login,
     authenticate_researcher_study_access, get_researcher_allowed_studies_as_query_set,
     logout_researcher)
+from config.settings import DOMAIN_NAME
 from constants.common_constants import DISPLAY_TIME_FORMAT
 from constants.message_strings import (NEW_API_KEY_MESSAGE, NEW_PASSWORD_MISMATCH,
     PASSWORD_RESET_SUCCESS, RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE, TABLEAU_API_KEY_IS_DISABLED,
@@ -16,8 +17,10 @@ from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
 from forms.django_forms import DisableApiKeyForm, NewApiKeyForm
 from libs.firebase_config import check_firebase_instance
+from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
 from libs.password_validation import check_password_requirements, get_min_password_requirement
+from libs.security import create_mfa_object, qrcode_bas64_png
 from middleware.abort_middleware import abort
 from serializers.tableau_serializers import ApiKeySerializer
 
@@ -96,12 +99,43 @@ def view_study(request: ResearcherRequest, study_id=None):
 
 
 @authenticate_researcher_login
+def reset_mfa_self(request: ResearcherRequest):
+    """ Endpoint either enables and creates a new, or clears the MFA toke for the researcher. """
+    # requires a passsword to change the mfa setting, basic error checking.
+    password = request.POST.get("mfa_password", None)
+    if not password:
+        messages.error(request, "No password provided")
+        return redirect(easy_url("admin_pages.manage_credentials"))
+    if not request.session_researcher.validate_password(password):
+        messages.error(request, "Invalid Password")
+        return redirect(easy_url("admin_pages.manage_credentials"))
+    
+    # presence of a "disable" key in the post data to distinguish between setting and clearing
+    if "disable" in request.POST:
+        request.session_researcher.clear_mfa()
+    else:
+        messages.warning(request, "MFA has been enabled for your account. Use the QR Code below to configure your authenticator app, a one-time-password will now be required the next time you log in.")
+        request.session_researcher.reset_mfa()
+    return redirect(easy_url("admin_pages.manage_credentials"))
+
+
+@authenticate_researcher_login
 def manage_credentials(request: ResearcherRequest):
     # TODO: this is an inappropriate use of a serializer.  It is a single use entity, the contents
     #  of this database entity do not require special serialization or deserialization, and the use
     #  of the serializer is complex enough to obscure functionality.  This use of the serializer
     #  requires that you be an expert in the DRF.
     srlzr = ApiKeySerializer(ApiKey.objects.filter(researcher=request.session_researcher), many=True)
+    
+    if request.session_researcher.mfa_token is None:
+        mfa_png = False  # it needs to be falsey in the template, this is fine
+    else:
+        obj = create_mfa_object(request.session_researcher.mfa_token.strip("="))
+        mfa_url = obj.provisioning_uri(
+            name=request.session_researcher.username, issuer_name=DOMAIN_NAME
+        )
+        mfa_png = qrcode_bas64_png(mfa_url)
+    
     return render(
         request,
         'manage_credentials.html',
@@ -113,6 +147,8 @@ def manage_credentials(request: ResearcherRequest):
             new_tableau_key_id=request.session.pop("new_tableau_key_id", None),
             new_tableau_secret_key=request.session.pop("new_tableau_secret_key", None),
             min_password_length=get_min_password_requirement(request.session_researcher),
+            mfa_png=mfa_png,
+            researcher=request.session_researcher,
         )
     )
 

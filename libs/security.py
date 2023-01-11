@@ -1,11 +1,14 @@
 import base64
 import codecs
 import hashlib
+import io
 import random
 from binascii import Error as base64_error
-from hashlib import pbkdf2_hmac as pbkdf2
 from os import urandom
 from typing import Tuple
+
+import pyotp
+import pyqrcode
 
 from constants.security_constants import BASE64_GENERIC_ALLOWED_CHARACTERS, EASY_ALPHANUMERIC_CHARS
 
@@ -128,7 +131,7 @@ def password_hash(algorithm: str, iterations: int, proposed_password: bytes, sal
     if not iterations:
         raise SecurityError(f"password hashing received invalid iterations: '{iterations}'")
     dklen = 32 if algorithm in ('sha1', 'sha256') else 64
-    return encode_base64(pbkdf2(algorithm, proposed_password, salt, iterations, dklen))
+    return encode_base64(hashlib.pbkdf2_hmacpbkdf2(algorithm, proposed_password, salt, iterations, dklen))
 
 
 ################################################################################
@@ -155,3 +158,43 @@ def generate_random_string(length: int) -> str:
 def generate_random_bytestring(length: int) -> bytes:
     """ Generates a random string of base64 characters as a bytes. """
     return ''.join(random.choice(BASE64_GENERIC_ALLOWED_CHARACTERS) for _ in range(length)).encode()
+
+
+################################################################################
+#################################### MFA #######################################
+################################################################################
+
+
+def qrcode_bas64_png(url: str) -> str:
+    """ Takes a url and produces a base64 encoded png of a QR code, suitable for embedding in an
+    html page using the pyqrcode library. """
+    qr_code = pyqrcode.create(url, error="L")  # set error correction to low for smaller qr
+    buffer = io.BytesIO()
+    qr_code.png(buffer, scale=6)
+    buffer.seek(0)
+    return base64.b64encode(buffer.read()).decode()
+
+
+def verify_mfa(mfa_token: str, code_to_test: str) -> bool:
+    """ Returns a string of the current OTP code for the given secret. """
+    # window is the number of future and past codes to include in the  check.
+    return create_mfa_object(mfa_token).verify(code_to_test, valid_window=1)
+
+
+def create_mfa_object(mfa_token: str) -> pyotp.TOTP:
+    """ Creates a one time password object with some defaults so that it is documented how we are
+    configuring this. The digest is the hash algorithm, the default is sha1 so we override that on
+    principle (its considered generally insecure). """
+    return pyotp.TOTP(
+        mfa_token,
+        digits=6,
+        digest=hashlib.sha512,
+        name=None,
+        issuer=None,
+        interval=30,
+    )
+
+
+def get_current_mfa_code(mfa_token: str) -> str:
+    """ Returns a string of the current OTP code for the given secret, primarily for debugging. """
+    return create_mfa_object(mfa_token).now()

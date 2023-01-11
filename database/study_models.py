@@ -59,6 +59,8 @@ class Study(TimestampedModel):
     password_minimum_length = models.PositiveIntegerField(default=8, validators=[MinValueValidator(8), MaxValueValidator(20)])
     password_max_age_enabled = models.BooleanField(default=False)
     password_max_age_days = models.PositiveIntegerField(default=365, validators=[MinValueValidator(30), MaxValueValidator(365)])
+    mfa_required = models.BooleanField(default=False)
+    
     
     # related field typings (IDE halp)
     chunk_registries: Manager[ChunkRegistry]

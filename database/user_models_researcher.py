@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import base64
 from typing import Tuple
 
 from django.contrib.sessions.backends.db import SessionStore as DBStore
 from django.contrib.sessions.base_session import AbstractBaseSession
-from django.core.validators import MinValueValidator
+from django.core.validators import MinLengthValidator, MinValueValidator
 from django.db import models
 from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
@@ -14,9 +15,10 @@ from constants.user_constants import ResearcherRole, SESSION_NAME
 from database.models import TimestampedModel
 from database.study_models import Study
 from database.user_models_common import AbstractPasswordUser
-from database.validators import PASSWORD_VALIDATOR, STANDARD_BASE_64_VALIDATOR
+from database.validators import B32_VALIDATOR, PASSWORD_VALIDATOR, STANDARD_BASE_64_VALIDATOR
 from libs.security import (BadDjangoKeyFormatting, compare_password, django_password_components,
-    generate_random_bytestring, generate_random_string, to_django_password_components)
+    generate_random_bytestring, generate_random_string, get_current_mfa_code,
+    to_django_password_components)
 
 
 # This is an import hack to improve IDE assistance.
@@ -46,13 +48,16 @@ class Researcher(AbstractPasswordUser):
     # halved, and it needs to be stored Somewhere, either here or in the current session.
     password_min_length = models.SmallIntegerField(default=8, validators=[MinValueValidator(8)])
     
+    # multi-factor authentication. If this is populated then the user has MFA enabled.
+    mfa_token = models.CharField(max_length=52, validators=[B32_VALIDATOR, MinLengthValidator(52)], null=True, blank=True)
+    
     # related field typings (IDE halp)
     api_keys: Manager[ApiKey]
     study_relations: Manager[StudyRelation]
     data_access_record: Manager[DataAccessRecord]
     web_sessions: Manager[ResearcherSession]
     
-    ## User Creation and Passwords
+    ## User Creation and Authentication
     @classmethod
     def create_with_password(cls, username, password, **kwargs) -> Researcher:
         """ Creates a new Researcher with provided username and password. They will initially
@@ -83,6 +88,29 @@ class Researcher(AbstractPasswordUser):
         """ Deletes all sessions for this user, forcing a logout and automatic redirection to the
         login page of any and all active website sessions. """
         self.web_sessions.all().delete()
+    
+    def clear_mfa(self) -> None:
+        """ Disables two-factor authentication for this user. """
+        self.mfa_token = None
+        self.save()
+        return None
+    
+    def reset_mfa(self) -> str:
+        """ Enables two-factor authentication for this user. (presence is used to determine enablement) """
+        # a base32-encoded random string, with padding removed
+        self.mfa_token = base64.b32encode(generate_random_bytestring(32)).decode().rstrip("=")
+        self.save()
+        return self.mfa_token
+    
+    @property
+    def mfa_now(self):
+        """ Returns the current MFA code for this user, for debugging. """
+        return get_current_mfa_code(self.mfa_token)
+    
+    @property
+    def requires_mfa(self) -> bool:
+        """ Returns whether or not this user has two-factor authentication enabled. """
+        return self.study_relations.filter(study__mfa_required=True).exists()
     
     ## User Roles
     def elevate_to_site_admin(self):

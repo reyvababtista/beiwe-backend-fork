@@ -158,7 +158,10 @@ class ApiQueryForm(forms.Form):
 class StudySecuritySettingsForm(forms.ModelForm):
     
     class Meta:
-        fields = ["password_minimum_length", "password_max_age_enabled", "password_max_age_days"]
+        fields = [
+            "password_minimum_length", "password_max_age_enabled", "password_max_age_days", "mfa_required"
+        ]
         model = Study
     
     password_max_age_enabled = forms.CheckboxInput()
+    mfa_required = forms.CheckboxInput()

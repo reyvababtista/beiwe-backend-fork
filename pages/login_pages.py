@@ -5,6 +5,8 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from authentication import admin_authentication
+from constants.message_strings import (MFA_DIGITS_ONLY, MFA_LOGIN_6_DIGITS, MFA_LOGIN_MISSING,
+    MFA_LOGIN_WRONG)
 from database.user_models_researcher import Researcher
 from libs.security import verify_mfa
 
@@ -38,16 +40,16 @@ def validate_login(request: HttpRequest):
     # cases: mfa was missing, bad length, non-digits. Display message, only mfa missing requires
     # a return to the login page, other cases are guaranteed to fail mfa check.
     if researcher.mfa_token and mfa_code and len(mfa_code) != 6:
-        messages.warning(request, "MFA code must be 6 digits.")
+        messages.warning(request, MFA_LOGIN_6_DIGITS)
     if researcher.mfa_token and mfa_code and not mfa_code.isdecimal():
-        messages.warning(request, "MFA code must consist of digits.")
+        messages.warning(request, MFA_DIGITS_ONLY)
     if researcher.mfa_token and not mfa_code:
-        messages.error(request, "MFA code required, try again.")
+        messages.error(request, MFA_LOGIN_MISSING)
         return redirect(reverse("login_pages.login_page"))
     
     # case: mfa is required, was provided, but was incorrect.
     if researcher.mfa_token and mfa_code and not verify_mfa(researcher.mfa_token, mfa_code):
-        messages.error(request, "Incorrect MFA code, try again.")
+        messages.error(request, MFA_LOGIN_WRONG)
         return redirect(reverse("login_pages.login_page"))
     
     # case: mfa is required, was provided, and was correct.

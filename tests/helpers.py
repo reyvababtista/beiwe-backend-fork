@@ -113,7 +113,7 @@ class ReferenceObjectMixin:
         if relation == ResearcherRole.site_admin:
             researcher.update(site_admin=True)
             return relation
-        relation = StudyRelation(researcher=researcher, study=study, relationship=relation)
+        relation: StudyRelation = StudyRelation(researcher=researcher, study=study, relationship=relation)
         relation.save()
         return relation
     

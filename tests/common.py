@@ -216,10 +216,11 @@ class BasicSessionTestCase(CommonTestCase):
         # logs in the default researcher user, assumes it has been instantiated.
         return self.do_login(self.DEFAULT_RESEARCHER_NAME, self.DEFAULT_RESEARCHER_PASSWORD)
     
-    def do_login(self, username, password):
+    def do_login(self, username, password, mfa_code=None):
+        mfa = {"mfa_code": mfa_code} if mfa_code else {}
         return self.client.post(
             self.smart_reverse("login_pages.validate_login"),
-            data={"username": username, "password": password}
+            data={"username": username, "password": password, **mfa}
         )
 
 
@@ -370,6 +371,7 @@ class RedirectSessionApiTest(PopulatedResearcherSessionTestCase, SmartRequestsTe
         resp = self.smart_get_redirect(*args, **kwargs)
         self.assertEqual(resp.status_code, 200)
         return resp.content
+
 
 class ResearcherSessionTest(PopulatedResearcherSessionTestCase, SmartRequestsTestCase):
     ENDPOINT_NAME = None

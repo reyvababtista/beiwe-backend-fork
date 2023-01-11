@@ -20,7 +20,7 @@ from constants.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID
     ALERT_ANDROID_VALIDATION_FAILED_TEXT, ALERT_DECODE_ERROR_TEXT, ALERT_EMPTY_TEXT,
     ALERT_FIREBASE_DELETED_TEXT, ALERT_IOS_DELETED_TEXT, ALERT_IOS_SUCCESS_TEXT,
     ALERT_IOS_VALIDATION_FAILED_TEXT, ALERT_MISC_ERROR_TEXT, ALERT_SPECIFIC_ERROR_TEXT,
-    ALERT_SUCCESS_TEXT, NEW_PASSWORD_N_LONG)
+    ALERT_SUCCESS_TEXT, MFA_RESET_BAD_PERMISSIONS, NEW_PASSWORD_N_LONG)
 from constants.user_constants import ResearcherRole
 from database.data_access_models import FileToProcess
 from database.study_models import DeviceSettings, Study
@@ -190,7 +190,7 @@ def reset_researcher_mfa(request: ResearcherRequest, researcher_id: int):
         researcher.clear_mfa()
         messages.warning(request, f"MFA token cleared for researcher {researcher.username}.")
     else:
-        messages.warning("You do not have permission to reset this researcher's MFA token.")
+        messages.warning(request, MFA_RESET_BAD_PERMISSIONS)
         return abort(403)
     return redirect(easy_url('system_admin_pages.edit_researcher', researcher_id))
 

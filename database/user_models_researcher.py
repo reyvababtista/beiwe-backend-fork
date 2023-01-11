@@ -103,7 +103,7 @@ class Researcher(AbstractPasswordUser):
         return self.mfa_token
     
     @property
-    def mfa_now(self):
+    def _mfa_now(self):
         """ Returns the current MFA code for this user, for debugging. """
         return get_current_mfa_code(self.mfa_token)
     

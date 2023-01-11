@@ -37,11 +37,13 @@ def authenticate_researcher_login(some_function):
     """ Decorator for functions (pages) that require a login, redirect to login page on failure. """
     @functools.wraps(some_function)
     def authenticate_and_call(*args, **kwargs):
+        # typecheck, this decorator assumes a django HttpRequest is the first parameter
         request: ResearcherRequest = args[0]
         assert isinstance(request, HttpRequest), \
             f"first parameter of {some_function.__name__} must be an HttpRequest, was {type(request)}."
         
         if check_is_logged_in(request):
+            # log them in, determine any top-level redirects, otherwise continue to target function
             populate_session_researcher(request)
             goto_redirect = determine_any_redirects(request)
             return goto_redirect if goto_redirect else some_function(*args, **kwargs)

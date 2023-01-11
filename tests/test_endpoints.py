@@ -22,11 +22,12 @@ from constants.common_constants import API_DATE_FORMAT, BEIWE_PROJECT_ROOT
 from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_DATA_STREAMS
 from constants.data_stream_constants import ACCELEROMETER, ALL_DATA_STREAMS, SURVEY_TIMINGS
 from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_UNKNOWN,
-    MESSAGE_SEND_SUCCESS, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG, NEW_PASSWORD_RULES_FAIL,
-    PASSWORD_EXPIRED, PASSWORD_RESET_FAIL_SITE_ADMIN, PASSWORD_RESET_FORCED,
-    PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS, PASSWORD_RESET_TOO_SHORT,
-    PASSWORD_WILL_EXPIRE, PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED,
-    TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
+    MESSAGE_SEND_SUCCESS, MFA_CONFIGURATION_REQUIRED, MFA_DIGITS_ONLY, MFA_LOGIN_6_DIGITS,
+    MFA_LOGIN_MISSING, MFA_LOGIN_WRONG, MFA_RESET_BAD_PERMISSIONS, NEW_PASSWORD_MISMATCH,
+    NEW_PASSWORD_N_LONG, NEW_PASSWORD_RULES_FAIL, PASSWORD_EXPIRED, PASSWORD_RESET_FAIL_SITE_ADMIN,
+    PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS,
+    PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE, PUSH_NOTIFICATIONS_NOT_CONFIGURED,
+    TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT, MIDNIGHT_EVERY_DAY, OCT_6_NOON_2022)
@@ -353,6 +354,36 @@ class TestLoginPages(BasicSessionTestCase):
         self.session_researcher.refresh_from_db()
         self.assertEqual(self.session_researcher.web_sessions.count(), 0)
         self.assertEqual(resp.url, reverse("login_pages.login_page"))
+    
+    def test_mfa_login(self):
+        self.session_researcher.reset_mfa()  # enable mfa
+        if self.session_researcher._mfa_now == "123456":
+            self.session_researcher.reset_mfa()  # ensure mfa code is not 123456
+        
+        r1 = self.do_default_login()
+        self.assertEqual(r1.status_code, 302)  # assert login failure
+        self.assertEqual(r1.url, "/")
+        the_login_page = self.simple_get("/", status_code=200).content
+        self.assert_present(MFA_LOGIN_MISSING, the_login_page)  # missing mfa
+        self.do_login(self.DEFAULT_RESEARCHER_NAME, self.DEFAULT_RESEARCHER_PASSWORD, mfa_code="123456")  # wrong mfa code
+        the_login_page = self.simple_get("/", status_code=200).content
+        self.assert_present(MFA_LOGIN_WRONG, the_login_page)
+        self.do_login(self.DEFAULT_RESEARCHER_NAME, self.DEFAULT_RESEARCHER_PASSWORD, mfa_code="1234567")  # too long mfa code
+        the_login_page = self.simple_get("/", status_code=200).content
+        self.assert_present(MFA_LOGIN_6_DIGITS, the_login_page)
+        self.do_login(self.DEFAULT_RESEARCHER_NAME, self.DEFAULT_RESEARCHER_PASSWORD, mfa_code="abcdef")  # non-numeric mfa code
+        the_login_page = self.simple_get("/", status_code=200).content
+        self.assert_present(MFA_DIGITS_ONLY, the_login_page)
+    
+    def test_mfa_required(self):
+        self.session_researcher
+        self.do_default_login()
+        self.default_study.update_only(mfa_required=True)  # enable mfa
+        self.set_session_study_relation()  # ensure researcher is on study
+        resp = self.simple_get(easy_url("admin_pages.choose_study"), status_code=302)  # page redirects
+        self.assertEqual(resp.url, reverse("admin_pages.manage_credentials"))
+        resp = self.simple_get(resp.url, status_code=200)  # page loads as normal
+        self.assert_present(MFA_CONFIGURATION_REQUIRED, resp.content)
 
 
 class TestChooseStudy(ResearcherSessionTest):
@@ -806,6 +837,64 @@ class TestManageResearchers(ResearcherSessionTest):
         resp = self.smart_get_status_code(200)
         self.assert_present(r2.username, resp.content)
         self.assert_present(r3.username, resp.content)
+
+
+class TestResetResearcherMFA(RedirectSessionApiTest):
+    ENDPOINT_NAME = "system_admin_pages.reset_researcher_mfa"
+    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_researcher"
+    
+    def test_reset_as_site_admin(self):
+        self._test_reset(self.generate_researcher(), ResearcherRole.site_admin)
+    
+    def test_reset_as_site_admin_on_site_admin(self):
+        researcher = self.generate_researcher()
+        self.generate_study_relation(researcher, self.session_study, ResearcherRole.site_admin)
+        self._test_reset(researcher, ResearcherRole.site_admin)
+    
+    def test_reset_as_study_admin_on_good_researcher(self):
+        researcher = self.generate_researcher()
+        self.generate_study_relation(researcher, self.session_study, ResearcherRole.researcher)
+        self._test_reset(researcher, ResearcherRole.study_admin)
+    
+    def test_reset_as_study_admin_on_bad_researcher(self):
+        researcher = self.generate_researcher()
+        self._test_reset_fail(researcher, ResearcherRole.study_admin, 403)
+    
+    def test_reset_as_study_admin_on_site_admin(self):
+        researcher = self.generate_researcher()
+        self.generate_study_relation(researcher, self.session_study, ResearcherRole.site_admin)
+        self._test_reset_fail(researcher, ResearcherRole.study_admin, 403)
+    
+    def test_reset_study_admin_with_good_study_admin(self):
+        researcher = self.generate_researcher()
+        self.generate_study_relation(researcher, self.session_study, ResearcherRole.study_admin)
+        self._test_reset(researcher, ResearcherRole.study_admin)
+    
+    def test_no_researcher(self):
+        # basically, it should 404
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        resp = self._smart_post(0)  # not the magic redirect smart post; 0 will always be an invalid researcher id
+        self.assertEqual(404, resp.status_code)
+    
+    def _test_reset(self, researcher: Researcher, role: ResearcherRole):
+        researcher.reset_mfa()
+        self.set_session_study_relation(role)
+        self.smart_post(researcher.id)  # magic redirect smart post, tests for a redirect
+        researcher.refresh_from_db()
+        self.assertIsNone(researcher.mfa_token)
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME, researcher_pk=researcher.id)
+        self.assert_present("MFA token cleared for researcher ", resp.content)
+    
+    def _test_reset_fail(self, researcher: Researcher, role: ResearcherRole, status_code: int):
+        researcher.reset_mfa()
+        self.set_session_study_relation(role)
+        resp = self._smart_post(researcher.id)  # not the magic redirect smart post; 0 will always be an invalid researcher id
+        self.assertEqual(status_code, resp.status_code)
+        researcher.refresh_from_db()
+        self.assertIsNotNone(researcher.mfa_token)
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME, researcher_pk=researcher.id)
+        if resp.status_code == 403:
+            self.assert_present(MFA_RESET_BAD_PERMISSIONS, resp.content)
 
 
 class TestEditResearcher(ResearcherSessionTest):

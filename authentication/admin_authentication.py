@@ -10,8 +10,9 @@ from django.shortcuts import HttpResponseRedirect, redirect
 from django.utils import timezone
 from django.utils.timezone import is_naive
 
-from constants.message_strings import (PASSWORD_EXPIRED, PASSWORD_RESET_FORCED,
-    PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE)
+from constants.message_strings import (MFA_CONFIGURATION_REQUIRED, PASSWORD_EXPIRED,
+    PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_TOO_SHORT,
+    PASSWORD_WILL_EXPIRE)
 from constants.user_constants import (ALL_RESEARCHER_TYPES, EXPIRY_NAME, ResearcherRole,
     SESSION_NAME, SESSION_UUID)
 from database.study_models import Study
@@ -126,7 +127,7 @@ def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponse
     
     # case: the password reset page would otherwise be infinitely redirected to itself.
     # need to allow user to log out and set a new password, all other endpoints will result in 302
-    if request.get_raw_uri().endswith(("manage_credentials", "reset_admin_password", "logout")):
+    if request.get_raw_uri().endswith(("manage_credentials", "reset_admin_password", "logout", "reset_mfa_self")):
         return None
     
     # if the researcher has a forced password reset, or the researcher is on a study that requires
@@ -135,6 +136,7 @@ def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponse
         log("password reset forced")
         messages.error(request, PASSWORD_RESET_FORCED)
         return redirect(easy_url("admin_pages.manage_credentials"))
+    
     if researcher.password_min_length < get_min_password_requirement(researcher):
         log("password reset min length")
         messages.error(
@@ -160,6 +162,13 @@ def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponse
             return redirect(easy_url("admin_pages.manage_credentials"))
         elif password_age_days > max_age_days - 7:
             messages.warning(request, PASSWORD_WILL_EXPIRE.format(days=max_age_days - password_age_days))
+    
+    # based on the researcher's studies or if they are a site admin, determine if MFA is required.
+    # Force researchers without MFA to redirect to the manage credetials page with a message.
+    # TODO: do we want this forced for site admins? or is the 20 character password enough?
+    if researcher.requires_mfa and not researcher.mfa_token:
+        messages.error(request, MFA_CONFIGURATION_REQUIRED)
+        return redirect(easy_url("admin_pages.manage_credentials"))
 
 
 def assert_admin(request: ResearcherRequest, study_id: int):

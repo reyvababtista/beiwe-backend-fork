@@ -95,6 +95,8 @@ PASSWORD_RESET_FORCED = "You have had your password administratively reset, plea
 PASSWORD_RESET_FAIL_SITE_ADMIN = "You cannot manually set a password of a site admin. If you must do so please contact your system administrator."
 PASSWORD_RESET_SITE_ADMIN = "Site Administrators must reset their passwords to ensure they are at least 20 characters in length."
 PASSWORD_RESET_TOO_SHORT = "A study you are authorized on has a new minimum password length requirement, update your password to continue."
+MFA_CONFIGURATION_REQUIRED = "You must configure MFA before you can use the site."
+
 
 # self password reset
 PASSWORD_RESET_SUCCESS = "Your password has been reset!"

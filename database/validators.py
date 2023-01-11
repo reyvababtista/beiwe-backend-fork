@@ -5,6 +5,8 @@ from django.utils.deconstruct import deconstructible
 
 @deconstructible
 class LengthValidator(object):
+    # Oh good, this is referenced in the migrations so it can never be removed
+    
     length = None  # If length is None, no validation is done
     message = 'Ensure this value has exactly {} characters (it has {}).'
     code = 'invalid'
@@ -55,3 +57,9 @@ STANDARD_BASE_64_VALIDATOR = RegexValidator(f'^{_b64_chars_with_padding}$')
 PASSWORD_VALIDATOR = RegexValidator(
     f"^{_valid_algorithms}\$[0-9]+\${_b64_chars_url_with_padding}\${_b64_chars_url_with_padding}$"
 )
+
+
+# base32 is obscure and uses this obscure alphabet (see wikipedia page, RFC 4648 version)
+_b32_chars = "[2-7A-Z]"
+_b32_chars_with_padding = _b32_chars + "+={0,6}"
+B32_VALIDATOR = RegexValidator(_b32_chars_with_padding)

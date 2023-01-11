@@ -187,6 +187,25 @@ def edit_researcher_page(request: ResearcherRequest, researcher_pk):
         )
     )
 
+
+@require_POST
+@authenticate_admin
+def reset_researcher_mfa(request: ResearcherRequest, researcher_id: int):
+    # TODO: actually build and test this
+    researcher = get_object_or_404(Researcher, pk=researcher_id)
+    # have to use a custom way of determining whether a researcher is on a study the admin can
+    # administrate, we allow admins to reset admins.
+    administerable_studies = set(request.session_researcher.get_admin_study_relations().values_list("study_id", flat=True))
+    researcher_studies = set(researcher.study_relations.values_list("study_id", flat=True))
+    # only allow the action if there are any studies that overlap between these two sets
+    if administerable_studies.intersection(researcher_studies) or request.session_researcher.site_admin:
+        researcher.clear_mfa()
+    else:
+        messages.warning("You do not have permission to reset this researcher's MFA token.")
+        return abort(403)
+    return redirect("/researcher_admin/")
+
+
 @require_POST
 @authenticate_admin
 def elevate_researcher(request: ResearcherRequest):

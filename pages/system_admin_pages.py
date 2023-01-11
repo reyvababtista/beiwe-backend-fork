@@ -128,17 +128,14 @@ def manage_researchers(request: ResearcherRequest):
 
 @require_http_methods(['GET', 'POST'])
 @authenticate_admin
-def edit_researcher_page(request: ResearcherRequest, researcher_pk):
-    # Wow this got complex...
+def edit_researcher_page(request: ResearcherRequest, researcher_pk: int):
+    """ The page and various permissions logic for the edit researcher page. """
     session_researcher = request.session_researcher
     edit_researcher = Researcher.objects.get(pk=researcher_pk)
     
-    # site admins can edit study admins, but not other site admins.
-    # (users do not edit their own passwords on this page.)
-    editable_password = (
-            not edit_researcher.username == session_researcher.username
-            and not edit_researcher.site_admin
-    )
+    # site admins can force a password reset on study admins, but not other site admins
+    editable_password =\
+        not edit_researcher.username == session_researcher.username and not edit_researcher.site_admin
     
     # if the session researcher is not a site admin then we need to restrict password editing
     # to only researchers that are not study_admins anywhere.
@@ -161,28 +158,23 @@ def edit_researcher_page(request: ResearcherRequest, researcher_pk):
         edit_study_relationship_map = {
             study_id: relationship.replace("_", " ").title()
             for study_id, relationship in edit_researcher.study_relations
-                .filter(study__in=visible_studies)
-                .values_list("study_id", "relationship")
+                .filter(study__in=visible_studies).values_list("study_id", "relationship")
         }
-        
         # get the relevant studies, populate with relationship, editability, and the study.
-        edit_study_info = []
-        for study in visible_studies.filter(pk__in=edit_study_relationship_map.keys()):
-            edit_study_info.append((
-                edit_study_relationship_map[study.id],
-                study.id in administerable_studies,
-                study,
-            ))
+        edit_study_info = [
+            (edit_study_relationship_map[study.id], study.id in administerable_studies, study)
+            for study in visible_studies.filter(pk__in=edit_study_relationship_map.keys())
+        ]
     
     return render(
-        request,
-        'edit_researcher.html',
+        request, 'edit_researcher.html',
         dict(
             edit_researcher=edit_researcher,
             edit_study_info=edit_study_info,
             all_studies=get_administerable_studies_by_name(request),
             editable_password=editable_password,
-            redirect_url=f'/edit_researcher/{researcher_pk}',
+            editable_mfa=mfa_clear_allowed(session_researcher, edit_researcher),
+            redirect_url=easy_url('system_admin_pages.edit_researcher', researcher_pk),
             is_self=edit_researcher.id == session_researcher.id,
         )
     )
@@ -193,17 +185,27 @@ def edit_researcher_page(request: ResearcherRequest, researcher_pk):
 def reset_researcher_mfa(request: ResearcherRequest, researcher_id: int):
     # TODO: actually build and test this
     researcher = get_object_or_404(Researcher, pk=researcher_id)
-    # have to use a custom way of determining whether a researcher is on a study the admin can
-    # administrate, we allow admins to reset admins.
-    administerable_studies = set(request.session_researcher.get_admin_study_relations().values_list("study_id", flat=True))
-    researcher_studies = set(researcher.study_relations.values_list("study_id", flat=True))
-    # only allow the action if there are any studies that overlap between these two sets
-    if administerable_studies.intersection(researcher_studies) or request.session_researcher.site_admin:
+    
+    if mfa_clear_allowed(request.session_researcher, researcher):
         researcher.clear_mfa()
+        messages.warning(request, f"MFA token cleared for researcher {researcher.username}.")
     else:
         messages.warning("You do not have permission to reset this researcher's MFA token.")
         return abort(403)
-    return redirect("/researcher_admin/")
+    return redirect(easy_url('system_admin_pages.edit_researcher', researcher_id))
+
+
+def mfa_clear_allowed(session_researcher: Researcher, edit_researcher: Researcher):
+    # we allow site admins to reset mfa for anyone, including other site admins. (for that to be a
+    # security risk the current site admin must already be compromised.)
+    if session_researcher.site_admin:
+        return True
+    # have to use a custom way of determining whether a researcher is on a study the admin can
+    # administrate, and we study allow admins to reset study admins.
+    # only allow the action if there are any studies that overlap between these two sets
+    administerable_studies = set(session_researcher.get_admin_study_relations().values_list("study_id", flat=True))
+    researcher_studies = set(edit_researcher.study_relations.values_list("study_id", flat=True))
+    return bool(administerable_studies.intersection(researcher_studies))
 
 
 @require_POST
@@ -455,6 +457,7 @@ def change_study_security_settings(request: ResearcherRequest, study_id=None):
         "password_minimum_length": "Minimum Password Length",
         "password_max_age_enabled": "Enable Maximum Password Age",
         "password_max_age_days": "Maximum Password Age (days)",
+        "mfa_required": "Require Multi-Factor Authentication",
     }
     
     form = StudySecuritySettingsForm(request.POST, instance=study)

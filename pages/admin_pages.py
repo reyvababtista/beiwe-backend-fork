@@ -8,7 +8,8 @@ from authentication.admin_authentication import (authenticate_researcher_login,
     logout_researcher)
 from config.settings import DOMAIN_NAME
 from constants.common_constants import DISPLAY_TIME_FORMAT
-from constants.message_strings import (NEW_API_KEY_MESSAGE, NEW_PASSWORD_MISMATCH,
+from constants.message_strings import (MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED,
+    MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS, NEW_API_KEY_MESSAGE, NEW_PASSWORD_MISMATCH,
     PASSWORD_RESET_SUCCESS, RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE, TABLEAU_API_KEY_IS_DISABLED,
     TABLEAU_API_KEY_NOW_DISABLED, TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
 from constants.user_constants import ResearcherRole
@@ -104,17 +105,18 @@ def reset_mfa_self(request: ResearcherRequest):
     # requires a passsword to change the mfa setting, basic error checking.
     password = request.POST.get("mfa_password", None)
     if not password:
-        messages.error(request, "No password provided")
+        messages.error(request, MFA_SELF_NO_PASSWORD)
         return redirect(easy_url("admin_pages.manage_credentials"))
     if not request.session_researcher.validate_password(password):
-        messages.error(request, "Invalid Password")
+        messages.error(request, MFA_SELF_BAD_PASSWORD)
         return redirect(easy_url("admin_pages.manage_credentials"))
     
     # presence of a "disable" key in the post data to distinguish between setting and clearing
     if "disable" in request.POST:
+        messages.warning(request, MFA_SELF_DISABLED)
         request.session_researcher.clear_mfa()
     else:
-        messages.warning(request, "MFA has been enabled for your account. Use the QR Code below to configure your authenticator app, a one-time-password will now be required the next time you log in.")
+        messages.warning(request, MFA_SELF_SUCCESS)
         request.session_researcher.reset_mfa()
     return redirect(easy_url("admin_pages.manage_credentials"))
 

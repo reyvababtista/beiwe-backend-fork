@@ -23,7 +23,8 @@ from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_D
 from constants.data_stream_constants import ACCELEROMETER, ALL_DATA_STREAMS, SURVEY_TIMINGS
 from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_UNKNOWN,
     MESSAGE_SEND_SUCCESS, MFA_CONFIGURATION_REQUIRED, MFA_DIGITS_ONLY, MFA_LOGIN_6_DIGITS,
-    MFA_LOGIN_MISSING, MFA_LOGIN_WRONG, MFA_RESET_BAD_PERMISSIONS, NEW_PASSWORD_MISMATCH,
+    MFA_LOGIN_MISSING, MFA_LOGIN_WRONG, MFA_RESET_BAD_PERMISSIONS, MFA_SELF_BAD_PASSWORD,
+    MFA_SELF_DISABLED, MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS, NEW_PASSWORD_MISMATCH,
     NEW_PASSWORD_N_LONG, NEW_PASSWORD_RULES_FAIL, PASSWORD_EXPIRED, PASSWORD_RESET_FAIL_SITE_ADMIN,
     PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS,
     PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE, PUSH_NOTIFICATIONS_NOT_CONFIGURED,
@@ -61,7 +62,7 @@ class TestLoginPages(BasicSessionTestCase):
     
     def test_load_login_page_while_not_logged_in(self):
         # make sure the login page loads without logging you in when it should not
-        response = self.client.post(reverse("login_pages.login_page"))
+        response = self.client.get(reverse("login_pages.login_page"))
         self.assertEqual(response.status_code, 200)
         # this should uniquely identify the login page
         self.assertIn(b'<form method="POST" action="/validate_login">', response.content)
@@ -70,7 +71,7 @@ class TestLoginPages(BasicSessionTestCase):
         # make sure the login page loads without logging you in when it should not
         self.session_researcher  # create the default researcher
         self.do_default_login()
-        response = self.client.post(reverse("login_pages.login_page"))
+        response = self.client.get(reverse("login_pages.login_page"))
         self.assertEqual(response.status_code, 302)
         self.assert_response_url_equal(response.url, reverse("admin_pages.choose_study"))
         # this should uniquely identify the login page
@@ -895,6 +896,63 @@ class TestResetResearcherMFA(RedirectSessionApiTest):
         resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME, researcher_pk=researcher.id)
         if resp.status_code == 403:
             self.assert_present(MFA_RESET_BAD_PERMISSIONS, resp.content)
+
+
+class TestResetMFASelf(RedirectSessionApiTest):
+    ENDPOINT_NAME = "admin_pages.reset_mfa_self"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    
+    def test_no_password(self):
+        orig_mfa = self.session_researcher.reset_mfa()
+        self.smart_post()  # magic redirect smart post, tests for the redirect
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_NO_PASSWORD, resp.content)
+        self.session_researcher.refresh_from_db()
+        self.assertIsNotNone(self.session_researcher.mfa_token)
+        self.assertEqual(orig_mfa, self.session_researcher.mfa_token)  # no change
+    
+    def test_bad_password(self):
+        orig_mfa = self.session_researcher.reset_mfa()
+        self.smart_post(mfa_password="wrong_password")  # magic redirect smart post
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_BAD_PASSWORD, resp.content)
+        self.assertIsNotNone(self.session_researcher.mfa_token)
+        self.assertEqual(orig_mfa, self.session_researcher.mfa_token)  # no change
+    
+    def test_mfa_reset_with_mfa_token(self):
+        # case is not accessible from webpage
+        orig_mfa = self.session_researcher.reset_mfa()
+        self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD)  # magic redirect smart post
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_SUCCESS, resp.content)
+        self.session_researcher.refresh_from_db()
+        self.assertIsNotNone(self.session_researcher.mfa_token)
+        self.assertNotEqual(orig_mfa, self.session_researcher.mfa_token)  # change!
+    
+    def test_mfa_reset_without_mfa_token(self):
+        self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD)  # magic redirect smart post
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_SUCCESS, resp.content)
+        self.session_researcher.refresh_from_db()
+        self.assertIsNotNone(self.session_researcher.mfa_token)  # change!
+    
+    def test_mfa_clear_with_token(self):
+        orig_mfa = self.session_researcher.reset_mfa()
+        # disable can be any non-falsy value
+        self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD, disable="true")
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_DISABLED, resp.content)
+        self.session_researcher.refresh_from_db()
+        self.assertIsNone(self.session_researcher.mfa_token)
+        self.assertNotEqual(orig_mfa, self.session_researcher.mfa_token)  # change!
+    
+    def test_mfa_clear_without_mfa_token(self):
+        # disable can be any non-falsy value
+        self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD, disable="true")
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_DISABLED, resp.content)
+        self.session_researcher.refresh_from_db()
+        self.assertIsNone(self.session_researcher.mfa_token)  # change!
 
 
 class TestEditResearcher(ResearcherSessionTest):

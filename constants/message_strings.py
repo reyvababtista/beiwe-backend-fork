@@ -98,15 +98,18 @@ PASSWORD_RESET_TOO_SHORT = "A study you are authorized on has a new minimum pass
 
 ## mfa notices
 MFA_CONFIGURATION_REQUIRED = "You must configure MFA before you can use the site."
-MFA_LOGIN_MISSING = "MFA code required, try again."
-MFA_LOGIN_WRONG = "Incorrect MFA code, try again."
-MFA_LOGIN_6_DIGITS = "MFA code must be 6 digits long."
-MFA_DIGITS_ONLY = "MFA code must consist of digits."
+MFA_CODE_MISSING = "MFA code required, try again."
+MFA_CODE_WRONG = "Incorrect MFA code, try again."
+MFA_CODE_6_DIGITS = "MFA code must be 6 digits long."
+MFA_CODE_DIGITS_ONLY = "MFA code must consist of digits."
 MFA_RESET_BAD_PERMISSIONS = "You do not have permission to reset this researcher's MFA token."
 MFA_SELF_NO_PASSWORD = "No password provided"
 MFA_SELF_BAD_PASSWORD = "Invalid Password"
 MFA_SELF_SUCCESS = "MFA has been enabled for your account. Use the QR Code below to configure your authenticator app, a one-time-password will now be required the next time you log in."
 MFA_SELF_DISABLED = "MFA has been disabled for your account."
+MFA_TEST_DISABLED = "MFA is not enabled for this account."
+MFA_TEST_SUCCESS = "MFA code was correct, MFA is working correctly."
+MFA_TEST_FAIL = "MFA code was incorrect."
 
 # self password reset
 PASSWORD_RESET_SUCCESS = "Your password has been reset!"

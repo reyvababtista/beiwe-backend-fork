@@ -8,8 +8,9 @@ from authentication.admin_authentication import (authenticate_researcher_login,
     logout_researcher)
 from config.settings import DOMAIN_NAME
 from constants.common_constants import DISPLAY_TIME_FORMAT
-from constants.message_strings import (MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED,
-    MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS, NEW_API_KEY_MESSAGE, NEW_PASSWORD_MISMATCH,
+from constants.message_strings import (MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING,
+    MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED, MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS,
+    MFA_TEST_DISABLED, MFA_TEST_FAIL, MFA_TEST_SUCCESS, NEW_API_KEY_MESSAGE, NEW_PASSWORD_MISMATCH,
     PASSWORD_RESET_SUCCESS, RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE, TABLEAU_API_KEY_IS_DISABLED,
     TABLEAU_API_KEY_NOW_DISABLED, TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
 from constants.user_constants import ResearcherRole
@@ -21,7 +22,7 @@ from libs.firebase_config import check_firebase_instance
 from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
 from libs.password_validation import check_password_requirements, get_min_password_requirement
-from libs.security import create_mfa_object, qrcode_bas64_png
+from libs.security import create_mfa_object, qrcode_bas64_png, verify_mfa
 from middleware.abort_middleware import abort
 from serializers.tableau_serializers import ApiKeySerializer
 
@@ -99,6 +100,7 @@ def view_study(request: ResearcherRequest, study_id=None):
     )
 
 
+@require_POST
 @authenticate_researcher_login
 def reset_mfa_self(request: ResearcherRequest):
     """ Endpoint either enables and creates a new, or clears the MFA toke for the researcher. """
@@ -118,6 +120,31 @@ def reset_mfa_self(request: ResearcherRequest):
     else:
         messages.warning(request, MFA_SELF_SUCCESS)
         request.session_researcher.reset_mfa()
+    return redirect(easy_url("admin_pages.manage_credentials"))
+
+
+@require_POST
+@authenticate_researcher_login
+def test_mfa(request: ResearcherRequest):
+    """ endpoint to test your mfa code without accidentally locking yourself out. """
+    if not request.session_researcher.mfa_token:
+        messages.error(request, MFA_TEST_DISABLED)
+        return redirect(easy_url("admin_pages.manage_credentials"))
+    
+    mfa_code = request.POST.get("mfa_code", None)
+    if mfa_code and len(mfa_code) != 6:
+        messages.error(request, MFA_CODE_6_DIGITS)
+    if mfa_code and not mfa_code.isdecimal():
+        messages.error(request, MFA_CODE_DIGITS_ONLY)
+    if not mfa_code:
+        messages.error(request, MFA_CODE_MISSING)
+    
+    # case: mfa is required, was provided, but was incorrect.
+    if verify_mfa(request.session_researcher.mfa_token, mfa_code):
+        messages.success(request, MFA_TEST_SUCCESS)
+    else:
+        messages.error(request, MFA_TEST_FAIL)
+    
     return redirect(easy_url("admin_pages.manage_credentials"))
 
 

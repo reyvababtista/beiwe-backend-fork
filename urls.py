@@ -42,6 +42,7 @@ path("reset_download_api_credentials", admin_pages.reset_download_api_credential
 path("new_api_key", admin_pages.new_tableau_api_key)
 path("disable_tableau_api_key", admin_pages.disable_tableau_api_key)
 path("reset_mfa_self", admin_pages.reset_mfa_self)
+path("test_mfa", admin_pages.test_mfa)
 
 # Dashboard
 path("dashboard/<int:study_id>", dashboard_api.dashboard_page)

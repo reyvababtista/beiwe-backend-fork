@@ -22,13 +22,14 @@ from constants.common_constants import API_DATE_FORMAT, BEIWE_PROJECT_ROOT
 from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_DATA_STREAMS
 from constants.data_stream_constants import ACCELEROMETER, ALL_DATA_STREAMS, SURVEY_TIMINGS
 from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_UNKNOWN,
-    MESSAGE_SEND_SUCCESS, MFA_CONFIGURATION_REQUIRED, MFA_DIGITS_ONLY, MFA_LOGIN_6_DIGITS,
-    MFA_LOGIN_MISSING, MFA_LOGIN_WRONG, MFA_RESET_BAD_PERMISSIONS, MFA_SELF_BAD_PASSWORD,
-    MFA_SELF_DISABLED, MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS, NEW_PASSWORD_MISMATCH,
-    NEW_PASSWORD_N_LONG, NEW_PASSWORD_RULES_FAIL, PASSWORD_EXPIRED, PASSWORD_RESET_FAIL_SITE_ADMIN,
-    PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS,
-    PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE, PUSH_NOTIFICATIONS_NOT_CONFIGURED,
-    TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
+    MESSAGE_SEND_SUCCESS, MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING, MFA_CODE_WRONG,
+    MFA_CONFIGURATION_REQUIRED, MFA_RESET_BAD_PERMISSIONS, MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED,
+    MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS, MFA_TEST_DISABLED, MFA_TEST_FAIL, MFA_TEST_SUCCESS,
+    NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG, NEW_PASSWORD_RULES_FAIL, PASSWORD_EXPIRED,
+    PASSWORD_RESET_FAIL_SITE_ADMIN, PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN,
+    PASSWORD_RESET_SUCCESS, PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE,
+    PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY,
+    WRONG_CURRENT_PASSWORD)
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT, MIDNIGHT_EVERY_DAY, OCT_6_NOON_2022)
@@ -365,16 +366,16 @@ class TestLoginPages(BasicSessionTestCase):
         self.assertEqual(r1.status_code, 302)  # assert login failure
         self.assertEqual(r1.url, "/")
         the_login_page = self.simple_get("/", status_code=200).content
-        self.assert_present(MFA_LOGIN_MISSING, the_login_page)  # missing mfa
+        self.assert_present(MFA_CODE_MISSING, the_login_page)  # missing mfa
         self.do_login(self.DEFAULT_RESEARCHER_NAME, self.DEFAULT_RESEARCHER_PASSWORD, mfa_code="123456")  # wrong mfa code
         the_login_page = self.simple_get("/", status_code=200).content
-        self.assert_present(MFA_LOGIN_WRONG, the_login_page)
+        self.assert_present(MFA_CODE_WRONG, the_login_page)
         self.do_login(self.DEFAULT_RESEARCHER_NAME, self.DEFAULT_RESEARCHER_PASSWORD, mfa_code="1234567")  # too long mfa code
         the_login_page = self.simple_get("/", status_code=200).content
-        self.assert_present(MFA_LOGIN_6_DIGITS, the_login_page)
+        self.assert_present(MFA_CODE_6_DIGITS, the_login_page)
         self.do_login(self.DEFAULT_RESEARCHER_NAME, self.DEFAULT_RESEARCHER_PASSWORD, mfa_code="abcdef")  # non-numeric mfa code
         the_login_page = self.simple_get("/", status_code=200).content
-        self.assert_present(MFA_DIGITS_ONLY, the_login_page)
+        self.assert_present(MFA_CODE_DIGITS_ONLY, the_login_page)
     
     def test_mfa_required(self):
         self.session_researcher
@@ -953,6 +954,41 @@ class TestResetMFASelf(RedirectSessionApiTest):
         self.assert_present(MFA_SELF_DISABLED, resp.content)
         self.session_researcher.refresh_from_db()
         self.assertIsNone(self.session_researcher.mfa_token)  # change!
+
+
+class TestTestMFA(RedirectSessionApiTest):
+    ENDPOINT_NAME = "admin_pages.test_mfa"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    
+    def test_mfa_working_fails(self):
+        self.session_researcher.reset_mfa()  # enable mfa
+        if self.session_researcher._mfa_now == "123456":
+            self.session_researcher.reset_mfa()  # ensure mfa code is not 123456
+        
+        self.smart_post()  # magic redirect smart post
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_CODE_MISSING, page)  # missing mfa code
+        
+        self.smart_post(mfa_code="123456")  # wrong mfa code
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_TEST_FAIL, page)
+        
+        self.smart_post(mfa_code="1234567")  # too long mfa code
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_CODE_6_DIGITS, page)
+        
+        self.smart_post(mfa_code="abcdef")  # non-numeric mfa code
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_CODE_DIGITS_ONLY, page)
+        
+        self.smart_post(mfa_code=self.session_researcher._mfa_now)  # correct mfa code
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_TEST_SUCCESS, page)
+        
+        self.session_researcher.clear_mfa()  # disabled mfa
+        self.smart_post(mfa_code="abcdef")
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_TEST_DISABLED, page)
 
 
 class TestEditResearcher(ResearcherSessionTest):
@@ -1847,6 +1883,7 @@ class TestSetResearcherPassword(ResearcherSessionTest):
         )
         self.assertEqual(self.session_researcher.web_sessions.count(), 1)
         return ret
+
 
 # fixme: add user type tests
 class TestRenameStudy(RedirectSessionApiTest):

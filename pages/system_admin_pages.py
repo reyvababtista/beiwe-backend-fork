@@ -345,7 +345,8 @@ def create_study(request: ResearcherRequest):
         if not RUNNING_TEST_OR_IN_A_SHELL:
             with make_error_sentry(SentryTypes.elastic_beanstalk):
                 raise Exception("Someone tried to create a study with a suspiciously long name.")
-        return abort(400)
+        messages.error(request, 'the study name you provided was too long and was rejected, please try again.')
+        return redirect('/create_study')
     
     if escape(name) != name:
         if not RUNNING_TEST_OR_IN_A_SHELL:

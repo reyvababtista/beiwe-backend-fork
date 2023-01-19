@@ -1302,8 +1302,11 @@ class TestCreateStudy(ResearcherSessionTest):
         self.set_session_study_relation(ResearcherRole.site_admin)
         params = self.create_study_params()
         params["name"] = "a"*10000
-        resp = self.smart_post_status_code(400, **params)
-        self.assertEqual(resp.content, b"")
+        resp = self.smart_post_status_code(302, **params)
+        self.assertEqual(resp.url, easy_url("system_admin_pages.create_study"))
+        self.assert_present(
+            resp.content, b"the study name you provided was too long and was rejected"
+        )
         self.assert_no_new_study
     
     def test_create_study_bad_name(self):
@@ -2092,13 +2095,13 @@ class TestParticipantPage(RedirectSessionApiTest):
             **{post_param_name: "2020-01-01"})
         intervention_date.refresh_from_db()
         self.assertEqual(intervention_date.date, date(2020, 1, 1))
-
+    
     def test_bad_date_1(self):
         self._test_intervention_update_with_bad_date("2020/01/01")
     
     def test_bad_date_2(self):
         self._test_intervention_update_with_bad_date("31/01/2020")
-
+    
     def test_bad_date_3(self):
         self._test_intervention_update_with_bad_date("01/31/2020")
     

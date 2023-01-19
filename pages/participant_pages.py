@@ -58,11 +58,8 @@ def notification_history(request: ResearcherRequest, study_id: int, patient_id: 
 @authenticate_researcher_study_access
 def participant_page(request: ResearcherRequest, study_id: int, patient_id: str):
     # use the provided study id because authentication already validated it
-    try:
-        participant = Participant.objects.get(patient_id=patient_id)
-        study = Study.objects.get(id=study_id)
-    except (Participant.DoesNotExist, Study.DoesNotExist):
-        return HttpResponse(content="", status=404)
+    participant = get_object_or_404(Participant, patient_id=patient_id)
+    study = get_object_or_404(Study, pk=study_id)
     
     # safety check, enforce fields and interventions to be present for both page load and edit.
     add_fields_and_interventions(participant, study)
@@ -71,12 +68,20 @@ def participant_page(request: ResearcherRequest, study_id: int, patient_id: str)
     if request.method == 'GET':
         return render_participant_page(request, participant, study)
     
+    end_redirect = redirect(
+        easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id)
+    )
+    
     # update intervention dates for participant
     for intervention in study.interventions.all():
         input_date = request.POST.get(f"intervention{intervention.id}", None)
         intervention_date = participant.intervention_dates.get(intervention=intervention)
         if input_date:
-            intervention_date.update(date=datetime.strptime(input_date, API_DATE_FORMAT).date())
+            try:
+                intervention_date.update(date=datetime.strptime(input_date, API_DATE_FORMAT).date())
+            except ValueError:
+                messages.error(request, 'Invalid date format, please use the date selector or YYYY-MM-DD.')
+                return end_redirect
     
     # update custom fields dates for participant
     for field in study.fields.all():
@@ -89,9 +94,7 @@ def participant_page(request: ResearcherRequest, study_id: int, patient_id: str)
     repopulate_all_survey_scheduled_events(study, participant)
     
     messages.success(request, f'Successfully edited participant {participant.patient_id}.')
-    return redirect(easy_url(
-        "participant_pages.participant_page", study_id=study_id, patient_id=patient_id
-    ))
+    return end_redirect
 
 
 def render_participant_page(request: ResearcherRequest, participant: Participant, study: Study):

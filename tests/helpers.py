@@ -281,12 +281,12 @@ class ReferenceObjectMixin:
     @property
     def default_unpopulated_intervention_date(self) -> InterventionDate:
         try:
-            return self._default_populated_intervention_date
+            return self._default_unpopulated_intervention_date
         except AttributeError:
             pass
-        self._default_populated_intervention_date = \
+        self._default_unpopulated_intervention_date = \
             self.generate_intervention_date(self.default_participant, self.default_intervention)
-        return self._default_populated_intervention_date
+        return self._default_unpopulated_intervention_date
     
     def generate_intervention_date(
         self, participant: Participant, intervention: Intervention, date: date = None

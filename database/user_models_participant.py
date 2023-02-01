@@ -182,6 +182,12 @@ class Participant(AbstractPasswordUser):
         from libs.s3 import get_client_private_key  # weird import triangle
         return get_client_private_key(self.patient_id, self.study.object_id)
     
+    def s3_retrieve(self, s3_path: str) -> bytes:
+        from libs.s3 import s3_retrieve
+        raw_path = s3_path.startswith(self.study.object_id)
+        return s3_retrieve(s3_path, self, raw_path=raw_path)
+
+
     @property
     def participant_push_enabled(self) -> bool:
         return (

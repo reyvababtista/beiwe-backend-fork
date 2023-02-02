@@ -50,7 +50,7 @@ from libs.schedules import (get_start_and_end_of_java_timings_week,
     repopulate_absolute_survey_schedule_events, repopulate_relative_survey_schedule_events)
 from libs.security import device_hash, generate_easy_alphanumeric_string
 from tests.common import (BasicSessionTestCase, CommonTestCase, DataApiTest, ParticipantSessionTest,
-    RedirectSessionApiTest, ResearcherSessionTest, SmartRequestsTestCase)
+    ResearcherSessionTest, SmartRequestsTestCase)
 from tests.helpers import DummyThreadPool
 
 
@@ -474,7 +474,7 @@ class TestManageCredentials(ResearcherSessionTest):
         self.assert_present(api_key.access_key_id, response.content)
 
 
-class TestResetAdminPassword(RedirectSessionApiTest):
+class TestResetAdminPassword(ResearcherSessionTest):
     # test for every case and messages present on the page
     ENDPOINT_NAME = "admin_pages.reset_admin_password"
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
@@ -509,7 +509,7 @@ class TestResetAdminPassword(RedirectSessionApiTest):
         r = self.session_researcher
         self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
         self.assertFalse(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD + "1"))
-        self.assert_present(WRONG_CURRENT_PASSWORD, self.get_redirect_content())
+        self.assert_present(WRONG_CURRENT_PASSWORD, self.redirect_get_contents())
     
     def test_reset_admin_password_rules_fail(self):
         non_default = "abcdefghijklmnop"
@@ -521,7 +521,7 @@ class TestResetAdminPassword(RedirectSessionApiTest):
         r = self.session_researcher
         self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
         self.assertFalse(r.check_password(r.username, non_default))
-        self.assert_present(NEW_PASSWORD_RULES_FAIL, self.get_redirect_content())
+        self.assert_present(NEW_PASSWORD_RULES_FAIL, self.redirect_get_contents())
     
     def test_reset_admin_password_too_short(self):
         non_default = "a1#"
@@ -533,7 +533,7 @@ class TestResetAdminPassword(RedirectSessionApiTest):
         r = self.session_researcher
         self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
         self.assertFalse(r.check_password(r.username, non_default))
-        self.assert_present(NEW_PASSWORD_N_LONG.format(length=8), self.get_redirect_content())
+        self.assert_present(NEW_PASSWORD_N_LONG.format(length=8), self.redirect_get_contents())
     
     def test_reset_admin_password_too_short_study_setting(self):
         self.session_study.update(password_minimum_length=20)
@@ -547,7 +547,7 @@ class TestResetAdminPassword(RedirectSessionApiTest):
         r = self.session_researcher
         self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
         self.assertFalse(r.check_password(r.username, non_default))
-        self.assert_present(NEW_PASSWORD_N_LONG.format(length=20), self.get_redirect_content())
+        self.assert_present(NEW_PASSWORD_N_LONG.format(length=20), self.redirect_get_contents())
     
     def test_reset_admin_password_too_short_site_admin(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
@@ -560,7 +560,7 @@ class TestResetAdminPassword(RedirectSessionApiTest):
         r = self.session_researcher
         self.assertTrue(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD))
         self.assertFalse(r.check_password(r.username, non_default))
-        self.assert_present(NEW_PASSWORD_N_LONG.format(length=20), self.get_redirect_content())
+        self.assert_present(NEW_PASSWORD_N_LONG.format(length=20), self.redirect_get_contents())
     
     def test_reset_admin_password_mismatch(self):
         # has to pass the length and character checks
@@ -573,10 +573,10 @@ class TestResetAdminPassword(RedirectSessionApiTest):
         self.assertTrue(researcher.check_password(researcher.username, self.DEFAULT_RESEARCHER_PASSWORD))
         self.assertFalse(researcher.check_password(researcher.username, "aA1#aA1#aA1#"))
         self.assertFalse(researcher.check_password(researcher.username, "aA1#aA1#aA1#aA1#"))
-        self.assert_present(NEW_PASSWORD_MISMATCH, self.get_redirect_content())
+        self.assert_present(NEW_PASSWORD_MISMATCH, self.redirect_get_contents())
 
 
-class TestResetDownloadApiCredentials(RedirectSessionApiTest):
+class TestResetDownloadApiCredentials(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.reset_download_api_credentials"
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
@@ -586,10 +586,10 @@ class TestResetDownloadApiCredentials(RedirectSessionApiTest):
         self.session_researcher.refresh_from_db()
         self.assertIsNotNone(self.session_researcher.access_key_id)
         self.assert_present("Your Data-Download API access credentials have been reset",
-                             self.get_redirect_content())
+                             self.redirect_get_contents())
 
 
-class TestNewTableauApiKey(RedirectSessionApiTest):
+class TestNewTableauApiKey(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.new_tableau_api_key"
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
@@ -599,13 +599,13 @@ class TestNewTableauApiKey(RedirectSessionApiTest):
         self.smart_post(readable_name="new_name")
         self.assertIsNotNone(self.session_researcher.api_keys.first())
         self.assert_present("New Tableau API credentials have been generated for you",
-                             self.get_redirect_content())
+                             self.redirect_get_contents())
         self.assertEqual(ApiKey.objects.filter(
             researcher=self.session_researcher, readable_name="new_name").count(), 1)
 
 
 # admin_pages.disable_tableau_api_key
-class TestDisableTableauApiKey(RedirectSessionApiTest):
+class TestDisableTableauApiKey(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.disable_tableau_api_key"
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
@@ -618,14 +618,14 @@ class TestDisableTableauApiKey(RedirectSessionApiTest):
         )
         self.smart_post(api_key_id=api_key.access_key_id)
         self.assertFalse(self.session_researcher.api_keys.first().is_active)
-        content = self.get_redirect_content()
+        content = self.redirect_get_contents()
         self.assert_present(api_key.access_key_id, content)
         self.assert_present("is now disabled", content)
     
     def test_no_match(self):
         # fail with empty and fail with success
         self.smart_post(api_key_id="abc")
-        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.get_redirect_content())
+        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.redirect_get_contents())
         api_key = ApiKey.generate(
             researcher=self.session_researcher,
             has_tableau_api_permissions=True,
@@ -634,7 +634,7 @@ class TestDisableTableauApiKey(RedirectSessionApiTest):
         self.smart_post(api_key_id="abc")
         api_key.refresh_from_db()
         self.assertTrue(api_key.is_active)
-        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.get_redirect_content())
+        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.redirect_get_contents())
     
     def test_already_disabled(self):
         api_key = ApiKey.generate(
@@ -646,7 +646,7 @@ class TestDisableTableauApiKey(RedirectSessionApiTest):
         self.smart_post(api_key_id=api_key.access_key_id)
         api_key.refresh_from_db()
         self.assertFalse(api_key.is_active)
-        self.assert_present(TABLEAU_API_KEY_IS_DISABLED, self.get_redirect_content())
+        self.assert_present(TABLEAU_API_KEY_IS_DISABLED, self.redirect_get_contents())
 
 
 class TestDashboard(ResearcherSessionTest):
@@ -841,7 +841,7 @@ class TestManageResearchers(ResearcherSessionTest):
         self.assert_present(r3.username, resp.content)
 
 
-class TestResetResearcherMFA(RedirectSessionApiTest):
+class TestResetResearcherMFA(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.reset_researcher_mfa"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_researcher"
     
@@ -875,7 +875,7 @@ class TestResetResearcherMFA(RedirectSessionApiTest):
     def test_no_researcher(self):
         # basically, it should 404
         self.set_session_study_relation(ResearcherRole.site_admin)
-        resp = self._smart_post(0)  # not the magic redirect smart post; 0 will always be an invalid researcher id
+        resp = self.smart_post(0)  # not the magic redirect smart post; 0 will always be an invalid researcher id
         self.assertEqual(404, resp.status_code)
     
     def _test_reset(self, researcher: Researcher, role: ResearcherRole):
@@ -890,7 +890,7 @@ class TestResetResearcherMFA(RedirectSessionApiTest):
     def _test_reset_fail(self, researcher: Researcher, role: ResearcherRole, status_code: int):
         researcher.reset_mfa()
         self.set_session_study_relation(role)
-        resp = self._smart_post(researcher.id)  # not the magic redirect smart post; 0 will always be an invalid researcher id
+        resp = self.smart_post(researcher.id)  # not the magic redirect smart post; 0 will always be an invalid researcher id
         self.assertEqual(status_code, resp.status_code)
         researcher.refresh_from_db()
         self.assertIsNotNone(researcher.mfa_token)
@@ -899,7 +899,7 @@ class TestResetResearcherMFA(RedirectSessionApiTest):
             self.assert_present(MFA_RESET_BAD_PERMISSIONS, resp.content)
 
 
-class TestResetMFASelf(RedirectSessionApiTest):
+class TestResetMFASelf(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.reset_mfa_self"
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
@@ -956,7 +956,7 @@ class TestResetMFASelf(RedirectSessionApiTest):
         self.assertIsNone(self.session_researcher.mfa_token)  # change!
 
 
-class TestTestMFA(RedirectSessionApiTest):
+class TestTestMFA(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.test_mfa"
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
@@ -1320,7 +1320,7 @@ class TestCreateStudy(ResearcherSessionTest):
 
 
 # FIXME: this test has the annoying un-factored url with post params and url params
-class TestToggleForest(RedirectSessionApiTest):
+class TestToggleForest(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.toggle_study_forest_enabled"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
     
@@ -1348,7 +1348,7 @@ class TestToggleForest(RedirectSessionApiTest):
 
 
 # FIXME: this test has the annoying un-factored url with post params and url params
-class TestDeleteStudy(RedirectSessionApiTest):
+class TestDeleteStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.delete_study"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_studies"
     
@@ -1358,7 +1358,7 @@ class TestDeleteStudy(RedirectSessionApiTest):
         self.session_study.refresh_from_db()
         self.assertTrue(self.session_study.deleted)
         self.assertEqual(resp.url, easy_url(self.REDIRECT_ENDPOINT_NAME))
-        self.assert_present("Deleted study ", self.get_redirect_content())
+        self.assert_present("Deleted study ", self.redirect_get_contents())
 
 
 class TestDeviceSettings(ResearcherSessionTest):
@@ -1589,7 +1589,7 @@ class TestManageFirebaseCredentials(ResearcherSessionTest):
 
 
 # FIXME: implement tests for error cases
-class TestUploadBackendFirebaseCert(RedirectSessionApiTest):
+class TestUploadBackendFirebaseCert(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.upload_backend_firebase_cert"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
     
@@ -1604,12 +1604,12 @@ class TestUploadBackendFirebaseCert(RedirectSessionApiTest):
         self.set_session_study_relation(ResearcherRole.site_admin)
         file = SimpleUploadedFile("backend_cert.json", BACKEND_CERT.encode(), "text/json")
         self.smart_post(backend_firebase_cert=file)
-        resp_content = self.get_redirect_content()
+        resp_content = self.redirect_get_contents()
         self.assert_present("New firebase credentials have been received", resp_content)
 
 
 # FIXME: implement tests for error cases
-class TestUploadIosFirebaseCert(RedirectSessionApiTest):
+class TestUploadIosFirebaseCert(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.upload_ios_firebase_cert"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
     
@@ -1618,12 +1618,12 @@ class TestUploadIosFirebaseCert(RedirectSessionApiTest):
         self.set_session_study_relation(ResearcherRole.site_admin)
         file = SimpleUploadedFile("ios_firebase_cert.plist", IOS_CERT.encode(), "text/json")
         self.smart_post(ios_firebase_cert=file)
-        resp_content = self.get_redirect_content()
+        resp_content = self.redirect_get_contents()
         self.assert_present("New IOS credentials were received", resp_content)
 
 
 # FIXME: implement tests for error cases
-class TestUploadAndroidFirebaseCert(RedirectSessionApiTest):
+class TestUploadAndroidFirebaseCert(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.upload_android_firebase_cert"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
     
@@ -1632,11 +1632,11 @@ class TestUploadAndroidFirebaseCert(RedirectSessionApiTest):
         self.set_session_study_relation(ResearcherRole.site_admin)
         file = SimpleUploadedFile("android_firebase_cert.json", ANDROID_CERT.encode(), "text/json")
         self.smart_post(android_firebase_cert=file)
-        resp_content = self.get_redirect_content()
+        resp_content = self.redirect_get_contents()
         self.assert_present("New android credentials were received", resp_content)
 
 
-class TestDeleteFirebaseBackendCert(RedirectSessionApiTest):
+class TestDeleteFirebaseBackendCert(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.delete_backend_firebase_cert"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
     
@@ -1647,7 +1647,7 @@ class TestDeleteFirebaseBackendCert(RedirectSessionApiTest):
         self.assertFalse(FileAsText.objects.exists())
 
 
-class TestDeleteFirebaseIosCert(RedirectSessionApiTest):
+class TestDeleteFirebaseIosCert(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.delete_ios_firebase_cert"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
     
@@ -1658,7 +1658,7 @@ class TestDeleteFirebaseIosCert(RedirectSessionApiTest):
         self.assertFalse(FileAsText.objects.exists())
 
 
-class TestDeleteFirebaseAndroidCert(RedirectSessionApiTest):
+class TestDeleteFirebaseAndroidCert(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.delete_android_firebase_cert"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
     
@@ -1681,7 +1681,7 @@ class TestDataAccessWebFormPage(ResearcherSessionTest):
 
 
 # FIXME: add error cases to this test
-class TestSetStudyTimezone(RedirectSessionApiTest):
+class TestSetStudyTimezone(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.set_study_timezone"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
     
@@ -1889,13 +1889,13 @@ class TestSetResearcherPassword(ResearcherSessionTest):
 
 
 # fixme: add user type tests
-class TestRenameStudy(RedirectSessionApiTest):
+class TestRenameStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.rename_study"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
     
     def test(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
-        self.smart_post(self.session_study.id, new_study_name="hello!")
+        self.smart_post_redirect(self.session_study.id, new_study_name="hello!")
         self.session_study.refresh_from_db()
         self.assertEqual(self.session_study.name, "hello!")
 
@@ -1969,25 +1969,25 @@ class TestInterventionsPage(ResearcherSessionTest):
         self.assertEqual(intervention.name, "ohello")
 
 
-class TestDeleteIntervention(RedirectSessionApiTest):
+class TestDeleteIntervention(ResearcherSessionTest):
     ENDPOINT_NAME = "study_api.delete_intervention"
     REDIRECT_ENDPOINT_NAME = "study_api.interventions_page"
     
     def test(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
         intervention = self.generate_intervention(self.session_study, "obscure_name_of_intervention")
-        self.smart_post(self.session_study.id, intervention=intervention.id)
+        self.smart_post_redirect(self.session_study.id, intervention=intervention.id)
         self.assertFalse(Intervention.objects.filter(id=intervention.id).exists())
 
 
-class TestEditIntervention(RedirectSessionApiTest):
+class TestEditIntervention(ResearcherSessionTest):
     ENDPOINT_NAME = "study_api.edit_intervention"
     REDIRECT_ENDPOINT_NAME = "study_api.interventions_page"
     
     def test(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
         intervention = self.generate_intervention(self.session_study, "obscure_name_of_intervention")
-        self.smart_post(
+        self.smart_post_redirect(
             self.session_study.id, intervention_id=intervention.id, edit_intervention="new_name"
         )
         intervention_new = Intervention.objects.get(id=intervention.id)
@@ -1995,7 +1995,7 @@ class TestEditIntervention(RedirectSessionApiTest):
         self.assertEqual(intervention_new.name, "new_name")
 
 
-class TestStudyFields(RedirectSessionApiTest):
+class TestStudyFields(ResearcherSessionTest):
     ENDPOINT_NAME = "study_api.study_fields"
     REDIRECT_ENDPOINT_NAME = "study_api.study_fields"
     
@@ -2003,37 +2003,37 @@ class TestStudyFields(RedirectSessionApiTest):
         self.set_session_study_relation(ResearcherRole.study_admin)
         self.generate_study_field(self.session_study, "obscure_name_of_study_field")
         # This isn't a pure redirect endpoint, we need get to have a 200
-        resp = super(RedirectSessionApiTest, self).smart_get(self.session_study.id)
+        resp = self.smart_get(self.session_study.id)
         self.assertEqual(resp.status_code, 200)
         self.assert_present("obscure_name_of_study_field", resp.content)
     
     def test_post(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
-        resp = self.smart_post(self.session_study.id, new_field="ohello")
+        resp = self.smart_post_redirect(self.session_study.id, new_field="ohello")
         self.assertEqual(resp.status_code, 302)
         study_field = StudyField.objects.get(study=self.session_study)
         self.assertEqual(study_field.field_name, "ohello")
 
 
-class TestDeleteStudyField(RedirectSessionApiTest):
+class TestDeleteStudyField(ResearcherSessionTest):
     ENDPOINT_NAME = "study_api.delete_field"
     REDIRECT_ENDPOINT_NAME = "study_api.study_fields"
     
     def test(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
         study_field = self.generate_study_field(self.session_study, "obscure_name_of_study_field")
-        self.smart_post(self.session_study.id, field=study_field.id)
+        self.smart_post_redirect(self.session_study.id, field=study_field.id)
         self.assertFalse(StudyField.objects.filter(id=study_field.id).exists())
 
 
-class TestEditStudyField(RedirectSessionApiTest):
+class TestEditStudyField(ResearcherSessionTest):
     ENDPOINT_NAME = "study_api.edit_custom_field"
     REDIRECT_ENDPOINT_NAME = "study_api.study_fields"
     
     def test(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
         study_field = self.generate_study_field(self.session_study, "obscure_name_of_study_field")
-        self.smart_post(
+        self.smart_post_redirect(
             self.session_study.id, field_id=study_field.id, edit_custom_field="new_name"
         )
         study_field_new = StudyField.objects.get(id=study_field.id)
@@ -2051,7 +2051,7 @@ class TestNotificationHistory(ResearcherSessionTest):
         self.smart_get_status_code(200, self.session_study.id, self.default_participant.patient_id)
 
 
-class TestParticipantPage(RedirectSessionApiTest):
+class TestParticipantPage(ResearcherSessionTest):
     ENDPOINT_NAME = "participant_pages.participant_page"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
@@ -2065,9 +2065,9 @@ class TestParticipantPage(RedirectSessionApiTest):
     def test_post_with_bad_parameters(self):
         # test bad study id and bad patient id
         self.set_session_study_relation(ResearcherRole.study_admin)
-        ret = self._smart_post(self.session_study.id, "invalid_patient_id")
+        ret = self.smart_post(self.session_study.id, "invalid_patient_id")
         self.assertEqual(ret.status_code, 404)
-        ret = self._smart_post(0, self.default_participant.patient_id)
+        ret = self.smart_post(0, self.default_participant.patient_id)
         self.assertEqual(ret.status_code, 404)
     
     def test_custom_field_update(self):
@@ -2078,7 +2078,7 @@ class TestParticipantPage(RedirectSessionApiTest):
         
         # the post parameter here is  bit strange, literally it is like "field6" with a db pk
         post_param_name = "field" + str(study_field.id)
-        self.smart_post(self.session_study.id, self.default_participant.patient_id,
+        self.smart_post_redirect(self.session_study.id, self.default_participant.patient_id,
             **{post_param_name: "any string value"})
         self.assertEqual(self.default_participant.field_values.count(), 1)
         field_value = self.default_participant.field_values.first()
@@ -2091,7 +2091,7 @@ class TestParticipantPage(RedirectSessionApiTest):
         self.assertEqual(intervention_date.date, None)
         # the post parameter here is  bit strange, literally it is like "intervention6" with a db pk
         post_param_name = "intervention" + str(intervention_date.intervention.id)
-        self.smart_post(self.session_study.id, self.default_participant.patient_id,
+        self.smart_post_redirect(self.session_study.id, self.default_participant.patient_id,
             **{post_param_name: "2020-01-01"})
         intervention_date.refresh_from_db()
         self.assertEqual(intervention_date.date, date(2020, 1, 1))
@@ -2111,7 +2111,7 @@ class TestParticipantPage(RedirectSessionApiTest):
         self.assertEqual(intervention_date.date, None)
         # the post parameter here is  bit strange, literally it is like "intervention6" with a db pk
         post_param_name = "intervention" + str(intervention_date.intervention.id)
-        self.smart_post(self.session_study.id, self.default_participant.patient_id,
+        self.smart_post_redirect(self.session_study.id, self.default_participant.patient_id,
             **{post_param_name: date_string})
         intervention_date.refresh_from_db()
         self.assertEqual(intervention_date.date, None)
@@ -2148,7 +2148,7 @@ class TestExportStudySettingsFile(ResearcherSessionTest):
 
 
 # FIXME: add interventions and surveys to the import tests
-class TestImportStudySettingsFile(RedirectSessionApiTest):
+class TestImportStudySettingsFile(ResearcherSessionTest):
     ENDPOINT_NAME = "copy_study_api.import_study_settings_file"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
     
@@ -2186,7 +2186,7 @@ class TestImportStudySettingsFile(RedirectSessionApiTest):
         survey_json_file = BytesIO(format_study(self.session_study).encode())
         survey_json_file.name = f"something.{extension}"  # ayup, that's how you add a name...
         
-        self.smart_post(
+        self.smart_post_redirect(
             study2.id,
             upload=survey_json_file,
             device_settings="true" if device_settings else "false",
@@ -2199,7 +2199,7 @@ class TestImportStudySettingsFile(RedirectSessionApiTest):
         return self.easy_get(self.REDIRECT_ENDPOINT_NAME, status_code=200, study_id=study2.id).content
 
 
-class TestICreateSurvey(RedirectSessionApiTest):
+class TestICreateSurvey(ResearcherSessionTest):
     ENDPOINT_NAME = "survey_api.create_survey"
     REDIRECT_ENDPOINT_NAME = "survey_designer.render_edit_survey"
     
@@ -2215,7 +2215,7 @@ class TestICreateSurvey(RedirectSessionApiTest):
     def _test(self, survey_type: str):
         self.set_session_study_relation(ResearcherRole.researcher)
         self.assertEqual(Survey.objects.count(), 0)
-        resp = self.smart_get(self.session_study.id, survey_type)
+        resp = self.smart_get_redirect(self.session_study.id, survey_type)
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(Survey.objects.count(), 1)
         survey: Survey = Survey.objects.get()
@@ -2223,7 +2223,7 @@ class TestICreateSurvey(RedirectSessionApiTest):
 
 
 # FIXME: add schedule removal tests to this test
-class TestDeleteSurvey(RedirectSessionApiTest):
+class TestDeleteSurvey(ResearcherSessionTest):
     ENDPOINT_NAME = "survey_api.delete_survey"
     REDIRECT_ENDPOINT_NAME = "admin_pages.view_study"
     
@@ -2232,7 +2232,7 @@ class TestDeleteSurvey(RedirectSessionApiTest):
         self.set_session_study_relation(ResearcherRole.researcher)
         survey = self.generate_survey(self.session_study, Survey.TRACKING_SURVEY)
         self.assertEqual(Survey.objects.count(), 1)
-        self.smart_post(self.session_study.id, survey.id)
+        self.smart_post_redirect(self.session_study.id, survey.id)
         self.assertEqual(Survey.objects.count(), 1)
         self.assertEqual(Survey.objects.filter(deleted=False).count(), 0)
 
@@ -2266,14 +2266,14 @@ class TestRenderEditSurvey(ResearcherSessionTest):
 
 # FIXME: this endpoint doesn't validate the researcher on the study
 # FIXME: redirect was based on referrer.
-class TestResetParticipantPassword(RedirectSessionApiTest):
+class TestResetParticipantPassword(ResearcherSessionTest):
     ENDPOINT_NAME = "participant_administration.reset_participant_password"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
     def test_success(self):
         self.set_session_study_relation(ResearcherRole.researcher)
         old_password = self.default_participant.password
-        self.smart_post(study_id=self.session_study.id, patient_id=self.default_participant.patient_id)
+        self.smart_post_redirect(study_id=self.session_study.id, patient_id=self.default_participant.patient_id)
         self.default_participant.refresh_from_db()
         self.assert_present(
             "password has been reset to",
@@ -2283,9 +2283,9 @@ class TestResetParticipantPassword(RedirectSessionApiTest):
     
     def test_bad_participant(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.smart_post(study_id=self.session_study.id, patient_id="why hello")
+        self.smart_post_redirect(study_id=self.session_study.id, patient_id="why hello")
         self.assertFalse(Participant.objects.filter(patient_id="why hello").exists())
-        # self.assert_present("does not exist", self.get_redirect_content(self.session_study.id))
+        # self.assert_present("does not exist", self.redirect_get_contents(self.session_study.id))
         self.assert_present(
             "does not exist",
             self.easy_get(
@@ -2298,7 +2298,7 @@ class TestResetParticipantPassword(RedirectSessionApiTest):
         study2 = self.generate_study("study2")
         self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
         old_password = self.default_participant.password
-        self.smart_post(study_id=study2.id, patient_id=self.default_participant.patient_id)
+        self.smart_post_redirect(study_id=study2.id, patient_id=self.default_participant.patient_id)
         self.assert_present(
             "is not in study",
             self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
@@ -2307,14 +2307,14 @@ class TestResetParticipantPassword(RedirectSessionApiTest):
         self.assertEqual(self.default_participant.password, old_password)
 
 
-class TestResetDevice(RedirectSessionApiTest):
+class TestResetDevice(ResearcherSessionTest):
     ENDPOINT_NAME = "participant_administration.reset_device"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
     def test_bad_study_id(self):
         self.default_participant.update(device_id="12345")
         self.set_session_study_relation(ResearcherRole.researcher)
-        resp = self._smart_post(patient_id=self.default_participant.patient_id, study_id=0)
+        resp = self.smart_post(patient_id=self.default_participant.patient_id, study_id=0)
         self.assertEqual(resp.status_code, 404)
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.device_id, "12345")
@@ -2324,7 +2324,7 @@ class TestResetDevice(RedirectSessionApiTest):
         self.set_session_study_relation(ResearcherRole.researcher)
         study2 = self.generate_study("study2")
         self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
-        self.smart_post(patient_id=self.default_participant.patient_id, study_id=study2.id)
+        self.smart_post_redirect(patient_id=self.default_participant.patient_id, study_id=study2.id)
         self.assert_present(
             "is not in study",
             self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
@@ -2337,7 +2337,7 @@ class TestResetDevice(RedirectSessionApiTest):
         self.default_participant.update(device_id="12345")
         self.assertEqual(Participant.objects.count(), 1)
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.smart_post(patient_id="invalid", study_id=self.session_study.id)
+        self.smart_post_redirect(patient_id="invalid", study_id=self.session_study.id)
         self.assert_present(
             "does not exist",
             self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
@@ -2349,8 +2349,9 @@ class TestResetDevice(RedirectSessionApiTest):
     def test_success(self):
         self.default_participant.update(device_id="12345")
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.smart_post(patient_id=self.default_participant.patient_id,
-                        study_id=self.session_study.id)
+        self.smart_post_redirect(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
         self.assert_present(
             "device was reset; password is untouched",
             self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
@@ -2359,7 +2360,7 @@ class TestResetDevice(RedirectSessionApiTest):
         self.assertEqual(self.default_participant.device_id, "")
 
 
-class TestToggleParticipantEasyEnrollment(RedirectSessionApiTest):
+class TestToggleParticipantEasyEnrollment(ResearcherSessionTest):
     ENDPOINT_NAME = "participant_administration.toggle_easy_enrollment"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
@@ -2379,16 +2380,16 @@ class TestToggleParticipantEasyEnrollment(RedirectSessionApiTest):
     
     def _test_success(self):
         self.assertFalse(self.default_participant.easy_enrollment)
-        self.smart_post(patient_id=self.default_participant.patient_id, study_id=self.session_study.id)
+        self.smart_post_redirect(patient_id=self.default_participant.patient_id, study_id=self.session_study.id)
         self.default_participant.refresh_from_db()
         self.assertTrue(self.default_participant.easy_enrollment)
-        self.smart_post(patient_id=self.default_participant.patient_id, study_id=self.session_study.id)
+        self.smart_post_redirect(patient_id=self.default_participant.patient_id, study_id=self.session_study.id)
         self.default_participant.refresh_from_db()
         self.assertFalse(self.default_participant.easy_enrollment)
     
     def test_no_relation(self):
         self.assertFalse(self.default_participant.easy_enrollment)
-        resp = self._smart_post(
+        resp = self.smart_post(
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
         self.assertEqual(resp.status_code, 403)
@@ -2396,7 +2397,7 @@ class TestToggleParticipantEasyEnrollment(RedirectSessionApiTest):
         self.assertFalse(self.default_participant.easy_enrollment)
 
 
-class TestToggleStudyEasyEnrollment(RedirectSessionApiTest):
+class TestToggleStudyEasyEnrollment(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.toggle_easy_enrollment_study"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
     
@@ -2410,7 +2411,7 @@ class TestToggleStudyEasyEnrollment(RedirectSessionApiTest):
     
     def _test_success(self):
         self.assertFalse(self.default_study.easy_enrollment)
-        self.smart_get(self.session_study.id)
+        self.smart_get_redirect(self.session_study.id)
         self.default_study.refresh_from_db()
         self.assertTrue(self.default_study.easy_enrollment)
     
@@ -2424,12 +2425,12 @@ class TestToggleStudyEasyEnrollment(RedirectSessionApiTest):
     
     def _test_fail(self):
         self.assertFalse(self.default_study.easy_enrollment)
-        self._smart_post
         self.easy_get(self.ENDPOINT_NAME, status_code=403, study_id=self.session_study.id).content
         self.default_study.refresh_from_db()
         self.assertFalse(self.default_study.easy_enrollment)
 
-class TestUnregisterParticipant(RedirectSessionApiTest):
+
+class TestUnregisterParticipant(ResearcherSessionTest):
     ENDPOINT_NAME = "participant_administration.unregister_participant"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     # most of this was copy-pasted from TestResetDevice
@@ -2437,7 +2438,7 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
     def test_bad_study_id(self):
         self.default_participant.update(unregistered=False)
         self.set_session_study_relation(ResearcherRole.researcher)
-        resp = self._smart_post(patient_id=self.default_participant.patient_id, study_id=0)
+        resp = self.smart_post(patient_id=self.default_participant.patient_id, study_id=0)
         self.assertEqual(resp.status_code, 404)
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.unregistered, False)
@@ -2447,7 +2448,7 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
         self.set_session_study_relation(ResearcherRole.researcher)
         study2 = self.generate_study("study2")
         self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
-        self.smart_post(patient_id=self.default_participant.patient_id, study_id=study2.id)
+        self.smart_post_redirect(patient_id=self.default_participant.patient_id, study_id=study2.id)
         self.assert_present(
             "is not in study",
             self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
@@ -2460,12 +2461,12 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
         self.default_participant.update(unregistered=False)
         self.assertEqual(Participant.objects.count(), 1)
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.smart_post(patient_id="invalid", study_id=self.session_study.id)
+        self.smart_post_redirect(patient_id="invalid", study_id=self.session_study.id)
         self.assert_present(
             "does not exist",
             self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
-        # self.assert_present("does not exist", self.get_redirect_content(self.session_study.id))
+        # self.assert_present("does not exist", self.redirect_get_contents(self.session_study.id))
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.unregistered, False)
     
@@ -2473,7 +2474,7 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
         self.default_participant.update(unregistered=True)
         self.assertEqual(Participant.objects.count(), 1)
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.smart_post(
+        self.smart_post_redirect(
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
         self.assert_present(
@@ -2486,7 +2487,7 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
     def test_success(self):
         self.default_participant.update(unregistered=False)
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.smart_post(
+        self.smart_post_redirect(
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
         self.assert_present(
@@ -2498,7 +2499,7 @@ class TestUnregisterParticipant(RedirectSessionApiTest):
 
 
 # FIXME: test extended database effects of generating participants
-class CreateNewParticipant(RedirectSessionApiTest):
+class CreateNewParticipant(ResearcherSessionTest):
     ENDPOINT_NAME = "participant_administration.create_new_participant"
     REDIRECT_ENDPOINT_NAME = "admin_pages.view_study"
     
@@ -2508,10 +2509,10 @@ class CreateNewParticipant(RedirectSessionApiTest):
         # this test does not make calls to S3
         self.set_session_study_relation(ResearcherRole.researcher)
         self.assertFalse(Participant.objects.exists())
-        self.smart_post(study_id=self.session_study.id)
+        self.smart_post_redirect(study_id=self.session_study.id)
         self.assertEqual(Participant.objects.count(), 1)
         
-        content = self.get_redirect_content(self.session_study.id)
+        content = self.redirect_get_contents(self.session_study.id)
         new_participant: Participant = Participant.objects.first()
         self.assert_present("Created a new patient", content)
         self.assert_present(new_participant.patient_id, content)

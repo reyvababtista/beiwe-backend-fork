@@ -1,5 +1,7 @@
+from functools import wraps
 from itertools import chain
 from sys import argv
+from typing import Callable
 
 from django.contrib import messages
 from django.core.exceptions import ImproperlyConfigured
@@ -229,16 +231,37 @@ class SmartRequestsTestCase(BasicSessionTestCase):
     REDIRECT_ENDPOINT_NAME = None
     IGNORE_THIS_ENDPOINT = "ignore this endpoint"  # turns out we need to suppress this sometimes...
     
+    def ensure_has_redirect(some_function: Callable):
+        """ Wrapped functions must have a class variable REDIRECT_ENDPOINT_NAME populated. """
+        @wraps(some_function)
+        def checker_func(*args, **kwargs):
+            # this signature can't have self declared, but the first arg is always self
+            if not args[0].REDIRECT_ENDPOINT_NAME:
+                raise ImproperlyConfigured("You must provide a value for REDIRECT_ENDPOINT_NAME.")
+            return some_function(*args, **kwargs)
+        return checker_func
+    
+    def validate_status_code(some_function: Callable):
+        @wraps(some_function)
+        def checker_function(*args, **kwargs):
+            status_code = args[1]  # the convention is that the status code is the first arg after self
+            if not isinstance(status_code, int):
+                raise TypeError(f"received {type(status_code)} '{status_code}' for status_code?")
+            if status_code < 200 or status_code > 600:
+                raise ImproperlyConfigured(
+                    f"'{status_code}' ({type(status_code)}) is definetely not a status code."
+                )
+            return some_function(*args, **kwargs)
+        return checker_function
+    
     @classmethod
     def setUpClass(cls) -> None:
-        # using variable names to shorten thes because wow.
-        end_name = cls.ENDPOINT_NAME
+        end_name = cls.ENDPOINT_NAME  # using variable names to shorten these because ...
         ignore = cls.IGNORE_THIS_ENDPOINT
         r_end_name = cls.REDIRECT_ENDPOINT_NAME
-        
+        # check endpoints ard redirects are valid
         if end_name not in ENDPOINTS_BY_NAME and end_name != ignore:
             print(f"Test class {cls.__name__}'s ENDPOINT_NAME `{end_name}` does not exist.")
-        
         if r_end_name is not None and r_end_name not in ENDPOINTS_BY_NAME and r_end_name != ignore:
             print(f"{cls.__name__}'s REDIRECT_ENDPOINT_NAME {r_end_name}` does not exist.")
         return super().setUpClass()
@@ -267,13 +290,12 @@ class SmartRequestsTestCase(BasicSessionTestCase):
         
         return response
     
+    @validate_status_code
     def smart_post_status_code(
         self, status_code: int, *reverse_args, reverse_kwargs=None, **post_params
     ) -> HttpResponse:
         """ This helper function takes a status code in addition to post paramers, and tests for
         it.  Use for writing concise tests. """
-        if not isinstance(status_code, int):
-            raise TypeError(f"received {type(status_code)} '{status_code}' for status_code?")
         resp = self.smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
         self.assertEqual(resp.status_code, status_code)
         return resp
@@ -281,24 +303,49 @@ class SmartRequestsTestCase(BasicSessionTestCase):
     def smart_get_status_code(
         self, status_code: int, *reverse_params, reverse_kwargs=None, **get_kwargs
     ) -> HttpResponse:
-        if not isinstance(status_code, int):
-            raise TypeError(f"received {type(status_code)} '{status_code}' for status_code?")
-        if status_code < 200 or status_code > 600:
-            raise ImproperlyConfigured(
-                f"'{status_code}' ({type(status_code)}) is definetely not a status code."
-            )
+        """ As smart_get, but tests for a given status code on the response. """
         resp = self.smart_get(*reverse_params, reverse_kwargs=reverse_kwargs, **get_kwargs)
         self.assertEqual(resp.status_code, status_code)
         return resp
     
-    def smart_get_redirect(self, *reverse_params, get_kwargs=None, **reverse_kwargs) -> HttpResponse:
-        """ As smart_get, but uses REDIRECT_ENDPOINT_NAME. """
+    @ensure_has_redirect
+    def smart_get_redirect(self, *reverse_params, get_kwargs=None, **reverse_kwargs) -> HttpResponseRedirect:
+        """ As smart_get, but checks for a redirect. """
         get_kwargs = get_kwargs or {}
         # print(f"*reverse_params: {reverse_params}\n**get_kwargs: {get_kwargs}\n**reverse_kwargs: {reverse_kwargs}\n")
         self._detect_obnoxious_type_error("smart_get_redirect", reverse_params, reverse_kwargs, get_kwargs)
-        return self.client.get(
-            reverse(self.REDIRECT_ENDPOINT_NAME, args=reverse_params, kwargs=reverse_kwargs), **get_kwargs
+        response = self.smart_get_status_code(
+            302, *reverse_params, reverse_kwargs=reverse_kwargs, **get_kwargs
         )
+        self.assertIsInstance(response, HttpResponseRedirect)
+        self.assertEqual(resolve(response.url).url_name, self.REDIRECT_ENDPOINT_NAME)
+        return response
+    
+    @ensure_has_redirect
+    def smart_post_redirect(self, *reverse_args, reverse_kwargs={}, **post_params) -> HttpResponseRedirect:
+        # As smart post, but assert that the request was redirected, and that it points to the
+        # appropriate endpoint.
+        reverse_kwargs = reverse_kwargs or {}
+        response = self.smart_post_status_code(
+            302, *reverse_args, reverse_kwargs=reverse_kwargs, **post_params
+        )
+        self.assertIsInstance(response, HttpResponseRedirect)
+        self.assertEqual(resolve(response.url).url_name, self.REDIRECT_ENDPOINT_NAME)
+        return response
+    
+    @ensure_has_redirect
+    def redirect_get_contents(self, *reverse_params, get_kwargs=None, **reverse_kwargs) -> bytes:
+        """Tests frequently need a page to test for content messages.  This method loads the
+        REDIRECT_ENDPOINT_NAME page, and returns html content for further checking. """
+        get_kwargs = get_kwargs or {}
+        # print(f"*reverse_params: {reverse_params}\n**get_kwargs: {get_kwargs}\n**reverse_kwargs: {reverse_kwargs}\n")
+        self._detect_obnoxious_type_error("redirect_get_contents", reverse_params, reverse_kwargs, get_kwargs)
+        response = self.client.get(
+            self.smart_reverse(self.REDIRECT_ENDPOINT_NAME, args=reverse_params, kwargs=reverse_kwargs),
+            **get_kwargs
+        )
+        self.assertEqual(response.status_code, 200)
+        return response.content
     
     @staticmethod
     def _detect_obnoxious_type_error(function_name: str, args: tuple, kwargs1: dict, kwargs2: dict):
@@ -327,50 +374,6 @@ class PopulatedResearcherSessionTestCase(BasicSessionTestCase):
             self.assign_role(session_researcher, session_researcher_role)
             self.assign_role(r2, target_researcher_role)
             yield session_researcher, r2
-
-
-class RedirectSessionApiTest(PopulatedResearcherSessionTestCase, SmartRequestsTestCase):
-    """ Some api calls return only redirects, and the fact of an error is reported only via the
-    django.contrib.messages library.  This class implements some specific helper functions to handle
-    very common cases.
-    When using this class make sure to set ENDPOINT_NAME and REDIRECT_ENDPOINT_NAME. The first is
-    used to populate the http post operation, the second is part of validation inside do_post. """
-    ENDPOINT_NAME = None
-    REDIRECT_ENDPOINT_NAME = None
-    
-    # this class exists due to an older factoring that is currently too tedious to refactor out.j
-    # smart_post pretty much functions as a smart_post_status_code(302, ...)
-    def _smart_post(self, *reverse_args, reverse_kwargs=None, **post_params) -> HttpResponse:
-        """ we need the passthrough and calling super() in an implementation class is dumb.... """
-        return super().smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
-    
-    def smart_post(self, *reverse_args, reverse_kwargs={}, **post_params) -> HttpResponseRedirect:
-        # As smart post, but assert that the request was redirected, and that it points to the
-        # appropriate endpoint.
-        if self.REDIRECT_ENDPOINT_NAME is None:
-            raise ImproperlyConfigured("You must provide a value for REDIRECT_ENDPOINT_NAME.")
-        response = super().smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
-        self.assertEqual(response.status_code, 302)
-        self.assertIsInstance(response, HttpResponseRedirect)
-        self.assertEqual(resolve(response.url).url_name, self.REDIRECT_ENDPOINT_NAME)
-        return response
-    
-    def smart_get(self, *reverse_params, reverse_kwargs=None, **get_kwargs) -> HttpResponse:
-        if self.REDIRECT_ENDPOINT_NAME is None:
-            raise ImproperlyConfigured("You must provide a value for REDIRECT_ENDPOINT_NAME.")
-        response = super().smart_get(*reverse_params, reverse_kwargs=reverse_kwargs, **get_kwargs)
-        self.assertEqual(response.status_code, 302)
-        self.assertIsInstance(response, HttpResponseRedirect)
-        self.assertEqual(resolve(response.url).url_name, self.REDIRECT_ENDPOINT_NAME)
-        return response
-    
-    def get_redirect_content(self, *args, **kwargs) -> bytes:
-        # Tests for this class usually need a page to test for content messages.  This method loads
-        # the REDIRECT_ENDPOINT_NAME page, ensures it has the required 200 code, and returns the
-        # html content for further checking by the test itself.
-        resp = self.smart_get_redirect(*args, **kwargs)
-        self.assertEqual(resp.status_code, 200)
-        return resp.content
 
 
 class ResearcherSessionTest(PopulatedResearcherSessionTestCase, SmartRequestsTestCase):

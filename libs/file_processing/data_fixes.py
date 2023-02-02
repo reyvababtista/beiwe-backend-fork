@@ -60,7 +60,8 @@ def fix_app_log_file(file_contents, file_name: str):
     rows_list[0] = time_stamp + b" New app log file created"
     new_rows = []
     for row in rows_list:
-        row_elements = row.split(b" ", 1)  # split first whitespace, element 0 is a java timecode
+        # row_elements has len 2, element 0 is a java timecode, element 1 is the text of the log.
+        row_elements = row.split(b" ", 1)
         try:
             int(row_elements[0])  # grab first element, check if it is a valid int
             new_rows.append(row_elements)

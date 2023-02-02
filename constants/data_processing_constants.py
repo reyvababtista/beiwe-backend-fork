@@ -159,8 +159,9 @@ REFERENCE_UPLOAD_HEADERS = {
     },
     TEXTS_LOG: {
         ANDROID_API: b'timestamp,hashed phone number,sent vs received,message length,time sent',
-        IOS_API: None,
-    },: {  # ios-only datastream {
+        IOS_API: None,   # ios-only datastream
+    },
+    WIFI: {
         ANDROID_API: b'hashed MAC, frequency, RSSI',
         IOS_API:     b'hashed MAC, frequency, RSSI',  # android-only datastream
     }

@@ -101,7 +101,7 @@
         <tr>
           <td>Survey:</td>
           <td>
-            <a href="/edit_survey/{{ latest_notification_attempt.survey_id }}" target="_blank">
+            <a href="{{ easy_url("survey_designer.render_edit_survey", study.id, latest_notification_attempt.survey_id) }}" target="_blank">
               {{ latest_notification_attempt.survey_name }}
             </a>
           </td>

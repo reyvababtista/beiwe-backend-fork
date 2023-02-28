@@ -171,6 +171,8 @@ path('set_password', mobile_api.set_password)
 path('set_password/ios', mobile_api.set_password, name="mobile_api.set_password_ios")
 path('download_surveys', mobile_api.get_latest_surveys)
 path('download_surveys/ios', mobile_api.get_latest_surveys, name="mobile_api.get_latest_surveys_ios")
+path('get_latest_device_settings', mobile_api.get_latest_device_settings)
+path('get_latest_device_settings/ios', mobile_api.get_latest_device_settings, name="mobile_api.get_latest_device_settings_ios")
 
 # mobile pages
 path('graph', mobile_pages.fetch_graph)

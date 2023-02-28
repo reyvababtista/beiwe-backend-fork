@@ -1918,36 +1918,108 @@ class TestStudyParticipantApi(ResearcherSessionTest):
     SEARCH_PARAMETER = "search[value]"
     SOME_TIMESTAMP = timezone.make_aware(datetime(2020, 10, 1))
     
+    # This endpoint is stupidly complex, it implements pagination, sorting, search ordering.
+    
     @property
     def DEFAULT_PARAMETERS(self):
+        # you need to be at least a researcher, factor out this clutter
+        self.set_session_study_relation(ResearcherRole.researcher)
         return {
             "draw": 1,
             "start": 0,
             "length": 10,
-            # sort, sort order, search term
-            self.COLUMN_ORDER_KEY: 1,
-            self.ORDER_DIRECTION_KEY: "desc",
+            # sort, sort order, search term.  order key is index into this list, larger values
+            # target first interventions then custom fields:
+            # ['created_on', 'patient_id', 'registered', 'os_type']
+            self.COLUMN_ORDER_KEY: 0,
+            self.ORDER_DIRECTION_KEY: "asc",
             self.SEARCH_PARAMETER: "",
         }
     
-    def test(self):
-        # manually set the created on timestamp... its a pain to set and a pain to test.
-        self.default_participant.update(created_on=self.SOME_TIMESTAMP)
-        self.set_session_study_relation(ResearcherRole.researcher)
-        # this endpoint uses get args, for which we have to pass in the dict as the "data" kwarg
-        resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
-        content = json.loads(resp.content.decode())
-        correct_content = {
+    @property
+    def DEFAULT_RESPONSE(self):
+        return {
             "draw": 1,
             "recordsTotal": 1,
             "recordsFiltered": 1,
             "data": [[self.SOME_TIMESTAMP.strftime(API_DATE_FORMAT),
                       self.default_participant.patient_id,
                       True,
-                      "ANDROID",
-                      None,  # the intervention date (doesn't exist)
-                    ]]
+                      "ANDROID"]]
         }
+    
+    def test_basics(self):
+        # manually set the created on timestamp... its a pain to set and a pain to test.
+        self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
+        # this endpoint uses get args, for which we have to pass in the dict as the "data" kwarg
+        resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
+        content = json.loads(resp.content.decode())
+        self.assertEqual(content, self.DEFAULT_RESPONSE)
+    
+    def test_with_intervention(self):
+        self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
+        # need to populate some database state, this database stat is expected to be populated when
+        # a participant is created and/or when an intervention is created.
+        self.default_intervention
+        self.default_populated_intervention_date
+        resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
+        content = json.loads(resp.content.decode())
+        correct_content = self.DEFAULT_RESPONSE
+        correct_content["data"][0].append(self.CURRENT_DATE.strftime(API_DATE_FORMAT))  # the value populated in the intervention date
+        self.assertEqual(content, correct_content)
+    
+    def test_with_custom_field(self):
+        self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
+        self.default_participant_field_value  # populate database state
+        resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
+        content = json.loads(resp.content.decode())
+        correct_content = self.DEFAULT_RESPONSE
+        correct_content["data"][0].append(self.DEFAULT_PARTICIPANT_FIELD_VALUE)  # default value
+        self.assertEqual(content, correct_content)
+    
+    def test_with_both(self):
+        self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
+        self.default_intervention  # populate database state
+        self.default_populated_intervention_date
+        self.default_participant_field_value
+        resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
+        content = json.loads(resp.content.decode())
+        correct_content = self.DEFAULT_RESPONSE
+        correct_content["data"][0].append(self.CURRENT_DATE.strftime(API_DATE_FORMAT))
+        correct_content["data"][0].append(self.DEFAULT_PARTICIPANT_FIELD_VALUE)
+        self.assertEqual(content, correct_content)
+    
+    def test_simple_ordering(self):
+        # setup default participant
+        self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
+        self.default_intervention
+        self.default_populated_intervention_date
+        self.default_participant_field_value
+        # setup second participant
+        p2 = self.generate_participant(self.session_study, "patient2")
+        p2.update_only(created_on=self.SOME_TIMESTAMP + timedelta(days=1))  # for sorting
+        self.generate_intervention_date(p2, self.default_intervention, None)  # correct db population
+        # construct the correct response data (yuck)
+        correct_content = self.DEFAULT_RESPONSE
+        correct_content["recordsTotal"] = 2
+        correct_content["recordsFiltered"] = 2
+        correct_content["data"][0].append(self.CURRENT_DATE.strftime(API_DATE_FORMAT))
+        correct_content["data"][0].append(self.DEFAULT_PARTICIPANT_FIELD_VALUE)
+        # created on, patient id, registered, os_type, intervention date, custom field
+        # (registered is based on presence of os_type)
+        correct_content["data"].append([
+            p2.created_on.strftime(API_DATE_FORMAT), p2.patient_id, True, "ANDROID", "", ""
+        ])
+        # request, compare
+        params = self.DEFAULT_PARAMETERS
+        resp = self.smart_post_status_code(200, self.session_study.id, **params)
+        content = json.loads(resp.content.decode())
+        self.assertEqual(content, correct_content)
+        # reverse the order
+        params[self.ORDER_DIRECTION_KEY] = "desc"
+        correct_content["data"].append(correct_content["data"].pop(0))  # swap 2 rows
+        resp = self.smart_post_status_code(200, self.session_study.id, **params)
+        content = json.loads(resp.content.decode())
         self.assertEqual(content, correct_content)
 
 

@@ -223,13 +223,12 @@ def get_values_for_participants_table(
     #   needlessly complex and may be using the incorrect field (unclear, the names got screwed up
     #   from their original meanings), convert to values_list, drop the prefetch entirely and make
     #   the intervention dates a separate query into a lookup dict.
+    # In fact some sorting has already been moved to python.
+    BASIC_COLUMNS = ['created_on', 'patient_id', 'registered', 'os_type']
+    HAS_NO_DEVICE_ID = ExpressionWrapper(~Q(device_id=''), output_field=BooleanField())  # ~ is the not operator
     
-    basic_columns = ['created_on', 'patient_id', 'registered', 'os_type']
-    sort_by_column = basic_columns[sort_by_column_index]
+    sort_by_column = 'patient_id' if sort_by_column_index >= len(BASIC_COLUMNS) else BASIC_COLUMNS[sort_by_column_index]
     sort_by_column = f"-{sort_by_column}" if sort_in_descending_order else sort_by_column
-    
-    # ~ is the not operator
-    no_device_id = ExpressionWrapper(~Q(device_id=''), output_field=BooleanField())
     
     # since field names may not be populated, we need a reference list of all field names
     # ordered to match the ordering on the rendering page.
@@ -239,7 +238,7 @@ def get_values_for_participants_table(
     
     # Prefetch intervention dates, sorted case-insensitively by_b name
     query = filtered_participants(study, contains_string)
-    query = query.annotate(registered=no_device_id)
+    query = query.annotate(registered=HAS_NO_DEVICE_ID)
     query = query.order_by(sort_by_column)  # must be after the annotate to allow registered sorting
     query = query.prefetch_related(
         Prefetch(
@@ -249,33 +248,32 @@ def get_values_for_participants_table(
     )
     
     # Get the list of the basic columns that are present in every study, convert the created_on
-    # into a string in YYYY-MM-DD format, then add intervention dates (sorted in prefetch).
+    # into a string in YYYY-MM-DD format, add intervention dates (sorted in prefetch), custom fields.
     participants_data = []
-    for participant in query[start:start + length]:
-        participant_values = [getattr(participant, field) for field in basic_columns]
-        participant_values[0] = participant_values[0].strftime(API_DATE_FORMAT)
+    for p in query[start:start + length]:
+        # order matters, must match the order of the columns in the table
+        participant_values = [p.created_on.strftime(API_DATE_FORMAT), p.patient_id, p.registered, p.os_type]
         
         # a participant has all intervention dates, even if they are not populated yet.
-        for intervention_date in participant.intervention_dates.all():
-            if intervention_date.date is not None:
-                intervention_date.date = intervention_date.date.strftime(API_DATE_FORMAT)
-            participant_values.append(intervention_date.date)
-        else:
-            participant_values.append(None)
+        for int_date in p.intervention_dates.values_list("date", flat=True):
+            participant_values.append(int_date.strftime(API_DATE_FORMAT) if int_date else "")
         
-        # a participant may not have all custom field values populated, so we need a reference
-        # in order to fill None values where they [don't] exist.
-        field_values = dict(participant.field_values.values_list("field__field_name", "value"))
+        # a participant may not have all custom field values populated, so we need to use a
+        # reference in order to fill empty string values where they [don't] exist.
+        field_values = dict(p.field_values.values_list("field__field_name", "value"))
         for field_name in field_names_ordered:
             participant_values.append(
-                field_values[field_name] if field_name in field_values else None
+                field_values[field_name] if field_name in field_values else ""
             )
-        
         participants_data.append(participant_values)
+    
+    # guarantees: all rows have the same number of columns, all values are strings.
+    if sort_by_column_index >= len(BASIC_COLUMNS):
+        participants_data.sort(key=lambda row: row[sort_by_column_index], reverse=sort_in_descending_order)
     return participants_data
 
 
-def filtered_participants(study, contains_string: str):
+def filtered_participants(study: Study, contains_string: str):
     """ searches for participants with lowercase matches on os and patient id. """
     return Participant.objects.filter(study_id=study.id) \
             .filter(Q(patient_id__icontains=contains_string) | Q(os_type__icontains=contains_string))

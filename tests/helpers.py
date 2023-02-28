@@ -22,7 +22,7 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
 from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
-from database.user_models_participant import Participant, ParticipantFCMHistory
+from database.user_models_participant import Participant, ParticipantFCMHistory, ParticipantFieldValue
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import Schedule
 from libs.schedules import set_next_weekly
@@ -48,6 +48,8 @@ class ReferenceObjectMixin:
     DEFAULT_INTERVENTION_NAME = "default_intervention_name"
     DEFAULT_FCM_TOKEN = "abc123"
     SOME_SHA1_PASSWORD_COMPONENTS = 'sha1$1000$zsk387ts02hDMRAALwL2SL3nVHFgMs84UcZRYIQWYNQ=$hllJauvRYDJMQpXQKzTdwQ=='
+    DEFAULT_STUDY_FIELD_NAME = "default_study_field_name"
+    DEFAULT_PARTICIPANT_FIELD_VALUE = "default_study_field_value"
     # this needs to be a dynamic property in order for the time_machine library to work
     @property
     def CURRENT_DATE(self) -> datetime:
@@ -212,6 +214,17 @@ class ReferenceObjectMixin:
         intervention.save()
         return intervention
     
+    @property
+    def default_study_field(self) -> StudyField:
+        try:
+            return self._default_study_field
+        except AttributeError:
+            pass
+        self._default_study_field = self.generate_study_field(
+            self.default_study, self.DEFAULT_STUDY_FIELD_NAME
+        )
+        return self._default_study_field
+    
     def generate_study_field(self, study: Study, name: str) -> StudyField:
         study_field = StudyField(study=study, field_name=name)
         study_field.save()
@@ -241,6 +254,24 @@ class ReferenceObjectMixin:
         )
         token.save()
         return token
+    
+    @property
+    def default_participant_field_value(self) -> StudyField:
+        try:
+            return self._default_participant_field_value
+        except AttributeError:
+            pass
+        self._default_participant_field_value = self.generate_participant_field_value(
+            self.default_study_field, self.default_participant, self.DEFAULT_PARTICIPANT_FIELD_VALUE
+        )
+        return self._default_participant_field_value
+    
+    def generate_participant_field_value(
+        self, study_field: StudyField, participant: Participant, value: str
+    ) -> ParticipantFieldValue:
+        pfv = ParticipantFieldValue(participant=participant, field=study_field, value=value)
+        pfv.save()
+        return pfv
     
     @property
     def generate_10_default_participants(self) -> List[Participant]:

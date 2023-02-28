@@ -3527,6 +3527,19 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
 
 
+class TestGetLatestDeviceSettings(ParticipantSessionTest):
+    ENDPOINT_NAME = "mobile_api.get_latest_device_settings"
+    
+    def test_success(self):
+        self.assertIsNone(self.default_participant.last_get_latest_device_settings)
+        response = self.smart_post_status_code(200)
+        response_json_loaded = json.loads(response.content.decode())
+        self.assertEqual(self.default_study.device_settings.export(), response_json_loaded)
+        self.default_participant.refresh_from_db()
+        self.assertIsNotNone(self.default_participant.last_get_latest_device_settings)
+        self.assertIsInstance(self.default_participant.last_get_latest_device_settings, datetime)
+
+
 class TestMobileUpload(ParticipantSessionTest):
     # FIXME: This test needs better coverage
     ENDPOINT_NAME = "mobile_api.upload"

@@ -310,6 +310,17 @@ def contains_valid_extension(file_name: str):
 
 @determine_os_api
 @authenticate_participant
+def get_latest_device_settings(request: ParticipantRequest, OS_API=""):
+    """ Extremely simple endpoint that returns the device settings for the study as a json string. 
+    Endpoint is used by the app to periodically check for changes to the device settings. """
+    request.session_participant.update_only(last_get_latest_device_settings=timezone.now())
+    return HttpResponse(
+        json.dumps(request.session_participant.study.device_settings.export())
+    )
+
+
+@determine_os_api
+@authenticate_participant
 def get_latest_surveys(request: ParticipantRequest, OS_API=""):
     """ This is the endpoint hit by the app to downwload the current survey and survey schedule 
     information.  The app's representation of surveys is of the current week. """

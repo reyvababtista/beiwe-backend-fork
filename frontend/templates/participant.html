@@ -77,6 +77,10 @@
         <td><b>Time of last notifcation credential update</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_set_fcm_token, participant.study.timezone) }}</td>
       </tr>
+      <tr>
+        <td><b>Time of last device settings update</b></td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_get_latest_device_settings, participant.study.timezone) }}</td>
+      </tr>
     </table>
   </div>
 

@@ -82,6 +82,7 @@ class Participant(AbstractPasswordUser):
     last_register_user = models.DateTimeField(null=True, blank=True)
     last_set_password = models.DateTimeField(null=True, blank=True)
     last_set_fcm_token = models.DateTimeField(null=True, blank=True)
+    last_get_latest_device_settings = models.DateTimeField(null=True, blank=True)
     
     # participant device tracking
     last_version_code = models.CharField(max_length=32, blank=True, null=True)
@@ -119,13 +120,14 @@ class Participant(AbstractPasswordUser):
             "last_version_code": self.last_version_code,
             "last_version_name": self.last_version_name,
             "last_os_version": self.last_os_version,
-            "last_get_latest_surveys": f"{(now - self.last_get_latest_surveys ).total_seconds() // 60} minutes ago" if self.last_get_latest_surveys else None,
-            "last_push_notification_checkin": f"{(now - self.last_push_notification_checkin ).total_seconds() // 60} minutes ago" if self.last_push_notification_checkin else None,
-            "last_register_user": f"{(now - self.last_register_user ).total_seconds() // 60} minutes ago" if self.last_register_user else None,
-            "last_set_fcm_token": f"{(now - self.last_set_fcm_token ).total_seconds() // 60} minutes ago" if self.last_set_fcm_token else None,
-            "last_set_password": f"{(now - self.last_set_password ).total_seconds() // 60} minutes ago" if self.last_set_password else None,
-            "last_survey_checkin": f"{(now - self.last_survey_checkin ).total_seconds() // 60} minutes ago" if self.last_survey_checkin else None,
-            "last_upload": f"{(now - self.last_upload ).total_seconds() // 60} minutes ago" if self.last_upload else None,
+            "last_get_latest_surveys": f"{(now - self.last_get_latest_surveys).total_seconds() // 60} minutes ago" if self.last_get_latest_surveys else None,
+            "last_push_notification_checkin": f"{(now - self.last_push_notification_checkin).total_seconds() // 60} minutes ago" if self.last_push_notification_checkin else None,
+            "last_register_user": f"{(now - self.last_register_user).total_seconds() // 60} minutes ago" if self.last_register_user else None,
+            "last_set_fcm_token": f"{(now - self.last_set_fcm_token).total_seconds() // 60} minutes ago" if self.last_set_fcm_token else None,
+            "last_set_password": f"{(now - self.last_set_password).total_seconds() // 60} minutes ago" if self.last_set_password else None,
+            "last_survey_checkin": f"{(now - self.last_survey_checkin).total_seconds() // 60} minutes ago" if self.last_survey_checkin else None,
+            "last_upload": f"{(now - self.last_upload).total_seconds() // 60} minutes ago" if self.last_upload else None,
+            "last_get_latest_device_settings": f"{(now - self.last_get_latest_device_settings).total_seconds() // 60} minutes ago" if self.last_get_latest_device_settings else None,
         }
     
     @property
@@ -176,7 +178,7 @@ class Participant(AbstractPasswordUser):
         from database.schedule_models import ArchivedEvent
         return ArchivedEvent.objects.filter(participant=self).filter(
             **archived_event_filter_kwargs
-        ).order_by("-scheduled_time")
+    ).order_by("-scheduled_time")
     
     def get_private_key(self) -> RSA.RsaKey:
         from libs.s3 import get_client_private_key  # weird import triangle
@@ -186,8 +188,8 @@ class Participant(AbstractPasswordUser):
         from libs.s3 import s3_retrieve
         raw_path = s3_path.startswith(self.study.object_id)
         return s3_retrieve(s3_path, self, raw_path=raw_path)
-
-
+    
+    
     @property
     def participant_push_enabled(self) -> bool:
         return (

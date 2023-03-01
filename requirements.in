@@ -16,7 +16,7 @@ pypng
 pyotp
 
 # This version of pycryptodome results in "from Cryptodome import ..." imports.
-pycryptodomex==3.14.1  # locked version
+pycryptodomex  # locked version
 
 # error reporting
 raven==6.10  # raven has been sunset at 6.10

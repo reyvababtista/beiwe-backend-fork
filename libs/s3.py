@@ -1,11 +1,13 @@
-from typing import List
+from typing import Generator, List, Optional, Tuple
 
 import boto3
 from botocore.client import BaseClient, Paginator
+from cronutils import ErrorHandler
 from Cryptodome.PublicKey import RSA
 
 from config.settings import (BEIWE_SERVER_AWS_ACCESS_KEY_ID, BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
     S3_BUCKET, S3_REGION_NAME)
+from constants.data_processing_constants import CHUNKS_FOLDER
 from database.study_models import Study
 from database.user_models_participant import Participant
 from libs.aes import decrypt_server, encrypt_for_server
@@ -17,8 +19,8 @@ from libs.rsa import generate_key_pairing, get_RSA_cipher, prepare_X509_key_for_
 # The asserts in this file are protections for runninsg s3 commands inside tests.
 
 
-class S3VersionException(Exception): pass
 class NoSuchKeyException(Exception): pass
+class S3DeleteException(Exception): pass
 
 
 conn: BaseClient = boto3.client(
@@ -72,7 +74,7 @@ def _do_upload(key_path: str, data_string: bytes, number_retries=3):
     except Exception as e:
         if "Please try again" not in str(e):
             raise
-        _do_upload(key_path, data_string, number_retries=number_retries-1)
+        _do_upload(key_path, data_string, number_retries=number_retries - 1)
 
 
 def s3_upload_plaintext(upload_path: str, data_string: bytes) -> None:
@@ -113,7 +115,6 @@ def _do_retrieve(bucket_name: str, key_path: str, number_retries=3):
         raise
 
 
-
 def s3_list_files(prefix: str, as_generator=False) -> List[str]:
     """ Lists s3 keys matching prefix. as generator returns a generator instead of a list.
     WARNING: passing in an empty string can be dangerous. """
@@ -127,11 +128,11 @@ def smart_s3_list_study_files(prefix: str, obj: StrOrParticipantOrStudy):
     return s3_list_files(s3_construct_study_key_path(prefix, obj))
 
 
-# should work, not tested.
-# def smart_s3_list_chunked_files(prefix: str, obj: StrOrParticipantOrStudy):
-#     """ Lists s3 keys matching prefix, autoinserting the study object id at start of key path. """
-#     assert S3_BUCKET is not Exception, "libs.s3.smart_s3_list_study_files called inside test"
-#     return s3_list_files(f"{CHUNKS_FOLDER}/{s3_construct_study_key_path(prefix, obj)}")
+# just fyi this is not actually tested?  Please delete this comment if you know it works.
+def smart_s3_list_chunked_files(prefix: str, obj: StrOrParticipantOrStudy):
+    """ Lists s3 keys matching prefix, autoinserting the study object id at start of key path. """
+    assert S3_BUCKET is not Exception, "libs.s3.smart_s3_list_study_files called inside test"
+    return s3_list_files(f"{CHUNKS_FOLDER}/{s3_construct_study_key_path(prefix, obj)}")
 
 
 def _do_list_files(bucket_name: str, prefix: str, as_generator=False) -> List[str]:
@@ -140,13 +141,13 @@ def _do_list_files(bucket_name: str, prefix: str, as_generator=False) -> List[st
     page_iterator: Paginator = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
     if as_generator:
         return _do_list_files_generator(page_iterator)
-    else:
-        items = []
-        for page in page_iterator:
-            if 'Contents' in page:
-                for item in page['Contents']:
-                    items.append(item['Key'].strip("/"))
-        return items
+    
+    items = []
+    for page in page_iterator:
+        if 'Contents' in page:
+            for item in page['Contents']:
+                items.append(item['Key'].strip("/"))
+    return items
 
 
 def _do_list_files_generator(page_iterator: Paginator):
@@ -157,8 +158,72 @@ def _do_list_files_generator(page_iterator: Paginator):
             yield item['Key'].strip("/")
 
 
-def s3_delete(key_path: str):
-    raise Exception("NO DONT DELETE")
+# todo: test
+def s3_delete(key_path: str) -> bool:
+    resp = conn.delete_object(Bucket=S3_BUCKET, Key=key_path)
+    if not resp["DeleteMarker"]:
+        raise Exception(f"Failed to delete {resp['Key']} version {resp['VersionId']}")
+    return resp["DeleteMarker"]
+
+
+# todo: test
+def s3_delete_versioned(key_path: str, version_id: str) -> bool:
+    resp = conn.delete_object(Bucket=S3_BUCKET, Key=key_path, VersionId=version_id)
+    if not resp["DeleteMarker"]:
+        raise Exception(f"Failed to delete {resp['Key']} version {resp['VersionId']}")
+    return resp["DeleteMarker"]
+
+
+# todo: test
+def s3_delete_many_versioned(paths_version_ids: List[Tuple[str, str]]):
+    # construct the usual insane boto3 dict - if version id is falsey, it must be a string, not None.
+    delete_params = {
+        'Objects': [{'Key': key_path, 'VersionId': version_id or "null"}
+                    for key_path, version_id in paths_version_ids]
+    }
+    resp = conn.delete_object(Bucket=S3_BUCKET, Delete=delete_params)
+    
+    # we will use an ErrorHandler to bundle up all errors and raise them at the end.
+    deleted = resp['Deleted']
+    errors = resp['Errors']
+    error_handler = ErrorHandler()
+    for d in deleted:
+        if not d["DeleteMarker"]:
+            with error_handler:
+                raise Exception(f"Failed to delete {d['Key']} version {d['VersionId']}")
+    for e in errors:
+        with error_handler:
+            raise Exception(
+                f"Error trying to delete {e['Key']} version {e['VersionId']}: {e['Code']} - {e['Message']}"
+            )
+    
+    error_handler.raise_errors()
+
+
+def s3_list_versions(prefix: str) -> Generator[Tuple[str, Optional[str]], None, None]:
+    """ Generator of all matching key paths and their version ids.  Performance in unpredictable, it
+    is based on the historical presence of key paths matching the prefix, it is paginated, but we
+    don't care about deletion markers """
+
+    assert S3_BUCKET is not Exception, "libs.s3.s3_list_versions called inside test"
+    for page in conn.get_paginator('list_object_versions').paginate(Bucket=S3_BUCKET, Prefix=prefix):
+        # Page structure - each page is a dictionary with these keys:
+        #    Name, ResponseMetadata, Versions, MaxKeys, Prefix, KeyMarker, IsTruncated, VersionIdMarker
+        # We only care about 'Versions', which is a list of all object versions matching that prefix.
+        # Versions is a list of dictionaries with these keys:
+        #    LastModified, VersionId, ETag, StorageClass, Key, Owner, IsLatest, Size
+        ## If versions is not present that means the entry is a deletion marker and can be skipped.
+        if 'Versions' not in page:
+            continue
+        
+        for s3_version in page['Versions']:
+            # If versioning is disabled on the bucket then version id is "null", otherwise it will
+            # be a real value. (Literally:  {'VersionId': 'null', 'Key': 'BEAUREGARD', ...}  )
+            version = s3_version['VersionId']
+            if version == "null":  # clean it up, no "null" strings, no INSANE boto formatting
+                version = None
+            yield s3_version['Key'], version
+
 
 ################################################################################
 ######################### Client Key Management ################################
@@ -180,54 +245,17 @@ def get_client_public_key_string(patient_id: str, study_id: str) -> str:
 
 def get_client_public_key(patient_id: str, study_id: str) -> RSA.RsaKey:
     """Grabs a user's public key file from s3."""
-    key = s3_retrieve("keys/" + patient_id +"_public", study_id)
+    key = s3_retrieve("keys/" + patient_id + "_public", study_id)
     return get_RSA_cipher(key)
 
 
 def get_client_private_key(patient_id: str, study_id: str) -> RSA.RsaKey:
     """Grabs a user's private key file from s3."""
-    key = s3_retrieve("keys/" + patient_id +"_private", study_id)
+    key = s3_retrieve("keys/" + patient_id + "_private", study_id)
     return get_RSA_cipher(key)
 
 
 ###############################################################################
-
-
-def s3_list_versions(prefix, allow_multiple_matches=False):
-    """ (Moved to bottom of file because versioning is not even enabled by default.)
-
-    Page structure - each page is a dictionary with these keys:
-     Name, ResponseMetadata, Versions, MaxKeys, Prefix, KeyMarker, IsTruncated, VersionIdMarker
-    We only care about 'Versions', which is a list of all object versions matching that prefix.
-    Versions is a list of dictionaries with these keys:
-     LastModified, VersionId, ETag, StorageClass, Key, Owner, IsLatest, Size
-
-    returns a list of dictionaries.
-    If allow_multiple_matches is False the keys are LastModified, VersionId, IsLatest.
-    If allow_multiple_matches is True the key 'Key' is added, containing the s3 file path.
-    """
-    
-    paginator = conn.get_paginator('list_object_versions')
-    assert S3_BUCKET is not Exception, "libs.s3.s3_list_versions called inside test"
-    page_iterator = paginator.paginate(Bucket=S3_BUCKET, Prefix=prefix)
-    
-    versions = []
-    for page in page_iterator:
-        # versions are not guaranteed, usually this means the file was deleted and only has deletion markers.
-        if 'Versions' not in page:
-            continue
-        
-        for s3_version in page['Versions']:
-            if not allow_multiple_matches and s3_version['Key'] != prefix:
-                raise S3VersionException("the prefix '%s' was not an exact match" % prefix)
-            versions.append({
-                'VersionId': s3_version["VersionId"],
-                'Key': s3_version['Key'],
-            })
-    return versions
-
-###############################################################################
-
 """ Research on getting a stream into the decryption code of pycryptodome
 
 The StreamingBody StreamingBody object does not define the __len__ function, which is

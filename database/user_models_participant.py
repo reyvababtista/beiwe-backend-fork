@@ -98,6 +98,7 @@ class Participant(AbstractPasswordUser):
     # related field typings (IDE halp)
     archived_events: Manager[ArchivedEvent]
     chunk_registries: Manager[ChunkRegistry]
+    deletion_event: Manager[ParticipantDeletionEvent]
     fcm_tokens: Manager[ParticipantFCMHistory]
     field_values: Manager[ParticipantFieldValue]
     files_to_process: Manager[FileToProcess]
@@ -176,9 +177,8 @@ class Participant(AbstractPasswordUser):
     def notification_events(self, **archived_event_filter_kwargs) -> Manager[ArchivedEvent]:
         """ convenience methodd for use debugging in the terminal mostly. """
         from database.schedule_models import ArchivedEvent
-        return ArchivedEvent.objects.filter(participant=self).filter(
-            **archived_event_filter_kwargs
-    ).order_by("-scheduled_time")
+        return ArchivedEvent.objects.filter(participant=self) \
+            .filter(**archived_event_filter_kwargs).order_by("-scheduled_time")
     
     def get_private_key(self) -> RSA.RsaKey:
         from libs.s3 import get_client_private_key  # weird import triangle
@@ -188,7 +188,6 @@ class Participant(AbstractPasswordUser):
         from libs.s3 import s3_retrieve
         raw_path = s3_path.startswith(self.study.object_id)
         return s3_retrieve(s3_path, self, raw_path=raw_path)
-    
     
     @property
     def participant_push_enabled(self) -> bool:
@@ -225,3 +224,11 @@ class ParticipantFieldValue(UtilityModel):
     
     class Meta:
         unique_together = (("participant", "field"),)
+
+
+class ParticipantDeletionEvent(TimestampedModel):
+    """ This is a list of participants that have been deleted, but we are keeping around for a while
+    in case we need to restore them. """
+    participant: Participant = models.OneToOneField(Participant, on_delete=models.PROTECT, related_name="deletion_event")
+    files_deleted_count = models.BigIntegerField(null=False, blank=False, default=0)
+    purge_confirmed_time = models.DateTimeField(null=True, blank=True, db_index=True)

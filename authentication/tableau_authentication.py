@@ -79,6 +79,7 @@ def check_tableau_permissions(request: HttpRequest, study_object_id=None):
     if not api_key.has_tableau_api_permissions:
         log("api key does not have permission")
         raise TableauPermissionDenied(APIKEY_NO_ACCESS_MESSAGE)
+    
     # existence errors
     if study_object_id is None:
         log("study_object_id was None")
@@ -88,9 +89,12 @@ def check_tableau_permissions(request: HttpRequest, study_object_id=None):
         log("no such study object id")
         raise TableauPermissionDenied(NO_STUDY_FOUND_MESSAGE)
     
-    if not Study.objects.get(object_id=study_object_id).forest_enabled:
-        log("forest not enabled on study")
-        raise TableauPermissionDenied(STUDY_HAS_FOREST_DISABLED_MESSAGE)
+    # We decided that we no longer want to check if the study has forest enabled, when forest is not
+    # enabled the data quantity statistics will still be available, the flag just blocks frontend
+    # access to the dispatch tasks
+    # if not Study.objects.get(object_id=study_object_id).forest_enabled:
+        # log("forest not enabled on study")
+        # raise TableauPermissionDenied(STUDY_HAS_FOREST_DISABLED_MESSAGE)
     
     if not api_key.researcher.site_admin:
         try:

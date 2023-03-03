@@ -278,7 +278,7 @@ class TableauApiAuthTests(TableauAPITest):
     ENDPOINT_NAME = TableauAPITest.IGNORE_THIS_ENDPOINT
     
     def test_check_permissions_working(self):
-        # if this doesn't raise an error in has succeeded
+        # if this doesn't raise an error it has succeeded
         check_tableau_permissions(self.default_header, study_object_id=self.session_study.object_id)
     
     def test_check_permissions_none(self):
@@ -310,13 +310,17 @@ class TableauApiAuthTests(TableauAPITest):
     
     def test_check_permissions_no_tableau(self):
         self.api_key.update(has_tableau_api_permissions=False)
-        # ApiKey.objects.filter(access_key_id=self.api_key_public).update(
-        #     has_tableau_api_permissions=False
-        # )
         with self.assertRaises(TableauPermissionDenied) as cm:
             check_tableau_permissions(
                 self.default_header, study_object_id=self.session_study.object_id
             )
+    
+    def test_check_permissions_forest_disabled(self):
+        # forest_enabled should have no effect on the permissions check
+        self.session_study.update(forest_enabled=False)
+        check_tableau_permissions(self.default_header, study_object_id=self.session_study.object_id)
+        self.session_study.update(forest_enabled=True)
+        check_tableau_permissions(self.default_header, study_object_id=self.session_study.object_id)
     
     def test_check_permissions_bad_study(self):
         self.assertFalse(ApiKey.objects.filter(access_key_id=" bad study id ").exists())

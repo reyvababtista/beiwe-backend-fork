@@ -73,9 +73,7 @@ class CsvMerger:
                 self.latest_time_bin = time_bin
             
             # data_rows_list may be a generator; here it is evaluated
-            updated_header = convert_unix_to_human_readable_timestamps(
-                original_header, data_rows_list
-            )
+            updated_header = convert_unix_to_human_readable_timestamps(original_header, data_rows_list)
             chunk_path = construct_s3_chunk_path(study_object_id, patient_id, data_stream, time_bin)
             
             # two core cases

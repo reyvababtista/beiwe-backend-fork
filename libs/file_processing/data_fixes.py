@@ -49,7 +49,7 @@ def fix_wifi_csv(header: bytes, rows_list: list, file_name: str) -> bytes:
     return b"timestamp," + header
 
 
-def fix_app_log_file(file_contents, file_name: str):
+def fix_app_log_file(file_contents: bytes, file_name: str):
     """ The log file is less of a csv than it is a time enumerated list of
         events, with the time code preceding each row.
         We insert a base value, a new row stating that a new log file was created,

@@ -64,16 +64,16 @@ def ensure_sorted_by_timestamp(l: list):
         l.sort(key=lambda x: int(x[0]))
 
 
-def convert_unix_to_human_readable_timestamps(header: bytes, rows: list) -> List[bytes]:
+def convert_unix_to_human_readable_timestamps(header: bytes, rows: List[List[bytes]]) -> List[bytes]:
     """ Adds a new column to the end which is the unix time represented in
     a human readable time format.  Returns an appropriately modified header. """
     for row in rows:
-        unix_millisecond = int(row[0])
+        unix_millisecond = int(row[0])  # if this fails it is probably an incorrect os determination
         time_string = unix_time_to_string(unix_millisecond // 1000)
         # this line 0-pads millisecond values that have leading 0s.
         time_string += b".%03d" % (unix_millisecond % 1000)
         row.insert(1, time_string)
-    header = header.split(b",")
+    header: List[bytes] = header.split(b",")
     header.insert(1, b"UTC time")
     return b",".join(header)
 
@@ -101,6 +101,7 @@ def clean_java_timecode(unix_ish_time_code_string: bytes) -> int:
         raise BadTimecodeError("data too late")
     
     return timestamp
+
 
 def compress(data: bytes) -> bytes:
     return zstd.compress(

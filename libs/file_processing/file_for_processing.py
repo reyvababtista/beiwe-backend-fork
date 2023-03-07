@@ -34,8 +34,8 @@ class FileForProcessing():
     
     def download_file_contents(self) -> bytes or None:
         """ Handles network errors and updates state accordingly """
-        # Try to retrieve the file contents. If any errors are raised, store them to be raised by the
-        # parent function
+        # Try to retrieve the file contents. If any errors are raised, store them to be raised by
+        # the parent function
         try:
             self.file_contents = s3_retrieve(
                 self.file_to_process.s3_file_path,
@@ -49,15 +49,13 @@ class FileForProcessing():
             raise SomeException(e)
     
     def raise_data_processing_error(self):
-        """
-        If we encountered any errors in retrieving the files for processing, they have been
-        lumped together into data['exception']. Raise them here to the error handler and
-        move to the next file.
-        """
+        """ If we encountered any errors in retrieving the files for processing, they have been
+        lumped together into data['exception']. Raise them here to the error handler and move to the
+        next file. """
         print("\n" + self.file_to_process.s3_file_path)
         print(self.traceback)
-        ################################################################
-        # YOU ARE SEEING THIS EXCEPTION WITHOUT A STACK TRACE
-        # BECAUSE IT OCCURRED INSIDE POOL.MAP ON ANOTHER THREAD
-        ################################################################
+        #########################################################
+        # YOU ARE SEEING THIS EXCEPTION WITHOUT A STACK TRACE   #
+        # BECAUSE IT OCCURRED INSIDE POOL.MAP ON ANOTHER THREAD #
+        #########################################################
         raise self.exception

@@ -49,3 +49,20 @@ def celery_upload_logs():
         print("running script upload_logs.")
         from scripts import upload_logs
         ImportRepeater.ensure_run(upload_logs)
+
+
+## Participant data deletion
+
+def create_task_participant_data_deletion():
+    with make_error_sentry(sentry_type=SentryTypes.data_processing):
+        print("Queueing participant data deletion task.")
+        safe_apply_async(celery_participant_data_deletion)
+
+
+#run via celery as long as tasks exist
+@scripts_celery_app.task(queue=SCRIPTS_QUEUE)
+def celery_participant_data_deletion():
+    with make_error_sentry(sentry_type=SentryTypes.data_processing):
+        print("running script participant_data_deletion.")
+        from scripts import purge_participant_data
+        ImportRepeater.ensure_run(purge_participant_data)

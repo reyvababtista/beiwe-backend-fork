@@ -1,12 +1,17 @@
 import time
 import unittest
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import MIDNIGHT_EVERY_DAY
+from database.data_access_models import IOSDecryptionKey
+from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError
 from database.schedule_models import BadWeeklyCount, WeeklySchedule
+from database.user_models_participant import Participant, ParticipantDeletionEvent
 from libs.file_processing.exceptions import BadTimecodeError
 from libs.file_processing.utility_functions_simple import binify_from_timecode
+from libs.participant_purge import confirm_deleted, run_next_queued_participant_data_deletion
 from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_and_schedule,
     NoSchedulesException)
 from tests.common import CommonTestCase
@@ -137,3 +142,156 @@ class TestBinifyFromTimecode(unittest.TestCase):
     def test_binify_from_timecode_91_days(self):
         timestamp = str(int(time.mktime((datetime.utcnow() + timedelta(days=91)).timetuple())))
         self.assertRaises(BadTimecodeError, binify_from_timecode, timestamp.encode())
+
+
+class TestParticipantDataDeletion(CommonTestCase):
+    
+    def assert_default_participant_end_state(self):
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.deleted, False)
+        self.assertEqual(self.default_participant.easy_enrollment, False)
+        self.assertEqual(self.default_participant.unregistered, True)
+        self.assertEqual(self.default_participant.device_id, "")
+        self.assertEqual(self.default_participant.os_type, "")
+    
+    def assert_correct_s3_parameters_called(
+        self,
+        s3_list_versions: MagicMock,
+        s3_list_files: MagicMock,
+        s3_delete_many_versioned: MagicMock,
+        list_versions_count: int = 3,
+        list_files_count: int = 3,
+        delete_versioned_count: int = 3,
+    ):
+        # sanity checks to save our butts
+        self.assertEqual(s3_list_versions._mock_name, "s3_list_versions")
+        self.assertEqual(s3_list_files._mock_name, "s3_list_files")
+        self.assertEqual(s3_delete_many_versioned._mock_name, "s3_delete_many_versioned")
+        self.assertEqual(s3_list_versions.call_count, list_versions_count)
+        self.assertEqual(s3_list_files.call_count, list_files_count)
+        # tests that call this function should implement their own assertions on the number of calls
+        # to and parameters to s3_delete_many_versioned.
+        self.assertEqual(s3_delete_many_versioned.call_count, delete_versioned_count)
+        # check that all the paths were correct for the participant and study, this is a somewhat
+        # tautological test, but its important to have something that breaks easily if the paths
+        # change to ensure we get coverage on any new paths we might add
+        study_id = self.default_participant.study.object_id
+        patient_id = self.default_participant.patient_id
+        path_participant = f'{study_id}/{patient_id}/'
+        path_chunked = f'CHUNKED_DATA/{study_id}/{patient_id}/'
+        path_problems = f'PROBLEM_UPLOADS/{study_id}/{patient_id}/'
+        if list_files_count == 3:
+            self.assertEqual(s3_list_files.call_args_list[0].args[0], path_participant)
+            self.assertEqual(s3_list_files.call_args_list[1].args[0], path_chunked)
+            self.assertEqual(s3_list_files.call_args_list[2].args[0], path_problems)
+        if list_versions_count == 3:
+            self.assertEqual(s3_list_versions.call_args_list[0].args[0], path_participant)
+            self.assertEqual(s3_list_versions.call_args_list[1].args[0], path_chunked)
+            self.assertEqual(s3_list_versions.call_args_list[2].args[0], path_problems)
+    
+    def test_no_participants_at_all(self):
+        self.assertFalse(Participant.objects.exists())
+        run_next_queued_participant_data_deletion()
+        self.assertFalse(Participant.objects.exists())
+    
+    def test_no_participant_but_with_a_participant_in_the_db(self):
+        last_update = self.default_participant.last_updated  # create!
+        self.assertEqual(Participant.objects.count(), 1)
+        self.assertEqual(ParticipantDeletionEvent.objects.count(), 0)
+        run_next_queued_participant_data_deletion()
+        self.assertEqual(Participant.objects.count(), 1)
+        self.assertEqual(ParticipantDeletionEvent.objects.count(), 0)
+        self.default_participant.refresh_from_db()
+        self.assertEqual(last_update, self.default_participant.last_updated)
+    
+    #! REMINDER: ordering of these inserts parameters is in reverse order of declaration. You can
+    #  confirm the correct mock target by looking at the _mock_name (or vars) of the mock object.
+    @patch('libs.participant_purge.s3_delete_many_versioned', return_value=[])
+    @patch('libs.participant_purge.s3_list_files', return_value=[])
+    @patch('libs.participant_purge.s3_list_versions', return_value=[])
+    def test_deleting_data_for_one_empty_participant(
+        self, s3_list_versions: MagicMock, s3_list_files: MagicMock, s3_delete_many_versioned: MagicMock
+    ):
+        self.default_participant_deletion_event  # includes default_participant creation
+        self.assertEqual(Participant.objects.count(), 1)
+        run_next_queued_participant_data_deletion()
+        self.assertEqual(Participant.objects.count(), 1)  # we don't actually delete the db object just the data...
+        self.default_participant.refresh_from_db()
+        self.assert_default_participant_end_state()
+        self.assert_correct_s3_parameters_called(
+            s3_list_versions, s3_list_files, s3_delete_many_versioned, delete_versioned_count=0
+        )
+        self.default_participant_deletion_event.refresh_from_db()
+        self.assertEqual(self.default_participant_deletion_event.files_deleted_count, 0)
+        self.assertIsInstance(self.default_participant_deletion_event.purge_confirmed_time, datetime)
+    
+    @patch('libs.participant_purge.s3_delete_many_versioned')
+    @patch('libs.participant_purge.s3_list_files')
+    @patch('libs.participant_purge.s3_list_versions')
+    def test_deleting_errors_on_list(
+        self, s3_list_versions: MagicMock, s3_list_files: MagicMock, s3_delete_many_versioned: MagicMock
+    ):
+        # s3_list_files should result in an assertion error stating that the base s3 file path is
+        # not empty. in principle this may change the exact error, as long as it fails its working.
+        s3_list_files.return_value = ["some_file"]
+        self.default_participant_deletion_event
+        self.assertRaises(AssertionError, run_next_queued_participant_data_deletion)
+        self.assert_default_participant_end_state()
+        self.assert_correct_s3_parameters_called(s3_list_versions, s3_list_files, s3_delete_many_versioned, list_files_count=1, delete_versioned_count=0)
+        self.default_participant_deletion_event.refresh_from_db()
+        self.assertIsNone(self.default_participant_deletion_event.purge_confirmed_time)
+    
+    # actually a unittest!
+    @patch('libs.participant_purge.s3_list_files')
+    def test_confirm_deleted(self, s3_list_files: MagicMock):
+        # s3_list_files should result in an assertion error stating that the base s3 file path is not empty
+        s3_list_files.return_value = []
+        
+        # ChunkRegistry
+        self.default_chunkregistry
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        self.default_chunkregistry.delete()
+        confirm_deleted(self.default_participant_deletion_event)  # errors means test failure
+        
+        # summary statistic
+        self.default_summary_statistic_daily
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        self.default_summary_statistic_daily.delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        # LineEncryptionError - we don't need test infrastructure these, we just do not care.
+        LineEncryptionError.objects.create(
+            base64_decryption_key="abc123",
+            participant=self.default_participant,
+            type=LineEncryptionError.PADDING_ERROR
+        )
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        LineEncryptionError.objects.all().delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        # IosDecryptionKey
+        IOSDecryptionKey.objects.create(
+            participant=self.default_participant, base64_encryption_key="abc123", file_name="abc123"
+        )
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        IOSDecryptionKey.objects.all().delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        task = self.generate_forest_task()
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        task.delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        # EncryptionErrorMetadata
+        EncryptionErrorMetadata.objects.create(
+            file_name="a", total_lines=1, number_errors=1, error_lines="a", error_types="a", participant=self.default_participant
+        )
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        EncryptionErrorMetadata.objects.all().delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        # FileToProcess
+        ftp = self.generate_file_to_process("a_path")
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        ftp.delete()
+        confirm_deleted(self.default_participant_deletion_event)

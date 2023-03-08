@@ -71,6 +71,7 @@ class Participant(AbstractPasswordUser):
     
     push_notification_unreachable_count = models.SmallIntegerField(default=0, null=False, blank=False)
     
+    # TODO: clean out or maybe rename these fields to distinguish from last_updated? also wehave two survey checkin timestamps
     # new checkin logic
     first_push_notification_checkin = models.DateTimeField(null=True, blank=True)
     last_push_notification_checkin = models.DateTimeField(null=True, blank=True)
@@ -91,7 +92,7 @@ class Participant(AbstractPasswordUser):
     
     deleted = models.BooleanField(default=False)
     
-    # "Unregistered" means the participant is blocked from uploading further data.
+    # "Unregistered" means the participant is blocked from uploading further data; retired.
     unregistered = models.BooleanField(default=False)
     easy_enrollment = models.BooleanField(default=False)
     
@@ -106,10 +107,10 @@ class Participant(AbstractPasswordUser):
     scheduled_events: Manager[ScheduledEvent]
     upload_trackers: Manager[UploadTracking]
     # undeclared:
-    encryptionerrormetadata_set: Manager[EncryptionErrorMetadata]
+    encryptionerrormetadata_set: Manager[EncryptionErrorMetadata]  # TODO: remove when ios stops erroring
     foresttask_set: Manager[ForestTask]
-    iosdecryptionkey_set: Manager[IOSDecryptionKey]
-    lineencryptionerror_set: Manager[LineEncryptionError]
+    iosdecryptionkey_set: Manager[IOSDecryptionKey]  # TODO: remove when ios stops erroring
+    lineencryptionerror_set: Manager[LineEncryptionError]  # TODO: remove when ios stops erroring?
     pushnotificationdisabledevent_set: Manager[PushNotificationDisabledEvent]
     summarystatisticdaily_set: Manager[SummaryStatisticDaily]
     

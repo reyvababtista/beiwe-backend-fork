@@ -10,7 +10,8 @@ from django.utils import timezone
 
 from config.django_settings import STATIC_ROOT
 from constants.common_constants import BEIWE_PROJECT_ROOT
-from constants.forest_constants import DefaultForestParameters, ForestTree
+from constants.data_stream_constants import IDENTIFIERS
+from constants.forest_constants import DefaultForestParameters, ForestTaskStatus, ForestTree
 from constants.message_strings import MESSAGE_SEND_SUCCESS
 from constants.schedule_constants import ScheduleTypes
 from constants.testing_constants import REAL_ROLES
@@ -22,7 +23,8 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
 from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
-from database.user_models_participant import Participant, ParticipantFCMHistory, ParticipantFieldValue
+from database.user_models_participant import (Participant, ParticipantDeletionEvent,
+    ParticipantFCMHistory, ParticipantFieldValue)
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import Schedule
 from libs.schedules import set_next_weekly
@@ -342,6 +344,35 @@ class ReferenceObjectMixin:
         ftp.save()
         return ftp
     
+    @property
+    def default_participant_deletion_event(self):
+        # note that the DEFAULT participant deletion object has its last_updated time backdated by
+        # 42 minutes.  This is to make it easier to test with as the participant data deletion won't
+        # start/restart until the last_updated time is at least 30 minutes ago.
+        try:
+            return self._default_participant_deletion_event
+        except AttributeError:
+            pass
+        self._default_participant_deletion_event = self.generate_participant_deletion_event(
+            self.default_participant, last_updated=timezone.now() - timedelta(minutes=42)
+        )
+        return self._default_participant_deletion_event
+    
+    def generate_participant_deletion_event(
+        self, participant: Participant, deleted_count: int = 0, confirmed: datetime = None, last_updated: datetime = None
+    ) -> ParticipantDeletionEvent:
+        
+        deletion_event = ParticipantDeletionEvent(
+            participant=participant, files_deleted_count=deleted_count, purge_confirmed_time=confirmed
+        )
+        deletion_event.save()
+        # logic to update the last_updated time is here because its an auto_now field
+        if last_updated:
+            ParticipantDeletionEvent.objects.filter(pk=deletion_event.pk).update(last_updated=last_updated)
+        deletion_event.refresh_from_db()
+        
+        return deletion_event
+    
     #
     # schedule and schedule-adjacent objects
     #
@@ -502,6 +533,7 @@ class ReferenceObjectMixin:
             data_date_start=data_date_start,
             data_date_end=data_date_end,
             forest_tree=forest_tree,
+            status=ForestTaskStatus.queued,
             **kwargs
         )
         task.save()
@@ -513,21 +545,14 @@ class ReferenceObjectMixin:
     #
     @property
     def default_chunkregistry(self) -> ChunkRegistry:
+        # the default chunkrestry object is an identifiers instance, this is likely irrelevant.
         try:
             return self._default_chunkregistry
         except AttributeError:
-            raise AttributeError("default_chunkregistry was not populated!")
-    
-    
-    def populate_default_chunkregistry(self, data_type, **kwargs) -> ChunkRegistry:
-        if hasattr(self, "_default_chunkregistry"):
-            raise Exception("default_chunkregistry already populated!")
-        print("data_type:", data_type
-        )
-        self._default_chunkregistry = self.generate_chunkregistry(
-            self.session_study, self.default_participant, data_type, **kwargs
-        )
-        return self._default_chunkregistry
+            self._default_chunkregistry = self.generate_chunkregistry(
+                self.session_study, self.default_participant, IDENTIFIERS
+            )
+            return self._default_chunkregistry
     
     def generate_chunkregistry(
         self,
@@ -555,6 +580,16 @@ class ReferenceObjectMixin:
         chunk_reg.save()
         return chunk_reg
     
+    @property
+    def default_summary_statistic_daily(self):
+        try:
+            return self._default_summary_statistic_daily
+        except AttributeError:
+            # its empty, this is ok
+            self._default_summary_statistic_daily = self.generate_summary_statistic_daily()
+            return self._default_summary_statistic_daily
+
+
     def default_summary_statistic_daily_cheatsheet(self):
         # this is used to populate default values in a SummaryStatisticDaily
         field_dict = {}

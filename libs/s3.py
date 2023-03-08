@@ -160,6 +160,7 @@ def _do_list_files_generator(page_iterator: Paginator):
 
 # todo: test
 def s3_delete(key_path: str) -> bool:
+    assert S3_BUCKET is not Exception, "libs.s3.s3_delete called inside test"
     resp = conn.delete_object(Bucket=S3_BUCKET, Key=key_path)
     if not resp["DeleteMarker"]:
         raise Exception(f"Failed to delete {resp['Key']} version {resp['VersionId']}")
@@ -168,6 +169,7 @@ def s3_delete(key_path: str) -> bool:
 
 # todo: test
 def s3_delete_versioned(key_path: str, version_id: str) -> bool:
+    assert S3_BUCKET is not Exception, "libs.s3.s3_delete_versioned called inside test"
     resp = conn.delete_object(Bucket=S3_BUCKET, Key=key_path, VersionId=version_id)
     if not resp["DeleteMarker"]:
         raise Exception(f"Failed to delete {resp['Key']} version {resp['VersionId']}")
@@ -176,6 +178,7 @@ def s3_delete_versioned(key_path: str, version_id: str) -> bool:
 
 # todo: test
 def s3_delete_many_versioned(paths_version_ids: List[Tuple[str, str]]):
+    assert S3_BUCKET is not Exception, "libs.s3.s3_delete_many_versioned called inside test"
     # construct the usual insane boto3 dict - if version id is falsey, it must be a string, not None.
     delete_params = {
         'Objects': [{'Key': key_path, 'VersionId': version_id or "null"}
@@ -204,7 +207,7 @@ def s3_list_versions(prefix: str) -> Generator[Tuple[str, Optional[str]], None, 
     """ Generator of all matching key paths and their version ids.  Performance in unpredictable, it
     is based on the historical presence of key paths matching the prefix, it is paginated, but we
     don't care about deletion markers """
-
+    
     assert S3_BUCKET is not Exception, "libs.s3.s3_list_versions called inside test"
     for page in conn.get_paginator('list_object_versions').paginate(Bucket=S3_BUCKET, Prefix=prefix):
         # Page structure - each page is a dictionary with these keys:

@@ -147,7 +147,7 @@ def determine_data_streams_for_db_query(request: ApiStudyResearcherRequest, quer
                 return abort(404, "bad data stream")
 
 
-def determine_users_for_db_query(request: ApiStudyResearcherRequest, query: dict):
+def determine_users_for_db_query(request: ApiStudyResearcherRequest, query: dict) -> None:
     """ Determines, from the html request, the users that should go into the database query.
     Modifies the provided query object accordingly, there is no return value.
     Throws a 404 if a user provided does not exist. """
@@ -161,7 +161,7 @@ def determine_users_for_db_query(request: ApiStudyResearcherRequest, query: dict
             return abort(400, "bad patient id")
 
         # Ensure that all user IDs are patient_ids of actual Participants
-        if not Participant.objects.filter(patient_id__in=query['user_ids']).count() == len(query['user_ids']):
+        if Participant.objects.filter(patient_id__in=query['user_ids']).count() != len(query['user_ids']):
             log("invalid participant")
             return abort(404, "bad patient id")
 
@@ -179,23 +179,22 @@ def determine_time_range_for_db_query(request: ApiStudyResearcherRequest, query:
 def handle_database_query(study_id: int, query_dict: dict, registry_dict: dict = None) -> QuerySet:
     """ Runs the database query and returns a QuerySet. """
     chunks = ChunkRegistry.get_chunks_time_range(study_id, **query_dict)
-    
+    # the simple case where there isn't a registry uploaded    
     if not registry_dict:
         return chunks.values(*CHUNK_FIELDS).iterator()
     
     # If there is a registry, we need to filter on the chunks
-    else:
-        # Get all chunks whose path and hash are both in the registry
-        possible_registered_chunks = chunks \
-            .filter(chunk_path__in=registry_dict, chunk_hash__in=registry_dict.values()) \
-            .values('pk', 'chunk_path', 'chunk_hash')
-        
-        # determine those chunks that we do not want present in the download
-        # (get a list of pks that have hashes that don't match the database)
-        registered_chunk_pks = [
-            c['pk'] for c in possible_registered_chunks
-            if registry_dict[c['chunk_path']] == c['chunk_hash']
-        ]
-        
-        # add the exclude and return the queryset
-        return chunks.exclude(pk__in=registered_chunk_pks).values(*CHUNK_FIELDS).iterator()
+    # Get all chunks whose path and hash are both in the registry
+    possible_registered_chunks = chunks \
+        .filter(chunk_path__in=registry_dict, chunk_hash__in=registry_dict.values()) \
+        .values('pk', 'chunk_path', 'chunk_hash')
+    
+    # determine those chunks that we do not want present in the download
+    # (get a list of pks that have hashes that don't match the database)
+    registered_chunk_pks = [
+        c['pk'] for c in possible_registered_chunks
+        if registry_dict[c['chunk_path']] == c['chunk_hash']
+    ]
+    
+    # add the exclude and return the queryset
+    return chunks.exclude(pk__in=registered_chunk_pks).values(*CHUNK_FIELDS).iterator()

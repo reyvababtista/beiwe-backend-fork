@@ -51,7 +51,7 @@ def run_next_queued_participant_data_deletion():
 
 
 def delete_participant_data(deletion_event: ParticipantDeletionEvent):
-    for page_of_files in enumerate(all_participant_file_paths(deletion_event.participant)):
+    for page_of_files in all_participant_file_paths(deletion_event.participant):
         # we are Extremely aware that s3_list_versions could just return the correct boto3-formatted
         # list of dicts, and in fact that is the form they are received in. We Do Not Care. Instead
         # we choose to hate boto3. The repacking overhead is negligible.
@@ -63,18 +63,14 @@ def delete_participant_data(deletion_event: ParticipantDeletionEvent):
 
 def confirm_deleted(deletion_event: ParticipantDeletionEvent):
     deletion_event.save()  # mark the event as processing...
-    base, chunks_prefix, problem_uploads = get_all_file_path_prefixes(deletion_event.participant)
-    files_base = s3_list_files(base)
-    print("files_base", files_base)
-    if not files_base == []:
+    keys, base, chunks_prefix, problem_uploads = get_all_file_path_prefixes(deletion_event.participant)
+    for _ in s3_list_files(keys, as_generator=True):
+        raise AssertionError(f"still files present in {keys}")
+    for _ in s3_list_files(base, as_generator=True):
         raise AssertionError(f"still files present in {base}")
-    files_chunks_prefix = s3_list_files(chunks_prefix)
-    print("files_chunks_prefix", files_chunks_prefix)
-    if not files_chunks_prefix == []:
+    for _ in s3_list_files(chunks_prefix, as_generator=True):
         raise AssertionError(f"still files present in {chunks_prefix}")
-    files_problem_uploads = s3_list_files(problem_uploads)
-    print("files_problem_uploads", files_problem_uploads)
-    if not files_problem_uploads == []:
+    for _ in s3_list_files(problem_uploads, as_generator=True):
         raise AssertionError(f"still files present in {problem_uploads}")
     
     # MAKE SURE TO UPDATE TESTS IF YOU ADD MORE RELATIONS TO THIS LIST
@@ -123,4 +119,6 @@ def get_all_file_path_prefixes(participant: Participant) -> Tuple[Tuple[str, str
     base = participant.study.object_id + "/" + participant.patient_id + "/"
     chunks_prefix = CHUNKS_FOLDER + "/" + base
     problem_uploads = PROBLEM_UPLOADS + "/" + base
-    return base, chunks_prefix, problem_uploads
+    # this one is two files at most without a trailing slash
+    keys = participant.study.object_id + "/keys/" + participant.patient_id
+    return keys, base, chunks_prefix, problem_uploads

@@ -178,29 +178,39 @@ def s3_delete_versioned(key_path: str, version_id: str) -> bool:
 
 # todo: test
 def s3_delete_many_versioned(paths_version_ids: List[Tuple[str, str]]):
+    """ Takes a lisnt of (key_path, version_id) tuples and deletes them all using the boto3
+    delete_objects API.  Returns the number of files deleted, raises errors with reasonable
+    clarity inside an errorhandler bundled error. """
     assert S3_BUCKET is not Exception, "libs.s3.s3_delete_many_versioned called inside test"
+    error_handler = ErrorHandler()  # use an ErrorHandler to bundle up all errors and raise them at the end.
+    
     # construct the usual insane boto3 dict - if version id is falsey, it must be a string, not None.
+    if not paths_version_ids:
+        raise Exception("s3_delete_many_versioned called with no paths.")
+    
     delete_params = {
         'Objects': [{'Key': key_path, 'VersionId': version_id or "null"}
                     for key_path, version_id in paths_version_ids]
     }
-    resp = conn.delete_object(Bucket=S3_BUCKET, Delete=delete_params)
+    resp = conn.delete_objects(Bucket=S3_BUCKET, Delete=delete_params)
+    deleted = resp['Deleted'] if "Deleted" in resp else []
+    errors = resp['Errors'] if 'Errors' in resp else []
     
-    # we will use an ErrorHandler to bundle up all errors and raise them at the end.
-    deleted = resp['Deleted']
-    errors = resp['Errors']
-    error_handler = ErrorHandler()
-    for d in deleted:
-        if not d["DeleteMarker"]:
-            with error_handler:
-                raise Exception(f"Failed to delete {d['Key']} version {d['VersionId']}")
+    # make legible error messages, bundle them up
     for e in errors:
         with error_handler:
             raise Exception(
                 f"Error trying to delete {e['Key']} version {e['VersionId']}: {e['Code']} - {e['Message']}"
             )
+    if resp['ResponseMetadata']['HTTPStatusCode'] != 200:
+        with error_handler:
+            raise Exception(f"HTTP status code {resp['ResponseMetadata']['HTTPStatusCode']} from s3.delete_objects")
+    if 'Deleted' not in resp:
+        with error_handler:
+            raise Exception("No Deleted key in response from s3.delete_objects")
     
     error_handler.raise_errors()
+    return len(deleted)  # will always error above if empty, cannot return 0.
 
 
 def s3_list_versions(prefix: str) -> Generator[Tuple[str, Optional[str]], None, None]:

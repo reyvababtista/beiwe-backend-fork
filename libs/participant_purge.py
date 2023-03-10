@@ -2,14 +2,19 @@ import itertools
 from typing import List, Tuple
 
 from django.utils import timezone
-from constants.common_constants import PROBLEM_UPLOADS
 
+from constants.common_constants import PROBLEM_UPLOADS
 from constants.data_processing_constants import CHUNKS_FOLDER
 from database.user_models_participant import Participant, ParticipantDeletionEvent
 from libs.s3 import s3_delete_many_versioned, s3_list_files, s3_list_versions
 from libs.security import generate_easy_alphanumeric_string
 
 DELETION_PAGE_SIZE = 250
+
+
+def add_particpiant_for_deletion(participant: Participant):
+    """ adds a participant to the deletion queue. """
+    ParticipantDeletionEvent.objects.create(participant=participant)
 
 
 def run_next_queued_participant_data_deletion():
@@ -59,14 +64,17 @@ def delete_participant_data(deletion_event: ParticipantDeletionEvent):
 def confirm_deleted(deletion_event: ParticipantDeletionEvent):
     deletion_event.save()  # mark the event as processing...
     base, chunks_prefix, problem_uploads = get_all_file_path_prefixes(deletion_event.participant)
-    s3_list_files_base = s3_list_files(base)
-    if not s3_list_files_base == []:
+    files_base = s3_list_files(base)
+    print("files_base", files_base)
+    if not files_base == []:
         raise AssertionError(f"still files present in {base}")
-    s3_list_files_chunks_prefix = s3_list_files(chunks_prefix)
-    if not s3_list_files_chunks_prefix == []:
+    files_chunks_prefix = s3_list_files(chunks_prefix)
+    print("files_chunks_prefix", files_chunks_prefix)
+    if not files_chunks_prefix == []:
         raise AssertionError(f"still files present in {chunks_prefix}")
-    s3_list_files_problem_uploads = s3_list_files(problem_uploads)
-    if not s3_list_files_problem_uploads == []:
+    files_problem_uploads = s3_list_files(problem_uploads)
+    print("files_problem_uploads", files_problem_uploads)
+    if not files_problem_uploads == []:
         raise AssertionError(f"still files present in {problem_uploads}")
     
     # MAKE SURE TO UPDATE TESTS IF YOU ADD MORE RELATIONS TO THIS LIST

@@ -87,9 +87,10 @@ jobs:
             # need to install forest, update existing requirements, update data processing requirements, \
             # and then uninstall the broken dataclasses package that is only needed on 3.6. \
             # (we have to uninstall forest because pointing at a new commit will not force updated  \
-            # subrequirements, for some reason.)  Also update pip and friends. \
-            /home/ubuntu/.pyenv/versions/beiwe/bin/python -m pip install --upgrade pip setuptools wheel; \
+            # subrequirements, for some reason.)  Also update pip and friends, but due to datatables \
+            # that needs to happen after uninstalling forest. \
             /home/ubuntu/.pyenv/versions/beiwe/bin/python -m pip uninstall forest -y; \
+            /home/ubuntu/.pyenv/versions/beiwe/bin/python -m pip install --upgrade pip setuptools wheel; \
             /home/ubuntu/.pyenv/versions/beiwe/bin/python -m pip install -r requirements.txt; \
             /home/ubuntu/.pyenv/versions/beiwe/bin/python -m pip install -r requirements_data_processing.txt; \
             /home/ubuntu/.pyenv/versions/beiwe/bin/python -m pip uninstall dataclasses -y; \

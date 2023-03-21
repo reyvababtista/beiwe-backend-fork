@@ -1,7 +1,8 @@
 # data processing
 celery==4.4.7
 
-# This is temporary until forest is open-sourced
+# This is sort-of-temporary, forest is open-source but not a pip-installable package right now.
+# Note that this file is read programmatically in update_forest_version
 git+https://git@github.com/onnela-lab/forest@2402c6f73d3e562dc346e39ba0408cd9f4607857
 
 

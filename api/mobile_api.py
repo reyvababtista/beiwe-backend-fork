@@ -17,7 +17,6 @@ from constants.message_strings import (DEVICE_CHECKED_IN, DEVICE_IDENTIFIERS_HEA
     INVALID_EXTENSION_ERROR, NO_FILE_ERROR, UNKNOWN_ERROR)
 from database.data_access_models import FileToProcess
 from database.schedule_models import ScheduledEvent
-from database.study_models import DeviceSettings
 from database.survey_models import Survey
 from database.system_models import FileAsText
 from database.user_models_participant import Participant

@@ -66,3 +66,18 @@ def celery_participant_data_deletion():
         print("running script participant_data_deletion.")
         from scripts import purge_participant_data
         ImportRepeater.ensure_run(purge_participant_data)
+
+
+# check the forest version in the update_forest_version script
+def create_task_update_celery_version():
+    with make_error_sentry(sentry_type=SentryTypes.data_processing):
+        print("Queueing update celery version task.")
+        safe_apply_async(celery_update_forest_version)
+
+
+@scripts_celery_app.task(queue=SCRIPTS_QUEUE)
+def celery_update_forest_version():
+    with make_error_sentry(sentry_type=SentryTypes.data_processing):
+        print("running script update_forest_version.")
+        from scripts import update_forest_version
+        ImportRepeater.ensure_run(update_forest_version)

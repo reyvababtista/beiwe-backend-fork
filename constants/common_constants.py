@@ -6,7 +6,7 @@ from sys import argv as _argv
 from dateutil.tz import UTC
 
 
-BEIWE_PROJECT_ROOT = abspath(__file__.rsplit("/", 2)[0] + "/")
+BEIWE_PROJECT_ROOT = abspath(__file__.rsplit("/", 2)[0] + "/")  # this does not end in a slash...
 PROJECT_PARENT_FOLDER = BEIWE_PROJECT_ROOT.rsplit("/", 2)[0] + "/"
 
 RUNNING_TEST_OR_IN_A_SHELL = any(

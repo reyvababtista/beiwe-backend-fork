@@ -1,0 +1,7 @@
+# .gitignore
+beiwe-harvard/
+delete_bucket.py
+dump_data.py
+find_headers.py
+set_onnelalab_site_admins.py
+validate_s3_direct_credentials.py

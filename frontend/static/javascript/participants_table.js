@@ -17,7 +17,7 @@ $(document).ready(function(){
             }},
             // You can sort the table on any of the first 4 columns
             {"targets": [0, 1, 2, 3], "orderable": true},
-            // You can't sort the table on any other columns (custom fields & intervention dates)
+            // You can now sort the table on any other columns (custom fields & intervention dates)
             {"targets": "_all", "orderable": true},
         ]
     });

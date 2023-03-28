@@ -8,11 +8,11 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 from authentication.admin_authentication import authenticate_researcher_study_access
-from database.schedule_models import InterventionDate
 from database.study_models import Study
-from database.user_models_participant import Participant, ParticipantFieldValue
+from database.user_models_participant import Participant
 from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
+from libs.intervention_utils import add_fields_and_interventions
 from libs.s3 import create_client_key_pair, s3_upload
 from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.streaming_bytes_io import StreamingStringsIO
@@ -210,12 +210,3 @@ def participant_csv_generator(study_id, number_of_new_patients):
         filewriter.writerow([patient_id, password])
         yield si.getvalue()
         si.empty()
-
-
-def add_fields_and_interventions(participant: Participant, study: Study):
-    """ Creates empty ParticipantFieldValue and InterventionDate objects for newly created
-     participants, doesn't affect existing instances. """
-    for field in study.fields.all():
-        ParticipantFieldValue.objects.get_or_create(participant=participant, field=field)
-    for intervention in study.interventions.all():
-        InterventionDate.objects.get_or_create(participant=participant, intervention=intervention)

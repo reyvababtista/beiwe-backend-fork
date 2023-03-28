@@ -3,9 +3,11 @@ from datetime import date
 from typing import Dict
 
 import orjson
+from django.db.models.aggregates import Count
 
 from database.schedule_models import InterventionDate, RelativeSchedule
 from database.study_models import Study
+from database.user_models_participant import Participant, ParticipantFieldValue
 from libs.internal_types import DictOfStrStr
 
 
@@ -56,3 +58,24 @@ def survey_history_export(study: Study):
         survey_archives[survey.object_id].extend(query_list)
     
     return orjson.dumps(survey_archives)
+
+
+def add_fields_and_interventions(participant: Participant, study: Study):
+    """ Creates empty ParticipantFieldValue and InterventionDate objects for newly created
+     participants, doesn't affect existing instances. """
+    for field in study.fields.all():
+        ParticipantFieldValue.objects.get_or_create(participant=participant, field=field)
+    for intervention in study.interventions.all():
+        InterventionDate.objects.get_or_create(participant=participant, intervention=intervention)
+
+
+def correct_bad_interventions(study: Study):
+    """ Identify participants with incorrect intervention date counts and attempt to correct them.
+    Only handles the case where the number of intervention dates is less than the expected number of
+    interventions. """
+    intervention_count = study.interventions.all().count()
+    bad_participants = study.participants.annotate(
+        count=Count('intervention_dates')).exclude(count=intervention_count
+    )
+    for participant in bad_participants:
+        add_fields_and_interventions(participant, study)

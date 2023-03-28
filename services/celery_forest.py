@@ -26,7 +26,7 @@ from database.user_models_participant import Participant
 from libs.celery_control import forest_celery_app, safe_apply_async
 from libs.copy_study import format_study
 from libs.internal_types import ChunkRegistryQuerySet
-from libs.intervention_export import intervention_survey_data
+from libs.intervention_utils import intervention_survey_data
 from libs.s3 import s3_retrieve
 from libs.sentry import make_error_sentry, SentryTypes
 from libs.streaming_zip import determine_file_name

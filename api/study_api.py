@@ -17,13 +17,16 @@ from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
 from database.user_models_participant import Participant, ParticipantFieldValue
 from libs.internal_types import ResearcherRequest
-from libs.intervention_export import intervention_survey_data, survey_history_export
+from libs.intervention_utils import (correct_bad_interventions, intervention_survey_data,
+    survey_history_export)
 
 
 @require_POST
 @authenticate_researcher_study_access
 def study_participants_api(request: ResearcherRequest, study_id: int):
     study: Study = Study.objects.get(pk=study_id)
+    correct_bad_interventions(study)
+
     # `draw` is passed by DataTables. It's automatically incremented, starting with 1 on the page
     # load, and then 2 with the next call to this API endpoint, and so on.
     draw = int(request.POST.get('draw'))
@@ -37,6 +40,7 @@ def study_participants_api(request: ResearcherRequest, study_id: int):
     data = get_values_for_participants_table(
         study, start, length, sort_by_column_index, sort_in_descending_order, contains_string
     )
+    
     table_data = {
         "draw": draw,
         "recordsTotal": total_participants_count,
@@ -250,6 +254,7 @@ def get_values_for_participants_table(
     # Get the list of the basic columns that are present in every study, convert the created_on
     # into a string in YYYY-MM-DD format, add intervention dates (sorted in prefetch), custom fields.
     participants_data = []
+    
     for p in query[start:start + length]:
         # order matters, must match the order of the columns in the table
         participant_values = [p.created_on.strftime(API_DATE_FORMAT), p.patient_id, p.registered, p.os_type]

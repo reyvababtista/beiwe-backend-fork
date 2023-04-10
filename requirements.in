@@ -1,12 +1,12 @@
 # core libraries
-Django==3.2.16
+Django==3.2.18
 firebase-admin==5.4.0
-Jinja2==3.1.1
-zstd==1.5.2.5  # This one seems to require manual pinning, version 1.5+ contaicns performance improvements
-orjson==3.6.7
+Jinja2==3.1.2
+zstd==1.5.5.1  # This one seems to require manual pinning, version 1.5+ contains performance improvements
+orjson==3.8.10
 
 # various extensions
-djangorestframework==3.13.1
+djangorestframework==3.14.0
 django-extensions==3.2.1
 
 python-dateutil==2.8.2
@@ -31,7 +31,7 @@ psycopg2==2.9.3
 
 # ipython can exhibit weird issues that make it look like the codebase is broken.  Most issues
 # are resolved by forcing this relatively new version of ipython.
-ipython>=8.3.0
+ipython>=8.12.0
 uwsgi
 
 # Keep these dependencies up to date
@@ -41,4 +41,4 @@ boto3
 # this library. but we can't remove it because it is used in migrations.
 django-timezone-field==4.1.1
 
-pip-tools>=6.9.0
+pip-tools>=6.13.0

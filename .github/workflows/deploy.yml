@@ -84,6 +84,8 @@ jobs:
             if ! git pull; \
               then exit 1; \
             fi; \
+            # update the profile for any future ssh sessions updates: \
+            cp /home/ubuntu/beiwe-backend/cluster_management/pushed_files/bash_profile.sh /home/ubuntu/.profile \
             # need to install forest, update existing requirements, update data processing requirements, \
             # and then uninstall the broken dataclasses package that is only needed on 3.6. \
             # (we have to uninstall forest because pointing at a new commit will not force updated  \

@@ -19,9 +19,12 @@ if test -f "/home/ubuntu/.pyenv/versions/beiwe/bin/python"; then
     pyenv global beiwe
 fi
 
-alias b='cd ~/beiwe-backend/'
+#type sudo less
+alias apt="sudo apt"
 
+#update aliases
 alias update-commandline='cp ~/beiwe-backend/cluster_management/pushed_files/bash_profile.sh ~/.profile; cp ~/beiwe-backend/cluster_management/pushed_files/.inputrc ~/.inputrc'
+alias update-pip='pip uninstall forest -y; pip install --upgrade pip setuptools wheel; pip install -r requirements.txt; pip install -r requirements_data_processing.txt; pip uninstall dataclasses -y;'
 
 #Alias aliases
 alias p="nano ~/.profile; source ~/.profile"
@@ -65,49 +68,46 @@ alias d='git diff'
 alias gd='git diff'
 alias dw='git diff -w'
 alias gs='git diff --stat'
-alias pull="git pull"
-alias master="git checkout master"
-alias prod="git checkout production"
-alias dev='git checkout development'
+alias pull="git pull --ff-only"
+alias main="git checkout main"
 
 #File locations
-alias beiwe='cd $HOME/beiwe-backend'
+alias b='cd ~/beiwe-backend/'
+alias beiwe='cd ~/beiwe-backend/'
 alias apache="cd /etc/apache2"
 
-#Apache restart functionality
-alias apacherestart='sudo /etc/init.d/apache2 restart'
-alias are='apacherestart'
-alias restart='sudo service apache2 restart'
-alias up='update'
-alias update='cd $HOME/beiwe-backend; pyc; git pull; touch $HOME/beiwe-backend/wsgi.py'
-
-alias pyc='find . -type f -name "*.pyc" -delete -print'
+#Apache restart functionality - keep in case we ever resurrect the apache single server mode.
+# alias apacherestart='sudo /etc/init.d/apache2 restart'
+# alias are='apacherestart'
+# alias restart='sudo service apache2 restart'
+# alias up='update'
+# alias apache-update='cd $HOME/beiwe-backend; pyc; git pull; touch $HOME/beiwe-backend/wsgi.py'
 
 #supervisord (data processing)
 alias processing-start="supervisord"
-alias processing-stop="killall supervisord"
+alias processing-stop="killall supervisord > /dev/null 2>&1"
 alias processing-restart="pkill -HUP supervisord 2> /dev/null"
 
 #Logs
 alias log='tail -f /home/ubuntu/celery*.log'
 alias logs='tail -f /home/ubuntu/celery*.log'
-alias logapache='tail -f /var/log/apache2/error.log | cut -d " " -f 4,10-' #tail follow apache log
 alias logd='tail -f /home/ubuntu/supervisor.log'
+# keep in case we ever resurrect the apache single server mode.
+# alias logapache='tail -f /var/log/apache2/error.log | cut -d " " -f 4,10-' #tail follow apache log
 
 #Configuration files
-alias conf='sudo nano $HOME/beiwe-backend/config/settings.py'
+alias conf='sudo nano ~/beiwe-backend/config/settings.py'
+alias settings='conf'
 alias superconf='sudo nano /etc/supervisord.conf'
 
-#Services configuration files
-alias boot="sudo sysv-rc-conf"
-
 #Developer tools
-alias db="cd $HOME/beiwe-backend/; python manage.py shell_plus"
+alias db="cd ~/beiwe-backend/; python manage.py shell_plus"
 alias py="python"
 alias ipy="ipython"
 alias manage="python manage.py"
 alias shell="python manage.py shell_plus"
 alias ag="clear; printf '_%.0s' {1..100}; echo ''; echo 'Silver results begin here:'; ag --column"
+alias pyc='find . -type f -name "*.pyc" -delete -print'
 
 function run {
     nohup python -u $1 > ~/$1_log.out &
@@ -135,8 +135,6 @@ function backup () {
         echo Dont forget to include username, dbname, and host as parameters to this helper function when you run it.  They are required.
     fi
 }
-
-alias apt="sudo apt"
 
 ## Environment config ##
 

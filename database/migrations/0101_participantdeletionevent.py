@@ -18,8 +18,6 @@ class Migration(migrations.Migration):
                 ('created_on', models.DateTimeField(auto_now_add=True)),
                 ('last_updated', models.DateTimeField(auto_now=True)),
                 ('files_deleted_count', models.BigIntegerField(default=0)),
-                ('purge_data_starting_at', models.DateTimeField(blank=True, null=True)),
-                ('purge_data_until', models.DateTimeField(blank=True, null=True)),
                 ('purge_confirmed_time', models.DateTimeField(blank=True, db_index=True, null=True)),
                 ('participant', models.OneToOneField(on_delete=django.db.models.deletion.PROTECT, related_name='deletion_event', to='database.participant')),
             ],

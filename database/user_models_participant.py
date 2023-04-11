@@ -233,3 +233,5 @@ class ParticipantDeletionEvent(TimestampedModel):
     participant: Participant = models.OneToOneField(Participant, on_delete=models.PROTECT, related_name="deletion_event")
     files_deleted_count = models.BigIntegerField(null=False, blank=False, default=0)
     purge_confirmed_time = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    

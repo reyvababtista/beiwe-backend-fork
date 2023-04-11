@@ -106,6 +106,7 @@ alias py="python"
 alias ipy="ipython"
 alias manage="python manage.py"
 alias shell="python manage.py shell_plus"
+alias showmigrations='manage showmigrations'
 alias ag="clear; printf '_%.0s' {1..100}; echo ''; echo 'Silver results begin here:'; ag --column"
 alias pyc='find . -type f -name "*.pyc" -delete -print'
 

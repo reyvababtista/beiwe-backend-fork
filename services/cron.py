@@ -26,8 +26,11 @@ VALID_ARGS = [FIVE_MINUTES, HOURLY, FOUR_HOURLY, DAILY, WEEKLY, MONTHLY]
 
 TASKS = {
     FIVE_MINUTES:
-        [create_file_processing_tasks, create_push_notification_tasks, create_forest_celery_tasks],
-    HOURLY: [create_task_ios_no_decryption_key_task, create_task_participant_data_deletion],
+        [
+            create_file_processing_tasks, create_push_notification_tasks,
+            create_forest_celery_tasks, create_task_participant_data_deletion
+        ],
+    HOURLY: [create_task_ios_no_decryption_key_task],
     FOUR_HOURLY: [],
     DAILY: [create_task_upload_logs],
     WEEKLY: [],

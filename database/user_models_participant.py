@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, tzinfo
+from datetime import datetime, timedelta, tzinfo
 from typing import Dict, Tuple, Union
 
 from Cryptodome.PublicKey import RSA
@@ -233,3 +233,49 @@ class ParticipantDeletionEvent(TimestampedModel):
     participant: Participant = models.OneToOneField(Participant, on_delete=models.PROTECT, related_name="deletion_event")
     files_deleted_count = models.BigIntegerField(null=False, blank=False, default=0)
     purge_confirmed_time = models.DateTimeField(null=True, blank=True, db_index=True)
+    
+    @classmethod
+    def summary(cls):
+        """ Provides a simple overview of the current state of the deletion queue. """
+        now = timezone.now()
+        now_minus_30 = now - timedelta(minutes=30)
+        now_minus_6 = now - timedelta(minutes=6)
+        past_24_hours = now - timedelta(hours=24)
+        base = cls.objects.order_by("participant__patient_id")
+        base_unfinished = base.filter(purge_confirmed_time__isnull=True).exclude(created_on__gt=now_minus_30)
+        
+        # deletion events with a created_on timestamp less than 30 minutes ago will have
+        # last_updated of almost same age, and will not run.
+        held_events = base.filter(created_on__gt=now_minus_30)
+        print(
+            f"There are {held_events.count()} participants with held deletion events:\n"
+            f"{', '.join(p for p in held_events.values_list('participant__patient_id', flat=True))}"
+            "\n"
+        )
+        
+        # deletion events with a last updated time older than 30 minutes are eligible for deletion.
+        # (excludes held events)
+        eligible_events = base_unfinished.filter(last_updated__lt=now_minus_30)
+        print(
+            f"There are {eligible_events.count()} participants eligible for deletion:\n"
+            f"{', '.join(p for p in eligible_events.values_list('participant__patient_id', flat=True))}"
+            "\n"
+        )
+        
+        # active deletion events are those with a last updated timestamp more recent than 6 minutes
+        # ago (excludes held events).
+        active_events = base_unfinished.filter(last_updated__gt=now_minus_6)
+        print(
+            f"There are {active_events.count()} potentially active deletion events:\n"
+            f"{', '.join(p for p in active_events.values_list('participant__patient_id', flat=True))}"
+            "\n"
+        )
+        
+        # finished events are any with a purge_confirmed_time.
+        finished_events = base.filter(purge_confirmed_time__isnull=False)
+        finished_24 = finished_events.filter(purge_confirmed_time__gt=past_24_hours)
+        print(
+            f"There are {finished_events.count()} finished deletion events, with "
+            f"{finished_24.count()} in the past 24 hours:\n"
+            f"{', '.join(p for p in finished_24.values_list('participant__patient_id', flat=True))}"
+        )

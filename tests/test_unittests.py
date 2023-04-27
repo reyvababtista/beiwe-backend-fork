@@ -3,19 +3,27 @@ import unittest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+from django.utils import timezone
+
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import MIDNIGHT_EVERY_DAY
 from database.data_access_models import IOSDecryptionKey
-from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError
-from database.schedule_models import BadWeeklyCount, WeeklySchedule
-from database.user_models_participant import Participant, ParticipantDeletionEvent
+from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
+from database.schedule_models import (ArchivedEvent, BadWeeklyCount, InterventionDate,
+    ScheduledEvent, WeeklySchedule)
+from database.tableau_api_models import ForestTask, SummaryStatisticDaily
+from database.user_models_participant import (Participant, ParticipantDeletionEvent,
+    ParticipantFieldValue, PushNotificationDisabledEvent)
 from libs.file_processing.exceptions import BadTimecodeError
 from libs.file_processing.utility_functions_simple import binify_from_timecode
-from libs.participant_purge import confirm_deleted, run_next_queued_participant_data_deletion
+from libs.participant_purge import (confirm_deleted, get_all_file_path_prefixes,
+    run_next_queued_participant_data_deletion)
 from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_and_schedule,
     NoSchedulesException)
 from tests.common import CommonTestCase
 
+
+COUNT_OF_PATHS_RETURNED_FROM_GET_ALL_FILE_PATH_PREFIXES = 4
 
 class TestTimingsSchedules(CommonTestCase):
     
@@ -159,9 +167,9 @@ class TestParticipantDataDeletion(CommonTestCase):
         s3_list_versions: MagicMock,
         s3_list_files: MagicMock,
         s3_delete_many_versioned: MagicMock,
-        list_versions_count: int = 3,
-        list_files_count: int = 3,
-        delete_versioned_count: int = 3,
+        list_versions_count: int = COUNT_OF_PATHS_RETURNED_FROM_GET_ALL_FILE_PATH_PREFIXES,
+        list_files_count: int = COUNT_OF_PATHS_RETURNED_FROM_GET_ALL_FILE_PATH_PREFIXES,
+        delete_versioned_count: int = COUNT_OF_PATHS_RETURNED_FROM_GET_ALL_FILE_PATH_PREFIXES,
     ):
         # sanity checks to save our butts
         self.assertEqual(s3_list_versions._mock_name, "s3_list_versions")
@@ -172,22 +180,18 @@ class TestParticipantDataDeletion(CommonTestCase):
         # tests that call this function should implement their own assertions on the number of calls
         # to and parameters to s3_delete_many_versioned.
         self.assertEqual(s3_delete_many_versioned.call_count, delete_versioned_count)
-        # check that all the paths were correct for the participant and study, this is a somewhat
-        # tautological test, but its important to have something that breaks easily if the paths
-        # change to ensure we get coverage on any new paths we might add
-        study_id = self.default_participant.study.object_id
-        patient_id = self.default_participant.patient_id
-        path_participant = f'{study_id}/{patient_id}/'
-        path_chunked = f'CHUNKED_DATA/{study_id}/{patient_id}/'
-        path_problems = f'PROBLEM_UPLOADS/{study_id}/{patient_id}/'
-        if list_files_count == 3:
-            self.assertEqual(s3_list_files.call_args_list[0].args[0], path_participant)
-            self.assertEqual(s3_list_files.call_args_list[1].args[0], path_chunked)
-            self.assertEqual(s3_list_files.call_args_list[2].args[0], path_problems)
-        if list_versions_count == 3:
-            self.assertEqual(s3_list_versions.call_args_list[0].args[0], path_participant)
-            self.assertEqual(s3_list_versions.call_args_list[1].args[0], path_chunked)
-            self.assertEqual(s3_list_versions.call_args_list[2].args[0], path_problems)
+        
+        path_keys, path_participant, path_chunked, path_problems = get_all_file_path_prefixes(self.default_participant)
+        if list_files_count == COUNT_OF_PATHS_RETURNED_FROM_GET_ALL_FILE_PATH_PREFIXES:
+            self.assertEqual(s3_list_files.call_args_list[0].args[0], path_keys)
+            self.assertEqual(s3_list_files.call_args_list[1].args[0], path_participant)
+            self.assertEqual(s3_list_files.call_args_list[2].args[0], path_chunked)
+            self.assertEqual(s3_list_files.call_args_list[3].args[0], path_problems)
+        if list_versions_count == COUNT_OF_PATHS_RETURNED_FROM_GET_ALL_FILE_PATH_PREFIXES:
+            self.assertEqual(s3_list_versions.call_args_list[0].args[0], path_keys)
+            self.assertEqual(s3_list_versions.call_args_list[1].args[0], path_participant)
+            self.assertEqual(s3_list_versions.call_args_list[2].args[0], path_chunked)
+            self.assertEqual(s3_list_versions.call_args_list[3].args[0], path_problems)
     
     def test_no_participants_at_all(self):
         self.assertFalse(Participant.objects.exists())
@@ -237,7 +241,8 @@ class TestParticipantDataDeletion(CommonTestCase):
         self.default_participant_deletion_event
         self.assertRaises(AssertionError, run_next_queued_participant_data_deletion)
         self.assert_default_participant_end_state()
-        self.assert_correct_s3_parameters_called(s3_list_versions, s3_list_files, s3_delete_many_versioned, list_files_count=1, delete_versioned_count=0)
+        self.assert_correct_s3_parameters_called(
+            s3_list_versions, s3_list_files, s3_delete_many_versioned, list_files_count=1, delete_versioned_count=0)
         self.default_participant_deletion_event.refresh_from_db()
         self.assertIsNone(self.default_participant_deletion_event.purge_confirmed_time)
     
@@ -295,3 +300,81 @@ class TestParticipantDataDeletion(CommonTestCase):
         self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
         ftp.delete()
         confirm_deleted(self.default_participant_deletion_event)
+        
+        # PushNotificationDisabledEvent
+        PushNotificationDisabledEvent.objects.create(participant=self.default_participant, count=1)
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        PushNotificationDisabledEvent.objects.all().delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        # ParticipantFCMHistory
+        fcm_token = self.populate_default_fcm_token
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        fcm_token.delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        # ParticipantFieldValue
+        self.default_participant_field_value
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        ParticipantFieldValue.objects.all().delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        # UploadTracking
+        UploadTracking.objects.create(
+            file_path=" ", file_size=0, timestamp=timezone.now(), participant=self.default_participant
+        )
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        UploadTracking.objects.all().delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        # ScheduledEvent, ArchivedEvent (they have a relation)
+        sched_event = self.generate_a_real_weekly_schedule_event_with_schedule()[0]
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        sched_event.archive(self_delete=True, status="deleted", created_on=timezone.now())
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        ScheduledEvent.objects.all().delete()
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        ArchivedEvent.objects.all().delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        # InterventionDate
+        self.default_populated_intervention_date
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        InterventionDate.objects.all().delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        # ForestTask
+        self.generate_forest_task()
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        ForestTask.objects.all().delete()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+        self.generate_summary_statistic_daily()
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        SummaryStatisticDaily.objects.all().delete()
+        confirm_deleted(self.default_participant_deletion_event)
+    
+    def test_related_fields(self):
+        # this test will fail whenever there is a new related model added to the codebase for a
+        # participant, you need to ensure that you have manually added a test to
+        # test_confirm_deleted, that it is added to libs.partiicpants_purge.confirm_deleted, and
+        # libs.participant_purge.run_next_queued_participant_data_deletion
+        relate_models = [
+            "ParticipantDeletionEvent",  # this is why we are here...
+            "ArchivedEvent",  # confirmed
+            "ChunkRegistry",  # confirmed
+            "EncryptionErrorMetadata",  # confirmed
+            "FileToProcess",  # confirmed
+            "ForestTask",  # confirmed
+            "InterventionDate",  # confirmed
+            "IOSDecryptionKey",  # confirmed
+            "LineEncryptionError",  # confirmed
+            "ParticipantFCMHistory",  # confirmed
+            "ParticipantFieldValue",  # confirmed
+            "PushNotificationDisabledEvent",  # in confirmed
+            "ScheduledEvent",  # confirmed
+            "SummaryStatisticDaily",  # confirmed
+            "UploadTracking",  # confirmed
+        ]
+        for model in Participant._meta.related_objects:
+            assert model.related_model.__name__ in relate_models

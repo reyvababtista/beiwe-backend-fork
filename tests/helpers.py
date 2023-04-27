@@ -1,7 +1,7 @@
 import subprocess
 import uuid
 from datetime import date, datetime, timedelta
-from typing import List
+from typing import List, Tuple
 
 from django.db.models import (AutoField, CharField, DateField, FloatField, ForeignKey, IntegerField,
     TextField)
@@ -471,7 +471,7 @@ class ReferenceObjectMixin:
     
     def generate_a_real_weekly_schedule_event_with_schedule(
         self, day_of_week: int = 0, hour: int = 0, minute: int = 0
-    ):
+    ) -> Tuple[ScheduledEvent, int]:
         """ The creation of weekly events is weird, it best to use the real machinery and build
         some unit tests for it. At time of documenting none exist, but there are some integration
         tests. """
@@ -588,8 +588,8 @@ class ReferenceObjectMixin:
             # its empty, this is ok
             self._default_summary_statistic_daily = self.generate_summary_statistic_daily()
             return self._default_summary_statistic_daily
-
-
+    
+    
     def default_summary_statistic_daily_cheatsheet(self):
         # this is used to populate default values in a SummaryStatisticDaily
         field_dict = {}

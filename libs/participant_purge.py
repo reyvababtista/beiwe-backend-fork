@@ -47,6 +47,13 @@ def run_next_queued_participant_data_deletion():
     deletion_event.participant.foresttask_set.all().delete()
     deletion_event.participant.encryptionerrormetadata_set.all().delete()
     deletion_event.participant.files_to_process.all().delete()
+    deletion_event.participant.pushnotificationdisabledevent_set.all().delete()
+    deletion_event.participant.fcm_tokens.all().delete()
+    deletion_event.participant.field_values.all().delete()
+    deletion_event.participant.upload_trackers.all().delete()
+    deletion_event.participant.archived_events.all().delete()
+    deletion_event.participant.scheduled_events.all().delete()
+    deletion_event.participant.intervention_dates.all().delete()
     confirm_deleted(deletion_event)
 
 
@@ -88,6 +95,20 @@ def confirm_deleted(deletion_event: ParticipantDeletionEvent):
         raise AssertionError("still have database entries for encryptionerrormetadata")
     if deletion_event.participant.files_to_process.exists():
         raise AssertionError("still have database entries for files_to_process")
+    if deletion_event.participant.pushnotificationdisabledevent_set.exists():
+        raise AssertionError("still have database entries for pushnotificationdisabledevent")
+    if deletion_event.participant.fcm_tokens.exists():
+        raise AssertionError("still have database entries for fcm tokens (fcm history)")
+    if deletion_event.participant.field_values.exists():
+        raise AssertionError("still have database entries for participant field values")
+    if deletion_event.participant.upload_trackers.exists():
+        raise AssertionError("still have database entries for upload_trackers")
+    if deletion_event.participant.intervention_dates.exists():
+        raise AssertionError("still have database entries for intervention_dates")
+    if deletion_event.participant.scheduled_events.exists():
+        raise AssertionError("still have database entries for scheduled_events")
+    if deletion_event.participant.archived_events.exists():
+        raise AssertionError("still have database entries for archived_events")
     
     # mark the deletion event as _confirmed_ completed
     deletion_event.purge_confirmed_time = timezone.now()

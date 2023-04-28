@@ -53,7 +53,9 @@ from tests.common import (BasicSessionTestCase, CommonTestCase, DataApiTest, Par
     ResearcherSessionTest, SmartRequestsTestCase)
 from tests.helpers import DummyThreadPool
 
-
+#
+## login_pages
+#
 class TestLoginPages(BasicSessionTestCase):
     """ Basic authentication test, make sure that the machinery for logging a user
     in and out are functional at setting and clearing a session. 
@@ -410,6 +412,10 @@ class TestChooseStudy(ResearcherSessionTest):
         self.assert_not_present(self.session_study.name, resp.content)
 
 
+#
+## admin_pages
+#
+
 class TestViewStudy(ResearcherSessionTest):
     """ view_study is pretty simple, no custom content in the :
     tests push_notifications_enabled, study.is_test, study.forest_enabled
@@ -649,6 +655,9 @@ class TestDisableTableauApiKey(ResearcherSessionTest):
         self.assert_present(TABLEAU_API_KEY_IS_DISABLED, self.redirect_get_contents())
 
 
+#
+## dashboard_api
+#
 class TestDashboard(ResearcherSessionTest):
     ENDPOINT_NAME = "dashboard_api.dashboard_page"
     
@@ -787,7 +796,10 @@ class TestDashboardPatientDisplay(ResearcherSessionTest):
         self.assert_present(comma_separated, html2)
 
 
-# system_admin_pages.manage_researchers
+#
+## system_admin_pages
+#
+
 class TestManageResearchers(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.manage_researchers"
     
@@ -899,7 +911,66 @@ class TestResetResearcherMFA(ResearcherSessionTest):
             self.assert_present(MFA_RESET_BAD_PERMISSIONS, resp.content)
 
 
-class TestResetMFASelf(ResearcherSessionTest):
+class TestEditResearcher(ResearcherSessionTest):
+    ENDPOINT_NAME = "system_admin_pages.edit_researcher"
+    
+    # render self
+    def test_render_for_self_as_researcher(self):
+        # should fail
+        self.set_session_study_relation()
+        self.smart_get_status_code(403, self.session_researcher.id)
+    
+    def test_render_for_self_as_study_admin(self):
+        # ensure it renders (buttons will be disabled)
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.smart_get_status_code(200, self.session_researcher.id)
+    
+    def test_render_for_self_as_site_admin(self):
+        # ensure it renders (buttons will be disabled)
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.smart_get_status_code(200, self.session_researcher.id)
+    
+    def test_render_for_researcher_as_researcher(self):
+        # should fail
+        self.set_session_study_relation()
+        # set up, test when not on study
+        r2 = self.generate_researcher()
+        resp = self.smart_get_status_code(403, r2.id)
+        self.assert_not_present(r2.username, resp.content)
+        # attach other researcher and try again
+        self.generate_study_relation(r2, self.session_study, ResearcherRole.researcher)
+        resp = self.smart_get_status_code(403, r2.id)
+        self.assert_not_present(r2.username, resp.content)
+    
+    # study admin, renders
+    def test_render_valid_researcher_as_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_render_generic_under_study()
+    
+    def test_render_researcher_with_no_study_as_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_render_researcher_with_no_study()
+    
+    # site admin, renders
+    def test_render_valid_researcher_as_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test_render_generic_under_study()
+    
+    def test_render_researcher_with_no_study_as_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test_render_researcher_with_no_study()
+    
+    def _test_render_generic_under_study(self):
+        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.researcher)
+        resp = self.smart_get_status_code(200, r2.id)
+        self.assert_present(r2.username, resp.content)
+    
+    def _test_render_researcher_with_no_study(self):
+        r2 = self.generate_researcher()
+        resp = self.smart_get_status_code(200, r2.id)
+        self.assert_present(r2.username, resp.content)
+
+
     ENDPOINT_NAME = "admin_pages.reset_mfa_self"
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
@@ -989,66 +1060,6 @@ class TestTestMFA(ResearcherSessionTest):
         self.smart_post(mfa_code="abcdef")
         page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
         self.assert_present(MFA_TEST_DISABLED, page)
-
-
-class TestEditResearcher(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.edit_researcher"
-    
-    # render self
-    def test_render_for_self_as_researcher(self):
-        # should fail
-        self.set_session_study_relation()
-        self.smart_get_status_code(403, self.session_researcher.id)
-    
-    def test_render_for_self_as_study_admin(self):
-        # ensure it renders (buttons will be disabled)
-        self.set_session_study_relation(ResearcherRole.study_admin)
-        self.smart_get_status_code(200, self.session_researcher.id)
-    
-    def test_render_for_self_as_site_admin(self):
-        # ensure it renders (buttons will be disabled)
-        self.set_session_study_relation(ResearcherRole.site_admin)
-        self.smart_get_status_code(200, self.session_researcher.id)
-    
-    def test_render_for_researcher_as_researcher(self):
-        # should fail
-        self.set_session_study_relation()
-        # set up, test when not on study
-        r2 = self.generate_researcher()
-        resp = self.smart_get_status_code(403, r2.id)
-        self.assert_not_present(r2.username, resp.content)
-        # attach other researcher and try again
-        self.generate_study_relation(r2, self.session_study, ResearcherRole.researcher)
-        resp = self.smart_get_status_code(403, r2.id)
-        self.assert_not_present(r2.username, resp.content)
-    
-    # study admin, renders
-    def test_render_valid_researcher_as_study_admin(self):
-        self.set_session_study_relation(ResearcherRole.study_admin)
-        self._test_render_generic_under_study()
-    
-    def test_render_researcher_with_no_study_as_study_admin(self):
-        self.set_session_study_relation(ResearcherRole.study_admin)
-        self._test_render_researcher_with_no_study()
-    
-    # site admin, renders
-    def test_render_valid_researcher_as_site_admin(self):
-        self.set_session_study_relation(ResearcherRole.site_admin)
-        self._test_render_generic_under_study()
-    
-    def test_render_researcher_with_no_study_as_site_admin(self):
-        self.set_session_study_relation(ResearcherRole.site_admin)
-        self._test_render_researcher_with_no_study()
-    
-    def _test_render_generic_under_study(self):
-        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.researcher)
-        resp = self.smart_get_status_code(200, r2.id)
-        self.assert_present(r2.username, resp.content)
-    
-    def _test_render_researcher_with_no_study(self):
-        r2 = self.generate_researcher()
-        resp = self.smart_get_status_code(200, r2.id)
-        self.assert_present(r2.username, resp.content)
 
 
 class TestElevateResearcher(ResearcherSessionTest):
@@ -1669,17 +1680,6 @@ class TestDeleteFirebaseAndroidCert(ResearcherSessionTest):
         self.assertFalse(FileAsText.objects.exists())
 
 
-class TestDataAccessWebFormPage(ResearcherSessionTest):
-    ENDPOINT_NAME = "data_access_web_form.data_api_web_form_page"
-    
-    def test(self):
-        resp = self.smart_get()
-        self.assert_present("Reset Data-Download API Access Credentials", resp.content)
-        id_key, secret_key = self.session_researcher.reset_access_credentials()
-        resp = self.smart_get()
-        self.assert_not_present("Reset Data-Download API Access Credentials", resp.content)
-
-
 # FIXME: add error cases to this test
 class TestSetStudyTimezone(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.set_study_timezone"
@@ -1753,7 +1753,27 @@ class TestAddResearcherToStudy(ResearcherSessionTest):
         if isinstance(redirect_or_response, HttpResponseRedirect):
             self.assertEqual(redirect_or_response.url, f"/edit_study/{self.session_study.id}")
 
+#
+## admin_pages
+#
+class TestResetMFASelf(ResearcherSessionTest):
 
+#
+## data_access_web_form
+#
+class TestDataAccessWebFormPage(ResearcherSessionTest):
+    ENDPOINT_NAME = "data_access_web_form.data_api_web_form_page"
+    
+    def test(self):
+        resp = self.smart_get()
+        self.assert_present("Reset Data-Download API Access Credentials", resp.content)
+        id_key, secret_key = self.session_researcher.reset_access_credentials()
+        resp = self.smart_get()
+        self.assert_not_present("Reset Data-Download API Access Credentials", resp.content)
+
+#
+## admin_api
+#
 class TestRemoveResearcherFromStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.remove_researcher_from_study"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
@@ -1888,6 +1908,39 @@ class TestSetResearcherPassword(ResearcherSessionTest):
         return ret
 
 
+class TestToggleStudyEasyEnrollment(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_api.toggle_easy_enrollment_study"
+    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    
+    def test_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test_success()
+    
+    def test_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_success()
+    
+    def _test_success(self):
+        self.assertFalse(self.default_study.easy_enrollment)
+        self.smart_get_redirect(self.session_study.id)
+        self.default_study.refresh_from_db()
+        self.assertTrue(self.default_study.easy_enrollment)
+    
+    def test_researcher(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_fail()
+    
+    def test_no_relation(self):
+        self.session_researcher.study_relations.all().delete()  # should be redundant
+        self._test_fail()
+    
+    def _test_fail(self):
+        self.assertFalse(self.default_study.easy_enrollment)
+        self.easy_get(self.ENDPOINT_NAME, status_code=403, study_id=self.session_study.id).content
+        self.default_study.refresh_from_db()
+        self.assertFalse(self.default_study.easy_enrollment)
+
+
 # fixme: add user type tests
 class TestRenameStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.rename_study"
@@ -1908,6 +1961,9 @@ class TestPrivacyPolicy(ResearcherSessionTest):
         redirect = self.smart_get()
         self.assertIsInstance(redirect, HttpResponseRedirect)
 
+#
+## study_api
+#
 
 # FIXME: implement this test beyond "it doesn't crash"
 class TestStudyParticipantApi(ResearcherSessionTest):
@@ -2112,6 +2168,9 @@ class TestEditStudyField(ResearcherSessionTest):
         self.assertEqual(study_field.id, study_field_new.id)
         self.assertEqual(study_field_new.field_name, "new_name")
 
+#
+## participant_pages
+#
 
 # FIXME: implement more tests of this endpoint, it is complex.
 class TestNotificationHistory(ResearcherSessionTest):
@@ -2194,6 +2253,10 @@ class TestParticipantPage(ResearcherSessionTest):
             'Invalid date format, please use the date selector or YYYY-MM-DD.', page
         )
 
+#
+## copy_study_api
+#
+
 # FIXME: add interventions and surveys to the export tests
 class TestExportStudySettingsFile(ResearcherSessionTest):
     ENDPOINT_NAME = "copy_study_api.export_study_settings_file"
@@ -2271,6 +2334,10 @@ class TestImportStudySettingsFile(ResearcherSessionTest):
         return self.easy_get(self.REDIRECT_ENDPOINT_NAME, status_code=200, study_id=study2.id).content
 
 
+#
+## survey_api
+#
+
 class TestICreateSurvey(ResearcherSessionTest):
     ENDPOINT_NAME = "survey_api.create_survey"
     REDIRECT_ENDPOINT_NAME = "survey_designer.render_edit_survey"
@@ -2326,6 +2393,10 @@ class TestUpdateSurvey(ResearcherSessionTest):
         self.assertEqual(resp.status_code, 201)
 
 
+#
+## survey_designer
+#
+
 # FIXME: add interventions and survey schedules
 class TestRenderEditSurvey(ResearcherSessionTest):
     ENDPOINT_NAME = "survey_designer.render_edit_survey"
@@ -2335,6 +2406,10 @@ class TestRenderEditSurvey(ResearcherSessionTest):
         survey = self.generate_survey(self.session_study, Survey.TRACKING_SURVEY)
         self.smart_get_status_code(200, self.session_study.id, survey.id)
 
+
+#
+## participant_administration
+#
 
 # FIXME: this endpoint doesn't validate the researcher on the study
 # FIXME: redirect was based on referrer.
@@ -2469,39 +2544,6 @@ class TestToggleParticipantEasyEnrollment(ResearcherSessionTest):
         self.assertFalse(self.default_participant.easy_enrollment)
 
 
-class TestToggleStudyEasyEnrollment(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_api.toggle_easy_enrollment_study"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
-    
-    def test_site_admin(self):
-        self.set_session_study_relation(ResearcherRole.site_admin)
-        self._test_success()
-    
-    def test_study_admin(self):
-        self.set_session_study_relation(ResearcherRole.study_admin)
-        self._test_success()
-    
-    def _test_success(self):
-        self.assertFalse(self.default_study.easy_enrollment)
-        self.smart_get_redirect(self.session_study.id)
-        self.default_study.refresh_from_db()
-        self.assertTrue(self.default_study.easy_enrollment)
-    
-    def test_researcher(self):
-        self.set_session_study_relation(ResearcherRole.researcher)
-        self._test_fail()
-    
-    def test_no_relation(self):
-        self.session_researcher.study_relations.all().delete()  # should be redundant
-        self._test_fail()
-    
-    def _test_fail(self):
-        self.assertFalse(self.default_study.easy_enrollment)
-        self.easy_get(self.ENDPOINT_NAME, status_code=403, study_id=self.session_study.id).content
-        self.default_study.refresh_from_db()
-        self.assertFalse(self.default_study.easy_enrollment)
-
-
 class TestUnregisterParticipant(ResearcherSessionTest):
     ENDPOINT_NAME = "participant_administration.unregister_participant"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
@@ -2612,6 +2654,10 @@ class CreateManyParticipant(ResearcherSessionTest):
         for patient_id in Participant.objects.values_list("patient_id", flat=True):
             self.assert_present(patient_id, output_file)
 
+
+# 
+## other_researcher_apis
+#
 
 class TestAPIGetStudies(DataApiTest):
     
@@ -2879,6 +2925,10 @@ class TestDownloadStudyInterventions(DataApiTest):
                                 {self.DEFAULT_INTERVENTION_NAME: self.CURRENT_DATE.isoformat()}}}
         self.assertDictEqual(json_unpacked, correct_output)
 
+
+#
+## data_access_api
+#
 
 class TestGetData(DataApiTest):
     """ WARNING: there are heisenbugs in debugging the download data api endpoint.
@@ -3324,6 +3374,10 @@ class TestGetData(DataApiTest):
         return b"".join(bytes_list)
 
 
+#
+## mobile_api
+#
+
 class TestParticipantSetPassword(ParticipantSessionTest):
     ENDPOINT_NAME = "mobile_api.set_password"
     
@@ -3737,6 +3791,9 @@ class TestGraph(ParticipantSessionTest):
         resp = self.smart_post_status_code(200)
         self.assert_present("Rendered graph for user", resp.content)
 
+#
+## tableau_api
+#
 
 class TestWebDataConnector(SmartRequestsTestCase):
     ENDPOINT_NAME = "tableau_api.web_data_connector"
@@ -3747,7 +3804,9 @@ class TestWebDataConnector(SmartRequestsTestCase):
         for field in FINAL_SERIALIZABLE_FIELDS:
             self.assert_present(field.name, content)
 
-
+#
+## push_notifications_api
+#
 class TestPushNotificationSetFCMToken(ParticipantSessionTest):
     ENDPOINT_NAME = "push_notifications_api.set_fcm_token"
     
@@ -3808,7 +3867,9 @@ class TestPushNotificationSetFCMToken(ParticipantSessionTest):
         self.assertIsNone(token.unregistered)
         self.assertNotEqual(first_time, second_time)
 
-
+#
+## push_notifications_api
+#
 class TestResendPushNotifications(ResearcherSessionTest):
     ENDPOINT_NAME = "push_notifications_api.resend_push_notification"
     
@@ -3947,6 +4008,10 @@ class TestResendPushNotifications(ResearcherSessionTest):
         self.assertEqual(one_time_schedule.checkin_time, None)
         self.assertEqual(one_time_schedule.deleted, True)  # important, don't resend
         self.assertEqual(one_time_schedule.most_recent_event.id, archived_event.id)
+
+#
+## forest_pages
+#
 
 # FIXME: make a real test...
 class TestForestAnalysisProgress(ResearcherSessionTest):

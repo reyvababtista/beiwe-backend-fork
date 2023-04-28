@@ -56,7 +56,6 @@ def set_next_weekly(participant: Participant, survey: Survey) -> Tuple[Scheduled
 
 def repopulate_all_survey_scheduled_events(study: Study, participant: Participant = None):
     """ Runs all the survey scheduled event generations on the provided entities. """
-    
     for survey in study.surveys.all():
         # remove any scheduled events on surveys that have been deleted.
         if survey.deleted:
@@ -80,7 +79,7 @@ def repopulate_weekly_survey_schedule_events(survey: Survey, single_participant:
         events = events.filter(participant=single_participant)
         participant_ids = [single_participant.pk]
     else:
-        participant_ids = survey.study.participants.values_list("pk", flat=True)
+        participant_ids = survey.study.participants.exclude(deleted=True).values_list("pk", flat=True)
     
     events.delete()
     
@@ -106,10 +105,8 @@ def repopulate_weekly_survey_schedule_events(survey: Survey, single_participant:
 
 #TODO: this will need to be rewritten to examine existing absolute schedules
 def repopulate_absolute_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:
-    """
-    Creates new ScheduledEvents for the survey's AbsoluteSchedules while deleting the old
-    ScheduledEvents related to the survey
-    """
+    """ Creates new ScheduledEvents for the survey's AbsoluteSchedules while deleting the old
+    ScheduledEvents related to the survey """
     # if the event is from an absolute schedule, relative and weekly schedules will be None
     events = survey.scheduled_events.filter(relative_schedule=None, weekly_schedule=None)
     if single_participant:
@@ -118,6 +115,7 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
     
     new_events = []
     abs_sched: AbsoluteSchedule
+    # for each absolute schedule on the survey create a new scheduled event for each participant.
     for abs_sched in survey.absolute_schedules.all():
         scheduled_time = abs_sched.event_time
         # if one participant
@@ -131,15 +129,15 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
         
         # if many participants
         else:
-            # don't create events for already sent notifications
+            # don't create events for already sent notifications, or deleted participants
             irrelevant_participants = ArchivedEvent.objects.filter(
                 survey_archive__survey=survey, scheduled_time=scheduled_time,
             ).values_list("participant_id", flat=True)
             relevant_participants = survey.study.participants.exclude(
-                pk__in=irrelevant_participants
+                pk__in=irrelevant_participants, deleted=True
             ).values_list("pk", flat=True)
         
-        # populate
+        # populate the new events
         for participant_id in relevant_participants:
             new_events.append(ScheduledEvent(
                 survey=survey,
@@ -149,7 +147,7 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
                 scheduled_time=scheduled_time,
                 participant_id=participant_id
             ))
-    # instantiate
+    # save to database
     ScheduledEvent.objects.bulk_create(new_events)
 
 
@@ -168,8 +166,10 @@ def repopulate_relative_survey_schedule_events(survey: Survey, single_participan
     # whether an event ever triggered on that survey.
     new_events = []
     for relative_schedule in survey.relative_schedules.all():
-        # only interventions that have been marked (have a date), restrict single user case, get data points.
-        interventions_query = relative_schedule.intervention.intervention_dates.exclude(date=None)
+        # only interventions that have been marked (have a date), for participants that are not
+        # deleted, restrict on the single user case, get data points.
+        interventions_query = relative_schedule.intervention.intervention_dates
+        interventions_query = interventions_query.exclude(date=None, participant__deleted=True)
         if single_participant:
             interventions_query = interventions_query.filter(participant=single_participant)
         interventions_query = interventions_query.values_list("participant_id", "date")

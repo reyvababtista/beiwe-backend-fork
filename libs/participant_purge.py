@@ -14,6 +14,11 @@ DELETION_PAGE_SIZE = 250
 
 def add_particpiant_for_deletion(participant: Participant):
     """ adds a participant to the deletion queue. """
+    try:
+        ParticipantDeletionEvent.objects.get(participant=participant)
+        return
+    except ParticipantDeletionEvent.DoesNotExist:
+        pass
     ParticipantDeletionEvent.objects.create(participant=participant)
 
 

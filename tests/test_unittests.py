@@ -156,7 +156,7 @@ class TestParticipantDataDeletion(CommonTestCase):
     
     def assert_default_participant_end_state(self):
         self.default_participant.refresh_from_db()
-        self.assertEqual(self.default_participant.deleted, False)
+        self.assertEqual(self.default_participant.deleted, True)
         self.assertEqual(self.default_participant.easy_enrollment, False)
         self.assertEqual(self.default_participant.unregistered, True)
         self.assertEqual(self.default_participant.device_id, "")
@@ -240,7 +240,8 @@ class TestParticipantDataDeletion(CommonTestCase):
         s3_list_files.return_value = ["some_file"]
         self.default_participant_deletion_event
         self.assertRaises(AssertionError, run_next_queued_participant_data_deletion)
-        self.assert_default_participant_end_state()
+        # this should fail because the participant is not marked as deleted.
+        self.assertRaises(AssertionError, self.assert_default_participant_end_state)
         self.assert_correct_s3_parameters_called(
             s3_list_versions, s3_list_files, s3_delete_many_versioned, list_files_count=1, delete_versioned_count=0)
         self.default_participant_deletion_event.refresh_from_db()

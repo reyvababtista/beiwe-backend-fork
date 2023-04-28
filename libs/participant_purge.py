@@ -55,13 +55,16 @@ def run_next_queued_participant_data_deletion():
     deletion_event.participant.scheduled_events.all().delete()
     deletion_event.participant.intervention_dates.all().delete()
     confirm_deleted(deletion_event)
+    deletion_event.participant.update(deleted=True)
 
 
 def delete_participant_data(deletion_event: ParticipantDeletionEvent):
+    """ Deletes all files on S3 for a participant. """
     for page_of_files in all_participant_file_paths(deletion_event.participant):
-        # we are Extremely aware that s3_list_versions could just return the correct boto3-formatted
-        # list of dicts, and in fact that is the form they are received in. We Do Not Care. Instead
-        # we choose to hate boto3. The repacking overhead is negligible.
+        # The dev is Extremely Aware that s3_list_versions call Could just return the raw boto3-
+        # formatted list of dicts, and that that is the form they are received in. We. Do. Not.
+        # Care. Instead we choose the the path of valor: hating boto3 so much that we will repack
+        # the data into a structure that makes sense and then unpack it. Overhead is negligible.
         s3_delete_many_versioned(page_of_files)
         # If it doesn't raise an error then all the files were deleted.
         deletion_event.files_deleted_count += len(page_of_files)
@@ -69,6 +72,7 @@ def delete_participant_data(deletion_event: ParticipantDeletionEvent):
 
 
 def confirm_deleted(deletion_event: ParticipantDeletionEvent):
+    """ Tests all locations for files and database entries, raises AssertionError if any are found. """
     deletion_event.save()  # mark the event as processing...
     keys, base, chunks_prefix, problem_uploads = get_all_file_path_prefixes(deletion_event.participant)
     for _ in s3_list_files(keys, as_generator=True):
@@ -136,7 +140,7 @@ def all_participant_file_paths(participant: Participant) -> List[Tuple[str, str]
 
 
 def get_all_file_path_prefixes(participant: Participant) -> Tuple[Tuple[str, str]]:
-    # the singular canonical location of all locations whhre participant data may be stored.
+    """ The singular canonical location of all locations whhre participant data may be stored. """
     base = participant.study.object_id + "/" + participant.patient_id + "/"
     chunks_prefix = CHUNKS_FOLDER + "/" + base
     problem_uploads = PROBLEM_UPLOADS + "/" + base

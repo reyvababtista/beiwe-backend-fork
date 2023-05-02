@@ -8,6 +8,7 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 from authentication.admin_authentication import authenticate_researcher_study_access
+from constants.message_strings import NOT_IN_STUDY
 from database.study_models import Study
 from database.user_models_participant import Participant
 from libs.http_utils import easy_url
@@ -34,11 +35,11 @@ def reset_participant_password(request: ResearcherRequest):
         messages.error(request, f'The participant "{bleach.clean(patient_id)}" does not exist')
         return participant_page
     
-    if participant.study.id != int(study_id):
-        messages.error(
-            request,
-            f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}'
-        )
+    if participant.study.id != int(study_id):  # the standard not-in-study
+        participant_not_in_study_message(request, patient_id, study_id)
+        return participant_page
+    
+    if participant.is_dead:  # block locked participants, participant page displays a message
         return participant_page
     
     new_password = participant.reset_password()
@@ -62,12 +63,13 @@ def reset_device(request: ResearcherRequest):
     except Participant.DoesNotExist:
         messages.error(request, f'The participant {patient_id} does not exist')
         return participant_page
-    
-    if participant.study.id != int(study_id):
-        messages.error(
-            request,
-            f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}'
-        )
+        
+    if participant.study.id != int(study_id):  # the standard not-in-study
+        participant_not_in_study_message(request, patient_id, study_id)
+        return participant_page
+        
+    if participant.is_dead:  # block locked participants, participant page displays a message
+        
         return participant_page
     
     participant.device_id = ""
@@ -91,11 +93,11 @@ def toggle_easy_enrollment(request: ResearcherRequest):
         messages.error(request, f'The participant {patient_id} does not exist')
         return participant_page
     
-    if participant.study.id != int(study_id):
-        messages.error(
-            request,
-            f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}'
-        )
+    if participant.study.id != int(study_id):  # the standard not-in-study
+        participant_not_in_study_message(request, patient_id, study_id)
+        return participant_page
+    
+    if participant.is_dead:  # block locked participants, participant page displays a message
         return participant_page
     
     participant.easy_enrollment = not participant.easy_enrollment
@@ -123,11 +125,11 @@ def unregister_participant(request: ResearcherRequest):
         messages.error(request, f'The participant {patient_id} does not exist')
         return participant_page  # okay that is wrong... I don't think we care though, just causes 404?
     
-    if participant.study.id != int(study_id):
-        messages.error(
-            request,
-            f'Participant {patient_id} is not in study {Study.objects.get(id=study_id).name}'
-        )
+    if participant.study.id != int(study_id):  # the standard not-in-study
+        participant_not_in_study_message(request, patient_id, study_id)
+        return participant_page
+    
+    if participant.is_dead:  # block locked participants, participant page displays a message
         return participant_page
     
     if participant.unregistered:
@@ -210,3 +212,12 @@ def participant_csv_generator(study_id, number_of_new_patients):
         filewriter.writerow([patient_id, password])
         yield si.getvalue()
         si.empty()
+
+
+def participant_not_in_study_message(request: ResearcherRequest, patient_id: str, study_id: int):
+    """ Standard message for a [maliciously?] mistargeted action on a participant the researcher
+    does not have permissions for. """
+    messages.error(
+        request,
+        NOT_IN_STUDY.format(patient_id=patient_id, study_name=Study.objects.get(id=study_id).name)
+    )

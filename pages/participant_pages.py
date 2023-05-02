@@ -11,6 +11,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from api.participant_administration import add_fields_and_interventions
 from authentication.admin_authentication import authenticate_researcher_study_access
 from constants.common_constants import API_DATE_FORMAT
+from constants.message_strings import PARTICIPANT_LOCKED
 from database.schedule_models import ArchivedEvent
 from database.study_models import Study
 from database.user_models_participant import Participant
@@ -41,6 +42,8 @@ def notification_history(request: ResearcherRequest, study_id: int, patient_id: 
         get_notification_details(archived_event, study.timezone, survey_names)
         for archived_event in archived_events_page
     ]
+    
+    conditionally_display_locked_message(request, participant)
     return render(
         request,
         'notification_history.html',
@@ -50,6 +53,7 @@ def notification_history(request: ResearcherRequest, study_id: int, patient_id: 
             notification_attempts=notification_attempts,
             study=study,
             last_page_number=last_page_number,
+            locked=participant.is_dead,
         )
     )
 
@@ -62,7 +66,8 @@ def participant_page(request: ResearcherRequest, study_id: int, patient_id: str)
     study = get_object_or_404(Study, pk=study_id)
     
     # safety check, enforce fields and interventions to be present for both page load and edit.
-    add_fields_and_interventions(participant, study)
+    if not participant.deleted or participant.has_deletion_event:
+        add_fields_and_interventions(participant, study)
     
     # FIXME: get rid of dual endpoint pattern, it is a bad idea.
     if request.method == 'GET':
@@ -131,6 +136,7 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
         get_survey_names_dict(study)
     )
     
+    conditionally_display_locked_message(request, participant)
     return render(
         request,
         'participant.html',
@@ -145,6 +151,7 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
             push_notifications_enabled_for_android=check_firebase_instance(require_android=True),
             study_easy_enrollment=study.easy_enrollment,
             participant_easy_enrollment=participant.easy_enrollment,
+            locked=participant.is_dead,
         )
     )
 
@@ -193,3 +200,10 @@ def get_notification_details(archived_event: Dict, study_timezone: tzinfo, surve
 def format_date_or_none(d: date) -> str:
     # tiny function that broke scanability of the real code....
     return d.strftime(API_DATE_FORMAT) if isinstance(d, date) else ""
+
+
+def conditionally_display_locked_message(request: ResearcherRequest, participant: Participant):
+    """ Displays a warning message if the participant is locked. """
+    if participant.is_dead:
+        messages.warning(request, PARTICIPANT_LOCKED.format(patient_id=participant.patient_id))
+

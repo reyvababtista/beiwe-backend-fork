@@ -127,7 +127,7 @@
       <form action="{{ easy_url("push_notifications_api.resend_push_notification", study_id=study.id, patient_id=participant.patient_id) }}" method="post">
       {% if participant.participant_push_enabled %} 
         <input type="hidden" name="survey_id" value="{{ latest_notification_attempt.survey_id }}">
-        <button class="btn btn-danger center-block" type="submit">
+        <button class="btn btn-danger center-block" type="submit" {% if locked %} disabled {% endif %}>
           Resend Push Notification
         </button>
         {% endif %}
@@ -141,14 +141,9 @@
       <div class="h2-middle-margins-vertical text-center row">
         <form action="/toggle_easy_enrollment" method="post">
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
-          <input type="hidden" name="study_id" value="{{ study.id }}">
-          <button type="submit"
-          {% if participant.easy_enrollment %}
-            class="btn btn-warning large-font-size"
-          {% else %}
-            class="btn btn-success large-font-size"
-          {% endif %}
-          >
+          <input type="hidden" name="study_id" value="{{ study.id }}" {% if locked %} disabled {% endif %}>
+          <button type="submit" {% if locked %} disabled {% endif %}
+          class="btn large-font-size {% if participant.easy_enrollment %}btn-warning{% else %}btn-success{% endif %}">
           {% if participant.easy_enrollment %}
             Disable Easy Enrollment
           {% else %}
@@ -173,7 +168,7 @@
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
           <button type="submit" class="btn btn-warning large-font-size"
-            {% if participant.device_id %} disabled {% endif %}>
+            {% if participant.device_id or locked %} disabled {% endif %}>
             Generate a new password for this participant:
           </button>
         </form>
@@ -198,7 +193,7 @@
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
           <button type="submit" class="btn btn-warning large-font-size"
-            {% if not participant.device_id %} disabled {% endif %}>
+            {% if not participant.device_id or locked %} disabled {% endif %}>
             Un-Register Device
           </button>
         </form>
@@ -224,7 +219,7 @@
           <input type="hidden" name="study_id" value="{{ study.id }}">
           <button type="submit" class="btn btn-danger large-font-size"
           onclick="return confirm('Are you sure you want to permanently end data collection from {{ participant.patient_id }}?')" 
-            {% if participant.unregistered %} disabled {% endif %}>
+            {% if participant.unregistered or locked %} disabled {% endif %}>
             Permenantly Retire Participant
           </button>
         </form>
@@ -253,10 +248,11 @@
             <label class="control-label col-sm-2" for="intervention{{ intervention_id }}" > {{ intervention_name }}</label>
               <div class="col-sm-3">
               {% if intervention_date %}
-                <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}" class="form-control" type="date"
-                      value="{{ intervention_date }}">
+                <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}"
+                 class="form-control" type="date" value="{{ intervention_date }}" {% if locked %} disabled {% endif %}>
               {% else %}
-                <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}" class="form-control" type="date">
+                <input id="intervention{{ intervention_id }}" name="intervention{{ intervention_id }}"
+                 class="form-control" type="date" {% if locked %} disabled {% endif %}>
               {% endif %}
             </div>
           </div>
@@ -274,7 +270,7 @@
           <label class="col-sm-2 control-label" for="field{{ field_id }}">{{ field_name }}</label>
           <div class="col-sm-4">
             <input id="field{{ field_id }}" name="field{{ field_id }}" class="form-control" type="text"
-                   value="{{ value }}">
+                   value="{{ value }}" {% if locked %} disabled {% endif %}>
           </div>
         </div>
       {% endfor %}
@@ -283,7 +279,8 @@
 
     {% if not readonly %}
       {% if study.interventions.exists() or study.fields.exists() %}
-        <button class="btn btn-primary btn-block" type="submit">Save Changes</button>
+        <button class="btn btn-primary btn-block" type="submit"
+         {% if locked %} disabled {% endif %}>Save Changes</button>
       {% endif %}
     {% endif %}
   </form>

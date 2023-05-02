@@ -25,11 +25,11 @@ from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_S
     MESSAGE_SEND_SUCCESS, MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING, MFA_CODE_WRONG,
     MFA_CONFIGURATION_REQUIRED, MFA_RESET_BAD_PERMISSIONS, MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED,
     MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS, MFA_TEST_DISABLED, MFA_TEST_FAIL, MFA_TEST_SUCCESS,
-    NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG, NEW_PASSWORD_RULES_FAIL, PASSWORD_EXPIRED,
-    PASSWORD_RESET_FAIL_SITE_ADMIN, PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN,
-    PASSWORD_RESET_SUCCESS, PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE,
-    PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY,
-    WRONG_CURRENT_PASSWORD)
+    NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG, NEW_PASSWORD_RULES_FAIL, PARTICIPANT_LOCKED,
+    PASSWORD_EXPIRED, PASSWORD_RESET_FAIL_SITE_ADMIN, PASSWORD_RESET_FORCED,
+    PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS, PASSWORD_RESET_TOO_SHORT,
+    PASSWORD_WILL_EXPIRE, PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED,
+    TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT, MIDNIGHT_EVERY_DAY, OCT_6_NOON_2022)
@@ -52,6 +52,7 @@ from libs.security import device_hash, generate_easy_alphanumeric_string
 from tests.common import (BasicSessionTestCase, CommonTestCase, DataApiTest, ParticipantSessionTest,
     ResearcherSessionTest, SmartRequestsTestCase)
 from tests.helpers import DummyThreadPool
+
 
 #
 ## login_pages
@@ -2453,6 +2454,20 @@ class TestResetParticipantPassword(ResearcherSessionTest):
         )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.password, old_password)
+    
+    def test_deleted_participant(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant.update(deleted=True)
+        old_password = self.default_participant.password
+        self.smart_post_redirect(study_id=self.session_study.id, patient_id=self.default_participant.patient_id)
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.password, old_password)
+        page = self.redirect_get_contents(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        self.assert_present(
+            PARTICIPANT_LOCKED.format(patient_id=self.default_participant.patient_id), page
+        )
 
 
 class TestResetDevice(ResearcherSessionTest):
@@ -2506,6 +2521,20 @@ class TestResetDevice(ResearcherSessionTest):
         )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.device_id, "")
+    
+    def test_deleted_participant(self):
+        self.default_participant.update(device_id="12345", deleted=True)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_redirect(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        page = self.redirect_get_contents(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        self.assert_present(PARTICIPANT_LOCKED.format(patient_id=self.default_participant.patient_id), page)
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.device_id, "12345")
+
 
 
 class TestToggleParticipantEasyEnrollment(ResearcherSessionTest):
@@ -2543,6 +2572,20 @@ class TestToggleParticipantEasyEnrollment(ResearcherSessionTest):
         self.assertEqual(resp.status_code, 403)
         self.default_participant.refresh_from_db()
         self.assertFalse(self.default_participant.easy_enrollment)
+    
+    def test_deleted_participant(self):
+        self.default_participant.update(deleted=True)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.assertFalse(self.default_participant.easy_enrollment)
+        self.smart_post_redirect(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        self.default_participant.refresh_from_db()
+        self.assertFalse(self.default_participant.easy_enrollment)
+        page = self.redirect_get_contents(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        self.assert_present(PARTICIPANT_LOCKED.format(patient_id=self.default_participant.patient_id), page)
 
 
 class TestUnregisterParticipant(ResearcherSessionTest):
@@ -2611,6 +2654,22 @@ class TestUnregisterParticipant(ResearcherSessionTest):
         )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.unregistered, True)
+    
+    def test_deleted_participant(self):
+        self.default_participant.update(unregistered=False, deleted=True)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_redirect(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.unregistered, False)
+        page = self.redirect_get_contents(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        self.assert_present(
+            PARTICIPANT_LOCKED.format(patient_id=self.default_participant.patient_id), page
+        )
+
 
 
 # FIXME: test extended database effects of generating participants
@@ -2656,7 +2715,7 @@ class CreateManyParticipant(ResearcherSessionTest):
             self.assert_present(patient_id, output_file)
 
 
-# 
+#
 ## other_researcher_apis
 #
 
@@ -3397,6 +3456,13 @@ class TestParticipantSetPassword(ParticipantSessionTest):
         self.assertTrue(self.session_participant.debug_validate_password("jeff"))
         # test last_set_password_is_set
         self.assertIsInstance(self.default_participant.last_set_password, datetime)
+    
+    def test_deleted_participant(self):
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.default_participant.update(deleted=True)
+        response = self.smart_post_status_code(403)
+        self.assertEqual(response.content, b"")
+        self.INJECT_DEVICE_TRACKER_PARAMS = True
 
 
 class TestGetLatestSurveys(ParticipantSessionTest):
@@ -3540,6 +3606,14 @@ class TestGetLatestSurveys(ParticipantSessionTest):
             rel_sched.update(days_after=days_relative)
             repopulate_absolute_survey_schedule_events(self.default_survey, self.default_participant)
             yield days_relative
+    
+    def test_deleted_participant(self):
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.default_participant.update(deleted=True)
+        response = self.smart_post_status_code(403)
+        self.assertEqual(response.content, b"")
+        self.INJECT_DEVICE_TRACKER_PARAMS = True
+
 
 
 class TestRegisterParticipant(ParticipantSessionTest):
@@ -3652,6 +3726,13 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
+    
+    def test_deleted_participant(self):
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.default_participant.update(deleted=True)
+        response = self.smart_post_status_code(403)
+        self.assertEqual(response.content, b"")
+        self.INJECT_DEVICE_TRACKER_PARAMS = True
 
 
 class TestGetLatestDeviceSettings(ParticipantSessionTest):
@@ -3665,6 +3746,13 @@ class TestGetLatestDeviceSettings(ParticipantSessionTest):
         self.default_participant.refresh_from_db()
         self.assertIsNotNone(self.default_participant.last_get_latest_device_settings)
         self.assertIsInstance(self.default_participant.last_get_latest_device_settings, datetime)
+    
+    def test_deleted_participant(self):
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.default_participant.update(deleted=True)
+        response = self.smart_post_status_code(403)
+        self.assertEqual(response.content, b"")
+        self.INJECT_DEVICE_TRACKER_PARAMS = True
 
 
 class TestMobileUpload(ParticipantSessionTest):
@@ -3782,6 +3870,13 @@ class TestMobileUpload(ParticipantSessionTest):
             GenericEvent.objects.get().note
         )
     # TODO: add invalid decrypted key length test...
+    
+    def test_deleted_participant(self):
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.default_participant.update(deleted=True)
+        response = self.smart_post_status_code(403)
+        self.assertEqual(response.content, b"")
+        self.INJECT_DEVICE_TRACKER_PARAMS = True
 
 
 class TestGraph(ParticipantSessionTest):
@@ -3791,6 +3886,16 @@ class TestGraph(ParticipantSessionTest):
         # testing this requires setting up fake survey answers to see what renders in the javascript?
         resp = self.smart_post_status_code(200)
         self.assert_present("Rendered graph for user", resp.content)
+    
+    def test_deleted_participant(self):
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.default_participant.update(deleted=True)
+        response = self.smart_post_status_code(403)
+        self.assertEqual(response.content, b"")
+        self.INJECT_DEVICE_TRACKER_PARAMS = True
+
+
+
 
 #
 ## tableau_api

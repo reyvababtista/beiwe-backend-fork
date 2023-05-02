@@ -143,6 +143,7 @@ path('reset_device', participant_administration.reset_device)
 path('unregister_participant', participant_administration.unregister_participant)
 path('create_new_participant', participant_administration.create_new_participant)
 path('create_many_patients/<str:study_id>', participant_administration.create_many_patients)
+path('delete_participant', participant_administration.delete_participant)
 
 # push notification api
 path('set_fcm_token', push_notifications_api.set_fcm_token)

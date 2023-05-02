@@ -82,6 +82,8 @@ def repopulate_weekly_survey_schedule_events(survey: Survey, single_participant:
         participant_ids = survey.study.participants.exclude(deleted=True).values_list("pk", flat=True)
     
     events.delete()
+    if single_participant and single_participant.deleted:
+        return
     
     try:
         # get_next_weekly_event forces tz-aware schedule_date datetime object
@@ -112,6 +114,9 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
     if single_participant:
         events = events.filter(participant=single_participant)
     events.delete()
+    
+    if single_participant and single_participant.deleted:
+        return
     
     new_events = []
     abs_sched: AbsoluteSchedule
@@ -160,6 +165,9 @@ def repopulate_relative_survey_schedule_events(survey: Survey, single_participan
     if single_participant:
         events = events.filter(participant=single_participant)
     events.delete()
+    
+    if single_participant and single_participant.deleted:
+        return
     
     # This is per schedule, and a participant can't have more than one intervention date per
     # intervention per schedule.  It is also per survey and all we really care about is

@@ -191,6 +191,18 @@ class Participant(AbstractPasswordUser):
         return s3_retrieve(s3_path, self, raw_path=raw_path)
     
     @property
+    def is_dead(self) -> bool:
+        return self.deleted or self.has_deletion_event
+    
+    @property
+    def has_deletion_event(self) -> bool:
+        try:
+            self.deletion_event
+            return True
+        except ParticipantDeletionEvent.DoesNotExist:
+            return False
+    
+    @property
     def participant_push_enabled(self) -> bool:
         return (
             self.os_type == ANDROID_API and check_firebase_instance(require_android=True) or

@@ -31,7 +31,7 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
         log("device_id:", "device_id" in rp)
         return False
     log("all parameters present...")
-
+    
     # FIXME: Device Testing. need to check the app expectations on response codes
     #  this used to throw a 400 if the there was no patient_id field in the post request,
     #  and 404 when there was no such user, when it was get_session_participant.
@@ -45,6 +45,10 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
         return False
     except UnreadablePostError:
         return abort(500)
+    
+    if session_participant.is_dead:
+        log("locked participant")
+        return False
     
     # check participants and studies for easy enrollment
     if registration:
@@ -71,7 +75,7 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
         tracking_updates['last_os_version'] = request.POST["os_version"][:32]
     if tracking_updates:
         session_participant.update_only(**tracking_updates)
-
+    
     # attach session partipant to request object, defining the ParticipantRequest class.
     request.session_participant = session_participant
     return True

@@ -9,6 +9,7 @@ from database.user_models_participant import Participant, ParticipantDeletionEve
 from libs.s3 import s3_delete_many_versioned, s3_list_files, s3_list_versions
 from libs.security import generate_easy_alphanumeric_string
 
+
 DELETION_PAGE_SIZE = 250
 
 

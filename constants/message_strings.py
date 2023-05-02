@@ -146,3 +146,7 @@ MESSAGE_SEND_FAILED_UNKNOWN = "message send failed: unknown"
 SUCCESSFULLY_SENT_NOTIFICATION_PREFIX = "Successfully sent notification to"
 BAD_DEVICE_OS = "bad device OS"
 BAD_PARTICPANT_OS = "This participant is not properly registered and cannot be sent push notifications until the re-register."
+
+# particpant locked
+PARTICIPANT_LOCKED = "Participant {patient_id} is either already deleted or marked for deletion. No actions may be taken on this participant."
+NOT_IN_STUDY = "Participant {patient_id} is not in study {study_name}"

@@ -150,3 +150,5 @@ BAD_PARTICPANT_OS = "This participant is not properly registered and cannot be s
 # particpant locked
 PARTICIPANT_LOCKED = "Participant {patient_id} is either already deleted or marked for deletion. No actions may be taken on this participant."
 NOT_IN_STUDY = "Participant {patient_id} is not in study {study_name}"
+
+PARTICIPANT_UNREGISTERED = "{patient_id} was successfully unregisted from the study. They will not be able to upload further data."

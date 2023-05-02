@@ -42,7 +42,8 @@ from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
 from database.system_models import FileAsText, GenericEvent
-from database.user_models_participant import Participant, ParticipantFCMHistory
+from database.user_models_participant import (Participant, ParticipantDeletionEvent,
+    ParticipantFCMHistory)
 from database.user_models_researcher import Researcher
 from libs.copy_study import format_study
 from libs.rsa import get_RSA_cipher
@@ -57,6 +58,7 @@ from tests.helpers import DummyThreadPool
 #
 ## login_pages
 #
+
 class TestLoginPages(BasicSessionTestCase):
     """ Basic authentication test, make sure that the machinery for logging a user
     in and out are functional at setting and clearing a session. 
@@ -659,6 +661,7 @@ class TestDisableTableauApiKey(ResearcherSessionTest):
 #
 ## dashboard_api
 #
+
 class TestDashboard(ResearcherSessionTest):
     ENDPOINT_NAME = "dashboard_api.dashboard_page"
     
@@ -2413,6 +2416,99 @@ class TestRenderEditSurvey(ResearcherSessionTest):
 ## participant_administration
 #
 
+class TestDeleteParticipant(ResearcherSessionTest):
+    ENDPOINT_NAME = "participant_administration.delete_participant"
+    REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
+    
+    # most of this was copy-pasted from TestUnregisterParticipant, which was copied from TestResetDevice
+    
+    def test_bad_study_id(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_post(patient_id=self.default_participant.patient_id, study_id=0)
+        self.assertEqual(resp.status_code, 404)
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.is_dead, False)
+    
+    def test_wrong_study_id(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        study2 = self.generate_study("study2")
+        self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
+        self.smart_post_redirect(patient_id=self.default_participant.patient_id, study_id=study2.id)
+        self.assert_present(
+            "is not in study",
+            self.redirect_get_contents(patient_id=self.default_participant.patient_id, study_id=study2.id)
+        )
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.is_dead, False)
+    
+    def test_bad_participant(self):
+        self.default_participant.update(unregistered=False)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_redirect(patient_id="invalid", study_id=self.session_study.id)
+        self.assert_present(
+            "does not exist",
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
+        )
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.is_dead, False)
+    
+    def test_participant_already_queued(self):
+        self.default_participant.update(unregistered=True)
+        ParticipantDeletionEvent.objects.create(participant=self.default_participant)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_redirect(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        page = self.redirect_get_contents(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        self.assert_present(
+            PARTICIPANT_LOCKED.format(patient_id=self.default_participant.patient_id), page
+        )
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.is_dead, True)
+        self.assertEqual(self.default_participant.has_deletion_event, True)
+        self.assertEqual(self.default_participant.deleted, False)
+        self.assertEqual(ParticipantDeletionEvent.objects.count(), 1)
+    
+    def test_success(self):
+        self.default_participant.update(unregistered=False)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_redirect(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        page = self.redirect_get_contents(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        self.assert_present(
+            PARTICIPANT_LOCKED.format(patient_id=self.default_participant.patient_id), page
+        )
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.is_dead, True)
+        self.assertEqual(self.default_participant.has_deletion_event, True)
+        self.assertEqual(self.default_participant.deleted, False)
+        self.assertEqual(ParticipantDeletionEvent.objects.count(), 1)
+    
+    def test_deleted_participant(self):
+        # This test isn't real, this should never happen
+        self.default_participant.update(unregistered=False, deleted=True)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_redirect(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        page = self.redirect_get_contents(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        self.assert_present(
+            PARTICIPANT_LOCKED.format(patient_id=self.default_participant.patient_id), page
+        )
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.is_dead, True)
+        self.assertEqual(self.default_participant.has_deletion_event, False)
+        self.assertEqual(self.default_participant.deleted, True)
+        self.assertEqual(ParticipantDeletionEvent.objects.count(), 0)
+
+
 # FIXME: this endpoint doesn't validate the researcher on the study
 # FIXME: redirect was based on referrer.
 class TestResetParticipantPassword(ResearcherSessionTest):
@@ -2534,7 +2630,6 @@ class TestResetDevice(ResearcherSessionTest):
         self.assert_present(PARTICIPANT_LOCKED.format(patient_id=self.default_participant.patient_id), page)
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.device_id, "12345")
-
 
 
 class TestToggleParticipantEasyEnrollment(ResearcherSessionTest):
@@ -3615,7 +3710,6 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         self.INJECT_DEVICE_TRACKER_PARAMS = True
 
 
-
 class TestRegisterParticipant(ParticipantSessionTest):
     ENDPOINT_NAME = "mobile_api.register_user"
     DISABLE_CREDENTIALS = True
@@ -3893,8 +3987,6 @@ class TestGraph(ParticipantSessionTest):
         response = self.smart_post_status_code(403)
         self.assertEqual(response.content, b"")
         self.INJECT_DEVICE_TRACKER_PARAMS = True
-
-
 
 
 #

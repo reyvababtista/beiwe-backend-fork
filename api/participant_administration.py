@@ -8,12 +8,13 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 from authentication.admin_authentication import authenticate_researcher_study_access
-from constants.message_strings import NOT_IN_STUDY
+from constants.message_strings import NOT_IN_STUDY, PARTICIPANT_UNREGISTERED
 from database.study_models import Study
 from database.user_models_participant import Participant
 from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
 from libs.intervention_utils import add_fields_and_interventions
+from libs.participant_purge import add_particpiant_for_deletion
 from libs.s3 import create_client_key_pair, s3_upload
 from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.streaming_bytes_io import StreamingStringsIO
@@ -63,11 +64,11 @@ def reset_device(request: ResearcherRequest):
     except Participant.DoesNotExist:
         messages.error(request, f'The participant {patient_id} does not exist')
         return participant_page
-        
+    
     if participant.study.id != int(study_id):  # the standard not-in-study
         participant_not_in_study_message(request, patient_id, study_id)
         return participant_page
-        
+    
     if participant.is_dead:  # block locked participants, participant page displays a message
         
         return participant_page
@@ -138,11 +139,34 @@ def unregister_participant(request: ResearcherRequest):
     
     participant.unregistered = True
     participant.save()
-    messages.error(
-        request,
-        f'{patient_id} was successfully unregisted from the study. '
-        'They will not be able to upload further data.'
+    messages.error(request, PARTICIPANT_UNREGISTERED.format(patient_id=patient_id))
+    return participant_page
+
+
+@require_POST
+@authenticate_researcher_study_access
+def delete_participant(request: ResearcherRequest):
+    """ Queues a participant for data purge. """
+    patient_id = request.POST.get('patient_id', None)
+    study_id = request.POST.get('study_id', None)
+    participant_page = redirect(
+        easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id)
     )
+    
+    try:
+        participant = Participant.objects.get(patient_id=patient_id)
+    except Participant.DoesNotExist:
+        messages.error(request, f'The participant {patient_id} does not exist')
+        return participant_page  # okay that is wrong... I don't think we care though, just causes 404?
+    
+    if participant.study.id != int(study_id):  # the standard not-in-study
+        participant_not_in_study_message(request, patient_id, study_id)
+        return participant_page
+    
+    if participant.is_dead:  # block locked participants, participant page displays a message
+        return participant_page
+    
+    add_particpiant_for_deletion(participant)
     return participant_page
 
 

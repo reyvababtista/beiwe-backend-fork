@@ -971,6 +971,11 @@ class TestEditResearcher(ResearcherSessionTest):
         self.assert_present(r2.username, resp.content)
 
 
+#
+## admin_pages
+#
+
+class TestResetMFASelf(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.reset_mfa_self"
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
@@ -1753,10 +1758,6 @@ class TestAddResearcherToStudy(ResearcherSessionTest):
         if isinstance(redirect_or_response, HttpResponseRedirect):
             self.assertEqual(redirect_or_response.url, f"/edit_study/{self.session_study.id}")
 
-#
-## admin_pages
-#
-class TestResetMFASelf(ResearcherSessionTest):
 
 #
 ## data_access_web_form

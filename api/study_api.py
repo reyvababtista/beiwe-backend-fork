@@ -279,6 +279,7 @@ def get_values_for_participants_table(
 
 
 def filtered_participants(study: Study, contains_string: str):
-    """ searches for participants with lowercase matches on os and patient id. """
+    """ Searches for participants with lowercase matches on os_type and patient_id, excludes deleted participants. """
     return Participant.objects.filter(study_id=study.id) \
-            .filter(Q(patient_id__icontains=contains_string) | Q(os_type__icontains=contains_string))
+            .filter(Q(patient_id__icontains=contains_string) | Q(os_type__icontains=contains_string)) \
+            .exclude(deleted=True)

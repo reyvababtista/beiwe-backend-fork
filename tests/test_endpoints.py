@@ -2744,7 +2744,7 @@ class TestUnregisterParticipant(ResearcherSessionTest):
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
         self.assert_present(
-            "was successfully unregisted from the study",
+            "was successfully unregistered from the study",
             self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         self.default_participant.refresh_from_db()

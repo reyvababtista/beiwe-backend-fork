@@ -17,6 +17,7 @@ from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import ForestTaskStatus, ForestTree
 from database.data_access_models import ChunkRegistry
 from database.study_models import Study
+from database.system_models import ForestVersion
 from database.tableau_api_models import ForestTask, SummaryStatisticDaily
 from database.user_models_participant import Participant
 from forms.django_forms import CreateTasksForm
@@ -257,7 +258,8 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
     )
     start_date = dates[0] if dates else study.created_on.date()
     end_date = dates[-1] if dates else timezone.now().date()
-    
+    forest_info = ForestVersion.get_singleton_instance()
+
     # start_date = dates[0] if dates and dates[0] >= EARLIEST_POSSIBLE_DATA_DATE else study.created_on.date()
     # end_date = dates[-1] if dates and dates[-1] <= timezone.now().date() else timezone.now().date()
     return render(
@@ -270,7 +272,9 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
             ),
             trees=ForestTree.choices(),
             start_date=start_date.isoformat(),
-            end_date=end_date.isoformat()
+            end_date=end_date.isoformat(),
+            forest_version=forest_info.package_version.title(),
+            forest_commit=forest_info.git_commit,
         )
     )
 

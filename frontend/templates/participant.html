@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block title %} Participant Page {% endblock %}
 
+{% block head %}
+  {{ super() }}
+  <script src="/static/javascript/admin.js" type="text/javascript"></script>
+{% endblock %}
+
 {%  block content %}
 <div class="container well">
   <div class="title col-md-8" col-xs-12>
@@ -237,6 +242,26 @@
     </div>
   </div>
 
+  {# Queue for Data Purge/Deletion #}
+  <div class="col-md-12 well">
+    <div class="col-md-5">
+      <div class="h2-middle-margins-vertical text-center row">
+        <button type="submit" class="btn btn-danger large-font-size"
+          onclick="confirm_delete_participant('{{ participant.patient_id }}', '{{ study.id }}')"
+          {% if locked %} disabled {% endif %}>
+          Permenantly Delete All Participant Data
+        </button>
+
+        {% if locked %}
+          <br>This participant is already marked for deletion.
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-md-7 h3-margins-vertical">
+      This action deletes all data that this participant has ever uploaded, as well as all internal data related to this participant.  All further actions related to this participant will be blocked.  No data from this participant will be downloadable.  Once deletion has finished the particpant will no longer be visible in the list of participants on the study page.  Data deletion may take quite some time.
+      <br> <b>This operation is final and cannot be undone.</b>
+    </div>
+  </div>
 
   {% if study.interventions.exists() %}
     <div class="col-md-6 col-sm-12 well">
@@ -277,12 +302,12 @@
     </div>
   {% endif %}
 
-    {% if not readonly %}
-      {% if study.interventions.exists() or study.fields.exists() %}
-        <button class="btn btn-primary btn-block" type="submit"
-         {% if locked %} disabled {% endif %}>Save Changes</button>
-      {% endif %}
+  {% if not readonly %}
+    {% if study.interventions.exists() or study.fields.exists() %}
+      <button class="btn btn-primary btn-block" type="submit"
+        {% if locked %} disabled {% endif %}>Save Changes</button>
     {% endif %}
+  {% endif %}
   </form>
-  {%  endblock %}
-  </div>
+{% endblock %}
+</div>

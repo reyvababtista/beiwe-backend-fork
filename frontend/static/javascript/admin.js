@@ -60,6 +60,33 @@ function confirm_delete_custom_field(field_name, field_id, study_id) {
     };
 }
 
+/* Pop up a confirmation dialog and only delete the study if the user types an EXACT string */
+function confirm_delete_participant(patient_id, study_id) {
+    
+    var prompt_message = "Are you ABSOLUTELY SURE that you want to delete the participant " + patient_id +" and all data associated with it?\n\nEnter  " + patient_id + "  below to delete this participant's data:"
+    var confirmation_prompt = prompt(prompt_message)
+    
+    if (confirmation_prompt == null) {  // User clicked cancel
+        return
+    }   
+    if (confirmation_prompt == patient_id) { // User entered the correct text
+        $.ajax({
+            type: 'POST',
+            url: '/delete_participant/',
+            data: {
+                study_id: study_id,
+                patient_id: patient_id,
+            }
+        }).done(function() {
+            location.href = '/view_study/' + study_id + '/participant/' + patient_id
+        }).fail(function() {
+            alert("An error occurred when trying to delete this participant, please refresh this page.")
+        })
+    } else { // User entered the wrong text
+        alert("The entered text did not match " + patient_id + ". The participant has not been deleted.")
+    }
+}
+
 function confirm_delete_intervention(intervention_name, intervention_id, study_id) {
     var required_matching_text = "Yes, I want to delete " + intervention_name;
     var prompt_message = ("Are you ABSOLUTELY SURE that you want to delete the custom field " +

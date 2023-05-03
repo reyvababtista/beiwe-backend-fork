@@ -80,7 +80,7 @@
         <button class="btn btn-success large-font-size" type="submit">Download Interventions</button>
       </div>
     </form>
-    <div class="col-lg-7 h2-middle-margins-vertical text-center">
+    <div class="col-xs-7 h2-middle-margins-vertical text-center">
       Download a JSON representation of interventions for all users on this study.
     </div>
   </div>
@@ -88,7 +88,7 @@
   {# download history of changes to surveys #}
   <div class="col-xs-12 well">
     <h2 class="pull-left">Survey History</h2>
-    <div class="col-lg-7 h2-middle-margins-vertical text-center">
+    <div class="col-xs-7 h2-middle-margins-vertical text-center">
       Download a JSON representation of the entire history of changes to surveys.
     </div>
     <form action="{{ easy_url("study_api.download_study_survey_history", study_id=study.id) }}" method="post">
@@ -151,7 +151,7 @@
   </div>
 
 
-  <div class="col-lg-12">
+  <div class="col-xs-12">
     <h2>Authorized researchers on this study</h2>
     <div>
       <table class="list-group table table-striped table-hover" width="100%">

@@ -23,13 +23,13 @@ from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_D
 from constants.data_stream_constants import ACCELEROMETER, ALL_DATA_STREAMS, SURVEY_TIMINGS
 from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_UNKNOWN,
     MESSAGE_SEND_SUCCESS, MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING, MFA_CODE_WRONG,
-    MFA_CONFIGURATION_REQUIRED, MFA_RESET_BAD_PERMISSIONS, MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED,
-    MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS, MFA_TEST_DISABLED, MFA_TEST_FAIL, MFA_TEST_SUCCESS,
-    NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG, NEW_PASSWORD_RULES_FAIL, PARTICIPANT_LOCKED,
-    PASSWORD_EXPIRED, PASSWORD_RESET_FAIL_SITE_ADMIN, PASSWORD_RESET_FORCED,
-    PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS, PASSWORD_RESET_TOO_SHORT,
-    PASSWORD_WILL_EXPIRE, PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED,
-    TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
+    MFA_CONFIGURATION_REQUIRED, MFA_CONFIGURATION_SITE_ADMIN, MFA_RESET_BAD_PERMISSIONS,
+    MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED, MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS,
+    MFA_TEST_DISABLED, MFA_TEST_FAIL, MFA_TEST_SUCCESS, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG,
+    NEW_PASSWORD_RULES_FAIL, PARTICIPANT_LOCKED, PASSWORD_EXPIRED, PASSWORD_RESET_FAIL_SITE_ADMIN,
+    PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS,
+    PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE, PUSH_NOTIFICATIONS_NOT_CONFIGURED,
+    TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT, MIDNIGHT_EVERY_DAY, OCT_6_NOON_2022)
@@ -391,6 +391,31 @@ class TestLoginPages(BasicSessionTestCase):
         self.assertEqual(resp.url, reverse("admin_pages.manage_credentials"))
         resp = self.simple_get(resp.url, status_code=200)  # page loads as normal
         self.assert_present(MFA_CONFIGURATION_REQUIRED, resp.content)
+    
+    def test_mfa_required_site_admin_setting_only_affects_site_admins(self):
+        from config import settings
+        settings.REQUIRE_SITE_ADMIN_MFA = True
+        self.session_researcher.update(mfa_token=None)
+        r1 = self.do_default_login()
+        self.assertEqual(r1.status_code, 302)  # assert login failure
+        # it redirects to choose study, choose study loads
+        self.assertEqual(r1.url, easy_url("admin_pages.choose_study"))
+        settings.REQUIRE_SITE_ADMIN_MFA = False
+    
+    def test_mfa_required_site_admin_setting(self):
+        from config import settings
+        settings.REQUIRE_SITE_ADMIN_MFA = True
+        self.session_researcher.update(mfa_token=None, site_admin=True)
+        r1 = self.do_default_login()
+        self.assertEqual(r1.status_code, 302)  # assert login failure
+        # it redirects to choose study, then choose study should redirect to manage credentials
+        self.assertEqual(r1.url, easy_url("admin_pages.choose_study"))
+        r2 = self.simple_get(easy_url("admin_pages.choose_study"), status_code=302)  # page redirects
+        self.assertEqual(r2.url, reverse("admin_pages.manage_credentials"))  # correct redirect
+        r3 = self.simple_get(r2.url, status_code=200)  # page loads as normal
+        self.assert_present(MFA_CONFIGURATION_REQUIRED, r3.content)
+        self.assert_present(MFA_CONFIGURATION_SITE_ADMIN, r3.content)
+        settings.REQUIRE_SITE_ADMIN_MFA = False
 
 
 class TestChooseStudy(ResearcherSessionTest):

@@ -98,6 +98,7 @@ PASSWORD_RESET_TOO_SHORT = "A study you are authorized on has a new minimum pass
 
 ## mfa notices
 MFA_CONFIGURATION_REQUIRED = "You must configure MFA before you can use the site."
+MFA_CONFIGURATION_SITE_ADMIN = "Site admins are required to have MFA enabled on this server."
 MFA_CODE_MISSING = "MFA code required, try again."
 MFA_CODE_WRONG = "Incorrect MFA code, try again."
 MFA_CODE_6_DIGITS = "MFA code must be 6 digits long."

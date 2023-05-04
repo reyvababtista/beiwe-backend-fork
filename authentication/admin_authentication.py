@@ -10,8 +10,9 @@ from django.shortcuts import HttpResponseRedirect, redirect
 from django.utils import timezone
 from django.utils.timezone import is_naive
 
-from constants.message_strings import (MFA_CONFIGURATION_REQUIRED, PASSWORD_EXPIRED,
-    PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_TOO_SHORT,
+from config.settings import REQUIRE_SITE_ADMIN_MFA
+from constants.message_strings import (MFA_CONFIGURATION_REQUIRED, MFA_CONFIGURATION_SITE_ADMIN,
+    PASSWORD_EXPIRED, PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_TOO_SHORT,
     PASSWORD_WILL_EXPIRE)
 from constants.user_constants import (ALL_RESEARCHER_TYPES, EXPIRY_NAME, ResearcherRole,
     SESSION_NAME, SESSION_UUID)
@@ -165,11 +166,13 @@ def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponse
         elif password_age_days > max_age_days - 7:
             messages.warning(request, PASSWORD_WILL_EXPIRE.format(days=max_age_days - password_age_days))
     
-    # based on the researcher's studies or if they are a site admin, determine if MFA is required.
-    # Force researchers without MFA to redirect to the manage credetials page with a message.
-    # TODO: do we want this forced for site admins? or is the 20 character password enough?
+    # based on the researcher's studies (or if they are a site admin, based on the
+    # REQUIRE_SITE_ADMIN_MFA setting) determine if MFA is required. Force researchers without MFA to
+    # redirect to the manage credentials page with a message.
     if researcher.requires_mfa and not researcher.mfa_token:
         messages.error(request, MFA_CONFIGURATION_REQUIRED)
+        if researcher.site_admin and REQUIRE_SITE_ADMIN_MFA:
+            messages.error(request, MFA_CONFIGURATION_SITE_ADMIN)
         return redirect(easy_url("admin_pages.manage_credentials"))
 
 

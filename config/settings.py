@@ -81,6 +81,14 @@ PUSH_NOTIFICATION_ATTEMPT_COUNT = getenv("PUSH_NOTIFICATION_ATTEMPT_COUNT", 720)
 BLOCK_QUOTA_EXCEEDED_ERROR = getenv('BLOCK_QUOTA_EXCEEDED_ERROR', 'false').lower() == 'true'
 
 #
+# Global MFA setting
+
+# this setting forces site admin users to enable MFA on their accounts.  There is already a 20
+# character password requirement so this is an opt-in, deployment-specific setting.
+REQUIRE_SITE_ADMIN_MFA = getenv('REQUIRE_SITE_ADMIN_MFA', 'false').lower() == 'true'
+
+
+#
 # Developer options
 
 # Developer debugging settings for working on decryption issues, which are particularly difficult to
@@ -88,5 +96,7 @@ BLOCK_QUOTA_EXCEEDED_ERROR = getenv('BLOCK_QUOTA_EXCEEDED_ERROR', 'false').lower
 #   Expects (case-insensitive) "true" to enable, otherwise it is disabled.
 STORE_DECRYPTION_LINE_ERRORS = getenv('STORE_DECRYPTION_LINE_ERRORS', 'false').lower() == 'true'
 
-
+# upload logging is literally the logging of details of file uploads from mobile devices.
+# (most logging is limited to a single file, this particular logging is spread across multiple
+# files that would have a cross-import, so it needs to be stuck elsewhere.)
 UPLOAD_LOGGING_ENABLED = getenv('UPLOAD_LOGGING_ENABLED', 'false').lower() == 'true'

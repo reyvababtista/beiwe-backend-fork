@@ -10,6 +10,7 @@ from django.db import models
 from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
 from django.utils import timezone
+from config.settings import REQUIRE_SITE_ADMIN_MFA
 
 from constants.user_constants import ResearcherRole, SESSION_NAME
 from database.models import TimestampedModel
@@ -110,6 +111,9 @@ class Researcher(AbstractPasswordUser):
     @property
     def requires_mfa(self) -> bool:
         """ Returns whether or not this user has two-factor authentication enabled. """
+        # REQUIRE_SITE_ADMIN_MFA - force enable mfa on site admin users
+        if REQUIRE_SITE_ADMIN_MFA and self.site_admin:
+            return True
         return self.study_relations.filter(study__mfa_required=True).exists()
     
     ## User Roles

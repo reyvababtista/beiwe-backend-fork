@@ -392,19 +392,22 @@ class TestLoginPages(BasicSessionTestCase):
         resp = self.simple_get(resp.url, status_code=200)  # page loads as normal
         self.assert_present(MFA_CONFIGURATION_REQUIRED, resp.content)
     
-    def test_mfa_required_site_admin_setting_only_affects_site_admins(self):
-        from config import settings
-        settings.REQUIRE_SITE_ADMIN_MFA = True
+    @patch("authentication.admin_authentication.REQUIRE_SITE_ADMIN_MFA")
+    @patch("database.user_models_researcher.REQUIRE_SITE_ADMIN_MFA")
+    def test_mfa_required_site_admin_setting_only_affects_site_admins(self, patch1: MagicMock, patch2: MagicMock):
+        patch1.return_value = True
+        patch2.return_value = True
         self.session_researcher.update(mfa_token=None)
         r1 = self.do_default_login()
         self.assertEqual(r1.status_code, 302)  # assert login failure
         # it redirects to choose study, choose study loads
         self.assertEqual(r1.url, easy_url("admin_pages.choose_study"))
-        settings.REQUIRE_SITE_ADMIN_MFA = False
     
-    def test_mfa_required_site_admin_setting(self):
-        from config import settings
-        settings.REQUIRE_SITE_ADMIN_MFA = True
+    @patch("authentication.admin_authentication.REQUIRE_SITE_ADMIN_MFA")
+    @patch("database.user_models_researcher.REQUIRE_SITE_ADMIN_MFA")
+    def test_mfa_required_site_admin_setting(self, patch1: MagicMock, patch2: MagicMock):
+        patch1.return_value = True
+        patch2.return_value = True
         self.session_researcher.update(mfa_token=None, site_admin=True)
         r1 = self.do_default_login()
         self.assertEqual(r1.status_code, 302)  # assert login failure
@@ -415,7 +418,6 @@ class TestLoginPages(BasicSessionTestCase):
         r3 = self.simple_get(r2.url, status_code=200)  # page loads as normal
         self.assert_present(MFA_CONFIGURATION_REQUIRED, r3.content)
         self.assert_present(MFA_CONFIGURATION_SITE_ADMIN, r3.content)
-        settings.REQUIRE_SITE_ADMIN_MFA = False
 
 
 class TestChooseStudy(ResearcherSessionTest):

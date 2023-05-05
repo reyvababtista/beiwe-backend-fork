@@ -73,6 +73,10 @@ if settings.SYSADMIN_EMAILS:
         _email_address.strip() for _email_address in settings.SYSADMIN_EMAILS.split(",")
     ]
 
+# DATA_DELETION_USERTYPE must be a specific usertype.
+if settings.DATA_DELETION_USERTYPE not in ("study_researcher", "study_admin", "site_admin"):
+    ERRORS.append(f"DATA_DELETION_USERTYPE must be one of 'researcher', 'study_admin', or 'site_admin', got '{settings.DATA_DELETION_USERTYPE}'.")
+
 #
 # Stick any warning about environment variables that may have changed here
 #

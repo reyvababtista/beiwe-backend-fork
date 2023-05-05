@@ -12,6 +12,7 @@ from api.participant_administration import add_fields_and_interventions
 from authentication.admin_authentication import authenticate_researcher_study_access
 from constants.common_constants import API_DATE_FORMAT
 from constants.message_strings import PARTICIPANT_LOCKED
+from constants.user_constants import DATA_DELETION_ALLOWED_RELATIONS
 from database.schedule_models import ArchivedEvent
 from database.study_models import Study
 from database.user_models_participant import Participant
@@ -136,6 +137,9 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
         get_survey_names_dict(study)
     )
     
+    relation = request.session_researcher.get_study_relation(study.id)
+    can_delete = request.session_researcher.site_admin or relation in DATA_DELETION_ALLOWED_RELATIONS
+    
     conditionally_display_locked_message(request, participant)
     return render(
         request,
@@ -152,6 +156,7 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
             study_easy_enrollment=study.easy_enrollment,
             participant_easy_enrollment=participant.easy_enrollment,
             locked=participant.is_dead,
+            can_delete=can_delete,
         )
     )
 
@@ -206,4 +211,3 @@ def conditionally_display_locked_message(request: ResearcherRequest, participant
     """ Displays a warning message if the participant is locked. """
     if participant.is_dead:
         messages.warning(request, PARTICIPANT_LOCKED.format(patient_id=participant.patient_id))
-

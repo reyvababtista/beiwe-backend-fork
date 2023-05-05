@@ -82,10 +82,15 @@ BLOCK_QUOTA_EXCEEDED_ERROR = getenv('BLOCK_QUOTA_EXCEEDED_ERROR', 'false').lower
 
 #
 # Global MFA setting
-
 # this setting forces site admin users to enable MFA on their accounts.  There is already a 20
 # character password requirement so this is an opt-in, deployment-specific setting.
 REQUIRE_SITE_ADMIN_MFA = getenv('REQUIRE_SITE_ADMIN_MFA', 'false').lower() == 'true'
+
+#
+# allow data deletion usertype setting
+# This setting restricts the type of user that can dispatch data deletion on a participant.
+# (to be replaced with a database setting, probably.)
+DATA_DELETION_USERTYPE = getenv('DATA_DELETION_USERTYPE', 'study_researcher')
 
 
 #

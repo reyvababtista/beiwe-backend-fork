@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import base64
-from typing import Tuple
+from typing import Tuple, Union
 
 from django.contrib.sessions.backends.db import SessionStore as DBStore
 from django.contrib.sessions.base_session import AbstractBaseSession
@@ -126,6 +126,15 @@ class Researcher(AbstractPasswordUser):
         study_relation.relationship = ResearcherRole.study_admin
         study_relation.save()
     
+    def get_study_relation(self, study_or_study_id: Union[int, Study]) -> str:
+        if self.site_admin:
+            return ResearcherRole.site_admin
+        study_id = study_or_study_id.id if isinstance(study_or_study_id, Study) else study_or_study_id
+        try:
+            return self.study_relations.get(study_id=study_id).relationship
+        except StudyRelation.DoesNotExist:
+            return ResearcherRole.no_access
+
     ## Access Credentials
     def validate_access_credentials(self, proposed_secret_key: str) -> bool:
         """ Extract the current credential info, run comparison, will in-place-upgrade the existing

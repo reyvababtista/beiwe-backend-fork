@@ -243,25 +243,27 @@
   </div>
 
   {# Queue for Data Purge/Deletion #}
-  <div class="col-md-12 well">
-    <div class="col-md-5">
-      <div class="h2-middle-margins-vertical text-center row">
-        <button type="submit" class="btn btn-danger large-font-size"
-          onclick="confirm_delete_participant('{{ participant.patient_id }}', '{{ study.id }}')"
-          {% if locked %} disabled {% endif %}>
-          Permenantly Delete All Participant Data
-        </button>
+  {% if can_delete  %}
+    <div class="col-md-12 well">
+      <div class="col-md-5">
+        <div class="h2-middle-margins-vertical text-center row">
+          <button type="submit" class="btn btn-danger large-font-size"
+            onclick="confirm_delete_participant('{{ participant.patient_id }}', '{{ study.id }}')"
+            {% if locked %} disabled {% endif %}>
+            Permenantly Delete All Participant Data
+          </button>
 
-        {% if locked %}
-          <br>This participant is already marked for deletion.
-        {% endif %}
+          {% if locked %}
+            <br>This participant is already marked for deletion.
+          {% endif %}
+        </div>
+      </div>
+      <div class="col-md-7 h3-margins-vertical">
+        This action deletes all data that this participant has ever uploaded, as well as all internal data related to this participant.  All further actions related to this participant will be blocked.  No data from this participant will be downloadable.  Once deletion has finished the particpant will no longer be visible in the list of participants on the study page.  Data deletion may take quite some time.
+        <br> <b>This operation is final and cannot be undone.</b>
       </div>
     </div>
-    <div class="col-md-7 h3-margins-vertical">
-      This action deletes all data that this participant has ever uploaded, as well as all internal data related to this participant.  All further actions related to this participant will be blocked.  No data from this participant will be downloadable.  Once deletion has finished the particpant will no longer be visible in the list of participants on the study page.  Data deletion may take quite some time.
-      <br> <b>This operation is final and cannot be undone.</b>
-    </div>
-  </div>
+  {% endif %}
 
   {% if study.interventions.exists() %}
     <div class="col-md-6 col-sm-12 well">

@@ -8,7 +8,8 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 from authentication.admin_authentication import authenticate_researcher_study_access
-from constants.message_strings import NOT_IN_STUDY, PARTICIPANT_UNREGISTERED
+from constants.message_strings import NO_DELETION_PERMISSION, NOT_IN_STUDY, PARTICIPANT_UNREGISTERED
+from constants.user_constants import DATA_DELETION_ALLOWED_RELATIONS
 from database.study_models import Study
 from database.user_models_participant import Participant
 from libs.http_utils import easy_url
@@ -166,7 +167,11 @@ def delete_participant(request: ResearcherRequest):
     if participant.is_dead:  # block locked participants, participant page displays a message
         return participant_page
     
-    add_particpiant_for_deletion(participant)
+    relation = request.session_researcher.get_study_relation(study_id)
+    if request.session_researcher.site_admin or relation in DATA_DELETION_ALLOWED_RELATIONS:
+        add_particpiant_for_deletion(participant)
+    else:
+        messages.error(request, NO_DELETION_PERMISSION.format(patient_id=patient_id))
     return participant_page
 
 

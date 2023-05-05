@@ -26,7 +26,7 @@ from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_S
     MFA_CONFIGURATION_REQUIRED, MFA_CONFIGURATION_SITE_ADMIN, MFA_RESET_BAD_PERMISSIONS,
     MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED, MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS,
     MFA_TEST_DISABLED, MFA_TEST_FAIL, MFA_TEST_SUCCESS, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG,
-    NEW_PASSWORD_RULES_FAIL, PARTICIPANT_LOCKED, PASSWORD_EXPIRED, PASSWORD_RESET_FAIL_SITE_ADMIN,
+    NEW_PASSWORD_RULES_FAIL, NO_DELETION_PERMISSION, PARTICIPANT_LOCKED, PASSWORD_EXPIRED, PASSWORD_RESET_FAIL_SITE_ADMIN,
     PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS,
     PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE, PUSH_NOTIFICATIONS_NOT_CONFIGURED,
     TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
@@ -2469,7 +2469,6 @@ class TestDeleteParticipant(ResearcherSessionTest):
         self.assertEqual(self.default_participant.is_dead, False)
     
     def test_bad_participant(self):
-        self.default_participant.update(unregistered=False)
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post_redirect(patient_id="invalid", study_id=self.session_study.id)
         self.assert_present(
@@ -2480,7 +2479,6 @@ class TestDeleteParticipant(ResearcherSessionTest):
         self.assertEqual(self.default_participant.is_dead, False)
     
     def test_participant_already_queued(self):
-        self.default_participant.update(unregistered=True)
         ParticipantDeletionEvent.objects.create(participant=self.default_participant)
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post_redirect(
@@ -2499,25 +2497,101 @@ class TestDeleteParticipant(ResearcherSessionTest):
         self.assertEqual(ParticipantDeletionEvent.objects.count(), 1)
     
     def test_success(self):
-        self.default_participant.update(unregistered=False)
         self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_success()
+    
+    def _test_success(self):
+        self.assertEqual(self.default_participant.is_dead, False)
+        self.assertEqual(self.default_participant.has_deletion_event, False)
+        self.assertEqual(self.default_participant.deleted, False)
+        self.assertEqual(ParticipantDeletionEvent.objects.count(), 0)
+        
         self.smart_post_redirect(
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
         page = self.redirect_get_contents(
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
-        self.assert_present(
-            PARTICIPANT_LOCKED.format(patient_id=self.default_participant.patient_id), page
-        )
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.is_dead, True)
         self.assertEqual(self.default_participant.has_deletion_event, True)
         self.assertEqual(self.default_participant.deleted, False)
         self.assertEqual(ParticipantDeletionEvent.objects.count(), 1)
+        self.assert_present(
+            PARTICIPANT_LOCKED.format(patient_id=self.default_participant.patient_id), page
+        )
+        self.assert_present(  # assert page component isn't present
+            "This action deletes all data that this participant has ever uploaded", page
+        )
+    
+    # look the feature works and these tests are overkill, okay?
+    def test_relation_restriction_researcher(self):
+        p1, p2 = self.get_patches([ResearcherRole.study_admin])
+        with p1, p2:
+            self.set_session_study_relation(ResearcherRole.researcher)
+            self._test_relation_restriction_failure()
+    
+    def test_relation_restriction_site_admin(self):
+        p1, p2 = self.get_patches([ResearcherRole.site_admin])
+        with p1, p2:
+            self.set_session_study_relation(ResearcherRole.study_admin)
+            self._test_relation_restriction_failure()
+    
+    def test_relation_restriction_site_admin_works_just_site_admins(self):
+        p1, p2 = self.get_patches([ResearcherRole.site_admin])
+        with p1, p2:
+            self.set_session_study_relation(ResearcherRole.site_admin)
+            self._test_success()
+    
+    def test_relation_restriction_site_admin_works_researcher(self):
+        p1, p2 = self.get_patches([ResearcherRole.study_admin, ResearcherRole.researcher])
+        with p1, p2:
+            self.set_session_study_relation(ResearcherRole.site_admin)
+            self._test_success()
+    
+    def test_relation_restriction_site_admin_works_study_admin(self):
+        p1, p2 = self.get_patches([ResearcherRole.study_admin, ResearcherRole.researcher])
+        with p1, p2:
+            self.set_session_study_relation(ResearcherRole.site_admin)
+            self._test_success()
+    
+    def test_relation_restriction_study_admin_works_researcher(self):
+        p1, p2 = self.get_patches([ResearcherRole.study_admin, ResearcherRole.researcher])
+        with p1, p2:
+            self.set_session_study_relation(ResearcherRole.study_admin)
+            self._test_success()
+    
+    def get_patches(self, the_patch):
+        from api import participant_administration
+        from pages import participant_pages
+        return (
+            patch.object(participant_pages, "DATA_DELETION_ALLOWED_RELATIONS", the_patch),
+            patch.object(participant_administration, "DATA_DELETION_ALLOWED_RELATIONS", the_patch),
+        )
+    
+    def _test_relation_restriction_failure(self):
+        self.smart_post_redirect(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        page = self.redirect_get_contents(
+            patient_id=self.default_participant.patient_id, study_id=self.session_study.id
+        )
+        self.assert_not_present(  # assert page component isn't present
+            "This action deletes all data that this participant has ever uploaded", page
+        )
+        self.assert_not_present(  # assert normal error Didn't happen
+            PARTICIPANT_LOCKED.format(patient_id=self.default_participant.patient_id), page
+        )
+        self.assert_present(  # assert specific error Did happen
+            NO_DELETION_PERMISSION.format(patient_id=self.default_participant.patient_id), page
+        )
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.is_dead, False)
+        self.assertEqual(self.default_participant.has_deletion_event, False)
+        self.assertEqual(self.default_participant.deleted, False)
+        self.assertEqual(ParticipantDeletionEvent.objects.count(), 0)
     
     def test_deleted_participant(self):
-        # This test isn't real, this should never happen
         self.default_participant.update(unregistered=False, deleted=True)
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post_redirect(

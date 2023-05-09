@@ -16,3 +16,5 @@ ASYMMETRIC_KEY_LENGTH = 2048  # length of private/public keys
 
 # this is a set of integers (bytes, technically), it is faster than testing bytes
 URLSAFE_BASE64_CHARACTERS = set(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-=")
+
+MFA_CREATED = "mfa_created"

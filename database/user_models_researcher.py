@@ -10,8 +10,8 @@ from django.db import models
 from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
 from django.utils import timezone
-from config.settings import REQUIRE_SITE_ADMIN_MFA
 
+from config.settings import REQUIRE_SITE_ADMIN_MFA
 from constants.user_constants import ResearcherRole, SESSION_NAME
 from database.models import TimestampedModel
 from database.study_models import Study
@@ -134,7 +134,7 @@ class Researcher(AbstractPasswordUser):
             return self.study_relations.get(study_id=study_id).relationship
         except StudyRelation.DoesNotExist:
             return ResearcherRole.no_access
-
+    
     ## Access Credentials
     def validate_access_credentials(self, proposed_secret_key: str) -> bool:
         """ Extract the current credential info, run comparison, will in-place-upgrade the existing
@@ -248,6 +248,7 @@ class StudyRelation(TimestampedModel):
 # this code is based off the stackoverflow answer found here:
 # https://stackoverflow.com/questions/59617751/how-to-make-a-django-user-inactive-and-invalidate-all-their-sessions
 
+# also this can't be a UtilityModel, that causes tests to break due to a pickling error?
 class ResearcherSession(AbstractBaseSession):
     # Custom session model which stores user foreignkey to asssociate sessions with particular users.
     researcher: Researcher = models.ForeignKey(

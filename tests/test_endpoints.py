@@ -26,11 +26,13 @@ from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_S
     MFA_CONFIGURATION_REQUIRED, MFA_CONFIGURATION_SITE_ADMIN, MFA_RESET_BAD_PERMISSIONS,
     MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED, MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS,
     MFA_TEST_DISABLED, MFA_TEST_FAIL, MFA_TEST_SUCCESS, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG,
-    NEW_PASSWORD_RULES_FAIL, NO_DELETION_PERMISSION, PARTICIPANT_LOCKED, PASSWORD_EXPIRED, PASSWORD_RESET_FAIL_SITE_ADMIN,
-    PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_SUCCESS,
-    PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE, PUSH_NOTIFICATIONS_NOT_CONFIGURED,
-    TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
+    NEW_PASSWORD_RULES_FAIL, NO_DELETION_PERMISSION, PARTICIPANT_LOCKED, PASSWORD_EXPIRED,
+    PASSWORD_RESET_FAIL_SITE_ADMIN, PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN,
+    PASSWORD_RESET_SUCCESS, PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE,
+    PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY,
+    WRONG_CURRENT_PASSWORD)
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
+from constants.security_constants import MFA_CREATED
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT, MIDNIGHT_EVERY_DAY, OCT_6_NOON_2022)
 from constants.user_constants import ALL_RESEARCHER_TYPES, IOS_API, ResearcherRole
@@ -508,6 +510,29 @@ class TestManageCredentials(ResearcherSessionTest):
         )
         response = self.smart_get_status_code(200)
         self.assert_present(api_key.access_key_id, response.content)
+    
+    def test_mfa_not_visible(self):
+        # qr code should only be visible if mfa password was provided (and matches) and session does
+        # not contain the MFA_CREATED key
+        session = self.client.session  # this creates a new object
+        self.session_researcher.reset_mfa()
+        # use the alt text to test for presence of the qr code
+        self.assert_not_present('alt="MFA QR Code"', self.smart_get_status_code(200).content)
+        session[MFA_CREATED] = timezone.now() - timedelta(seconds=60)
+        session.save()
+        self.assert_not_present('alt="MFA QR Code"', self.smart_get_status_code(200).content)
+    
+    def test_mfa_visible_session_manip(self):
+        session = self.client.session  # this creates a new object
+        self.session_researcher.reset_mfa()
+        session[MFA_CREATED] = timezone.now()
+        session.save()  # save the session because this isn't inside the request/response cycle
+        self.assert_present('alt="MFA QR Code"', self.smart_get_status_code(200).content)
+    
+    def test_mfa_visible_password(self):
+        self.session_researcher.reset_mfa()
+        resp = self.smart_post_status_code(200, view_mfa_password=self.DEFAULT_RESEARCHER_PASSWORD)
+        self.assert_present('alt="MFA QR Code"', resp.content)
 
 
 class TestResetAdminPassword(ResearcherSessionTest):
@@ -1011,6 +1036,7 @@ class TestResetMFASelf(ResearcherSessionTest):
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
     def test_no_password(self):
+        session = self.client.session
         orig_mfa = self.session_researcher.reset_mfa()
         self.smart_post()  # magic redirect smart post, tests for the redirect
         resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
@@ -1018,17 +1044,21 @@ class TestResetMFASelf(ResearcherSessionTest):
         self.session_researcher.refresh_from_db()
         self.assertIsNotNone(self.session_researcher.mfa_token)
         self.assertEqual(orig_mfa, self.session_researcher.mfa_token)  # no change
+        self.assertNotIn(MFA_CREATED, session)
     
     def test_bad_password(self):
+        session = self.client.session
         orig_mfa = self.session_researcher.reset_mfa()
         self.smart_post(mfa_password="wrong_password")  # magic redirect smart post
         resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
         self.assert_present(MFA_SELF_BAD_PASSWORD, resp.content)
         self.assertIsNotNone(self.session_researcher.mfa_token)
         self.assertEqual(orig_mfa, self.session_researcher.mfa_token)  # no change
+        self.assertNotIn(MFA_CREATED, session)
     
     def test_mfa_reset_with_mfa_token(self):
         # case is not accessible from webpage
+        session = self.client.session
         orig_mfa = self.session_researcher.reset_mfa()
         self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD)  # magic redirect smart post
         resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
@@ -1036,15 +1066,19 @@ class TestResetMFASelf(ResearcherSessionTest):
         self.session_researcher.refresh_from_db()
         self.assertIsNotNone(self.session_researcher.mfa_token)
         self.assertNotEqual(orig_mfa, self.session_researcher.mfa_token)  # change!
+        self.assertIn(MFA_CREATED, session)
     
     def test_mfa_reset_without_mfa_token(self):
+        session = self.client.session
         self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD)  # magic redirect smart post
         resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
         self.assert_present(MFA_SELF_SUCCESS, resp.content)
         self.session_researcher.refresh_from_db()
         self.assertIsNotNone(self.session_researcher.mfa_token)  # change!
+        self.assertIn(MFA_CREATED, session)
     
     def test_mfa_clear_with_token(self):
+        session = self.client.session
         orig_mfa = self.session_researcher.reset_mfa()
         # disable can be any non-falsy value
         self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD, disable="true")
@@ -1053,14 +1087,17 @@ class TestResetMFASelf(ResearcherSessionTest):
         self.session_researcher.refresh_from_db()
         self.assertIsNone(self.session_researcher.mfa_token)
         self.assertNotEqual(orig_mfa, self.session_researcher.mfa_token)  # change!
+        self.assertNotIn(MFA_CREATED, session)
     
     def test_mfa_clear_without_mfa_token(self):
+        session = self.client.session
         # disable can be any non-falsy value
         self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD, disable="true")
         resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
         self.assert_present(MFA_SELF_DISABLED, resp.content)
         self.session_researcher.refresh_from_db()
         self.assertIsNone(self.session_researcher.mfa_token)  # change!
+        self.assertNotIn(MFA_CREATED, session)
 
 
 class TestTestMFA(ResearcherSessionTest):

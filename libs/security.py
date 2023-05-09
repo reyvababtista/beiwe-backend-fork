@@ -188,7 +188,7 @@ def create_mfa_object(mfa_token: str) -> pyotp.TOTP:
     return pyotp.TOTP(
         mfa_token,
         digits=6,
-        digest=hashlib.sha512,
+        digest=hashlib.sha1,
         name=None,
         issuer=None,
         interval=30,

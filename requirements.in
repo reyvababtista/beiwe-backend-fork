@@ -31,7 +31,7 @@ psycopg2==2.9.3
 
 # ipython can exhibit weird issues that make it look like the codebase is broken.  Most issues
 # are resolved by forcing this relatively new version of ipython.
-ipython>=8.12.0
+ipython>=8.12.2
 uwsgi
 
 # Keep these dependencies up to date

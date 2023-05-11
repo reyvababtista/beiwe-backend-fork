@@ -12,9 +12,9 @@ backcall==0.2.0
     # via ipython
 bleach==6.0.0
     # via -r requirements.in
-boto3==1.26.130
+boto3==1.26.131
     # via -r requirements.in
-botocore==1.29.130
+botocore==1.29.131
     # via
     #   boto3
     #   s3transfer
@@ -34,7 +34,7 @@ cronutils==0.3.2
     # via -r requirements.in
 decorator==5.1.1
     # via ipython
-django==3.2.18
+django==3.2.19
     # via
     #   -r requirements.in
     #   django-extensions

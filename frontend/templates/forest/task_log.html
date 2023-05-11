@@ -32,11 +32,11 @@
 {% block content %}
 
 <div ng-controller="ForestLogController">
-    <div class="form-group col-sm-4">
-      <input type="search" class="form-control" placeholder="Filter" ng-model="filterText" autofocus>
+    <div class="form-group col-xs-12 well">
+      <input type="search" class="form-control" placeholder="Filter Here (searches all columns except Actions)" ng-model="filterText" autofocus>
     </div>
 
-    <div class="table-responsive">
+    <div class="table-responsive col-xs-12 well">
       <table class="table">
         <thead>
           <tr>

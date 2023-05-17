@@ -3881,6 +3881,10 @@ class TestRegisterParticipant(ParticipantSessionTest):
     def test_success_unregistered_before(
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
     ):
+        # This test has no intervention dates, a case doesn't ~really exist anymore because loading
+        # the participant page will populate the value on all participants if it is missing, with a
+        # date value of None. The followup test includes a participant with a None intervention so
+        # its probably fine.
         s3_upload.return_value = None
         self.assertIsNone(self.default_participant.last_register_user)
         get_client_public_key_string.return_value = "a_private_key"
@@ -3893,6 +3897,30 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
         self.assertIsInstance(self.default_participant.last_register_user, datetime)
+    
+    @patch("api.mobile_api.s3_upload")
+    @patch("api.mobile_api.get_client_public_key_string")
+    def test_success_unregistered_complex_study(
+        self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
+    ):
+        # there was a bug where participants with intervention dates set equal to None would crash
+        # inside repopulate_relative_survey_schedule_events because they were not being filtered out,
+        # but the bug seems to be a django bug where you can't exclude null values from a queryset.
+        s3_upload.return_value = None
+        get_client_public_key_string.return_value = "a_private_key"
+        self.default_populated_intervention_date.update(date=None)
+        self.default_study_field  # may as well throw this in, shouldn't do anything
+        # set up a relative schedule that will need to be checked inside repopulate_relative_...
+        self.generate_relative_schedule(self.default_survey, self.default_intervention, days_after=0)
+        # run test
+        resp = self.smart_post_status_code(200, **self.BASIC_PARAMS)
+        response_dict = json.loads(resp.content)
+        self.assertEqual("a_private_key", response_dict["client_public_key"])
+        self.session_participant.refresh_from_db()
+        self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
+        self.assertIsInstance(self.default_participant.last_register_user, datetime)
+        self.default_populated_intervention_date.refresh_from_db()
+        self.assertIsNone(self.default_populated_intervention_date.date)
     
     @patch("api.mobile_api.s3_upload")
     @patch("api.mobile_api.get_client_public_key_string")

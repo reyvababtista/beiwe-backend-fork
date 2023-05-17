@@ -174,16 +174,24 @@ def repopulate_relative_survey_schedule_events(survey: Survey, single_participan
     # whether an event ever triggered on that survey.
     new_events = []
     for relative_schedule in survey.relative_schedules.all():
-        # only interventions that have been marked (have a date), for participants that are not
+        # Only interventions that have been marked (have a date), for participants that are not
         # deleted, restrict on the single user case, get data points.
-        interventions_query = relative_schedule.intervention.intervention_dates
-        interventions_query = interventions_query.exclude(date=None, participant__deleted=True)
+        intervention_dates_query = relative_schedule.intervention.intervention_dates.filter(
+            date__isnull=False,
+            participant__deleted=False  # do not refactor to .exclude!
+            # Subtle [Django?] Bug that I don't understand: you can't exclude null database values?
+            #   intervention_dates_query.exclude(date__isnull=True, ...)
+            #  The above query.exclude returns instances where date is None, same for `date=None`
+        )
         if single_participant:
-            interventions_query = interventions_query.filter(participant=single_participant)
-        interventions_query = interventions_query.values_list("participant_id", "date")
+            intervention_dates_query = intervention_dates_query.filter(participant=single_participant)
+        intervention_dates_query = intervention_dates_query.values_list("participant_id", "date")
         
-        for participant_id, intervention_date in interventions_query:
+        for participant_id, intervention_date in intervention_dates_query:
             # + below is correct, 'days_after' is negative or 0 for days before and day of.
+            # intervention_date cannot be None, so how did we get an error here?
+            # "unsupported operand type(s) for +: 'NoneType' and 'datetime.timedelta'"
+            # I have checked and the order of the error statements reflects the code.
             scheduled_date = intervention_date + timedelta(days=relative_schedule.days_after)
             schedule_time = relative_schedule.scheduled_time(scheduled_date, survey.study.timezone)
             # skip if already sent (archived event matching participant, survey, and schedule time)

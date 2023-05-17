@@ -10,6 +10,7 @@ from django.db import models
 from django.db.models import Manager
 from django.utils import timezone
 
+from config.settings import DOMAIN_NAME
 from constants.user_constants import ANDROID_API, IOS_API, OS_TYPE_CHOICES
 from database.common_models import UtilityModel
 from database.models import TimestampedModel
@@ -207,6 +208,14 @@ class Participant(AbstractPasswordUser):
         return (
             self.os_type == ANDROID_API and check_firebase_instance(require_android=True) or
             self.os_type == IOS_API and check_firebase_instance(require_ios=True)
+        )
+    
+    @property
+    def participant_page(self):
+        """ returns a url for the participant page for this user (debugging function) """
+        from libs.http_utils import easy_url  # import triangle
+        return f"https://{DOMAIN_NAME}" + easy_url(
+            "participant_pages.participant_page", self.study.id, self.patient_id
         )
     
     def __str__(self) -> str:

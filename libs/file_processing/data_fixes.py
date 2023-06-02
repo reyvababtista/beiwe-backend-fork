@@ -50,10 +50,10 @@ def fix_wifi_csv(header: bytes, rows_list: list, file_name: str) -> bytes:
 
 
 def fix_app_log_file(file_contents: bytes, file_name: str):
-    """ The log file is less of a csv than it is a time enumerated list of
-        events, with the time code preceding each row.
-        We insert a base value, a new row stating that a new log file was created,
-        which allows us to guarantee at least one timestamp in the file."""
+    """ The log file is less of a csv than it is a time enumerated list of events, with the time
+        code preceding each row.
+        We insert a base value, a new row stating that a new log file was created, which allows us
+        to guarantee at least one timestamp in the file."""
     file_name = normalize_s3_file_path(file_name)
     time_stamp = file_name.rsplit("/", 1)[-1][:-4].encode()
     rows_list = file_contents.splitlines()

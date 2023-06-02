@@ -68,7 +68,7 @@ def convert_unix_to_human_readable_timestamps(header: bytes, rows: List[List[byt
     """ Adds a new column to the end which is the unix time represented in
     a human readable time format.  Returns an appropriately modified header. """
     for row in rows:
-        unix_millisecond = int(row[0])  # if this fails it is probably an incorrect os determination
+        unix_millisecond = int(row[0])  # line can fail due to wrong os on the FileToProcess object.
         time_string = unix_time_to_string(unix_millisecond // 1000)
         # this line 0-pads millisecond values that have leading 0s.
         time_string += b".%03d" % (unix_millisecond % 1000)

@@ -21,7 +21,7 @@ class ApiKey(TimestampedModel):
     
     is_active = models.BooleanField(default=True)
     has_tableau_api_permissions = models.BooleanField(default=False)
-    researcher: Researcher = models.ForeignKey(Researcher, on_delete=models.PROTECT, related_name="api_keys")
+    researcher: Researcher = models.ForeignKey(Researcher, on_delete=models.CASCADE, related_name="api_keys")
     readable_name = models.TextField(blank=True, default="")
     
     _access_key_secret_plaintext = None

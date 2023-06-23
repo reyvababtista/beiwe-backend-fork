@@ -206,7 +206,11 @@ class UploadTracking(UtilityModel):
 
 
 class DataAccessRecord(TimestampedModel):
-    researcher: Researcher = models.ForeignKey("Researcher", on_delete=models.PROTECT, related_name="data_access_record")
+    researcher: Researcher = models.ForeignKey(
+        "Researcher", on_delete=models.SET_NULL, related_name="data_access_record", null=True
+    )
+    # model must have a username for when a researcher is deleted
+    username = models.CharField(max_length=32, null=False)
     query_params = models.TextField(null=False, blank=False)
     error = models.TextField(null=True, blank=True)
     registry_dict_size = models.PositiveBigIntegerField(null=True, blank=True)

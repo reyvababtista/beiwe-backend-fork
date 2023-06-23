@@ -53,6 +53,7 @@ def get_data(request: ApiStudyResearcherRequest):
         post["access_key"] = post["secret_key"] = "sanitized"  # guaranteed to be present
         DataAccessRecord.objects.create(
             researcher=request.api_researcher,
+            username=request.api_researcher.username,
             query_params=orjson.dumps(post).decode(),
             error="did not pass query validation, " + str(e),
         )
@@ -68,6 +69,7 @@ def get_data(request: ApiStudyResearcherRequest):
         researcher=request.api_researcher,
         query_params=orjson.dumps(query_args).decode(),
         registry_dict_size=len(registry_dict) if registry_dict else 0,
+        username=request.api_researcher.username,
     )
     
     streaming_zip_file = ZipGenerator(
@@ -159,7 +161,7 @@ def determine_users_for_db_query(request: ApiStudyResearcherRequest, query: dict
                 query['user_ids'] = request.POST.getlist('user_ids')
         except Exception:
             return abort(400, "bad patient id")
-
+        
         # Ensure that all user IDs are patient_ids of actual Participants
         if Participant.objects.filter(patient_id__in=query['user_ids']).count() != len(query['user_ids']):
             log("invalid participant")
@@ -179,7 +181,7 @@ def determine_time_range_for_db_query(request: ApiStudyResearcherRequest, query:
 def handle_database_query(study_id: int, query_dict: dict, registry_dict: dict = None) -> QuerySet:
     """ Runs the database query and returns a QuerySet. """
     chunks = ChunkRegistry.get_chunks_time_range(study_id, **query_dict)
-    # the simple case where there isn't a registry uploaded    
+    # the simple case where there isn't a registry uploaded
     if not registry_dict:
         return chunks.values(*CHUNK_FIELDS).iterator()
     

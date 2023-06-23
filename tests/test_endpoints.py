@@ -46,7 +46,7 @@ from database.survey_models import Survey
 from database.system_models import FileAsText, GenericEvent
 from database.user_models_participant import (Participant, ParticipantDeletionEvent,
     ParticipantFCMHistory)
-from database.user_models_researcher import Researcher
+from database.user_models_researcher import Researcher, StudyRelation
 from libs.copy_study import format_study
 from libs.rsa import get_RSA_cipher
 from libs.schedules import (get_start_and_end_of_java_timings_week,
@@ -1892,27 +1892,58 @@ class TestDeleteResearcher(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.delete_researcher"
     
     def test_site_admin(self):
-        self._test(302, ResearcherRole.site_admin, True)
+        self._test_basics(302, ResearcherRole.site_admin, True)
     
     def test_study_admin(self):
-        self._test(403, ResearcherRole.study_admin, False)
+        self._test_basics(403, ResearcherRole.study_admin, False)
     
     def test_researcher(self):
-        self._test(403, ResearcherRole.researcher, False)
+        self._test_basics(403, ResearcherRole.researcher, False)
     
     def test_no_relation(self):
-        self._test(403, None, False)
+        self._test_basics(403, None, False)
     
     def test_nonexistent(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
         # 0 is not a valid database key.
         self.smart_get_status_code(404, 0)
     
-    def _test(self, status_code: int, relation: str, success: bool):
-        self.set_session_study_relation(relation)
+    def _test_basics(self, status_code: int, relation: str, success: bool):
+        self.set_session_study_relation(relation)  # implicitly creates self.session_researcher
         r2 = self.generate_researcher()
         self.smart_get_status_code(status_code, r2.id)
         self.assertEqual(Researcher.objects.filter(id=r2.id).count(), 0 if success else 1)
+    
+    def test_cascade(self):
+        # first assert that this is actually all the relations:
+        self.assertEqual(
+            [obj.related_model.__name__ for obj in Researcher._meta.related_objects],
+            ['StudyRelation', 'ResearcherSession', 'DataAccessRecord', 'ApiKey']
+        )
+        # we need the test to succeed...
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        r2 = self.generate_researcher()
+
+        # generate all possible researcher relations for r2 as determined above:
+        ApiKey.generate(researcher=r2, has_tableau_api_permissions=True, readable_name="test_api_key")
+        relation_id = self.generate_study_relation(r2, self.default_study, ResearcherRole.researcher).id
+        record = DataAccessRecord.objects.create(researcher=r2, query_params="test_junk", username=r2.username)
+        # for tests after deletion
+        relation_id = r2.study_relations.get().id
+        default_study_id = self.default_study.id
+        # request
+        self.smart_get_status_code(302, r2.id)
+        # test that these were deleted
+        self.assertFalse(Researcher.objects.filter(id=r2.id).exists())
+        self.assertFalse(ApiKey.objects.exists())
+        self.assertFalse(StudyRelation.objects.filter(id=relation_id).exists())
+        # I can never remember the direction of cascade, confirm study is still there
+        self.assertTrue(Study.objects.filter(id=default_study_id).exists())
+        # and assert that the DataAccessRecord is still there with a null researcher and a username.
+        self.assertTrue(DataAccessRecord.objects.filter(id=record.id).exists())
+        record.refresh_from_db()
+        self.assertIsNone(record.researcher)
+        self.assertEqual(record.username, r2.username)
 
 
 class TestSetResearcherPassword(ResearcherSessionTest):

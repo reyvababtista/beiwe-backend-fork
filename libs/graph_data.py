@@ -47,7 +47,9 @@ def compile_question_data(surveys):
         return {}
     all_questions = {}
     for question in surveys[0]:  # we only need to get the questions once
-        all_questions[question['question id']] = {question['question text']: []}
+        # keys can apparently be missing from the dict, so we need to check for them.
+        if 'question id' in question and 'question text' in question:
+            all_questions[question['question id']] = {question['question text']: []}
     return all_questions
 
 

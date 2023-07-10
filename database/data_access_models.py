@@ -64,7 +64,7 @@ class ChunkRegistry(TimestampedModel):
             cls, data_type, time_bin, chunk_path, file_contents, study_id, participant_id, survey_id=None
     ):
         if data_type not in CHUNKABLE_FILES:
-            raise UnchunkableDataTypeError
+            raise UnchunkableDataTypeError()
         
         chunk_hash_str = chunk_hash(file_contents).decode()
         time_bin = int(time_bin) * CHUNK_TIMESLICE_QUANTUM

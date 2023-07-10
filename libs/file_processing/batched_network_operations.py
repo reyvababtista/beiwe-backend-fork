@@ -23,17 +23,16 @@ def batch_upload(upload: Tuple[ChunkRegistry or dict, str, bytes, str]):
     with make_error_sentry(sentry_type=SentryTypes.data_processing):
         try:
             chunk, chunk_path, new_contents, study_object_id = upload
-            del upload
             new_contents = decompress(new_contents)
-            
-            if "b'" in chunk_path:
-                raise Exception(chunk_path)
             
             # for use with test script to avoid network uploads
             # with open("processing_tests/" + GLOBAL_TIMESTAMP, 'ba') as f:
             #     f.write(b"\n\n")
             #     f.write(new_contents)
             #     return ret
+            
+            if chunk != CHUNK_EXISTS_CASE and ChunkRegistry.objects.filter(chunk_path=chunk_path).exists():
+                raise Exception(f"Chunk \"{chunk_path}\" created between processing start and now.")
             
             s3_upload(chunk_path, new_contents, study_object_id, raw_path=True)
             

@@ -2,7 +2,7 @@ import time
 from collections import defaultdict
 from datetime import timedelta
 from multiprocessing.pool import ThreadPool
-from typing import DefaultDict
+from typing import Any, DefaultDict, Dict
 
 from cronutils.error_handler import ErrorHandler, null_error_handler
 from django.core.exceptions import ValidationError
@@ -247,15 +247,22 @@ def upload_binified_data(binified_data, error_handler, survey_id_dict, participa
     uploads = CsvMerger(binified_data, error_handler, survey_id_dict, participant)
     
     pool = ThreadPool(CONCURRENT_NETWORK_OPS)
-    errors = pool.map(batch_upload, uploads.upload_these, chunksize=1)
-    for err_ret in errors:
-        if err_ret['exception']:
-            print(err_ret['traceback'])
-            raise err_ret['exception']
     
-    pool.close()
-    pool.terminate()
-    # The things in ftps to retire that are not in failed ftps.
+    errors = pool.map(batch_upload, uploads.upload_these, chunksize=1)
+
+    try:
+        err_ret: Dict[str, Any]
+        for err_ret in errors:
+            if err_ret['exception']:
+                # print(err_ret['traceback'])
+                raise err_ret['exception']
+    except None:
+        pass  # match nothing, we need the finally block
+    finally:
+        pool.close()
+        pool.terminate()
+    
+    # The things in ftps_to_retire that are not in failed ftps.
     # len(failed_ftps) will become the number of files to skip in the next iteration.
     return uploads.get_retirees()
 

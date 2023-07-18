@@ -37,17 +37,11 @@ angular.module("surveyBuilder")
     "numeric": "NUMERIC",
     "singleLine": "SINGLE_LINE_TEXT",
     "multiLine": "MULTI_LINE_TEXT",
-    "date": "DATE",
-    "time": "TIME",
-    "datetime": "DATE_TIME",
   })
   .service("TEXT_FIELD_TYPE_LABELS", function(TEXT_FIELD_TYPES) {
     this[TEXT_FIELD_TYPES.numeric] = "Numeric";
     this[TEXT_FIELD_TYPES.singleLine] = "Single-line Text";
     this[TEXT_FIELD_TYPES.multiLine] = "Multi-line Text";
-    this[TEXT_FIELD_TYPES.date] = "Date";
-    this[TEXT_FIELD_TYPES.time] = "Time";
-    this[TEXT_FIELD_TYPES.datetime] = "Date and Time";
   })
   .constant("LOGICAL_OPERATORS", ["and", "or", "not"])
   .constant("ARITHMETIC_OPERATORS", ["==", "<", "<=", ">", ">="]); 

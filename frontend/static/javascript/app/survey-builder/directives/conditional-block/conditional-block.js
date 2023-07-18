@@ -23,6 +23,7 @@ angular.module("surveyBuilder")
         surveyBuilder: "=",
         path: "@"
       },
-      templateUrl: "/static/javascript/app/survey-builder/directives/conditional-block/conditional-block.html"
+      // need to add a fake variable to the end of the templateUrl to force the browser to reload the template
+      templateUrl: "/static/javascript/app/survey-builder/directives/conditional-block/conditional-block.html?n=1"
     };
   });

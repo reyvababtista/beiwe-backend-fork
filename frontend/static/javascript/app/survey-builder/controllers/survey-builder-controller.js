@@ -37,13 +37,13 @@
       });
       return formattedErrors;
     };
-
-    /* Variables from django template */
+    
+    /* Survey-level variables from django template */
     vm.questions = window.questions;
     vm.randomize = window.randomize;
     vm.randomizeWithMemory = window.randomizeWithMemory;
     vm.numberOfRandomQuestions = window.numberOfRandomQuestions;
-// vm.questionIds is set below in vm.refreshQuestionIds()
+    // vm.questionIds is set below in vm.refreshQuestionIds()
 
     /* Current question for displaying/modifying with modal */
     vm.currentQuestionFields = {
@@ -56,7 +56,8 @@
       "index": null,
       "question_id": null,
       "answers": [],
-      "display_if": null
+      "display_if": null,
+      "required": false, // Default to false
     };
     vm.defaultQuestionFields = angular.copy(vm.currentQuestionFields);
 
@@ -76,7 +77,7 @@
 
     vm.editQuestion = function() {
       /**
-       * Edits the question in vm.questions based on information in vm.currentQuestionFields\
+       * Edits the question in vm.questions based on information in vm.currentQuestionFields
        */
       var questionObject = vm.getCurrentQuestionObject();
       vm.questions.splice(vm.currentQuestionFields.index, 1, questionObject);
@@ -95,7 +96,6 @@
        */
       vm.currentQuestionFields.answers.splice(index, 1);
     };
-
 
     /**
      * Edit question modal helper functions
@@ -129,7 +129,11 @@
       /**
        * Returns an object with the correct fields for sending to the backend from data in vm.currentQuestionFields
        */
-      var currentQuestionObject = _.pick(vm.currentQuestionFields, QUESTION_FIELDS_LIST[vm.currentQuestionFields.question_type]);
+      var currentQuestionObject = _.pick(
+        vm.currentQuestionFields,
+        QUESTION_FIELDS_LIST[vm.currentQuestionFields.question_type],
+        "required"
+      );
       return currentQuestionObject;
     };
 
@@ -232,7 +236,7 @@
      */
     vm.getPathLocation = function(path) {
       /**
-       * Navigates to the passed in path from vm.currentQuestionFields.display_if and returns and array with
+       * Navigates to the passed in path from vm.currentQuestionFields.display_if and returns an array with
        * the parent location and last key. For example, if the path is "or/3", the referenced location is
        * vm.currentQuestionFields.display_if["or"]["3"], and this function will return
        * [vm.currentQuestionFields.display_if["or"], "3"].

@@ -23,15 +23,23 @@
             <tr>
               <td><i>Question Type:</i></td>
               <td>{{ surveyBuilder.QUESTION_TYPE_LABELS[question.question_type] }}</td>
+              <!-- spacing and the required attribute -->
+              <td style="padding-right: 150px;"> </td> 
+              <td ng-if="question.question_type != surveyBuilder.QUESTION_TYPES.infoTextBox">
+                <i>Required Question:</i>
+              </td> 
+              <td ng-if="question.question_type != surveyBuilder.QUESTION_TYPES.infoTextBox">
+                {{ question.required ? "Yes" : "No"}}
+              </td>
             </tr>
             <!-- Slider question minimum and maximum -->
             <tr ng-if="question.min">
               <td><i>Minimum:</i></td>
-              <td>{{ question.min}}</td>
+              <td>{{ question.min }}</td>
             </tr>
             <tr ng-if="question.max">
               <td><i>Maximum:</i></td>
-              <td>{{ question.max}}</td>
+              <td>{{ question.max }}</td>
             <tr>
             <!-- Radio Button or Checkbox question options array -->
             <tr ng-if="question.answers">

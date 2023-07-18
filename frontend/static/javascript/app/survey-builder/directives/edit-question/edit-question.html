@@ -43,6 +43,7 @@
                        ng-model="surveyBuilder.currentQuestionFields.max">
               </td>
             </tr>
+            
             <tr ng-if="surveyBuilder.currentQuestionFields.question_type == surveyBuilder.QUESTION_TYPES.freeResponse">
               <td><label for="tfttxt">Answer Type:</label></td>
               <td>
@@ -52,6 +53,7 @@
                 </select>
               </td>
             </tr>
+            
             <tbody ng-if="surveyBuilder.currentQuestionFields.question_type == surveyBuilder.QUESTION_TYPES.radio || surveyBuilder.currentQuestionFields.question_type == surveyBuilder.QUESTION_TYPES.checkbox"
                    id="fields_div">
               <tr>
@@ -74,10 +76,24 @@
                 </td>
               </tr>
             </tbody>
-  
+
             <!-- Visual break between the question and the question's skip logic -->
             <tr><td>&nbsp;</td></tr>
-  
+            
+            <tr ng-if="surveyBuilder.currentQuestionFields.question_type != surveyBuilder.QUESTION_TYPES.infoTextBox">
+              <td>
+                <label for="required">Required Question</label>
+              </td>
+              <td>
+                <input name="required" type="checkbox" style="margin-right: 6px;"
+                 ng-model="surveyBuilder.currentQuestionFields.required">
+                 
+                  If this question is displayed it will have no skip button.
+                  {{surveyBuilder.currentQuestionFields.required}}
+                  
+              </td>
+            </tr>
+
             <tr ng-if="surveyBuilder.randomize">
               <td colspan="2">
                 <div class="alert alert-warning" style="margin-bottom: 0;">
@@ -86,6 +102,7 @@
                 </div>
               </td>
             </tr>
+
             <tr ng-class="{'faded': surveyBuilder.randomize}">
               <td class="tablecell-align-top">
                 <label for="text">Display this<br>question if:</label>

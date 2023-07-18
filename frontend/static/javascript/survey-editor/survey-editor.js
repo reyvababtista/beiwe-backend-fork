@@ -2,6 +2,8 @@
  * Functionality to create and edit surveys via a web form
  */
 
+// Survey Schedules
+
 $(document).ready(function() {
     window.scope = angular.element($("body")).scope();
     renderWeeklySchedule();
@@ -83,6 +85,7 @@ function get_survey_settings() {
     }
 }
 
+// This is the save and deploy function, unclear why it is called "end" - end of editing, I suppose?
 function end(domainName) {
     var content = '';
     if (trackingSurvey) {
@@ -154,7 +157,6 @@ function createJsonSurveyObject() {
     return surveyObject;
 }
 
-//TODO CDUCMENCDHIsdcoihh
 function audioSurveyTypeChange(audio_survey_type) {
     if (audio_survey_type == 'raw') {
         $("#compressed_options").hide();

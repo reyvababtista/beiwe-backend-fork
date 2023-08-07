@@ -102,15 +102,7 @@ class UploadTracking(UtilityModel):
                     os_type=participant.os_type,
                 )
             )
-        FileToProcess.objects.bulk_create(
-            new_ftps
-        )
-        # FileToProcess.append_file_for_processing(
-        #     # file_path, study_object_id, **kwargs
-        #     file_path,
-        #     # participant__study__object_id,
-        #     participant=participant,
-        # )
+        FileToProcess.objects.bulk_create(new_ftps)
     
     @classmethod
     def add_files_to_process2(cls, limit=25, data_stream=None):
@@ -152,6 +144,49 @@ class UploadTracking(UtilityModel):
                     study_id=study_id,
                     participant_id=participant_id
                 ))
+        FileToProcess.objects.bulk_create(new_ftps)
+    
+    @classmethod
+    def reprocess_participant(cls, participant: Participant):
+        """ Re-adds the most recent [limit] files that have been uploaded recently to FiletToProcess.
+            (this is fairly optimized because it is part of debugging file processing) """
+        from database.data_access_models import FileToProcess
+        # ordering by file path happens to be A) deterministic and B) sequential time order C)
+        # results in ideal back-fill
+        query = participant.upload_trackers.values_list("file_path", flat=True).order_by("file_path").distinct()
+        participant_id = participant.id
+        study_id = participant.study.id
+        object_id = participant.study.object_id
+        
+        new_ftps: List[FileToProcess] = []
+        extant_count = 0
+        
+        extant_file_paths = set(FileToProcess.objects.values_list("s3_file_path", flat=True))
+        
+        for i, upload_file_name in enumerate(query):
+            s3_file_path = object_id + "/" + upload_file_name
+            # track skipped count
+            if s3_file_path in extant_file_paths:
+                extant_count += 1
+                if extant_count % 100 == 0:
+                    print(f"skip count at {extant_count}", sep="... ")
+                continue
+            
+            extant_file_paths.add(s3_file_path)
+            
+            # track progress, batch create every Nth ftp
+            if i % 1000 == 0:
+                print(i, sep="... ")
+                FileToProcess.objects.bulk_create(new_ftps)
+                new_ftps = []  # clear the list
+            
+            new_ftps.append(FileToProcess(
+                s3_file_path=s3_file_path,
+                study_id=study_id,
+                participant_id=participant_id
+            ))
+        
+        # bulk save the overflow
         FileToProcess.objects.bulk_create(new_ftps)
     
     @classmethod

@@ -12,9 +12,9 @@ backcall==0.2.0
     # via ipython
 bleach==6.0.0
     # via -r requirements.in
-boto3==1.28.2
+boto3==1.28.30
     # via -r requirements.in
-botocore==1.31.2
+botocore==1.31.30
     # via
     #   boto3
     #   s3transfer
@@ -24,11 +24,11 @@ cachecontrol==0.13.1
     # via firebase-admin
 cachetools==5.3.1
     # via google-auth
-certifi==2023.5.7
+certifi==2023.7.22
     # via requests
 charset-normalizer==3.2.0
     # via requests
-click==8.1.4
+click==8.1.7
     # via pip-tools
 cronutils==0.3.2
     # via -r requirements.in
@@ -57,9 +57,9 @@ google-api-core[grpc]==2.11.1
     #   google-cloud-core
     #   google-cloud-firestore
     #   google-cloud-storage
-google-api-python-client==2.92.0
+google-api-python-client==2.97.0
     # via firebase-admin
-google-auth==2.21.0
+google-auth==2.22.0
     # via
     #   google-api-core
     #   google-api-python-client
@@ -80,15 +80,15 @@ google-crc32c==1.5.0
     # via google-resumable-media
 google-resumable-media==2.5.0
     # via google-cloud-storage
-googleapis-common-protos==1.59.1
+googleapis-common-protos==1.60.0
     # via
     #   google-api-core
     #   grpcio-status
-grpcio==1.56.0
+grpcio==1.57.0
     # via
     #   google-api-core
     #   grpcio-status
-grpcio-status==1.56.0
+grpcio-status==1.57.0
     # via google-api-core
 httplib2==0.22.0
     # via
@@ -98,7 +98,7 @@ idna==3.4
     # via requests
 ipython==8.12.2
     # via -r requirements.in
-jedi==0.18.2
+jedi==0.19.0
     # via ipython
 jinja2==3.1.2
     # via -r requirements.in
@@ -122,13 +122,13 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-pip-tools==6.14.0
+pip-tools==7.3.0
     # via -r requirements.in
 prompt-toolkit==3.0.39
     # via ipython
 proto-plus==1.22.3
     # via google-cloud-firestore
-protobuf==4.23.4
+protobuf==4.24.1
     # via
     #   google-api-core
     #   google-cloud-firestore
@@ -149,11 +149,11 @@ pyasn1-modules==0.3.0
     # via google-auth
 pycryptodomex==3.17
     # via -r requirements.in
-pygments==2.15.1
+pygments==2.16.1
     # via ipython
-pyotp==2.8.0
+pyotp==2.9.0
     # via -r requirements.in
-pyparsing==3.1.0
+pyparsing==3.1.1
     # via httplib2
 pypng==0.20220715.0
     # via -r requirements.in
@@ -181,7 +181,7 @@ requests==2.31.0
     #   google-cloud-storage
 rsa==4.9
     # via google-auth
-s3transfer==0.6.1
+s3transfer==0.6.2
     # via boto3
 six==1.16.0
     # via
@@ -214,13 +214,13 @@ urllib3==1.26.16
     #   botocore
     #   google-auth
     #   requests
-uwsgi==2.0.21
+uwsgi==2.0.22
     # via -r requirements.in
 wcwidth==0.2.6
     # via prompt-toolkit
 webencodings==0.5.1
     # via bleach
-wheel==0.40.0
+wheel==0.41.1
     # via pip-tools
 zstd==1.5.5.1
     # via -r requirements.in

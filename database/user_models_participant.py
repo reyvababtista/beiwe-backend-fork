@@ -90,6 +90,7 @@ class Participant(AbstractPasswordUser):
     last_version_code = models.CharField(max_length=32, blank=True, null=True)
     last_version_name = models.CharField(max_length=32, blank=True, null=True)
     last_os_version = models.CharField(max_length=32, blank=True, null=True)
+    device_status_report = models.TextField(default=None, null=True, blank=True)
     
     deleted = models.BooleanField(default=False)
     

@@ -384,8 +384,8 @@ class ParticipantSessionTest(SmartRequestsTestCase):
     ENDPOINT_NAME = None
     IOS_ENDPOINT_NAME = None
     DISABLE_CREDENTIALS = False
-    DEVICE_TRACKING_FIELDS = ("last_version_code", "last_version_name", "last_os_version", )
-    DEVICE_TRACKING_PARAMS = ("version_code", "version_name", "os_version", )
+    DEVICE_TRACKING_FIELDS = ("last_version_code", "last_version_name", "last_os_version", "device_status_report")
+    DEVICE_TRACKING_PARAMS = ("version_code", "version_name", "os_version", "device_status_report")
     
     def setUp(self) -> None:
         """ Populate the session participant variable. """
@@ -429,6 +429,8 @@ class ParticipantSessionTest(SmartRequestsTestCase):
                              msg="last_version_name did not update")
             self.assertEqual(tracker_vals["last_os_version"], post_params["os_version"],
                              msg="last_os_version did not update")
+            self.assertEqual(tracker_vals["device_status_report"], post_params["device_status_report"],
+                             msg="device_status_report did not update")
         else:
             self.assertEqual(tracker_vals["last_version_code"], orig_vals["last_version_code"],
                              msg="last_version_code updated")
@@ -436,7 +438,9 @@ class ParticipantSessionTest(SmartRequestsTestCase):
                              msg="last_version_name updated")
             self.assertEqual(tracker_vals["last_os_version"], orig_vals["last_os_version"],
                              msg="last_os_version updated")
-        
+            self.assertEqual(tracker_vals["device_status_report"], orig_vals["device_status_report"],
+                             msg="device_status_report updated")
+        # reset the toggle after every request
         self.INJECT_DEVICE_TRACKER_PARAMS = True
         return ret
 

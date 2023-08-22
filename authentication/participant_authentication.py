@@ -73,6 +73,9 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
         tracking_updates['last_version_name'] = request.POST["version_name"][:32]
     if "os_version" in request.POST:
         tracking_updates['last_os_version'] = request.POST["os_version"][:32]
+    if "device_status_report" in request.POST:
+        tracking_updates['device_status_report'] = request.POST["device_status_report"]
+
     if tracking_updates:
         session_participant.update_only(**tracking_updates)
     

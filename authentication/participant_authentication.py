@@ -66,6 +66,7 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
     except UnreadablePostError:
         return abort(500)
     
+    # device tracking/info database updates
     tracking_updates = {}
     if "version_code" in request.POST:
         tracking_updates['last_version_code'] = request.POST["version_code"][:32]
@@ -75,9 +76,12 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
         tracking_updates['last_os_version'] = request.POST["os_version"][:32]
     if "device_status_report" in request.POST:
         tracking_updates['device_status_report'] = request.POST["device_status_report"]
-
     if tracking_updates:
         session_participant.update_only(**tracking_updates)
+    
+    # updating the timezone is a special case, has internal logic.
+    if "timezone" in request.POST:
+        session_participant.try_set_timezone(request.POST["timezone"])
     
     # attach session partipant to request object, defining the ParticipantRequest class.
     request.session_participant = session_participant

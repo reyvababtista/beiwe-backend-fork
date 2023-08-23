@@ -69,6 +69,7 @@ class Participant(AbstractPasswordUser):
     timezone_name = models.CharField(  # Warning: this is not used yet.
         max_length=256, default="America/New_York", null=False, blank=False
     )
+    unknown_timezone = models.BooleanField(default=True)
     
     push_notification_unreachable_count = models.SmallIntegerField(default=0, null=False, blank=False)
     
@@ -139,6 +140,19 @@ class Participant(AbstractPasswordUser):
         """ So pytz.timezone("America/New_York") provides a tzinfo-like object that is wrong by 4
         minutes.  That's insane.  The dateutil gettz function doesn't have that fun insanity. """
         return gettz(self.timezone_name)
+    
+    def try_set_timezone(self, new_timezone_name: str):
+        """ Use dateutil to test whether the timezone is valid, only set timezone_name field if it
+        is. Set unknown_timezone to True if the timezone is invalid, false if it is valid. """
+        print("timezone type:", type(new_timezone_name))
+        new_tz = gettz(new_timezone_name)
+        if new_tz is None:
+            self.update_only(unknown_timezone=True, timezone_name=self.study.timezone_name)
+        else:
+            # only update if the timezone info has changed.
+            if new_timezone_name != self.timezone_name and self.unknown_timezone == False:
+                return
+            self.update_only(unknown_timezone=False, timezone_name=new_timezone_name)
     
     @classmethod
     def create_with_password(cls, **kwargs) -> Tuple[str, str]:

@@ -26,18 +26,18 @@ from libs.security import (compare_password, device_hash, django_password_compon
 
 
 # This is an import hack to improve IDE assistance.  Most of these imports are cyclical and fail at
-# runtime, but they remain present in the _lexical_ scope of the file.  Python's _parser_ recognizes
-# the symbol name, which in turn allows us to use them in type annotations.  There are no _runtime_
-# errors because type annotations are completely elided from the runtime.  With these annotations
-# your IDE is able to provide type inferencing and other typed assistance throughout the codebase.
+# runtime, but the exception is caught.  The IDE's parser doesn't know it would fail and just uses
+# the information correctly, allowing us to use them in type annotations.  There are no weird
+# runtime errors because type annotations are Completely Elided before runtime.  Then, with these
+# annotations, your IDE is able to provide type inferencing assistance throughout the codebase.
 #
 # By attaching some extra type declarations to model classes for django's dynamically generated
-# properties (example: "scheduled_events" on the Participant class below) we magically get type
+# properties (example: "scheduled_events" on the Participant class below) we magically get that type
 # information almost everywhere.  (These can be generated for you automatically by running `python
 # run_script.py generate_relation_hax` and pasting as required.)
 #
 # If you must to use an unimportable class (like ArchivedEvent in the notification_events()
-# convenience method on Participants below) you will need to use a local import.
+# convenience method on Participants below) you will need to add a local import.
 try:
     from database.models import (ArchivedEvent, ChunkRegistry, EncryptionErrorMetadata,
         FileToProcess, ForestTask, InterventionDate, IOSDecryptionKey, LineEncryptionError,

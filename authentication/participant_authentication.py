@@ -81,8 +81,10 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
     
     # updating the timezone is a special case, has internal logic.
     if "timezone" in request.POST:
-        session_participant.try_set_timezone(request.POST["timezone"])
-    
+        # protect against problematic inputs
+        if request.POST["timezone"] is None or request.POST["timezone"] != "":
+            session_participant.try_set_timezone(request.POST["timezone"])
+        
     # attach session partipant to request object, defining the ParticipantRequest class.
     request.session_participant = session_participant
     return True

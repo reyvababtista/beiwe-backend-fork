@@ -3,6 +3,8 @@ import unittest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+import dateutil
+from dateutil.tz import gettz
 from django.utils import timezone
 
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
@@ -22,6 +24,10 @@ from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_
     NoSchedulesException)
 from tests.common import CommonTestCase
 
+
+# timezones should be compared using the 'is' operator
+THE_ONE_TRUE_TIMEZONE = gettz("America/New_York")
+THE_OTHER_ACCEPTABLE_TIMEZONE = gettz("UTC")
 
 COUNT_OF_PATHS_RETURNED_FROM_GET_ALL_FILE_PATH_PREFIXES = 4
 
@@ -379,3 +385,83 @@ class TestParticipantDataDeletion(CommonTestCase):
         ]
         for model in Participant._meta.related_objects:
             assert model.related_model.__name__ in relate_models
+
+
+class TestParticipantTimeZone(CommonTestCase):
+    
+    def test_defaults(self):
+        # test the default is applied
+        self.assertEqual(self.default_participant.timezone_name, "America/New_York")
+        # test that the model default is actually America/New_York
+        self.assertEqual(Participant._meta.get_field("timezone_name").default, "America/New_York")
+        # test that timezone returns a timezone of America/New_York
+        # test that the object returned is definitely the DATEUTIL timezone object
+        # THIS TEST MAY NOT PASS ON NON-LINUX COMPUTERS? Will have to test mac, we don't actually support raw windows.
+        self.assertIsInstance(self.default_participant.timezone, dateutil.tz.tzfile)
+        # test that the timezone is the expected object
+        self.assertIs(self.default_participant.timezone, THE_ONE_TRUE_TIMEZONE)
+    
+    def test_try_null(self):
+        # discovered weird behavior where a None passed into gettz returns utc.
+        try:
+            self.default_participant.try_set_timezone(None)
+            self.fail("should have raised a TypeError")
+        except TypeError:
+            pass  # it should raise a TypeError
+    
+    def test_try_empty_string(self):
+        # discovered weird behavior where the empty string passed into gettz returns utc.
+        try:
+            self.default_participant.try_set_timezone("")
+            self.fail("should have raised a TypeError")
+        except TypeError:
+            pass  # it should raise a TypeError
+    
+    def test_try_bad_string(self):
+        # the unknown_timezone flag should be true at the start and the end.
+        p = self.default_participant
+        self.assertEqual(p.timezone_name, "America/New_York")
+        self.assertIs(p.timezone, THE_ONE_TRUE_TIMEZONE)
+        self.assertEqual(p.unknown_timezone, True)  # A
+        p.try_set_timezone("a bad string")
+        # behavior should be to grab the study's timezone name, which for tests was unexpectedly UTC...
+        self.assertEqual(p.timezone_name, "UTC")
+        self.assertIs(p.timezone, THE_OTHER_ACCEPTABLE_TIMEZONE)
+        self.assertEqual(p.unknown_timezone, True)  # A
+    
+    def test_try_bad_string_resets_unknown_timezone(self):
+        p = self.default_participant
+        p.update_only(unknown_timezone=False)  # force value to false
+        self.assertEqual(p.timezone_name, "America/New_York")
+        self.assertIs(p.timezone, THE_ONE_TRUE_TIMEZONE)
+        self.assertEqual(p.unknown_timezone, False)  # A
+        p.try_set_timezone("a bad string")
+        # behavior should be to grab the study's timezone name, which for tests was unexpectedly UTC...
+        self.assertEqual(p.timezone_name, "UTC")
+        self.assertIs(p.timezone, THE_OTHER_ACCEPTABLE_TIMEZONE)
+        self.assertEqual(p.unknown_timezone, True)  # B
+    
+    def test_same_timezone_name_still_updates_unknown_timezone_flag(self):
+        p = self.default_participant
+        last_update = p.last_updated
+        self.assertEqual(p.timezone_name, "America/New_York")
+        self.assertIs(p.timezone, THE_ONE_TRUE_TIMEZONE)
+        self.assertEqual(p.unknown_timezone, True)  # A
+        p.try_set_timezone("America/New_York")
+        self.assertEqual(p.timezone_name, "America/New_York")
+        self.assertIs(p.timezone, THE_ONE_TRUE_TIMEZONE)
+        self.assertEqual(p.unknown_timezone, False)  # B
+        self.assertEqual(p.last_updated, last_update)
+    
+    def test_valid_input(self):
+        # should change both the timezone and the unknown_timezone flag
+        p = self.default_participant
+        last_update = p.last_updated
+        self.assertEqual(p.timezone_name, "America/New_York")
+        self.assertIs(p.timezone, THE_ONE_TRUE_TIMEZONE)
+        self.assertEqual(p.unknown_timezone, True)
+        p.try_set_timezone("America/Los_Angeles")
+        self.assertEqual(p.timezone_name, "America/Los_Angeles")
+        self.assertIs(p.timezone, gettz("America/Los_Angeles"))
+        self.assertEqual(p.unknown_timezone, False)
+        self.assertEqual(p.last_updated, last_update)

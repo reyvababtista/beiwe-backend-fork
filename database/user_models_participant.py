@@ -144,14 +144,18 @@ class Participant(AbstractPasswordUser):
     def try_set_timezone(self, new_timezone_name: str):
         """ Use dateutil to test whether the timezone is valid, only set timezone_name field if it
         is. Set unknown_timezone to True if the timezone is invalid, false if it is valid. """
-        print("timezone type:", type(new_timezone_name))
+        if new_timezone_name is None or new_timezone_name == "":
+            raise TypeError("None and the empty string actually coerce to the UTC timezone, which is weird and undesireable.")
+        
         new_tz = gettz(new_timezone_name)
         if new_tz is None:
-            self.update_only(unknown_timezone=True, timezone_name=self.study.timezone_name)
+            # if study timezone is null or empty, use the default timezone.
+            study_timezone_name = self.study.timezone_name
+            if study_timezone_name is None or study_timezone_name == "":
+                study_timezone_name = Participant._meta.get_field("timezone_name").default
+            self.update_only(unknown_timezone=True, timezone_name=study_timezone_name)
         else:
-            # only update if the timezone info has changed.
-            if new_timezone_name != self.timezone_name and self.unknown_timezone == False:
-                return
+            # force setting unknown_timezone false if the value is valid
             self.update_only(unknown_timezone=False, timezone_name=new_timezone_name)
     
     @classmethod

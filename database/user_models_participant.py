@@ -72,7 +72,7 @@ class Participant(AbstractPasswordUser):
     timezone_name = models.CharField(  # Warning: this is not used yet.
         max_length=256, default="America/New_York", null=False, blank=False
     )
-    unknown_timezone = models.BooleanField(default=True)
+    unknown_timezone = models.BooleanField(default=True)  # flag for using participant's timezone.
     
     push_notification_unreachable_count = models.SmallIntegerField(default=0, null=False, blank=False)
     

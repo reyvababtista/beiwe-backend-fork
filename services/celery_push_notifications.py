@@ -26,6 +26,12 @@ from libs.sentry import make_error_sentry, SentryTypes
 
 UTC = gettz("UTC")
 
+PUSH_NOTIFICATION_LOGGING_ENABLED = False
+
+def log(*args, **kwargs):
+    if PUSH_NOTIFICATION_LOGGING_ENABLED:
+        print(*args, **kwargs)
+
 ################################################################E###############
 ############################# PUSH NOTIFICATIONS ###############################
 ################################################################################
@@ -36,6 +42,7 @@ def get_surveys_and_schedules(now: datetime) -> Tuple[DictOfStrToListOfStr, Dict
     a mapping of fcm tokens to list of survey object ids
     a mapping of fcm tokens to list of schedule ids
     a mapping of fcm tokens to patient ids """
+    log(f"\nchecking if any scheduled events are in the past (before {now})")
     
     # we need to find all possible events and convert them on a per-participant-timezone basis.
     # The largest timezone offset is +14?, but we will do one whole day and manually filter.
@@ -84,8 +91,20 @@ def get_surveys_and_schedules(now: datetime) -> Tuple[DictOfStrToListOfStr, Dict
     participant_tz_name: str
     participant_has_bad_tz: bool
     for scheduled_time, survey_obj_id, study_tz_name, fcm, schedule_id, patient_id, unregistered, participant_tz_name, participant_has_bad_tz in query:
+        log("\nchecking scheduled event:")
+        log("unregistered:", unregistered)
+        log("fcm:", fcm)
+        log("patient_id:", patient_id)
+        log("survey_obj_id:", survey_obj_id)
+        log("scheduled_time:", scheduled_time)
+        log("schedule_id:", schedule_id)
+        log("study_tz_name:", study_tz_name)
+        log("participant_tz_name:", participant_tz_name)
+        log("participant_has_bad_tz:", participant_has_bad_tz)
+        
         # case: this instance has an outdated FCM credential, skip it.
         if unregistered:
+            log("nope, unregistered fcm token")
             continue
         
         # The participant and study timezones REALLY SHOULD be valid timezone names. If they aren't
@@ -102,9 +121,14 @@ def get_surveys_and_schedules(now: datetime) -> Tuple[DictOfStrToListOfStr, Dict
         # participant's timezone, and check if That value is in the past.
         canonical_time = scheduled_time.astimezone(study_tz)
         participant_time = canonical_time.replace(tzinfo=participant_tz)
+        log("canonical_time:", canonical_time)
+        log("participant_time:", participant_time)
         if participant_time > now:
+            log("nope, participant time is considered in the future")
+            log(f"{now} > {participant_time}")
             continue
-        
+        log("yup, participant time is considered in the past")
+        log(f"{now} <= {participant_time}")
         surveys[fcm].append(survey_obj_id)
         schedules[fcm].append(schedule_id)
         patient_ids[fcm] = patient_id

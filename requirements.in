@@ -9,14 +9,14 @@ orjson==3.8.10
 djangorestframework==3.14.0
 django-extensions==3.2.1
 
-python-dateutil==2.8.2
+python-dateutil==2.8.2  # this is currently locked due to our old celery requirement.
 
 pyqrcode
 pypng
 pyotp
 
 # This version of pycryptodome results in "from Cryptodome import ..." imports.
-pycryptodomex==3.17  # locked version, only update this manuallly, has had breaking changes in the past
+pycryptodomex==3.18.0  # locked version, only update this manuallly, has had breaking changes in the past
 
 # error reporting
 raven==6.10  # raven has been sunset at 6.10

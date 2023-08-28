@@ -3,7 +3,7 @@ Django==3.2.20
 firebase-admin==5.4.0
 Jinja2==3.1.2
 zstd==1.5.5.1  # This one seems to require manual pinning, version 1.5+ contains performance improvements
-orjson==3.8.10
+orjson==3.9.5
 
 # various extensions
 djangorestframework==3.14.0
@@ -27,12 +27,12 @@ bleach>=4.1.0
 
 # server requirement
 # You have to upgrade django to greater than 2.2 (apparently) in order to upgrade psycopg2 to 2.9.x
-psycopg2==2.9.3
+psycopg2>=2.9.7
 
 # ipython can exhibit weird issues that make it look like the codebase is broken.  Most issues
 # are resolved by forcing this relatively new version of ipython.
 ipython>=8.12.2
-uwsgi
+uwsgi>=2.0.22
 
 # Keep these dependencies up to date
 boto3
@@ -41,4 +41,4 @@ boto3
 # this library. but we can't remove it because it is used in migrations.
 django-timezone-field==4.1.1
 
-pip-tools>=6.13.0
+pip-tools>=7.3.0

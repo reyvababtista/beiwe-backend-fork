@@ -12,6 +12,7 @@ from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
 from django.utils import timezone
 from django.utils.timezone import localtime
+from constants.data_stream_constants import ALL_DATA_STREAMS
 
 from constants.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT,
     DEFAULT_CONSENT_SECTIONS_JSON, SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
@@ -180,7 +181,20 @@ class Study(TimestampedModel):
         minutes.  That's insane.  The dateutil gettz function doesn't have that fun insanity. """
         # profiling info: gettz takes on the order of 10s of microseconds
         return gettz(self.timezone_name)
-
+    
+    @property
+    def data_quantity_metrics(self):
+        """ Get the data quantities for each data stream, format the number in base-2 MB with no
+        decimal places and comma separators. """
+        print("data quantity metrics for study: ", self.name)
+        super_total = 0
+        for data_stream in ALL_DATA_STREAMS:
+            summation = sum(
+                self.chunk_registries.filter(data_type=data_stream).values_list("file_size", flat=True)
+            )
+            print(f"{data_stream}: {summation / 1024 / 1024:,.0f} MB")
+            super_total += summation
+        print(f"total: {super_total / 1024 / 1024:,.0f} MB")
 
 class StudyField(UtilityModel):
     study: Study = models.ForeignKey(Study, on_delete=models.PROTECT, related_name='fields')

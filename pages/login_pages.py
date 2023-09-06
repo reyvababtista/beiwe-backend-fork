@@ -1,20 +1,23 @@
 from django.contrib import messages
 from django.http.request import HttpRequest
 from django.shortcuts import redirect, render
-from django.urls import reverse
+from django.urls import resolve, reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from authentication import admin_authentication
+from constants.common_constants import RUNNING_TESTS
 from constants.message_strings import (MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING,
     MFA_CODE_WRONG)
 from database.user_models_researcher import Researcher
 from libs.security import verify_mfa
+from libs.sentry import make_error_sentry, SentryTypes
 
 
 @require_GET
 def login_page(request: HttpRequest):
     if admin_authentication.check_is_logged_in(request):
         return redirect("/choose_study")
+    
     return render(request, 'admin_login.html')
 
 
@@ -57,4 +60,29 @@ def validate_login(request: HttpRequest):
     # redirection occur after the browser follows the redirect and hits the logic in
     # admin_authentication.py.
     admin_authentication.log_in_researcher(request, username)
-    return redirect("/choose_study")
+    
+    # Now we try to redirect the researcher to the appropriate page.
+    from urls import LOGIN_REDIRECT_SAFE  # circular import
+    
+    redirect_page = researcher.most_recent_page
+    try:
+        resolve(redirect_page)  # check that the url we have is valid
+    except Exception:
+        redirect_page = ""
+        if not RUNNING_TESTS:
+            with make_error_sentry(SentryTypes.elastic_beanstalk):
+                raise
+    
+    # test that its a valid url we can redirect to
+    do_redirect = False
+    matchable_redirect_page = redirect_page.lstrip("/")
+    for url_pattern in LOGIN_REDIRECT_SAFE:
+        if url_pattern.pattern.match(matchable_redirect_page):
+            do_redirect = True
+            break
+    
+    # the default is the the choose study page, which will itself redirect to a specific study
+    # page if there is only a single study for this participant
+    if not do_redirect:
+        return redirect("/choose_study")
+    return redirect(redirect_page)

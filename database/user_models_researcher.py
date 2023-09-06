@@ -51,6 +51,7 @@ class Researcher(AbstractPasswordUser):
     
     # multi-factor authentication. If this is populated then the user has MFA enabled.
     mfa_token = models.CharField(max_length=52, validators=[B32_VALIDATOR, MinLengthValidator(52)], null=True, blank=True)
+    most_recent_page = models.TextField(null=True, blank=True)
     
     # related field typings (IDE halp)
     api_keys: Manager[ApiKey]

@@ -126,12 +126,17 @@ def populate_session_researcher(request: ResearcherRequest):
 def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponseRedirect]:
     """ Check for all Researcher user states where the session needs to be redirected.  This
     function is called on every page load. Currently includes password reset and password expiry."""
+    from urls import LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE  # otnerwise circular imports
     researcher = request.session_researcher
+    matchable_url_path = request.get_full_path().lstrip("/")  # have to remove the slash.
     
-    # case: the password reset page would otherwise be infinitely redirected to itself.
-    # need to allow user to log out and set a new password, all other endpoints will result in 302
-    if request.get_raw_uri().endswith(("manage_credentials", "reset_admin_password", "logout", "reset_mfa_self")):
-        return None
+    # case: the password reset page could otherwise be infinitely redirected to itself;
+    # need to allow user to log out, to set a new password, and be able to reset mfa. Currently
+    # this means we block the manage_credentials page from getting a login-page-style redirect...
+    for url_pattern in LOGIN_REDIRECT_IGNORE:
+        if url_pattern.pattern.match(matchable_url_path):
+            # print("ignoring all redirect logic for", request.get_full_path())
+            return None
     
     # if the researcher has a forced password reset, or the researcher is on a study that requires
     # a minimum password length, force them to the reset password page.
@@ -174,6 +179,13 @@ def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponse
         if researcher.site_admin and REQUIRE_SITE_ADMIN_MFA:
             messages.error(request, MFA_CONFIGURATION_SITE_ADMIN)
         return redirect(easy_url("admin_pages.manage_credentials"))
+    
+    # request.get_full_path() is always a valid url because this code only executes on pages that
+    # were already validly resolved. (we need the slash at the beginning when storing to the db)
+    for url_pattern in LOGIN_REDIRECT_SAFE:
+        if url_pattern.pattern.match(matchable_url_path):
+            researcher.update_only(most_recent_page=request.get_full_path())
+            break
 
 
 def assert_admin(request: ResearcherRequest, study_id: int):

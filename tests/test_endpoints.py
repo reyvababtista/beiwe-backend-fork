@@ -55,6 +55,7 @@ from libs.security import device_hash, generate_easy_alphanumeric_string
 from tests.common import (BasicSessionTestCase, CommonTestCase, DataApiTest, ParticipantSessionTest,
     ResearcherSessionTest, SmartRequestsTestCase)
 from tests.helpers import DummyThreadPool
+from urls import LOGIN_REDIRECT_SAFE, urlpatterns
 
 
 #
@@ -444,6 +445,114 @@ class TestChooseStudy(ResearcherSessionTest):
         self.assert_not_present(self.session_study.name, resp.content)
 
 
+class TestResearcherMostRecentPage(BasicSessionTestCase):
+    # This needs to be comprehensive. It is checked for validity in one test and then used in the other.
+    # This is a set because there are 2 entries for every endpoint, with and without slashes.
+    LOCAL_COPY_WHITELIST = set([
+        "admin_pages.view_study",
+        "dashboard_api.dashboard_page",
+        "dashboard_api.get_data_for_dashboard_datastream_display",
+        "dashboard_api.dashboard_participant_page",
+        "data_access_web_form.data_api_web_form_page",
+        "forest_pages.analysis_progress",
+        "forest_pages.task_log",
+        "participant_pages.notification_history",
+        "participant_pages.participant_page",
+        "study_api.interventions_page",
+        "study_api.study_fields",
+        "survey_designer.render_edit_survey",
+        "system_admin_pages.device_settings",
+        "system_admin_pages.edit_researcher",
+        "system_admin_pages.edit_study",
+        "system_admin_pages.manage_firebase_credentials",
+        "system_admin_pages.manage_researchers",
+        "system_admin_pages.manage_studies",
+        "system_admin_pages.study_security_page",
+    ])
+    
+    def test_page_list_is_correct(self):
+        # Now go create an explicit test for that page. These tests exist to ensure we don't have
+        # code rot on this feature.
+        endpoint_names = set(urlpattern.name for urlpattern in LOGIN_REDIRECT_SAFE)
+        self.assertEqual(self.LOCAL_COPY_WHITELIST, endpoint_names)
+    
+    def test_redirect_works_on_all_valid_pages_probably(self):
+        self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
+        
+        # a list of ~valid test urls for every single url in LOGIN_REDIRECT_SAFE.
+        # (urls must start with a slash)
+        urls = [
+            f"/dashboard/{self.session_study.id}",
+            f"/dashboard/{self.session_study.id}/patient/{self.default_participant.id}",
+            f"/dashboard/{self.session_study.id}/data_stream/gps",
+            "/data_access_web_form/",
+            f"/device_settings/{self.session_study.id}",
+            f"/edit_researcher/{self.session_researcher.id}",  # technically an invalid url on page load
+            f"/edit_study/{self.session_study.id}",
+            f"/edit_study_security/{self.session_study.id}",
+            f"/edit_survey/{self.default_study.id}/{self.default_survey.id}",
+            f"/interventions/{self.session_study.id}",
+            # "/manage_credentials/",  # can't be in this list due to redirect safety sorta
+            "/manage_firebase_credentials/",
+            "/manage_researchers/",
+            "/manage_studies/",
+            f"/study_fields/{self.session_study.id}",
+            f"/view_study/{self.session_study.id}",
+            f'/view_study/{self.session_study.id}/participant/{self.default_participant.id}',
+            f'/view_study/{self.session_study.id}/participant/{self.default_participant.id}/notification_history',
+            f'/studies/{self.session_study.id}/forest/progress/',
+            f'/studies/{self.session_study.id}/forest/tasks/',
+        ]
+        # Check that every endpoint is in the whitelist, starts with a slash.
+        endpoint_names = set()
+        for url in urls:
+            assert url.startswith("/"), f"url '{url}' does not start with a slash"
+            found_something = False
+            for urlpattern in urlpatterns:
+                if urlpattern.pattern.match(url.lstrip("/")):
+                    endpoint_names.add(urlpattern.name)
+                    found_something = True
+            assert found_something, f"no urlpattern matched url '{url}'"
+        
+        # test that the list of url _names_ matches the whitelist so that you get a very convenient
+        # error message stating what is missing in name form! :D
+        self.assertEqual(self.LOCAL_COPY_WHITELIST, endpoint_names)
+        
+        # test that every url actually works with the redirect.
+        for url in urls:
+            self.session_researcher.update_only(most_recent_page=url)
+            resp = self.do_default_login()
+            self.assertEqual(url, resp.url)
+        
+        # test junk doesn't crash it
+        self.session_researcher.update_only(most_recent_page="literally junk")
+        resp = self.do_default_login()
+        self.assertEqual(resp.url, "/choose_study")
+        
+        # test blank
+        self.session_researcher.update_only(most_recent_page="")
+        resp = self.do_default_login()
+        self.assertEqual(resp.url, "/choose_study")
+        
+        # test None
+        self.session_researcher.update_only(most_recent_page=None)
+        resp = self.do_default_login()
+        self.assertEqual(resp.url, "/choose_study")
+        
+        # test '/' ('/' is a valid url that shouldn't redirect but is also a weird one I guess?)
+        self.session_researcher.update_only(most_recent_page="/")
+        resp = self.do_default_login()
+        self.assertEqual(resp.url, "/choose_study")
+        
+        # test for an endpoint that DOESN'T redirect because its on the redirects-ignore list
+        self.session_researcher.update_only(most_recent_page="/manage_credentials/")
+        resp = self.do_default_login()
+        self.assertEqual(resp.url, "/choose_study")
+        
+        # test a valid url that doesn't redirect because its not on the whitelist
+        self.session_researcher.update_only(most_recent_page="/reset_download_api_credentials/")
+        resp = self.do_default_login()
+        self.assertEqual(resp.url, "/choose_study")
 #
 ## admin_pages
 #
@@ -1923,7 +2032,7 @@ class TestDeleteResearcher(ResearcherSessionTest):
         # we need the test to succeed...
         self.set_session_study_relation(ResearcherRole.site_admin)
         r2 = self.generate_researcher()
-
+        
         # generate all possible researcher relations for r2 as determined above:
         ApiKey.generate(researcher=r2, has_tableau_api_permissions=True, readable_name="test_api_key")
         relation_id = self.generate_study_relation(r2, self.default_study, ResearcherRole.researcher).id

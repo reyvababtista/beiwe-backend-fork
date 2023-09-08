@@ -1,24 +1,36 @@
+import bleach
 from django.contrib import messages
 from django.http.request import HttpRequest
 from django.shortcuts import redirect, render
-from django.urls import resolve, reverse
+from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from authentication import admin_authentication
-from constants.common_constants import RUNNING_TESTS
 from constants.message_strings import (MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING,
     MFA_CODE_WRONG)
 from database.user_models_researcher import Researcher
 from libs.security import verify_mfa
-from libs.sentry import make_error_sentry, SentryTypes
 
 
 @require_GET
 def login_page(request: HttpRequest):
+    # if they are logged in then / redirects to the choose study page.
     if admin_authentication.check_is_logged_in(request):
         return redirect("/choose_study")
     
-    return render(request, 'admin_login.html')
+    # Django automatically de-urlifies GET parameters. All our urls are supposed to be unescaped
+    # url-safe strings, so if there was any de-urlifying we immediately reject it.  In addition
+    # we pass the string through ~regex matches on valid url schemes.
+    final_referrer = None
+    de_urlified_referrer = request.GET.get('page', "")
+    raw_referrer = request.get_full_path().lstrip("/?page=")
+    if de_urlified_referrer == raw_referrer:
+        if admin_authentication.determine_redirectable(de_urlified_referrer):
+            final_referrer = de_urlified_referrer
+    
+    # and finally, final_referrer is then also passed through the global sanitization filter when
+    # embedded as the hidden value on the page.
+    return render(request, 'admin_login.html', context={"redirect_page": final_referrer})
 
 
 @require_POST
@@ -61,28 +73,14 @@ def validate_login(request: HttpRequest):
     # admin_authentication.py.
     admin_authentication.log_in_researcher(request, username)
     
-    # Now we try to redirect the researcher to the appropriate page.
-    from urls import LOGIN_REDIRECT_SAFE  # circular import
-    
-    redirect_page = researcher.most_recent_page
-    try:
-        resolve(redirect_page)  # check that the url we have is valid
-    except Exception:
-        redirect_page = ""
-        if not RUNNING_TESTS:
-            with make_error_sentry(SentryTypes.elastic_beanstalk):
-                raise
-    
-    # test that its a valid url we can redirect to
-    do_redirect = False
-    matchable_redirect_page = redirect_page.lstrip("/")
-    for url_pattern in LOGIN_REDIRECT_SAFE:
-        if url_pattern.pattern.match(matchable_redirect_page):
-            do_redirect = True
-            break
-    
-    # the default is the the choose study page, which will itself redirect to a specific study
-    # page if there is only a single study for this participant
-    if not do_redirect:
-        return redirect("/choose_study")
-    return redirect(redirect_page)
+    # Now we try to redirect. First we check the post parameter referrer page for validity, then to
+    # the most recent page, then the choose study page. We test for any changes to the referrer url
+    # from the page as it is injectable, if there was we skip it.
+    referrer_page = request.POST.get('referrer', "")
+    if bleach.clean(referrer_page, strip=True) == referrer_page:
+        if admin_authentication.determine_redirectable(referrer_page):
+            return redirect(referrer_page)
+    redirect_page = researcher.most_recent_page or ""
+    if admin_authentication.determine_redirectable(redirect_page):
+        return redirect(redirect_page)
+    return redirect("/choose_study")

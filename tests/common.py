@@ -24,6 +24,7 @@ from tests.helpers import ReferenceObjectMixin, render_test_html_file
 from urls import urlpatterns
 
 
+# if we import this from constants.url_constants then its not populated because ... Django.
 ENDPOINTS_BY_NAME = {pattern.name: pattern for pattern in urlpatterns}
 
 # this makes print statements during debugging easier to read by bracketting the statement of which

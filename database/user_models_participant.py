@@ -11,6 +11,7 @@ from django.db.models import Manager
 from django.utils import timezone
 
 from config.settings import DOMAIN_NAME
+from constants.data_stream_constants import IDENTIFIERS
 from constants.user_constants import ANDROID_API, IOS_API, OS_TYPE_CHOICES
 from database.common_models import UtilityModel
 from database.models import TimestampedModel
@@ -236,6 +237,11 @@ class Participant(AbstractPasswordUser):
         return f"https://{DOMAIN_NAME}" + easy_url(
             "participant_pages.participant_page", self.study.id, self.patient_id
         )
+    
+    @property
+    def get_identifiers(self):
+        for identifier in self.chunk_registries.filter(data_type=IDENTIFIERS).order_by("created_on"):
+            print(identifier.s3_retrieve().decode())
     
     def __str__(self) -> str:
         return f'{self.patient_id} of Study "{self.study.name}"'

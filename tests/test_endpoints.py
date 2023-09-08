@@ -35,6 +35,7 @@ from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.security_constants import MFA_CREATED
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
     IOS_CERT, MIDNIGHT_EVERY_DAY, OCT_6_NOON_2022)
+from constants.url_constants import LOGIN_REDIRECT_SAFE, urlpatterns
 from constants.user_constants import ALL_RESEARCHER_TYPES, IOS_API, ResearcherRole
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.profiling_models import DataAccessRecord
@@ -55,7 +56,6 @@ from libs.security import device_hash, generate_easy_alphanumeric_string
 from tests.common import (BasicSessionTestCase, CommonTestCase, DataApiTest, ParticipantSessionTest,
     ResearcherSessionTest, SmartRequestsTestCase)
 from tests.helpers import DummyThreadPool
-from urls import LOGIN_REDIRECT_SAFE, urlpatterns
 
 
 #

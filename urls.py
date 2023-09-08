@@ -1,25 +1,17 @@
-from typing import Dict, List
+from typing import Dict
 
 from django.conf import settings
 from django.conf.urls.static import static
 from django.core.exceptions import ImproperlyConfigured
-from django.urls import path as simplepath, URLPattern
+from django.urls import path as simplepath
 
 from api import (admin_api, copy_study_api, dashboard_api, data_access_api, mobile_api,
     other_researcher_apis, participant_administration, push_notifications_api, study_api,
     survey_api, tableau_api)
+from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
+    urlpatterns)
 from pages import (admin_pages, data_access_web_form, forest_pages, login_pages, mobile_pages,
     participant_pages, survey_designer, system_admin_pages)
-
-
-IGNORE = "IGNORE"
-SAFE = "SAFE"
-LOGIN_REDIRECT_IGNORE: List[URLPattern] = []
-LOGIN_REDIRECT_SAFE: List[URLPattern] = []
-
-
-# (urlpatterns probably needs to be lowercase)
-urlpatterns: List[URLPattern] = []
 
 
 def path(

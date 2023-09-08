@@ -2,6 +2,7 @@ import functools
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
+import bleach
 from django.contrib import messages
 from django.db.models import QuerySet
 from django.http import UnreadablePostError
@@ -14,6 +15,7 @@ from config.settings import REQUIRE_SITE_ADMIN_MFA
 from constants.message_strings import (MFA_CONFIGURATION_REQUIRED, MFA_CONFIGURATION_SITE_ADMIN,
     PASSWORD_EXPIRED, PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_TOO_SHORT,
     PASSWORD_WILL_EXPIRE)
+from constants.url_constants import LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE
 from constants.user_constants import (ALL_RESEARCHER_TYPES, EXPIRY_NAME, ResearcherRole,
     SESSION_NAME, SESSION_UUID)
 from database.study_models import Study
@@ -49,7 +51,7 @@ def authenticate_researcher_login(some_function):
             goto_redirect = determine_any_redirects(request)
             return goto_redirect if goto_redirect else some_function(*args, **kwargs)
         else:
-            return redirect("/")
+            return do_login_page_redirect(request)
     
     return authenticate_and_call
 
@@ -123,71 +125,6 @@ def populate_session_researcher(request: ResearcherRequest):
         return abort(400)
 
 
-def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponseRedirect]:
-    """ Check for all Researcher user states where the session needs to be redirected.  This
-    function is called on every page load. Currently includes password reset and password expiry."""
-    from urls import LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE  # otnerwise circular imports
-    researcher = request.session_researcher
-    matchable_url_path = request.get_full_path().lstrip("/")  # have to remove the slash.
-    
-    # case: the password reset page could otherwise be infinitely redirected to itself;
-    # need to allow user to log out, to set a new password, and be able to reset mfa. Currently
-    # this means we block the manage_credentials page from getting a login-page-style redirect...
-    for url_pattern in LOGIN_REDIRECT_IGNORE:
-        if url_pattern.pattern.match(matchable_url_path):
-            # print("ignoring all redirect logic for", request.get_full_path())
-            return None
-    
-    # if the researcher has a forced password reset, or the researcher is on a study that requires
-    # a minimum password length, force them to the reset password page.
-    if researcher.password_force_reset:
-        log("password reset forced")
-        messages.error(request, PASSWORD_RESET_FORCED)
-        return redirect(easy_url("admin_pages.manage_credentials"))
-    
-    if researcher.password_min_length < get_min_password_requirement(researcher):
-        log("password reset min length")
-        messages.error(
-            request, PASSWORD_RESET_SITE_ADMIN if researcher.site_admin else PASSWORD_RESET_TOO_SHORT
-        )
-        return redirect(easy_url("admin_pages.manage_credentials"))
-    
-    # get smallest password max age from studies the researcher is on
-    max_age_days = researcher.study_relations \
-                       .filter(study__password_max_age_enabled=True) \
-                       .order_by("study__password_max_age_days") \
-                       .values_list("study__password_max_age_days", flat=True) \
-                       .first()
-    
-    if max_age_days:
-        log("any password reset checks")
-        # determine the age of the password, if it is within 7 days of expiring warn the user,
-        # if it is expired force them to the reset password page.
-        password_age_days = (timezone.now() - researcher.password_last_changed).days
-        if password_age_days > max_age_days:
-            messages.error(request, PASSWORD_EXPIRED)
-            log("password expired, redirecting")
-            return redirect(easy_url("admin_pages.manage_credentials"))
-        elif password_age_days > max_age_days - 7:
-            messages.warning(request, PASSWORD_WILL_EXPIRE.format(days=max_age_days - password_age_days))
-    
-    # based on the researcher's studies (or if they are a site admin, based on the
-    # REQUIRE_SITE_ADMIN_MFA setting) determine if MFA is required. Force researchers without MFA to
-    # redirect to the manage credentials page with a message.
-    if researcher.requires_mfa and not researcher.mfa_token:
-        messages.error(request, MFA_CONFIGURATION_REQUIRED)
-        if researcher.site_admin and REQUIRE_SITE_ADMIN_MFA:
-            messages.error(request, MFA_CONFIGURATION_SITE_ADMIN)
-        return redirect(easy_url("admin_pages.manage_credentials"))
-    
-    # request.get_full_path() is always a valid url because this code only executes on pages that
-    # were already validly resolved. (we need the slash at the beginning when storing to the db)
-    for url_pattern in LOGIN_REDIRECT_SAFE:
-        if url_pattern.pattern.match(matchable_url_path):
-            researcher.update_only(most_recent_page=request.get_full_path())
-            break
-
-
 def assert_admin(request: ResearcherRequest, study_id: int):
     """ This function will throw a 403 forbidden error and stop execution.  Note that the abort
         directly raises the 403 error, if we don't hit that return True. """
@@ -255,7 +192,7 @@ def authenticate_researcher_study_access(some_function):
         
         if not check_is_logged_in(request):
             log("researcher is not logged in")
-            return redirect("/")
+            return do_login_page_redirect(request)
         
         populate_session_researcher(request)
         
@@ -358,7 +295,7 @@ def authenticate_admin(some_function):
         
         # Check for regular login requirement
         if not check_is_logged_in(request):
-            return redirect("/")
+            return do_login_page_redirect(request)
         
         populate_session_researcher(request)
         session_researcher = request.session_researcher
@@ -402,3 +339,96 @@ def forest_enabled(func):
         return func(*args, **kwargs)
     
     return wrapped
+
+
+############################################################################
+############################# Redirect Logic ###############################
+############################################################################
+
+
+def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponseRedirect]:
+    """ Check for all Researcher user states where the session needs to be redirected.  This
+    function is called on every page load. Currently includes password reset and password expiry."""
+    researcher = request.session_researcher
+    matchable_url_path = request.get_full_path().lstrip("/")  # have to remove the slash.
+    
+    # case: the password reset page could otherwise be infinitely redirected to itself;
+    # need to allow user to log out, to set a new password, and be able to reset mfa. Currently
+    # this means we block the manage_credentials page from getting a login-page-style redirect...
+    for url_pattern in LOGIN_REDIRECT_IGNORE:
+        if url_pattern.pattern.match(matchable_url_path):
+            # print("ignoring all redirect logic for", request.get_full_path())
+            return None
+    
+    # if the researcher has a forced password reset, or the researcher is on a study that requires
+    # a minimum password length, force them to the reset password page.
+    if researcher.password_force_reset:
+        log("password reset forced")
+        messages.error(request, PASSWORD_RESET_FORCED)
+        return redirect(easy_url("admin_pages.manage_credentials"))
+    
+    if researcher.password_min_length < get_min_password_requirement(researcher):
+        log("password reset min length")
+        messages.error(
+            request, PASSWORD_RESET_SITE_ADMIN if researcher.site_admin else PASSWORD_RESET_TOO_SHORT
+        )
+        return redirect(easy_url("admin_pages.manage_credentials"))
+    
+    # get smallest password max age from studies the researcher is on
+    max_age_days = researcher.study_relations \
+                       .filter(study__password_max_age_enabled=True) \
+                       .order_by("study__password_max_age_days") \
+                       .values_list("study__password_max_age_days", flat=True) \
+                       .first()
+    
+    if max_age_days:
+        log("any password reset checks")
+        # determine the age of the password, if it is within 7 days of expiring warn the user,
+        # if it is expired force them to the reset password page.
+        password_age_days = (timezone.now() - researcher.password_last_changed).days
+        if password_age_days > max_age_days:
+            messages.error(request, PASSWORD_EXPIRED)
+            log("password expired, redirecting")
+            return redirect(easy_url("admin_pages.manage_credentials"))
+        elif password_age_days > max_age_days - 7:
+            messages.warning(request, PASSWORD_WILL_EXPIRE.format(days=max_age_days - password_age_days))
+    
+    # based on the researcher's studies (or if they are a site admin, based on the
+    # REQUIRE_SITE_ADMIN_MFA setting) determine if MFA is required. Force researchers without MFA to
+    # redirect to the manage credentials page with a message.
+    if researcher.requires_mfa and not researcher.mfa_token:
+        messages.error(request, MFA_CONFIGURATION_REQUIRED)
+        if researcher.site_admin and REQUIRE_SITE_ADMIN_MFA:
+            messages.error(request, MFA_CONFIGURATION_SITE_ADMIN)
+        return redirect(easy_url("admin_pages.manage_credentials"))
+    
+    # request.get_full_path() is always a valid url because this code only executes on pages that
+    # were already validly resolved. (we need the slash at the beginning when storing to the db)
+    for url_pattern in LOGIN_REDIRECT_SAFE:
+        if url_pattern.pattern.match(matchable_url_path):
+            researcher.update_only(most_recent_page=request.get_full_path())
+            break
+
+
+def do_login_page_redirect(request: HttpRequest) -> HttpResponseRedirect:
+    """ The login page can have a parameter appended to the url to redirect to a specific page. This
+    parameter is injected based the http request referrer (which is validated!). This allows someone
+    to click on a link, get redirected to the login page, log in, and then they get directed to the
+    page they clicked the link for. """
+    referrer_url = request.get_full_path().lstrip("/")
+    # this should be overkill: ensure that the url is url-safe (because all our urls are url-safe)
+    # and only then append that to the redirect url as a get parameter.
+    if bleach.clean(referrer_url) == referrer_url and determine_redirectable(referrer_url):
+        return redirect("/" + "?page=" + referrer_url)
+    return redirect("/")
+
+
+def determine_redirectable(redirect_page_url: str) -> bool:
+    """ Runs a url string through the list of redirectable urls looking for pattern matches, returns
+    True if there are any matches. """
+    # matches only work if there is no leading slash.
+    matchable_redirect_page = redirect_page_url.lstrip("/")
+    for url_pattern in LOGIN_REDIRECT_SAFE:
+        if url_pattern.pattern.match(matchable_redirect_page):
+            return True
+    return False

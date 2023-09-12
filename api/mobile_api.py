@@ -397,4 +397,5 @@ def format_survey_for_device(survey: Survey, participant: Participant):
     #   instead of the moving window hack.
     
     survey_dict['timings'] = survey_timings
+    survey_dict["name"] = survey.name
     return survey_dict

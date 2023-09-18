@@ -17,7 +17,8 @@ ALL_QUESTION_TYPES = {
 NUMERIC_QUESTIONS = {
     RADIO_BUTTON,
     SLIDER,
-    FREE_RESPONSE
+    FREE_RESPONSE,
+    CHECKBOX,
 }
 
 ## Free Response text field types (answer types)

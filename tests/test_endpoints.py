@@ -426,6 +426,9 @@ class TestLoginPages(BasicSessionTestCase):
 class TestChooseStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.choose_study"
     
+    # these tests tost behavior of redirection without anything in the most_recent_page tracking
+    # or as forwarding from the login page via the referrer url parameter into the post parameter
+    
     def test_2_studies(self):
         study2 = self.generate_study("study2")
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -445,7 +448,7 @@ class TestChooseStudy(ResearcherSessionTest):
         self.assert_not_present(self.session_study.name, resp.content)
 
 
-class TestResearcherMostRecentPage(BasicSessionTestCase):
+class TestResearcherRedirectionLogic(BasicSessionTestCase):
     # This needs to be comprehensive. It is checked for validity in one test and then used in the other.
     # This is a set because there are 2 entries for every endpoint, with and without slashes.
     LOCAL_COPY_WHITELIST = set([
@@ -522,6 +525,53 @@ class TestResearcherMostRecentPage(BasicSessionTestCase):
         # error message stating what is missing in name form! :D
         self.assertEqual(self.LOCAL_COPY_WHITELIST, endpoint_names)
     
+    def test_login_page_referral(self, present=bool):
+        # self.session_researcher.update_only(most_recent_page=url)
+        self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
+        self.do_researcher_logout()
+        
+        # test that every url has the parameterized referrer url, then test that the page loads with
+        # the value embedded with the referrer post parameter.
+        for url in self.urls + [self.a_valid_redirect_url]:
+            resp = self.client.get(url)
+            self.assertEqual(resp.url, "/?page=" + url.lstrip("/"))
+            page = resp.client.get(resp.url).content
+            self.assert_present(
+                f'<input type="hidden" name="referrer" value="{url.lstrip("/")}" />', page
+            )
+            # test that the negative tests be based in reality
+            self.assert_present('name="referrer"', page)
+        
+        # whn there is no change to the url we don't get a url attribute
+        # test junk
+        resp = self.client.get("/?page=literally junk")
+        self.assertFalse(hasattr(resp, "url"))
+        self.assert_not_present('name="referrer"', resp.content)
+        # test blank
+        resp = self.client.get("/?page=")
+        self.assertFalse(hasattr(resp, "url"))
+        self.assert_not_present('name="referrer"', resp.content)
+        # test "/"
+        resp = self.client.get("/?page=/")
+        self.assertFalse(hasattr(resp, "url"))
+        self.assert_not_present('name="referrer"', resp.content)
+        # test a url that doesn't redirect because its not on the whitelist
+        resp = self.client.get("/?page=/manage_credentials/")
+        self.assertFalse(hasattr(resp, "url"))
+        self.assert_not_present('name="referrer"', resp.content)
+        # test a url that doesn't redirect because its on the redirects-ignore list
+        resp = self.client.get("/?page=/reset_download_api_credentials/")
+        self.assertFalse(hasattr(resp, "url"))
+        self.assert_not_present('name="referrer"', resp.content)
+        # test an injection on a valid page
+        resp = self.client.get(f"/?page={self.a_valid_redirect_url}'><script>alert('hi')</script>")
+        self.assertFalse(hasattr(resp, "url"))
+        self.assert_not_present('name="referrer"', resp.content)
+        # test html escaped version of a valid page
+        resp = self.client.get(f"/?page={self.a_valid_redirect_url}".replace("_", r"%5f"))
+        self.assertFalse(hasattr(resp, "url"))
+        self.assert_not_present('name="referrer"', resp.content)
+    
     def test_redirect_works_on_all_valid_pages_probably(self):
         self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
         
@@ -588,7 +638,7 @@ class TestResearcherMostRecentPage(BasicSessionTestCase):
             resp = self.do_default_login(referrer=url)
             self.do_researcher_logout()
             self.assertEqual(url, resp.url)
-
+    
     def test_forwarding_fails(self):
         self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
         self.session_researcher.update_only(most_recent_page=None)

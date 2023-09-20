@@ -64,9 +64,7 @@
               </tr>
               <tr ng-repeat="answer in surveyBuilder.currentQuestionFields.answers">
                 <td class="text-right">
-                  <span ng-if="surveyBuilder.currentQuestionFields.question_type == surveyBuilder.QUESTION_TYPES.radio">
-                    {{ $index }}:
-                  </span>
+                  {{ $index }}:
                 </td>
                 <td>
                   <input type="text" class="form-control" ng-model="answer.text">
@@ -117,7 +115,7 @@
                   <add-logic-buttons new-path="{{ getNewPath() }}" survey-builder="surveyBuilder"></add-logic-buttons>
                 </div>
                 <!-- Uncomment this code for debugging -->
-                <!--<div style="color: #eaeaea; font-size: 12px; line-height: 12px;">
+                <!--<div font-size: 12px; line-height: 12px;">
                   var displayIf = '{{ surveyBuilder.currentQuestionFields.display_if }}';
                   <br>
                   <br>

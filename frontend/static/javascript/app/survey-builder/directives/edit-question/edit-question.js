@@ -8,7 +8,7 @@ angular.module("surveyBuilder")
         surveyBuilder: "="
       },
       // need to add a fake variable to the end of the templateUrl to force the browser to reload the template
-      templateUrl: "/static/javascript/app/survey-builder/directives/edit-question/edit-question.html?n=1"
+      templateUrl: "/static/javascript/app/survey-builder/directives/edit-question/edit-question.html?n=5"
     };
     
     ////////

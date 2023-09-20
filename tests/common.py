@@ -1,7 +1,8 @@
 from functools import wraps
 from itertools import chain
+from os.path import join as path_join
 from sys import argv
-from typing import Callable
+from typing import Callable, Dict
 
 from django.contrib import messages
 from django.core.exceptions import ImproperlyConfigured
@@ -215,17 +216,21 @@ class BasicSessionTestCase(CommonTestCase):
     """ This class has the basics needed to do login operations, but runs no extra setup before each
     test.  This class is probably only useful to test the login pages. """
     
-    def do_default_login(self):
+    def do_default_login(self, **post_params: Dict[str, str]) -> HttpResponse:
         # logs in the default researcher user, assumes it has been instantiated.
-        return self.do_login(self.DEFAULT_RESEARCHER_NAME, self.DEFAULT_RESEARCHER_PASSWORD)
-    
-    def do_login(self, username, password, mfa_code=None):
-        mfa = {"mfa_code": mfa_code} if mfa_code else {}
-        return self.client.post(
-            self.smart_reverse("login_pages.validate_login"),
-            data={"username": username, "password": password, **mfa}
+        return self.do_login(
+            self.DEFAULT_RESEARCHER_NAME, self.DEFAULT_RESEARCHER_PASSWORD, post_params=post_params
         )
-
+    
+    def do_login(self, username, password, mfa_code=None, post_params: Dict = None) -> HttpResponse:
+        post_params = {} if post_params is None else post_params
+        if mfa_code:
+            post_params["mfa_code"] = mfa_code
+        url = path_join(self.smart_reverse("login_pages.validate_login"))
+        return self.client.post(url, data={"username": username, "password": password, **post_params})
+    
+    def do_researcher_logout(self):
+        return self.client.get(self.smart_reverse("admin_pages.logout_admin"))
 
 class SmartRequestsTestCase(BasicSessionTestCase):
     ENDPOINT_NAME = None

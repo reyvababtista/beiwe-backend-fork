@@ -470,18 +470,11 @@ class TestResearcherMostRecentPage(BasicSessionTestCase):
         "system_admin_pages.study_security_page",
     ])
     
-    def test_page_list_is_correct(self):
-        # Now go create an explicit test for that page. These tests exist to ensure we don't have
-        # code rot on this feature.
-        endpoint_names = set(urlpattern.name for urlpattern in LOGIN_REDIRECT_SAFE)
-        self.assertEqual(self.LOCAL_COPY_WHITELIST, endpoint_names)
-    
-    def test_redirect_works_on_all_valid_pages_probably(self):
-        self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
-        
+    @property
+    def urls(self):
         # a list of ~valid test urls for every single url in LOGIN_REDIRECT_SAFE.
-        # (urls must start with a slash)
-        urls = [
+        # (these urls must start with a slash, ending slash shouldn't matter)
+        return [
             f"/dashboard/{self.session_study.id}",
             f"/dashboard/{self.session_study.id}/patient/{self.default_participant.id}",
             f"/dashboard/{self.session_study.id}/data_stream/gps",
@@ -503,9 +496,20 @@ class TestResearcherMostRecentPage(BasicSessionTestCase):
             f'/studies/{self.session_study.id}/forest/progress/',
             f'/studies/{self.session_study.id}/forest/tasks/',
         ]
+    
+    @property
+    def a_valid_redirect_url(self):
+        return f"/edit_study/{self.default_study.id}"
+    
+    def test_page_list_is_correct(self):
+        # Now go create an explicit test for that page. These tests exist to ensure we don't have
+        # code rot on this feature.
+        endpoint_names = set(urlpattern.name for urlpattern in LOGIN_REDIRECT_SAFE)
+        self.assertEqual(self.LOCAL_COPY_WHITELIST, endpoint_names)
+        
         # Check that every endpoint is in the whitelist, starts with a slash.
         endpoint_names = set()
-        for url in urls:
+        for url in self.urls:
             assert url.startswith("/"), f"url '{url}' does not start with a slash"
             found_something = False
             for urlpattern in urlpatterns:
@@ -517,42 +521,132 @@ class TestResearcherMostRecentPage(BasicSessionTestCase):
         # test that the list of url _names_ matches the whitelist so that you get a very convenient
         # error message stating what is missing in name form! :D
         self.assertEqual(self.LOCAL_COPY_WHITELIST, endpoint_names)
+    
+    def test_redirect_works_on_all_valid_pages_probably(self):
+        self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
         
         # test that every url actually works with the redirect.
-        for url in urls:
+        for url in self.urls:
             self.session_researcher.update_only(most_recent_page=url)
             resp = self.do_default_login()
+            self.do_researcher_logout()
             self.assertEqual(url, resp.url)
+    
+    def test_redirect_failures(self):
+        self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
         
         # test junk doesn't crash it
         self.session_researcher.update_only(most_recent_page="literally junk")
         resp = self.do_default_login()
+        self.do_researcher_logout()
         self.assertEqual(resp.url, "/choose_study")
         
         # test blank
         self.session_researcher.update_only(most_recent_page="")
         resp = self.do_default_login()
+        self.do_researcher_logout()
         self.assertEqual(resp.url, "/choose_study")
         
         # test None
         self.session_researcher.update_only(most_recent_page=None)
         resp = self.do_default_login()
+        self.do_researcher_logout()
         self.assertEqual(resp.url, "/choose_study")
         
         # test '/' ('/' is a valid url that shouldn't redirect but is also a weird one I guess?)
         self.session_researcher.update_only(most_recent_page="/")
         resp = self.do_default_login()
+        self.do_researcher_logout()
         self.assertEqual(resp.url, "/choose_study")
         
         # test for an endpoint that DOESN'T redirect because its on the redirects-ignore list
         self.session_researcher.update_only(most_recent_page="/manage_credentials/")
         resp = self.do_default_login()
+        self.do_researcher_logout()
         self.assertEqual(resp.url, "/choose_study")
         
         # test a valid url that doesn't redirect because its not on the whitelist
         self.session_researcher.update_only(most_recent_page="/reset_download_api_credentials/")
         resp = self.do_default_login()
+        self.do_researcher_logout()
         self.assertEqual(resp.url, "/choose_study")
+    
+    def test_forwarding_works_on_all_valid_pages_no_most_recent_page(self):
+        self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
+        self.session_researcher.update_only(most_recent_page=None)  # disable
+        # test that every url actually works with the redirect.
+        for url in self.urls:
+            resp = self.do_default_login(referrer=url)
+            self.do_researcher_logout()
+            self.assertEqual(url, resp.url)
+    
+    def test_forwarding_works_on_all_valid_pages_overrides_most_recent_page(self):
+        self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
+        self.session_researcher.update_only(most_recent_page=self.a_valid_redirect_url)
+        # test that every url actually works with the redirect.
+        for url in self.urls:
+            resp = self.do_default_login(referrer=url)
+            self.do_researcher_logout()
+            self.assertEqual(url, resp.url)
+
+    def test_forwarding_fails(self):
+        self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
+        self.session_researcher.update_only(most_recent_page=None)
+        
+        # test junk doesn't crash it
+        resp = self.do_default_login(referrer="literally junk")
+        self.do_researcher_logout()
+        self.assertEqual(resp.url, "/choose_study")
+        
+        # test blank
+        resp = self.do_default_login(referrer="")
+        self.do_researcher_logout()
+        self.assertEqual(resp.url, "/choose_study")
+        
+        # test '/' ('/' is a valid url that shouldn't redirect but is also a weird one I guess?)
+        resp = self.do_default_login(referrer="/")
+        self.do_researcher_logout()
+        self.assertEqual(resp.url, "/choose_study")
+        
+        # test for an endpoint that DOESN'T redirect because its on the redirects-ignore list
+        resp = self.do_default_login(referrer="/manage_credentials/")
+        self.do_researcher_logout()
+        self.assertEqual(resp.url, "/choose_study")
+        
+        # test a valid url that doesn't redirect because its not on the whitelist
+        resp = self.do_default_login(referrer="/reset_download_api_credentials/")
+        self.do_researcher_logout()
+        self.assertEqual(resp.url, "/choose_study")
+    
+    def test_forwarding_fails_with_most_recent_page(self):
+        self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
+        redirect_page = self.a_valid_redirect_url
+        self.session_researcher.update_only(most_recent_page=redirect_page)
+        
+        # test junk doesn't crash it
+        resp = self.do_default_login(referrer="literally junk")
+        self.do_researcher_logout()
+        self.assertEqual(resp.url, redirect_page)
+        
+        # test blank
+        resp = self.do_default_login(referrer="")
+        self.do_researcher_logout()
+        self.assertEqual(resp.url, redirect_page)
+        
+        # test '/' ('/' is a valid url that shouldn't redirect but is also a weird one I guess?)
+        resp = self.do_default_login(referrer="/")
+        self.do_researcher_logout()
+        self.assertEqual(resp.url, redirect_page)
+        
+        # test for an endpoint that DOESN'T redirect because its on the redirects-ignore list
+        resp = self.do_default_login(referrer="/manage_credentials/")
+        self.do_researcher_logout()
+        self.assertEqual(resp.url, redirect_page)
+        
+        # test a valid url that doesn't redirect because its not on the whitelist
+        resp = self.do_default_login(referrer="/reset_download_api_credentials/")
+        self.do_researcher_logout()
+        self.assertEqual(resp.url, redirect_page)
 #
 ## admin_pages
 #

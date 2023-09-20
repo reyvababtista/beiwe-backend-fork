@@ -23,7 +23,8 @@ def login_page(request: HttpRequest):
     # we pass the string through ~regex matches on valid url schemes.
     final_referrer = None
     de_urlified_referrer = request.GET.get('page', "")
-    raw_referrer = request.get_full_path().lstrip("/?page=")
+    raw_referrer = request.get_full_path().replace("/?page=", "", 1)
+    
     if de_urlified_referrer == raw_referrer:
         if admin_authentication.determine_redirectable(de_urlified_referrer):
             final_referrer = de_urlified_referrer

@@ -525,7 +525,11 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
         # error message stating what is missing in name form! :D
         self.assertEqual(self.LOCAL_COPY_WHITELIST, endpoint_names)
     
-    def test_login_page_referral(self, present=bool):
+    def test_login_page_referral_but_with_most_recent_page(self):
+        self.session_researcher.update_only(most_recent_page=self.a_valid_redirect_url)
+        self.test_login_page_referral()
+    
+    def test_login_page_referral(self):
         # self.session_researcher.update_only(most_recent_page=url)
         self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
         self.do_researcher_logout()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import operator
 from datetime import datetime, tzinfo
-from typing import List, Optional
+from typing import Any, Dict, Optional
 
 from dateutil.tz import gettz
 from django.core.exceptions import ObjectDoesNotExist
@@ -12,8 +12,8 @@ from django.db.models import F, Func, Manager
 from django.db.models.query import QuerySet
 from django.utils import timezone
 from django.utils.timezone import localtime
-from constants.data_stream_constants import ALL_DATA_STREAMS
 
+from constants.data_stream_constants import ALL_DATA_STREAMS
 from constants.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT,
     DEFAULT_CONSENT_SECTIONS_JSON, SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
 from constants.user_constants import ResearcherRole
@@ -211,7 +211,7 @@ class DeviceSettings(TimestampedModel):
     """ The DeviceSettings database contains the structure that defines settings pushed to devices
     of users in of a study. """
     
-    def export(self) -> List[str]:
+    def export(self) -> Dict[str, Any]:
         """ DeviceSettings is a special case where we want to export all fields.  Do not add fields
         to this model that cannot be trivially exported inside as_unpacked_native_python. """
         field_names = self.local_field_names()

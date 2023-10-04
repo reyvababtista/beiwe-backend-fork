@@ -419,7 +419,7 @@ def do_login_page_redirect(request: HttpRequest) -> HttpResponseRedirect:
     # this should be overkill: ensure that the url is url-safe (because all our urls are url-safe)
     # and only then append that to the redirect url as a get parameter.
     if bleach.clean(referrer_url) == referrer_url and determine_redirectable(referrer_url):
-        return redirect("/" + "?page=" + referrer_url)
+        return redirect("/" + "?page=/" + referrer_url)
     return redirect("/")
 
 
@@ -429,6 +429,6 @@ def determine_redirectable(redirect_page_url: str) -> bool:
     # matches only work if there is no leading slash.
     matchable_redirect_page = redirect_page_url.lstrip("/")
     for url_pattern in LOGIN_REDIRECT_SAFE:
-        if url_pattern.pattern.match(matchable_redirect_page):
+        if url_pattern.pattern == matchable_redirect_page or url_pattern.pattern.match(matchable_redirect_page):
             return True
     return False

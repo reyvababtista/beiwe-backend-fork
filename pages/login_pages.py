@@ -80,8 +80,8 @@ def validate_login(request: HttpRequest):
     referrer_page = request.POST.get('referrer', "")
     if bleach.clean(referrer_page, strip=True) == referrer_page:
         if admin_authentication.determine_redirectable(referrer_page):
-            return redirect(referrer_page)
+            return redirect(referrer_page if referrer_page.startswith("/") else "/" + referrer_page)
     redirect_page = researcher.most_recent_page or ""
     if admin_authentication.determine_redirectable(redirect_page):
-        return redirect(redirect_page)
+        return redirect(redirect_page if redirect_page.startswith("/") else "/" + redirect_page)
     return redirect("/choose_study")

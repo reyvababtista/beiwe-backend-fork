@@ -491,7 +491,10 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             # "/manage_credentials/",  # can't be in this list due to redirect safety sorta
             "/manage_firebase_credentials/",
             "/manage_researchers/",
-            "/manage_studies/",
+            "/manage_studies/",  # url with both slashes
+            "/manage_studies",   # url with no trailing slash
+            "manage_studies/",   # url with no leading slash
+            "manage_studies",    # url with no slashes
             f"/study_fields/{self.session_study.id}",
             f"/view_study/{self.session_study.id}",
             f'/view_study/{self.session_study.id}/participant/{self.default_participant.id}',
@@ -504,6 +507,12 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
     def a_valid_redirect_url(self):
         return f"/edit_study/{self.default_study.id}"
     
+    def assert_url_match(self, url: str, resp: HttpResponse):
+        try:
+            self.assertEqual(url, resp.url)
+        except AssertionError:
+            self.assertEqual("/" + url, resp.url)
+    
     def test_page_list_is_correct(self):
         # Now go create an explicit test for that page. These tests exist to ensure we don't have
         # code rot on this feature.
@@ -513,7 +522,12 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
         # Check that every endpoint is in the whitelist, starts with a slash.
         endpoint_names = set()
         for url in self.urls:
-            assert url.startswith("/"), f"url '{url}' does not start with a slash"
+            try:
+                assert url.startswith("/"), f"url '{url}' does not start with a slash"
+            except AssertionError:
+                # case - we have a mildly illegal url that needs to be tested along with the others
+                assert url in ("manage_studies/", "manage_studies")
+
             found_something = False
             for urlpattern in urlpatterns:
                 if urlpattern.pattern.match(url.lstrip("/")):
@@ -538,10 +552,14 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
         # the value embedded with the referrer post parameter.
         for url in self.urls + [self.a_valid_redirect_url]:
             resp = self.client.get(url)
-            self.assertEqual(resp.url, "/?page=" + url.lstrip("/"))
+            # case: you actually do need the url to be valid to get a redirect To The Login page
+            if url[0] != "/":
+                self.assertEqual(resp.status_code, 404)
+                continue
+            self.assertEqual(resp.url, "/?page=/" + url.lstrip("/"))  # ensure there is a leading slash
             page = resp.client.get(resp.url).content
-            self.assert_present(
-                f'<input type="hidden" name="referrer" value="{url.lstrip("/")}" />', page
+            self.assert_present( # ensure there is a leading slash
+                f'<input type="hidden" name="referrer" value="/{url.lstrip("/")}" />', page
             )
             # test that the negative tests be based in reality
             self.assert_present('name="referrer"', page)
@@ -584,7 +602,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             self.session_researcher.update_only(most_recent_page=url)
             resp = self.do_default_login()
             self.do_researcher_logout()
-            self.assertEqual(url, resp.url)
+            self.assert_url_match(url, resp)
     
     def test_redirect_failures(self):
         self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
@@ -632,7 +650,8 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
         for url in self.urls:
             resp = self.do_default_login(referrer=url)
             self.do_researcher_logout()
-            self.assertEqual(url, resp.url)
+            # starting slashes get inserted by the redirect logic, assert exact or missing slash matches
+            self.assert_url_match(url, resp)
     
     def test_forwarding_works_on_all_valid_pages_overrides_most_recent_page(self):
         self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...
@@ -641,7 +660,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
         for url in self.urls:
             resp = self.do_default_login(referrer=url)
             self.do_researcher_logout()
-            self.assertEqual(url, resp.url)
+            self.assert_url_match(url, resp)
     
     def test_forwarding_fails(self):
         self.session_researcher.update_only(site_admin=True)  # make sure we have permissions...

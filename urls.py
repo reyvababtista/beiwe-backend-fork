@@ -24,17 +24,20 @@ def path(
     If no name is provided we insert the module and function name as the name, e.g.
     "module_name.function_name" like "login_pages.login_page"
     
-    login_redirect can be None, IGNORE, or SAFE. IGNORE means that the user will never be redirected
-    away from that page (except to the login page). SAFE means that the user can be redirected to
-    that url. """
+    login_redirect can be None, IGNORE, or SAFE.
+    IGNORE means that the user will never be redirected AWAY from that page (except to the login page).
+    SAFE means that the user can be redirected to that url
+    None means it is an invalid login-redirect page."""
     
     if name is None:
         name = view.__module__.rsplit(".", 1)[-1] + "." + view.__name__
     
     route_with_slash = route if route.endswith("/") else route + "/"
     route_without_slash = route if not route.endswith("/") else route.rstrip("/")
+
     url_with_slash = simplepath(route_with_slash, view, name=name, kwargs=kwargs)
     url_without_slash = simplepath(route_without_slash, view, name=name, kwargs=kwargs)
+    
     urlpatterns.append(url_with_slash)
     urlpatterns.append(url_without_slash)
     

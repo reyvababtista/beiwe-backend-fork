@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, tzinfo
+from pprint import pprint
 from typing import Dict, Tuple, Union
 
 from Cryptodome.PublicKey import RSA
@@ -237,6 +239,18 @@ class Participant(AbstractPasswordUser):
         return f"https://{DOMAIN_NAME}" + easy_url(
             "participant_pages.participant_page", self.study.id, self.patient_id
         )
+    
+    @property
+    def pprint(self):
+        d = self._pprint()
+        dsr = d.pop("device_status_report")
+        pprint(d)
+        # it can be None, and empty string
+        if dsr:
+            print("\nDevice Status Report:")
+            pprint(json.loads(dsr))
+        else:
+            print("\n(No device status report.)")
     
     @property
     def get_identifiers(self):

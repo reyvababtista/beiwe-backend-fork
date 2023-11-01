@@ -2,6 +2,8 @@ import json
 
 from constants.data_stream_constants import CALL_LOG, GPS, SURVEY_ANSWERS, TEXTS_LOG
 
+from forest.constants import Frequency
+
 
 ROOT_FOREST_TASK_PATH = "/tmp/forest/"
 
@@ -102,26 +104,59 @@ CLEANUP_ERROR = "\n\nThis task encountered an error cleaning up  after itself.\n
 
 SYCAMORE_DATE_FORMAT = "%Y-%m-%d"
 
+# These Forest Trees are most recently updated from commit fcc49a74057f98b1b26079a0257b3e9d7c27a98f
 
-# default forest parameters:
+# default forest parameters for every supported tree.
+# Global:
+#   study_folder
+#   output_folder
+#   time_start*
+#   time_end*
+# Time start and end are odd, they take a decomposed list of a datetime object's components, which
+# we have converter for in libs.utils.date_utils - datetime_to_list.
+#   Except sycamore doesn't it just takes a YYYY-MM-DD string.
+#     and also they are named start_date and end_date.
+#   Code for all of this is in tableau_api_models, ForestTask.handle_tree_specific_date_params
+
 class DefaultForestParameters:
     jasmine_defaults = json.dumps(
         {
-            "frequency": "daily",
+            "frequency": Frequency.DAILY.value,
             "tz_str": "America/New_York",
-            "save_traj": False,  # intentionally left as a falsy value
+            "save_traj": False,
+            # the rest are optionals
+            # time_start: Optional[list] = None,
+            # time_end: Optional[list] = None,
+            # places_of_interest: Optional[list] = None,
+            # osm_tags: Optional[List[OSMTags]] = None,
+            # participant_ids: Optional[list] = None,
+            # parameters: Optional[Hyperparameters] = None,
+            # all_memory_dict: Optional[dict] = None,
+            # all_bv_set: Optional[dict] = None,
         }
     )
     willow_defaults = json.dumps(
         {
-            "option": "daily",
+            "frequency": Frequency.DAILY.value,
             "tz_str": "America/New_York",
+            # the rest are optionals
+            # time_start: Optional[List] = None,
+            # time_end: Optional[List] = None,
+            # beiwe_id: Optional[List[str]] = None,
         }
     )
     sycamore_defaults = json.dumps(
         {
+            "config_path": "something",  # TODO this is a placeholder, need to generate the path
             "submits_timeframe": "daily",
             "tz_str": "America/New_York",
+            "submits_timeframe": Frequency.DAILY.value,
+            # the rest are optionals
+            # start_date: EARLIEST_DATE,  # not a datetime list but a YYYY-MM-DD string, see sycamore constants
+            # end_date: Optional[str] = None,  # same
+            # users: Optional[List] = None,
+            # interventions_filepath: Optional[str] = None,
+            # history_path: Optional[str] = None
         }
     )
 

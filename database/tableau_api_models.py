@@ -101,6 +101,7 @@ class ForestTask(TimestampedModel):
         """ Return a dict of params to pass into the Forest function. The task flag is used to
         indicate whether this is being called for use in the serializer or for use in a task (in
         which case we can call additional functions as needed). """
+        # Every tree expects these two parameters
         params = {
             "output_folder": self.data_output_path,
             "study_folder": self.data_input_path,

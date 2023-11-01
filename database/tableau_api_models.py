@@ -109,9 +109,9 @@ class ForestTask(TimestampedModel):
         
         # no forest params implies that we are using the defaults, this may change in the future.
         if self.forest_param_or_none is None:
-            params.update(**json.loads(DEFAULT_FOREST_PARAMETERS_LOOKUP[self.forest_tree]))
+            params.update(DEFAULT_FOREST_PARAMETERS_LOOKUP[self.forest_tree])
         else:
-            params.update(**json.loads(self.forest_param.json_parameters))
+            params.update(self.forest_param.json_parameters)
         
         self.handle_tree_specific_date_params(params)
         

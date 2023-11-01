@@ -119,46 +119,40 @@ SYCAMORE_DATE_FORMAT = "%Y-%m-%d"
 #   Code for all of this is in tableau_api_models, ForestTask.handle_tree_specific_date_params
 
 class DefaultForestParameters:
-    jasmine_defaults = json.dumps(
-        {
-            "frequency": Frequency.DAILY.value,
-            "tz_str": "America/New_York",
-            "save_traj": False,
-            # the rest are optionals
-            # time_start: Optional[list] = None,
-            # time_end: Optional[list] = None,
-            # places_of_interest: Optional[list] = None,
-            # osm_tags: Optional[List[OSMTags]] = None,
-            # participant_ids: Optional[list] = None,
-            # parameters: Optional[Hyperparameters] = None,
-            # all_memory_dict: Optional[dict] = None,
-            # all_bv_set: Optional[dict] = None,
-        }
-    )
-    willow_defaults = json.dumps(
-        {
-            "frequency": Frequency.DAILY.value,
-            "tz_str": "America/New_York",
-            # the rest are optionals
-            # time_start: Optional[List] = None,
-            # time_end: Optional[List] = None,
-            # beiwe_id: Optional[List[str]] = None,
-        }
-    )
-    sycamore_defaults = json.dumps(
-        {
-            "config_path": "something",  # TODO this is a placeholder, need to generate the path
-            "submits_timeframe": "daily",
-            "tz_str": "America/New_York",
-            "submits_timeframe": Frequency.DAILY.value,
-            # the rest are optionals
-            # start_date: EARLIEST_DATE,  # not a datetime list but a YYYY-MM-DD string, see sycamore constants
-            # end_date: Optional[str] = None,  # same
-            # users: Optional[List] = None,
-            # interventions_filepath: Optional[str] = None,
-            # history_path: Optional[str] = None
-        }
-    )
+    jasmine_defaults = {
+        "frequency": Frequency.DAILY,
+        "tz_str": "America/New_York",
+        "save_traj": False,
+        # the rest are optionals
+        # time_start: Optional[list] = None,
+        # time_end: Optional[list] = None,
+        # places_of_interest: Optional[list] = None,
+        # osm_tags: Optional[List[OSMTags]] = None,
+        # participant_ids: Optional[list] = None,
+        # parameters: Optional[Hyperparameters] = None,
+        # all_memory_dict: Optional[dict] = None,
+        # all_bv_set: Optional[dict] = None,
+    }
+    willow_defaults = {
+        "frequency": Frequency.DAILY,
+        "tz_str": "America/New_York",
+        # the rest are optionals
+        # time_start: Optional[List] = None,
+        # time_end: Optional[List] = None,
+        # beiwe_id: Optional[List[str]] = None,
+    }
+    sycamore_defaults = {
+        "config_path": "something",  # TODO this is a placeholder, need to generate the path
+        "submits_timeframe": "daily",
+        "tz_str": "America/New_York",
+        "submits_timeframe": Frequency.DAILY,
+        # the rest are optionals
+        # start_date: EARLIEST_DATE,  # not a datetime list but a YYYY-MM-DD string, see sycamore constants
+        # end_date: Optional[str] = None,  # same
+        # users: Optional[List] = None,
+        # interventions_filepath: Optional[str] = None,
+        # history_path: Optional[str] = None
+    }
 
 
 DEFAULT_FOREST_PARAMETERS_LOOKUP = {

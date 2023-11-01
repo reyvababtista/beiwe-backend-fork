@@ -514,7 +514,7 @@ class ReferenceObjectMixin:
             name="default forest param",
             notes="this is junk",
             tree_name="jasmine",
-            json_parameters=DefaultForestParameters.jasmine_defaults,
+            json_parameters="{}",  # this needs to be some kind of json serializable object, but no tests depend on a specific value
         )
         self._default_forest_params.save()
         return self._default_forest_params

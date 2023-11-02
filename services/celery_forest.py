@@ -25,6 +25,7 @@ from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.user_models_participant import Participant
 from libs.celery_control import forest_celery_app, safe_apply_async
 from libs.copy_study import format_study
+from libs.forest_utils import save_all_bv_set_bytes, save_all_memory_dict_bytes
 from libs.internal_types import ChunkRegistryQuerySet
 from libs.intervention_utils import intervention_survey_data
 from libs.s3 import s3_retrieve
@@ -339,7 +340,7 @@ def upload_cached_files(forest_task: ForestTask):
     """ Find output files from forest tasks and consume them. """
     if file_exists(forest_task.all_bv_set_path):
         with open(forest_task.all_bv_set_path, "rb") as f:
-            forest_task.save_all_bv_set_bytes(f.read())
+            save_all_bv_set_bytes(forest_task., f.read())
     if file_exists(forest_task.all_memory_dict_path):
         with open(forest_task.all_memory_dict_path, "rb") as f:
-            forest_task.save_all_memory_dict_bytes(f.read())
+            save_all_memory_dict_bytes(forest_task, f.read())

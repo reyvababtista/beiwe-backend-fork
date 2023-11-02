@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import pickle
+from posixpath import join as path_join
+
+from constants.common_constants import BEIWE_PROJECT_ROOT
+
 
 # this is a hack to avoid circular imports but still use them for type hints
 try:
@@ -8,9 +12,8 @@ try:
 except ImportError:
     pass
 
-# Cached data sets for Jasmine
 
-
+# Cached data set serialization for Jasmine
 def get_jasmine_all_bv_set_dict(task: ForestTask) -> dict:
     """ Return the unpickled all_bv_set dict. """
     from libs.s3 import s3_retrieve
@@ -43,3 +46,19 @@ def save_all_memory_dict_bytes(task: ForestTask, all_memory_dict_bytes):
     task.all_memory_dict_s3_key = task.all_memory_dict_s3_key_path
     s3_upload(task.all_memory_dict_s3_key, all_memory_dict_bytes, task.participant, raw_path=True)
     task.save(update_fields=["all_memory_dict_s3_key"])
+
+
+# our extremely fragile mechanism to get the git commit of the "current" forest version
+def get_forest_git_hash() -> str:
+    that_git_prefix = "git+https://git@github.com/onnela-lab/forest@"
+    
+    with open(path_join(BEIWE_PROJECT_ROOT, "requirements_data_processing.txt"), "rt") as f:
+        requirements_file_lines = f.read().splitlines()
+    
+    git_version = ""
+    for line in requirements_file_lines:
+        # in the insane case of multiple matches we are getting the first instance, not the last.
+        if line.startswith(that_git_prefix):
+            git_version = line.split(that_git_prefix)[-1]
+            break
+    return git_version

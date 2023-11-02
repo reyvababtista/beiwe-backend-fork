@@ -1,10 +1,8 @@
 from collections import defaultdict
 from pprint import pprint
 
-from dateutil.tz import gettz
-
 from database.data_access_models import ChunkRegistry
-from database.tableau_api_models import SummaryStatisticDaily
+from database.forest_models import SummaryStatisticDaily
 from database.user_models_participant import Participant
 from libs.utils.date_utils import get_timezone_shortcode
 

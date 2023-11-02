@@ -1,11 +1,12 @@
-from django.http.response import HttpResponse, HttpResponseRedirect
 from typing import Dict, List, Union
 
 from django.db.models import Manager, QuerySet
 from django.http.request import HttpRequest
+from django.http.response import HttpResponse, HttpResponseRedirect
 
 from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
 from database.data_access_models import ChunkRegistry, FileToProcess, IOSDecryptionKey
+from database.forest_models import ForestParameters, ForestTask, SummaryStatisticDaily
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention,
     InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
@@ -13,7 +14,6 @@ from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey, SurveyArchive
 from database.system_models import FileAsText, GenericEvent
-from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
 from database.user_models_participant import (Participant, ParticipantFCMHistory,
     ParticipantFieldValue, PushNotificationDisabledEvent)
 from database.user_models_researcher import Researcher, StudyRelation

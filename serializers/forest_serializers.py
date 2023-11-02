@@ -3,7 +3,7 @@ import json
 from rest_framework import serializers
 
 from constants.common_constants import DEV_TIME_FORMAT
-from database.tableau_api_models import ForestTask
+from database.forest_models import ForestTask
 
 
 def display_true(a_bool: bool):

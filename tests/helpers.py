@@ -11,18 +11,18 @@ from django.utils import timezone
 from config.django_settings import STATIC_ROOT
 from constants.common_constants import BEIWE_PROJECT_ROOT
 from constants.data_stream_constants import IDENTIFIERS
-from constants.forest_constants import DefaultForestParameters, ForestTaskStatus, ForestTree
+from constants.forest_constants import ForestTaskStatus, ForestTree
 from constants.message_strings import MESSAGE_SEND_SUCCESS
 from constants.schedule_constants import ScheduleTypes
 from constants.testing_constants import REAL_ROLES
 from constants.user_constants import ANDROID_API, IOS_API, NULL_OS, ResearcherRole
 from database.common_models import generate_objectid_string
 from database.data_access_models import ChunkRegistry, FileToProcess
+from database.forest_models import ForestParameters, ForestTask, SummaryStatisticDaily
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention,
     InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
-from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
 from database.user_models_participant import (Participant, ParticipantDeletionEvent,
     ParticipantFCMHistory, ParticipantFieldValue)
 from database.user_models_researcher import Researcher, StudyRelation

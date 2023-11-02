@@ -9,7 +9,7 @@ from django.views.decorators.http import require_GET
 
 from authentication.tableau_authentication import authenticate_tableau
 from constants.tableau_api_constants import FIELD_TYPE_MAP, SERIALIZABLE_FIELD_NAMES
-from database.tableau_api_models import SummaryStatisticDaily
+from database.forest_models import SummaryStatisticDaily
 from forms.django_forms import ApiQueryForm
 from libs.internal_types import TableauRequest
 from libs.utils.effiicient_paginator import TableauApiPaginator

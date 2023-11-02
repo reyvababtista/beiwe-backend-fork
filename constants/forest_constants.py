@@ -116,7 +116,7 @@ SYCAMORE_DATE_FORMAT = "%Y-%m-%d"
 # we have converter for in libs.utils.date_utils - datetime_to_list.
 #   Except sycamore doesn't it just takes a YYYY-MM-DD string.
 #     and also they are named start_date and end_date.
-#   Code for all of this is in tableau_api_models, ForestTask.handle_tree_specific_date_params
+#   Code for all of this is in forest models, ForestTask.handle_tree_specific_date_params
 
 class DefaultForestParameters:
     jasmine_defaults = {

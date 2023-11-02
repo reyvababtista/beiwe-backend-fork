@@ -2,14 +2,14 @@ from collections import defaultdict
 from datetime import datetime, tzinfo
 from typing import Callable, Optional
 
-from dateutil.tz import gettz, UTC
+from dateutil.tz import UTC
 from django.db.models.query import QuerySet
 from django.utils.timezone import make_aware
 
 from constants.data_processing_constants import CHUNK_TIMESLICE_QUANTUM
 from constants.data_stream_constants import ALL_DATA_STREAMS
 from database.data_access_models import ChunkRegistry
-from database.tableau_api_models import SummaryStatisticDaily
+from database.forest_models import SummaryStatisticDaily
 from database.user_models_participant import Participant
 from libs.utils.date_utils import date_to_end_of_day, date_to_start_of_day, get_timezone_shortcode
 

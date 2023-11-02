@@ -16,9 +16,9 @@ from constants.common_constants import DEV_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_D
 from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import ForestTaskStatus, ForestTree
 from database.data_access_models import ChunkRegistry
+from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.study_models import Study
 from database.system_models import ForestVersion
-from database.tableau_api_models import ForestTask, SummaryStatisticDaily
 from database.user_models_participant import Participant
 from forms.django_forms import CreateTasksForm
 from libs.http_utils import easy_url

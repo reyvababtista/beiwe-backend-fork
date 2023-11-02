@@ -21,7 +21,7 @@ from constants.forest_constants import (CLEANUP_ERROR as CLN_ERR, ForestFiles, F
     ForestTree, NO_DATA_ERROR, ROOT_FOREST_TASK_PATH, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS,
     YEAR_MONTH_DAY)
 from database.data_access_models import ChunkRegistry
-from database.tableau_api_models import ForestTask, SummaryStatisticDaily
+from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.user_models_participant import Participant
 from libs.celery_control import forest_celery_app, safe_apply_async
 from libs.copy_study import format_study

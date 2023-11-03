@@ -10,7 +10,9 @@ from django.db import models
 from django.db.models import Manager
 
 from constants.forest_constants import (DEFAULT_FOREST_PARAMETERS_LOOKUP, FOREST_PICKLING_ERROR,
-    ForestTaskStatus, ForestTree, ROOT_FOREST_TASK_PATH, SYCAMORE_DATE_FORMAT)
+    ForestTaskStatus, ForestTree, NON_PICKLED_PARAMETERS, PARAMETER_ALL_BV_SET,
+    PARAMETER_ALL_MEMORY_DICT, PARAMETER_CONFIG_PATH, PARAMETER_INTERVENTIONS_FILEPATH,
+    ROOT_FOREST_TASK_PATH, SYCAMORE_DATE_FORMAT)
 from database.common_models import TimestampedModel
 from database.user_models_participant import Participant
 from libs.forest_utils import get_jasmine_all_bv_set_dict, get_jasmine_all_memory_dict_dict
@@ -79,17 +81,21 @@ class ForestTask(TimestampedModel):
         """ Return a dict of params to pass into the Forest function. The task flag is used to
         indicate whether this is being called for use in the serializer or for use in a task (in
         which case we can call additional functions as needed). """
-        # Every tree expects these two parameters
+        # Every tree expects the two folder paths and the time zone string.
+        # Note: the tz_string may (intentionally) be overwritten by the unpickled parameters.)
         params = {
-            "output_folder": self.data_output_path, "study_folder": self.data_input_path
+            "output_folder": self.data_output_path, "study_folder": self.data_input_path,
+            "tz_str": self.participant.study.timezone_name,
         }
         
         # get the parameters that were used originally on this task, which may differ from the
         # defaults (due to code drift, we don't currently have a way to change them)
         if self.pickled_parameters:
-            params.update(DEFAULT_FOREST_PARAMETERS_LOOKUP[self.forest_tree])
-        else:
+            # unpickling specifically avoids the output and study folder parameters
             params.update(self.unpickle_from_pickled_parameters())
+        else:
+            params.update(DEFAULT_FOREST_PARAMETERS_LOOKUP[self.forest_tree])
+        
         self.handle_tree_specific_params(params)
         return params
     
@@ -97,12 +103,12 @@ class ForestTask(TimestampedModel):
         """ takes parameters and pickles them """
         if not isinstance(parameters, dict):
             raise TypeError("parameters must be a dict")
-        # these folders are generated at run time only, we don't store them, but we also don't want
-        # to mutate the dictionary that was passed in.
+        # we need to clear but certain parameters, but we don't want to mutate the dictionary
         cleaned_parameters = parameters.copy()
-        cleaned_parameters.pop("output_folder", None)
-        cleaned_parameters.pop("study_folder", None)
+        for parameter in NON_PICKLED_PARAMETERS:
+            cleaned_parameters.pop(parameter, None)
         self.pickled_parameters = pickle.dumps(self.pickled_parameters)
+        self.save()
     
     def unpickle_from_pickled_parameters(self) -> Dict:
         """ Unpickle the pickled_parameters field. """
@@ -125,7 +131,7 @@ class ForestTask(TimestampedModel):
         if self.forest_tree == ForestTree.sycamore:
             self.assemble_sycamore_folder_path_params(params)
     
-    # TODO: this is only because we were not pickling the parameters before. We can have forest use raw datetimes now.
+    # TODO: forest uses date components/strings because previously we did not pickle the parameters.
     def handle_tree_specific_date_params(self, params: dict):
         if self.forest_tree != ForestTree.sycamore:
             # most trees expect lists of datetime parameters. We need to add a day since this model
@@ -141,13 +147,13 @@ class ForestTask(TimestampedModel):
     
     def assemble_jasmine_dynamic_params(self, params: dict):
         """ real code is in libs/forest_utils.py """
-        params["all_bv_set"] = get_jasmine_all_bv_set_dict(self)
-        params["all_memory_dict"] = get_jasmine_all_memory_dict_dict(self)
+        params[PARAMETER_ALL_BV_SET] = get_jasmine_all_bv_set_dict(self)
+        params[PARAMETER_ALL_MEMORY_DICT] = get_jasmine_all_memory_dict_dict(self)
     
     def assemble_sycamore_folder_path_params(self, params: dict):
         """ Sycamore has some extra files and file paths """
-        params['config_path'] = self.study_config_path
-        params['interventions_filepath'] = self.interventions_filepath
+        params[PARAMETER_CONFIG_PATH] = self.study_config_path
+        params[PARAMETER_INTERVENTIONS_FILEPATH] = self.interventions_filepath
     
     #
     ## File paths

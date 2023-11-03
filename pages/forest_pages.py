@@ -1,10 +1,10 @@
 import csv
 import datetime
+import pickle
 from collections import defaultdict
 
 import orjson
 from django.contrib import messages
-from django.http import HttpResponse
 from django.http.response import FileResponse, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -14,7 +14,8 @@ from authentication.admin_authentication import (authenticate_admin,
     authenticate_researcher_study_access, forest_enabled)
 from constants.common_constants import DEV_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATE
 from constants.data_access_api_constants import CHUNK_FIELDS
-from constants.forest_constants import ForestTaskStatus, ForestTree
+from constants.forest_constants import (FOREST_TASKVIEW_PICKLING_EMPTY,
+    FOREST_TASKVIEW_PICKLING_ERROR, ForestTaskStatus, ForestTree)
 from database.data_access_models import ChunkRegistry
 from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.study_models import Study
@@ -40,9 +41,7 @@ TASK_SERIALIZER_FIELDS = [
     # to be popped
     "external_id",  # -> uuid in the urls
     "participant__patient_id",  # -> patient_id
-    "params_dict_cache",  # -> params_dict as json encoded string...
-    "forest_param__name",  # -> forest_param_name
-    "forest_param__notes",  # -> forest_param_notes
+    "pickled_parameters",
     "forest_tree",  # -> forest_tree_display as .title()
     # datetimes
     "process_end_time",  # -> dev time format
@@ -50,8 +49,6 @@ TASK_SERIALIZER_FIELDS = [
     "process_download_end_time",  # -> dev time format
     "created_on",  # -> dev time format
 ]
-
-
 
 @require_GET
 @authenticate_researcher_study_access
@@ -154,10 +151,8 @@ def task_log(request: ResearcherRequest, study_id=None):
     for task_dict in query:
         extern_id = task_dict.pop("external_id")
         # renames (could be optimized in the query, but speedup is negligible)
-        task_dict["forest_param_name"] = task_dict.pop("forest_param__name")
-        task_dict["forest_param_notes"] = task_dict.pop("forest_param__notes")
         task_dict["patient_id"] = task_dict.pop("participant__patient_id")
-        task_dict["params_dict"] = task_dict.pop("params_dict_cache")
+        
         # rename and transform
         task_dict["forest_tree_display"] = task_dict.pop("forest_tree").title()
         task_dict["created_on_display"] = task_dict.pop("created_on").strftime(DEV_TIME_FORMAT)
@@ -176,6 +171,14 @@ def task_log(request: ResearcherRequest, study_id=None):
         task_dict["download_url"] = easy_url(
             "forest_pages.download_task_data", study_id=study_id, forest_task_external_id=extern_id,
         )
+        # the pickled parameters have some error cases.
+        if task_dict["pickled_parameters"]:
+            try:
+                task_dict["params_dict"] = repr(pickle.loads(task_dict.pop("pickled_parameters")))
+            except Exception:
+                task_dict["params_dict"] = FOREST_TASKVIEW_PICKLING_ERROR
+        else:
+            task_dict["params_dict"] = FOREST_TASKVIEW_PICKLING_EMPTY
         tasks.append(task_dict)
     
     return render(
@@ -259,7 +262,7 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
     start_date = dates[0] if dates else study.created_on.date()
     end_date = dates[-1] if dates else timezone.now().date()
     forest_info = ForestVersion.get_singleton_instance()
-
+    
     # start_date = dates[0] if dates and dates[0] >= EARLIEST_POSSIBLE_DATA_DATE else study.created_on.date()
     # end_date = dates[-1] if dates and dates[-1] <= timezone.now().date() else timezone.now().date()
     return render(

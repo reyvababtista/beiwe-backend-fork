@@ -18,7 +18,7 @@ from constants.testing_constants import REAL_ROLES
 from constants.user_constants import ANDROID_API, IOS_API, NULL_OS, ResearcherRole
 from database.common_models import generate_objectid_string
 from database.data_access_models import ChunkRegistry, FileToProcess
-from database.forest_models import ForestParameters, ForestTask, SummaryStatisticDaily
+from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention,
     InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
 from database.study_models import DeviceSettings, Study, StudyField
@@ -502,27 +502,9 @@ class ReferenceObjectMixin:
     ## Forest objects
     #
     
-    @property
-    def default_forest_params(self) -> ForestParameters:
-        """ Creates a default forest params object.  This is a default object, and will be
-        auto-populated in scenarios where such an object is required but not provided. """
-        try:
-            return self._default_forest_params
-        except AttributeError:
-            pass
-        self._default_forest_params = ForestParameters(
-            name="default forest param",
-            notes="this is junk",
-            tree_name="jasmine",
-            json_parameters="{}",  # this needs to be some kind of json serializable object, but no tests depend on a specific value
-        )
-        self._default_forest_params.save()
-        return self._default_forest_params
-    
     def generate_forest_task(
         self,
         participant: Participant = None,
-        forest_param: ForestParameters = None,
         data_date_start: datetime = timezone.now(),    # generated once at import time. will differ,
         data_date_end: datetime = timezone.now(),      # slightly, but end is always after start.
         forest_tree: str = ForestTree.jasmine,
@@ -530,7 +512,7 @@ class ReferenceObjectMixin:
     ):
         task = ForestTask(
             participant=participant or self.default_participant,
-            forest_param=forest_param or self.default_forest_params,
+            forest_param=self.default_forest_params,
             data_date_start=data_date_start,
             data_date_end=data_date_end,
             forest_tree=forest_tree,

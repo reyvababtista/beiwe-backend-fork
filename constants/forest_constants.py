@@ -7,6 +7,7 @@ from forest.constants import Frequency
 
 ROOT_FOREST_TASK_PATH = "/tmp/forest/"
 
+FOREST_PICKLING_ERROR = "This Forest task's parameters directly referenced code objects in the Forest codebase which have changed such that they cannot be recovered."
 
 class ForestTree:
     """ Todo: Once we upgrade to Django 3, use TextChoices """

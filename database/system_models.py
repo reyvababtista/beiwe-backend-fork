@@ -28,6 +28,7 @@ class GenericEvent(TimestampedModel):
 # used and updated in update_forest_versions script for display on the forest page
 class ForestVersion(TimestampedModel):
     package_version = models.TextField(blank=True, null=False, default="")
+    # should be a 40 character hash, until git decides its time to update to sha256.
     git_commit = models.TextField(blank=True, null=False, default="")
     
     @classmethod

@@ -340,7 +340,7 @@ def upload_cached_files(forest_task: ForestTask):
     """ Find output files from forest tasks and consume them. """
     if file_exists(forest_task.all_bv_set_path):
         with open(forest_task.all_bv_set_path, "rb") as f:
-            save_all_bv_set_bytes(forest_task., f.read())
+            save_all_bv_set_bytes(forest_task, f.read())
     if file_exists(forest_task.all_memory_dict_path):
         with open(forest_task.all_memory_dict_path, "rb") as f:
             save_all_memory_dict_bytes(forest_task, f.read())

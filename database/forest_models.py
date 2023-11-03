@@ -108,13 +108,15 @@ class ForestTask(TimestampedModel):
         """ Unpickle the pickled_parameters field. """
         # If you see a stacktrace pointing here that means Forest code changed substantially and
         # this Forest task's code fundamentally change in a way that means it cannot be rerun.
-        try:
-            ret = pickle.loads(self.pickled_parameters)
-        except Exception:
-            raise ValueError(FOREST_PICKLING_ERROR)
-        if not isinstance(ret, dict):
-            raise TypeError("unpickled parameters must be a dict")
-        return ret
+        if self.pickled_parameters:
+            try:
+                ret = pickle.loads(self.pickled_parameters)
+            except Exception:
+                raise ValueError(FOREST_PICKLING_ERROR)
+            if not isinstance(ret, dict):
+                raise TypeError("unpickled parameters must be a dict")
+            return ret
+        return {}
     
     def handle_tree_specific_params(self, params: Dict):
         self.handle_tree_specific_date_params(params)

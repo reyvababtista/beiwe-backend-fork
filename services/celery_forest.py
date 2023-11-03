@@ -184,7 +184,7 @@ def run_forest(forest_task: ForestTask):
     # Run Forest
     params_dict = forest_task.get_params_dict()
     log("params_dict:", params_dict)
-    forest_task.update_only(params_dict_cache=json.dumps(params_dict))
+    forest_task.pickle_to_pickled_parameters(params_dict)
     
     log("running:", forest_task.forest_tree)
     TREE_TO_FOREST_FUNCTION[forest_task.forest_tree](**params_dict)

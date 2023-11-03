@@ -6,7 +6,7 @@ from django.http.response import HttpResponse, HttpResponseRedirect
 
 from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
 from database.data_access_models import ChunkRegistry, FileToProcess, IOSDecryptionKey
-from database.forest_models import ForestParameters, ForestTask, SummaryStatisticDaily
+from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention,
     InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
@@ -80,7 +80,6 @@ DeviceSettingsQuerySet = QuerySet[DeviceSettings]
 EncryptionErrorMetadataQuerySet = QuerySet[EncryptionErrorMetadata]
 FileAsTextQuerySet = QuerySet[FileAsText]
 FileToProcessQuerySet = QuerySet[FileToProcess]
-ForestParametersQuerySet = QuerySet[ForestParameters]
 ForestTaskQuerySet = QuerySet[ForestTask]
 GenericEventQuerySet = QuerySet[GenericEvent]
 IOSDecryptionKeyQuerySet = QuerySet[IOSDecryptionKey]

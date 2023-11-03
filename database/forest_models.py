@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import pickle
 import uuid
 from datetime import timedelta
 from os.path import join as path_join
-from typing import Optional
+from typing import Dict
 
 from django.db import models
 from django.db.models import Manager
 
-from constants.forest_constants import (DEFAULT_FOREST_PARAMETERS_LOOKUP, ForestTaskStatus,
-    ForestTree, ROOT_FOREST_TASK_PATH, SYCAMORE_DATE_FORMAT)
+from constants.forest_constants import (DEFAULT_FOREST_PARAMETERS_LOOKUP, FOREST_PICKLING_ERROR,
+    ForestTaskStatus, ForestTree, ROOT_FOREST_TASK_PATH, SYCAMORE_DATE_FORMAT)
 from database.common_models import TimestampedModel
 from database.user_models_participant import Participant
 from libs.forest_utils import get_jasmine_all_bv_set_dict, get_jasmine_all_memory_dict_dict
@@ -19,46 +20,36 @@ from libs.utils.date_utils import datetime_to_list
 #
 ## GO READ THE MULTILINE STATEMENT AT THE TOP OF services/celery_forest.py
 #
-class ForestParameters(TimestampedModel):
-    """ Model for storing parameter sets used in Forest analyses. """
-    name = models.TextField(blank=True, null=False)
-    notes = models.TextField(blank=True, null=False)
-    tree_name = models.TextField(blank=False, null=False, choices=ForestTree.choices())
-    json_parameters = models.TextField(blank=False, null=False)
-    deleted = models.BooleanField(default=False)
-    
-    # related field typings (IDE halp)
-    # undeclared:
-    foresttask_set: Manager[ForestTask]
-
 
 class ForestTask(TimestampedModel):
+    # All forest tasks are defined to be associated with a single participant
     participant: Participant = models.ForeignKey('Participant', on_delete=models.PROTECT, db_index=True)
+    
+    forest_tree = models.TextField(choices=ForestTree.choices())
+    forest_version = models.CharField(blank=True, max_length=10, null=False, default="")
+    forest_commit = models.CharField(blank=True, max_length=40, null=False, default="")
+    
     # the external id is used for endpoints that refer to forest trackers to avoid exposing the
     # primary keys of the model. it is intentionally not the primary key
     external_id = models.UUIDField(default=uuid.uuid4, editable=False)
     
-    # forest param can be null, means it used defaults
-    # access using forest_param_or_none!
-    forest_param: ForestParameters = models.ForeignKey(ForestParameters, null=True, blank=True, on_delete=models.PROTECT)  # blank must be true
-    params_dict_cache = models.TextField(blank=True)  # Cache of the params used
-    
-    forest_tree = models.TextField(choices=ForestTree.choices())
+    # due to code churn we pickle parameters that are passed to forest.
+    pickled_parameters = models.BinaryField(blank=True, null=True)
+    # all forest tasks run on a data range, (these are parameters entered at creation from the web)
     data_date_start = models.DateField()  # inclusive
     data_date_end = models.DateField()  # inclusive
     
+    # runtime records
     total_file_size = models.BigIntegerField(blank=True, null=True)  # input file size sum for accounting
     process_start_time = models.DateTimeField(null=True, blank=True)
     process_download_end_time = models.DateTimeField(null=True, blank=True)
     process_end_time = models.DateTimeField(null=True, blank=True)
-    
+    status = models.TextField(choices=ForestTaskStatus.choices())
+    stacktrace = models.TextField(null=True, blank=True, default=None)
     # Whether or not there was any data output by Forest (None indicates unknown)
     forest_output_exists = models.BooleanField(null=True, blank=True)
     
-    status = models.TextField(choices=ForestTaskStatus.choices())
-    stacktrace = models.TextField(null=True, blank=True, default=None)  # for logs
-    forest_version = models.CharField(blank=True, max_length=10)
-    
+    # Jasmine has special parameters, files (stored on S3), these are their s3 file paths.
     all_bv_set_s3_key = models.TextField(blank=True)
     all_memory_dict_s3_key = models.TextField(blank=True)
     
@@ -66,10 +57,6 @@ class ForestTask(TimestampedModel):
     jasmine_summary_statistics: Manager[SummaryStatisticDaily]
     sycamore_summary_statistics: Manager[SummaryStatisticDaily]
     willow_summary_statistics: Manager[SummaryStatisticDaily]
-    
-    #
-    ## non-fields
-    #
     
     def get_legible_identifier(self) -> str:
         """ Return a human-readable identifier. """
@@ -85,14 +72,6 @@ class ForestTask(TimestampedModel):
     def taskname(self):
         return self.forest_tree + "_task"
     
-    @property
-    def forest_param_or_none(self) -> Optional[ForestParameters]:
-        # because this is annoying!
-        try:
-            return self.forest_param
-        except ForestParameters.DoesNotExist:
-            return None
-    
     #
     ## forest tree parameters
     #
@@ -102,33 +81,55 @@ class ForestTask(TimestampedModel):
         which case we can call additional functions as needed). """
         # Every tree expects these two parameters
         params = {
-            "output_folder": self.data_output_path,
-            "study_folder": self.data_input_path,
+            "output_folder": self.data_output_path, "study_folder": self.data_input_path
         }
         
-        # no forest params implies that we are using the defaults, this may change in the future.
-        if self.forest_param_or_none is None:
+        # get the parameters that were used originally on this task, which may differ from the
+        # defaults (due to code drift, we don't currently have a way to change them)
+        if self.pickled_parameters:
             params.update(DEFAULT_FOREST_PARAMETERS_LOOKUP[self.forest_tree])
         else:
-            params.update(self.forest_param.json_parameters)
-        
+            params.update(self.unpickle_from_pickled_parameters())
+        self.handle_tree_specific_params(params)
+        return params
+    
+    def pickle_to_pickled_parameters(self, parameters: Dict):
+        """ takes parameters and pickles them """
+        if not isinstance(parameters, dict):
+            raise TypeError("parameters must be a dict")
+        # these folders are generated at run time only, we don't store them, but we also don't want
+        # to mutate the dictionary that was passed in.
+        cleaned_parameters = parameters.copy()
+        cleaned_parameters.pop("output_folder", None)
+        cleaned_parameters.pop("study_folder", None)
+        self.pickled_parameters = pickle.dumps(self.pickled_parameters)
+    
+    def unpickle_from_pickled_parameters(self) -> Dict:
+        """ Unpickle the pickled_parameters field. """
+        # If you see a stacktrace pointing here that means Forest code changed substantially and
+        # this Forest task's code fundamentally change in a way that means it cannot be rerun.
+        try:
+            ret = pickle.loads(self.pickled_parameters)
+        except Exception:
+            raise ValueError(FOREST_PICKLING_ERROR)
+        if not isinstance(ret, dict):
+            raise TypeError("unpickled parameters must be a dict")
+        return ret
+    
+    def handle_tree_specific_params(self, params: Dict):
         self.handle_tree_specific_date_params(params)
-        
         if self.forest_tree == ForestTree.jasmine:
             self.assemble_jasmine_dynamic_params(params)
         if self.forest_tree == ForestTree.sycamore:
             self.assemble_sycamore_folder_path_params(params)
-        
-        return params
     
+    # TODO: this is only because we were not pickling the parameters before. We can have forest use raw datetimes now.
     def handle_tree_specific_date_params(self, params: dict):
         if self.forest_tree != ForestTree.sycamore:
             # most trees expect lists of datetime parameters. We need to add a day since this model
             # tracks time end inclusively, but Forest expects it exclusively
-            params.update({
-                "time_start": datetime_to_list(self.data_date_start),
-                "time_end": datetime_to_list(self.data_date_end + timedelta(days=1)),
-            })
+            params.update({"time_start": datetime_to_list(self.data_date_start),
+                           "time_end": datetime_to_list(self.data_date_end + timedelta(days=1))})
         else:
             # sycamore expects "time_end" and "time_start" as strings in the format "YYYY-MM-DD"
             params.update({
@@ -137,10 +138,12 @@ class ForestTask(TimestampedModel):
             })
     
     def assemble_jasmine_dynamic_params(self, params: dict):
+        """ real code is in libs/forest_utils.py """
         params["all_bv_set"] = get_jasmine_all_bv_set_dict(self)
         params["all_memory_dict"] = get_jasmine_all_memory_dict_dict(self)
     
     def assemble_sycamore_folder_path_params(self, params: dict):
+        """ Sycamore has some extra files and file paths """
         params['config_path'] = self.study_config_path
         params['interventions_filepath'] = self.interventions_filepath
     

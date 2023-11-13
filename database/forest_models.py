@@ -9,10 +9,11 @@ from typing import Dict
 from django.db import models
 from django.db.models import Manager
 
-from constants.forest_constants import (DEFAULT_FOREST_PARAMETERS_LOOKUP, FOREST_PICKLING_ERROR,
-    ForestTaskStatus, ForestTree, NON_PICKLED_PARAMETERS, PARAMETER_ALL_BV_SET,
-    PARAMETER_ALL_MEMORY_DICT, PARAMETER_CONFIG_PATH, PARAMETER_INTERVENTIONS_FILEPATH,
-    ROOT_FOREST_TASK_PATH, SYCAMORE_DATE_FORMAT)
+from constants.celery_constants import ForestTaskStatus
+from constants.forest_constants import (DEFAULT_FOREST_PARAMETERS, FOREST_PICKLING_ERROR,
+    ForestTree, NON_PICKLED_PARAMETERS, PARAMETER_ALL_BV_SET, PARAMETER_ALL_MEMORY_DICT,
+    PARAMETER_CONFIG_PATH, PARAMETER_INTERVENTIONS_FILEPATH, ROOT_FOREST_TASK_PATH,
+    SYCAMORE_DATE_FORMAT)
 from database.common_models import TimestampedModel
 from database.user_models_participant import Participant
 from libs.forest_utils import get_jasmine_all_bv_set_dict, get_jasmine_all_memory_dict_dict
@@ -94,7 +95,7 @@ class ForestTask(TimestampedModel):
             # unpickling specifically avoids the output and study folder parameters
             params.update(self.unpickle_from_pickled_parameters())
         else:
-            params.update(DEFAULT_FOREST_PARAMETERS_LOOKUP[self.forest_tree])
+            params.update(DEFAULT_FOREST_PARAMETERS[self.forest_tree])
         
         self.handle_tree_specific_params(params)
         return params
@@ -123,6 +124,14 @@ class ForestTask(TimestampedModel):
                 raise TypeError("unpickled parameters must be a dict")
             return ret
         return {}
+    
+    def safe_unpickle_parameters_as_string(self) -> str:
+        # it is common that we want a string representation of the parameters, but we need to handle
+        # pickling errors under that scenario.
+        try:
+            return repr(self.unpickle_from_pickled_parameters())  # use repr
+        except Exception as e:
+            return str(e)
     
     def handle_tree_specific_params(self, params: Dict):
         self.handle_tree_specific_date_params(params)

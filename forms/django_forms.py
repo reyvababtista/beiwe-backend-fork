@@ -1,7 +1,8 @@
 import bleach
 from django import forms
 
-from constants.forest_constants import ForestTaskStatus, ForestTree
+from constants.celery_constants import ForestTaskStatus
+from constants.forest_constants import ForestTree
 from constants.tableau_api_constants import (HEADER_IS_REQUIRED, SERIALIZABLE_FIELD_NAMES,
     SERIALIZABLE_FIELD_NAMES_DROPDOWN, VALID_QUERY_PARAMETERS, X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET)
 from database.forest_models import ForestTask

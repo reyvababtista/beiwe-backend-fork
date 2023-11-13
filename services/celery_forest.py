@@ -15,9 +15,9 @@ from django.db.models import Sum
 from django.utils import timezone
 from pkg_resources import get_distribution
 
-from constants.celery_constants import FOREST_QUEUE
+from constants.celery_constants import FOREST_QUEUE, ForestTaskStatus
 from constants.data_access_api_constants import CHUNK_FIELDS
-from constants.forest_constants import (CLEANUP_ERROR as CLN_ERR, ForestFiles, ForestTaskStatus,
+from constants.forest_constants import (CLEANUP_ERROR as CLN_ERR, FOREST_TREE_REQUIRED_DATA_STREAMS,
     ForestTree, NO_DATA_ERROR, ROOT_FOREST_TASK_PATH, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS,
     YEAR_MONTH_DAY)
 from database.data_access_models import ChunkRegistry
@@ -33,10 +33,6 @@ from libs.sentry import make_error_sentry, SentryTypes
 from libs.streaming_zip import determine_file_name
 from libs.utils.date_utils import get_timezone_shortcode
 
-from forest.jasmine.traj2stats import gps_stats_main
-from forest.sycamore.base import get_submits_for_tableau
-from forest.willow.log_stats import log_stats_main
-
 
 """
 This entire code path could be rewritten as a class, but all the data we need or want to track is
@@ -45,8 +41,6 @@ code for running any given forest task should be in this file, not attached to t
 database model. Deducing file paths, most dealing with constants and other simple lookups, including
 parameters for each tree, should be placed on that class.
 """
-
-
 MIN_TIME = datetime.min.time()
 MAX_TIME = datetime.max.time()
 
@@ -54,12 +48,22 @@ MAX_TIME = datetime.max.time()
 class NoSentryException(Exception): pass
 class BadForestField(Exception): pass
 
-# don't stick in constants, we want forest imports limited to forest related files, forest is not
-# installed on frontend servers, forest constants must remain freely importable.
+#! DON'T MOVE THESE IMPORTS
+# these imports have side effects, specifically importing oak changes logging behavior.
+# The bizarre import structure is to enable local development without having to change imports.
+
+from forest.jasmine.traj2stats import gps_stats_main
+from forest.oak.base import run as run_oak
+from forest.sycamore.base import get_submits_for_tableau
+from forest.willow.log_stats import log_stats_main
+
+
+# a lookup for pointing to the correct function for each tree (we need to look up by tree name)
 TREE_TO_FOREST_FUNCTION = {
     ForestTree.jasmine: gps_stats_main,
     ForestTree.willow: log_stats_main,
     ForestTree.sycamore: get_submits_for_tableau,
+    ForestTree.oak: run_oak,
 }
 
 DEBUG_CELERY_FOREST = False
@@ -199,7 +203,7 @@ def download_data(forest_task: ForestTask, start: datetime, end: datetime):
         participant=forest_task.participant,
         time_bin__gte=start,
         time_bin__lte=end,
-        data_type__in=ForestFiles.lookup(forest_task.forest_tree)
+        data_type__in=FOREST_TREE_REQUIRED_DATA_STREAMS[forest_task.forest_tree]
     )
     file_size = chunks.aggregate(Sum('file_size')).get('file_size__sum')
     if file_size is None:

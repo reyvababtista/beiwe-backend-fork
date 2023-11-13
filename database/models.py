@@ -26,6 +26,7 @@ for name, database_model in [(k, v) for k, v in vars().items()]:
     if isinstance(database_model, ModelBase):
         for field in database_model._meta.fields:
             # print(name, field, type(field))
+            # checked: Binary fields are not subclasses of textfields
             if isinstance(field, (fields.CharField, fields.TextField)):
                 if ProhibitNullCharactersValidator not in field.validators:
                     field.validators.append(ProhibitNullCharactersValidator())

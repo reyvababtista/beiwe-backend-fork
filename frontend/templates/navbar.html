@@ -71,7 +71,7 @@
           <ul class="dropdown-menu">
             <li><a href="{{ easy_url('forest_pages.create_tasks', study_id=study.id) }}">Create Forest Tasks</a></li>
             <li><a href="{{ easy_url('forest_pages.task_log', study_id=study.id) }}">View Forest Task Log</a></li>
-            <li><a href="{{ easy_url('forest_pages.analysis_progress', study_id=study.id) }}">View Forest Analysis Progress</a></li>
+            <li><a href="{{ easy_url('forest_pages.forest_tasks_progress', study_id=study.id) }}">View Forest Analysis Progress</a></li>
             {% if site_admin %}
             <li><a class="" href="{{ url('forest_pages.download_task_log') }}">
               <i>Download Forest Task Log (all studies)</i>

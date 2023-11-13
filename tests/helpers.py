@@ -9,9 +9,10 @@ from django.http.response import HttpResponse
 from django.utils import timezone
 
 from config.django_settings import STATIC_ROOT
+from constants.celery_constants import ForestTaskStatus
 from constants.common_constants import BEIWE_PROJECT_ROOT
 from constants.data_stream_constants import IDENTIFIERS
-from constants.forest_constants import ForestTaskStatus, ForestTree
+from constants.forest_constants import ForestTree
 from constants.message_strings import MESSAGE_SEND_SUCCESS
 from constants.schedule_constants import ScheduleTypes
 from constants.testing_constants import REAL_ROLES

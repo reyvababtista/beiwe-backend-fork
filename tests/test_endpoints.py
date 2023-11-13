@@ -457,7 +457,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
         "dashboard_api.get_data_for_dashboard_datastream_display",
         "dashboard_api.dashboard_participant_page",
         "data_access_web_form.data_api_web_form_page",
-        "forest_pages.analysis_progress",
+        "forest_pages.forest_tasks_progress",
         "forest_pages.task_log",
         "participant_pages.notification_history",
         "participant_pages.participant_page",
@@ -4686,7 +4686,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
 
 # FIXME: make a real test...
 class TestForestAnalysisProgress(ResearcherSessionTest):
-    ENDPOINT_NAME = "forest_pages.analysis_progress"
+    ENDPOINT_NAME = "forest_pages.forest_tasks_progress"
     
     def test(self):
         # hey it loads...

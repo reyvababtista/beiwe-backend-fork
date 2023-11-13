@@ -12,10 +12,11 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from authentication.admin_authentication import (authenticate_admin,
     authenticate_researcher_study_access, forest_enabled)
+from constants.celery_constants import ForestTaskStatus
 from constants.common_constants import DEV_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATE
 from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import (FOREST_TASKVIEW_PICKLING_EMPTY,
-    FOREST_TASKVIEW_PICKLING_ERROR, ForestTaskStatus, ForestTree)
+    FOREST_TASKVIEW_PICKLING_ERROR, ForestTree)
 from database.data_access_models import ChunkRegistry
 from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.study_models import Study
@@ -53,28 +54,24 @@ TASK_SERIALIZER_FIELDS = [
 @require_GET
 @authenticate_researcher_study_access
 @forest_enabled
-def analysis_progress(request: ResearcherRequest, study_id=None):
+def forest_tasks_progress(request: ResearcherRequest, study_id=None):
     study: Study = Study.objects.get(pk=study_id)
     participants: ParticipantQuerySet = Participant.objects.filter(study=study_id)
     
     # generate chart of study analysis progress logs
-    trackers = ForestTask.objects.filter(participant__in=participants).order_by("created_on")
+    tasks = ForestTask.objects.filter(participant__in=participants).order_by("created_on")
     
     start_date = (study.get_earliest_data_time_bin() or study.created_on).date()
     end_date = (study.get_latest_data_time_bin() or timezone.now()).date()
     
+    params = {}
+    results = defaultdict(lambda: "--")
     # this code simultaneously builds up the chart of most recent forest results for date ranges
     # by participant and tree, and tracks the metadata
-    params = dict()
-    results = defaultdict(lambda: "--")
-    tracker: ForestTask
-    for tracker in trackers:
-        for date in daterange(tracker.data_date_start, tracker.data_date_end, inclusive=True):
-            results[(tracker.participant_id, tracker.forest_tree, date)] = tracker.status
-            if tracker.status == ForestTaskStatus.success:
-                params[(tracker.participant_id, tracker.forest_tree, date)] = tracker.forest_param_id
-            else:
-                params[(tracker.participant_id, tracker.forest_tree, date)] = None
+    for task in tasks:
+        for a_date in daterange(task.data_date_start, task.data_date_end, inclusive=True):
+            results[(task.participant_id, task.forest_tree, a_date)] = task
+            params[(task.participant_id, task.forest_tree, a_date)] = task.safe_unpickle_parameters_as_string()
     
     # generate the date range for charting
     dates = list(daterange(start_date, end_date, inclusive=True))
@@ -89,14 +86,14 @@ def analysis_progress(request: ResearcherRequest, study_id=None):
     # ensure that within each tree, only a single set of param values are used (only the most recent runs
     # are considered, and unsuccessful runs are assumed to invalidate old runs, clearing params)
     params_conflict = False
-    for tree in set([k[1] for k in params.keys()]):
-        if len(set([m for k, m in params.items() if m is not None and k[1] == tree])) > 1:
+    for tree in {k[1] for k in params.keys()}:
+        if len({m for k, m in params.items() if m is not None and k[1] == tree}) > 1:
             params_conflict = True
             break
     
     return render(
         request,
-        'forest/analysis_progress.html',
+        'forest/forest_tasks_progress.html',  # has been renamed internally because this is imprecise.
         context=dict(
             study=study,
             chart_columns=["participant", "tree"] + dates,

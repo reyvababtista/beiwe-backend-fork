@@ -222,7 +222,7 @@ path('get_latest_device_settings/ios', mobile_api.get_latest_device_settings, na
 path('graph', mobile_pages.fetch_graph)
 
 # forest pages
-path('studies/<str:study_id>/forest/progress', forest_pages.analysis_progress, login_redirect=SAFE)
+path('studies/<str:study_id>/forest/progress', forest_pages.forest_tasks_progress, login_redirect=SAFE)
 path('studies/<str:study_id>/forest/tasks/create', forest_pages.create_tasks)
 path('studies/<str:study_id>/forest/tasks', forest_pages.task_log, login_redirect=SAFE)
 path('forest/tasks/download', forest_pages.download_task_log)

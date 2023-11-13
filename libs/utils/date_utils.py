@@ -1,5 +1,5 @@
 from datetime import date, datetime, timedelta, tzinfo
-from typing import List, Union
+from typing import Any, Generator, List, Union
 
 from django.utils.timezone import make_aware
 
@@ -9,7 +9,8 @@ date_or_time = Union[date, datetime]
 
 def daterange(
     start: datetime, stop: datetime, step: timedelta = timedelta(days=1), inclusive: bool = False
-):
+) -> Generator[datetime, Any, None]:
+    """ Generator yielding day-separated datetimes between start and stop. """
     # source: https://stackoverflow.com/a/1060376/1940450
     if step.days > 0:
         while start < stop:

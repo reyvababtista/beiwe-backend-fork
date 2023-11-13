@@ -1,5 +1,6 @@
 from os.path import join as path_join
 
+from constants import DjangoDropdown
 from constants.common_constants import BEIWE_PROJECT_ROOT
 
 
@@ -22,3 +23,12 @@ BACKEND_FIREBASE_CREDENTIALS = "backend_firebase_credentials"
 # firebase gets the default app name unless otherwise specified, so it is necessary to have
 # another name for testing that will never be used to send notifications
 FIREBASE_APP_TEST_NAME = 'FIREBASE_APP_TEST_NAME'
+
+
+# Todo: make the pattern of using this object generic throughout all task processing, not just forest.
+class ForestTaskStatus(DjangoDropdown):
+    queued = 'queued'
+    running = 'running'
+    success = 'success'
+    error = 'error'
+    cancelled = 'cancelled'

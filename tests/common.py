@@ -70,6 +70,7 @@ Researcher.DESIRED_ITERATIONS = 1000
 Participant.DESIRED_ITERATIONS = 1000
 ApiKey.DESIRED_ITERATIONS = 1000
 
+
 class CommonTestCase(TestCase, ReferenceObjectMixin):
     """ This class contains the various test-oriented features, for example the assert_present
     method that handles a common case of some otherwise distracting type coersion. """

@@ -43,4 +43,4 @@ django-timezone-field==4.1.1
 
 pip-tools>=7.3.0
 
-git+https://git@github.com/onnela-lab/forest@fcc49a74057f98b1b26079a0257b3e9d7c27a98f
+git+https://git@github.com/onnela-lab/forest@0d73099c9c5e7129739563b01998810cee65befa

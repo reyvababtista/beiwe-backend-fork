@@ -6,11 +6,11 @@ from typing import Dict
 
 from django.db import models
 from django.db.models import QuerySet
-
 from django.utils import timezone
 
-from constants.common_constants import API_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATETIME
-from constants.data_processing_constants import CHUNK_TIMESLICE_QUANTUM, CHUNKS_FOLDER
+from constants.common_constants import (API_TIME_FORMAT, CHUNKS_FOLDER,
+    EARLIEST_POSSIBLE_DATA_DATETIME)
+from constants.data_processing_constants import CHUNK_TIMESLICE_QUANTUM
 from constants.data_stream_constants import (CHUNKABLE_FILES, IDENTIFIERS,
     REVERSE_UPLOAD_FILE_TYPE_MAPPING)
 from constants.user_constants import OS_TYPE_CHOICES

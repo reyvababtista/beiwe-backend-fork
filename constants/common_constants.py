@@ -38,7 +38,8 @@ DEV_TIME_FORMAT2 = "%Y-%m-%d %H:%M:%S (%Z)"
 DEV_TIME_FORMAT3 = "%Y-%m-%d %H:%M:%S . %f (%Z)"  # leave the extra spaces
 DISPLAY_TIME_FORMAT = "%Y-%m-%d %-I:%M%p (%Z)"
 
-# file path for s3 for problem uploads
+## All s3 file paths must be declared here for the  participant data purge.
+CHUNKS_FOLDER = "CHUNKED_DATA"
 PROBLEM_UPLOADS = "PROBLEM_UPLOADS"
 
 # file path for custom ondeploy script

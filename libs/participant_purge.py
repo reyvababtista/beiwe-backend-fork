@@ -3,8 +3,7 @@ from typing import List, Tuple
 
 from django.utils import timezone
 
-from constants.common_constants import PROBLEM_UPLOADS
-from constants.data_processing_constants import CHUNKS_FOLDER
+from constants.common_constants import CHUNKS_FOLDER, PROBLEM_UPLOADS
 from database.user_models_participant import Participant, ParticipantDeletionEvent
 from libs.s3 import s3_delete_many_versioned, s3_list_files, s3_list_versions
 from libs.security import generate_easy_alphanumeric_string

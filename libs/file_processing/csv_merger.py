@@ -3,9 +3,9 @@ from typing import Dict, List, Set, Tuple
 from botocore.exceptions import ReadTimeoutError
 from cronutils import ErrorHandler
 
-from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
+from constants.common_constants import CHUNKS_FOLDER, RUNNING_TEST_OR_IN_A_SHELL
 from constants.data_processing_constants import (CHUNK_EXISTS_CASE, CHUNK_TIMESLICE_QUANTUM,
-    CHUNKS_FOLDER, REFERENCE_CHUNKREGISTRY_HEADERS)
+    REFERENCE_CHUNKREGISTRY_HEADERS)
 from constants.data_stream_constants import SURVEY_DATA_FILES
 from database.data_access_models import ChunkRegistry
 from database.survey_models import Survey

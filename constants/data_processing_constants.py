@@ -8,9 +8,6 @@ from constants.user_constants import ANDROID_API, IOS_API
 
 CHUNK_TIMESLICE_QUANTUM = 3600
 
-# the name of the s3 folder that contains chunked data
-CHUNKS_FOLDER = "CHUNKED_DATA"
-
 # These reference dicts contain the output headers that should exist for each data stream, per-os.
 #  A value of None means that the os cannot generate that data (or the dictionary needs to be updated)
 

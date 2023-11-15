@@ -1,5 +1,6 @@
 import csv
 import json
+import os
 import shutil
 import traceback
 from datetime import date, datetime, timedelta
@@ -13,9 +14,10 @@ from dateutil.tz import UTC
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
-from pkg_resources import get_distribution
+from pkg_resources import DistributionNotFound, get_distribution
 
 from constants.celery_constants import FOREST_QUEUE, ForestTaskStatus
+from constants.common_constants import BEIWE_PROJECT_ROOT
 from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import (CLEANUP_ERROR as CLN_ERR, FOREST_TREE_REQUIRED_DATA_STREAMS,
     ForestTree, NO_DATA_ERROR, ROOT_FOREST_TASK_PATH, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS,
@@ -128,10 +130,16 @@ def celery_run_forest(forest_task_id):
         if task is None:  # Should be unreachable...
             return
         
+        # We check the distribution (pip) version, with some backups for local development
+        try:
+            version = get_distribution("forest").version
+        except DistributionNotFound:
+            version = "local" if "forest" in os.listdir(BEIWE_PROJECT_ROOT) else "unknown"
+        
         task.update_only(  # Set metadata on the task to running
             status=ForestTaskStatus.running,
             process_start_time=timezone.now(),
-            forest_version=get_distribution("forest").version
+            forest_version=version
         )
     
     # ChunkRegistry time_bin hourly chunks are in UTC, and only have hourly datapoints for all
@@ -155,7 +163,7 @@ def run_forest_task(task: ForestTask, start: datetime, end: datetime):
     try:
         download_data(task, start, end)
         run_forest(task)
-        upload_cached_files(task)
+        upload_cache_files(task)
         task.update_only(status=ForestTaskStatus.success)
     except BaseException as e:
         task.update_only(status=ForestTaskStatus.error, stacktrace=traceback.format_exc())
@@ -237,11 +245,16 @@ def construct_summary_statistics(task: ForestTask):
         
         for line in reader:
             has_data = True
-            summary_date = date(
-                int(float(line['year'])),
-                int(float(line['month'])),
-                int(float(line['day'])),
-            )
+            if task.forest_tree == ForestTree.oak:
+                # oak has a different output format, it is a json file.
+                summary_date = date.fromisoformat(line['date'])
+            else:
+                # at the very least jasmine uses this format.
+                summary_date = date(
+                    int(float(line['year'])),
+                    int(float(line['month'])),
+                    int(float(line['day'])),
+                )
             # if timestamp is outside of desired range, skip.
             if not (task.data_date_start < summary_date < task.data_date_end):
                 continue
@@ -256,7 +269,9 @@ def construct_summary_statistics(task: ForestTask):
                     summary_stat_field = TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS[column_name]
                     # force Nones on no data fields, not empty strings (db table issue)
                     updates[summary_stat_field] = value if value != '' else None
-                elif column_name in YEAR_MONTH_DAY:
+                elif column_name in YEAR_MONTH_DAY or column_name == "date":
+                    # such a column is used to identify the date we update, not a field in a
+                    # SummaryStatisticDaily that we need to update
                     continue
                 else:
                     raise BadForestField(column_name)
@@ -340,7 +355,7 @@ def ensure_folders_exist(forest_task: ForestTask):
 
 
 # Extras
-def upload_cached_files(forest_task: ForestTask):
+def upload_cache_files(forest_task: ForestTask):
     """ Find output files from forest tasks and consume them. """
     if file_exists(forest_task.all_bv_set_path):
         with open(forest_task.all_bv_set_path, "rb") as f:

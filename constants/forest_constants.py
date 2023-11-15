@@ -1,7 +1,9 @@
 from constants import DjangoDropdown
-from constants.data_stream_constants import ACCELEROMETER, CALL_LOG, GPS, SURVEY_ANSWERS, TEXTS_LOG
+from constants.data_stream_constants import (ACCELEROMETER, CALL_LOG, GPS, SURVEY_ANSWERS,
+    SURVEY_TIMINGS, TEXTS_LOG)
 
 from forest.constants import Frequency
+
 
 # the canonical location where any files are allocated for forest tasks.
 ROOT_FOREST_TASK_PATH = "/tmp/forest/"
@@ -105,7 +107,7 @@ FOREST_TREE_REQUIRED_DATA_STREAMS = {
     # ForestTree.bonsai: [GPS, TEXTS_LOG],
     ForestTree.jasmine: [GPS],
     ForestTree.oak: [ACCELEROMETER],
-    ForestTree.sycamore: [SURVEY_ANSWERS],
+    ForestTree.sycamore: [SURVEY_ANSWERS, SURVEY_TIMINGS],
     ForestTree.willow: [CALL_LOG, TEXTS_LOG],
 }
 

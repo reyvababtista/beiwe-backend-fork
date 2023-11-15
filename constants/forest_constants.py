@@ -29,7 +29,8 @@ class ForestTree(DjangoDropdown):
 # generic constants?
 YEAR_MONTH_DAY = ('year', 'month', 'day')
 SYCAMORE_DATE_FORMAT = "%Y-%m-%d"
-
+OAK_DATE_FORMAT_PARAMETER = "%Y-%m-%d %H_%M_%S"  # YYYY-mm-dd HH_MM_SS
+# OAK_DATE_FORMAT_CSV = "%Y-%m-%d"  # we use date.fromisoformat, but keep this line as documentation
 
 # These Forest Tree parameters were most recently updated from Forest commit
 # fcc49a74057f98b1b26079a0257b3e9d7c27a98f
@@ -79,7 +80,6 @@ DEFAULT_FOREST_PARAMETERS = {
         ## the rest are optionals
         # beiwe_id: Optional[List[str]] = None,
     },
-
 }
 
 
@@ -163,4 +163,9 @@ TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS = {
     "avg_time_to_submit": "sycamore_average_time_to_submit",
     "avg_time_to_open": "sycamore_average_time_to_open",
     "avg_duration": "sycamore_average_duration",
+    
+    # oak, walking metrics
+    "walking_time": "oak_walking_time",
+    "steps": "oak_steps",
+    "cadence": "oak_cadence",
 }

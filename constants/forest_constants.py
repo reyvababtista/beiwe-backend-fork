@@ -78,7 +78,7 @@ DEFAULT_FOREST_PARAMETERS = {
     ForestTree.willow: {
         "frequency": Frequency.DAILY,
         ## the rest are optionals
-        # beiwe_id: Optional[List[str]] = None,
+        # beiwe_ids: Optional[List[str]] = None,
     },
 }
 
@@ -146,7 +146,7 @@ TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS = {
     "num_mms_s": "willow_outgoing_MMS_count",
     "num_mms_r": "willow_incoming_MMS_count",
     
-    # willow, calls
+    # Willow, calls
     "num_in_call": "willow_incoming_call_count",
     "num_in_caller": "willow_incoming_call_degree",
     "total_mins_in_call": "willow_incoming_call_duration",
@@ -155,6 +155,9 @@ TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS = {
     "total_mins_out_call": "willow_outgoing_call_duration",
     "num_mis_call": "willow_missed_call_count",
     "num_mis_caller": "willow_missed_callers",
+    
+    # Willow, both
+    "num_uniq_individuals_call_or_text": "willow_uniq_individual_call_or_text_count",
     
     # sycamore, survey frequency
     "num_surveys": "sycamore_total_surveys",

@@ -321,6 +321,8 @@ class SummaryStatisticDaily(TimestampedModel):
     willow_missed_call_count = models.IntegerField(null=True, blank=True)
     willow_missed_callers = models.IntegerField(null=True, blank=True)
     
+    willow_uniq_individual_call_or_text_count = models.IntegerField(null=True, blank=True)
+    
     # Sycamore, Survey Frequency
     sycamore_total_surveys = models.IntegerField(null=True, blank=True)
     sycamore_total_completed_surveys = models.IntegerField(null=True, blank=True)

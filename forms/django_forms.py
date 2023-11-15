@@ -1,4 +1,3 @@
-
 import bleach
 from django import forms
 

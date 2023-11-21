@@ -513,7 +513,6 @@ class ReferenceObjectMixin:
     ):
         task = ForestTask(
             participant=participant or self.default_participant,
-            forest_param=self.default_forest_params,
             data_date_start=data_date_start,
             data_date_end=data_date_end,
             forest_tree=forest_tree,

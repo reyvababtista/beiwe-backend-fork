@@ -44,7 +44,7 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
 from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
-from database.system_models import FileAsText, GenericEvent
+from database.system_models import FileAsText, GenericEvent, GlobalSettings
 from database.user_models_participant import (Participant, ParticipantDeletionEvent,
     ParticipantFCMHistory)
 from database.user_models_researcher import Researcher, StudyRelation
@@ -421,6 +421,18 @@ class TestLoginPages(BasicSessionTestCase):
         r3 = self.simple_get(r2.url, status_code=200)  # page loads as normal
         self.assert_present(MFA_CONFIGURATION_REQUIRED, r3.content)
         self.assert_present(MFA_CONFIGURATION_SITE_ADMIN, r3.content)
+
+
+class TestDowntime(BasicSessionTestCase):
+    """ Tests our very basic downtime middleware """
+    
+    def test_downtime(self):
+        GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
+        self.easy_get("login_pages.login_page", status_code=200)
+        GlobalSettings.get_singleton_instance().update(downtime_enabled=True)
+        self.easy_get("login_pages.login_page", status_code=503)
+        GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
+        self.easy_get("login_pages.login_page", status_code=200)
 
 
 class TestChooseStudy(ResearcherSessionTest):

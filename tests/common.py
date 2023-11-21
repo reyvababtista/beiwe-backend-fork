@@ -1,3 +1,4 @@
+import logging
 from functools import wraps
 from itertools import chain
 from os.path import join as path_join
@@ -34,8 +35,19 @@ VERBOSE_2_OR_3 = ("-v2" in argv or "-v3" in argv) and "-v1" not in argv
 VERBOSE_3 = "-v3" in argv and "-v2" not in argv and "-v1" not in argv
 
 
-from libs import s3;  # (the ; and this comment blocks automatic reformatting of imports
+from libs import s3;  # (the ; and this comment blocks automatic reformatting of imports here.
 s3.S3_BUCKET = Exception   # force disable potentially active s3 connections.
+
+
+# 2023-11-21: for unknown reasons importing oak, jasmine, or willow from Forest anywhere at all
+# (currently that is limited to the celery forest, so this doesn't happen on webserver code) causes
+# the django requests logger to be set to WARNING, which causes a lot of noise in the test output.
+# This is not ideal, forest shouldn't do that, but we don't know why this is happening so for now
+# we'll just force it to logging.ERROR. (Investigating this revealed some super weird behavior of
+# the python logging library.)
+# see https://github.com/onnela-lab/forest/issues/217
+# forest commit at the time: 810ef6c1f2779c46be402819fd807402b6769387
+logging.getLogger("django.request").setLevel(logging.ERROR)
 
 
 # extra printout of calls to the messages library

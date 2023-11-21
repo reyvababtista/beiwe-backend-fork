@@ -144,8 +144,10 @@ def all_participant_file_paths(participant: Participant) -> List[Tuple[str, str]
         yield many_file_version_ids
 
 
+# Note from developing the Forest task output file uploads - they are contained inside the regular
+# participant data folder. 👍 We good.
 def get_all_file_path_prefixes(participant: Participant) -> Tuple[Tuple[str, str]]:
-    """ The singular canonical location of all locations whhre participant data may be stored. """
+    """ The singular canonical location of all locations where participant data may be stored. """
     base = participant.study.object_id + "/" + participant.patient_id + "/"
     chunks_prefix = CHUNKS_FOLDER + "/" + base
     problem_uploads = PROBLEM_UPLOADS + "/" + base

@@ -64,16 +64,6 @@ class ForestTask(TimestampedModel):
     willow_summary_statistics: Manager[SummaryStatisticDaily]
     oak_summary_statistics: Manager[SummaryStatisticDaily]
     
-    def get_legible_identifier(self) -> str:
-        """ Return a human-readable identifier. """
-        return "_".join([
-            "data",
-            self.participant.patient_id,
-            self.forest_tree,
-            str(self.data_date_start),
-            str(self.data_date_end),
-        ])
-    
     @property
     def taskname(self) -> str:
         # this is the Foreign key reference field name in SummaryStatisticDaily

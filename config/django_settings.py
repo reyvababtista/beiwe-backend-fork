@@ -51,6 +51,7 @@ DEBUG = 'localhost' in DOMAIN_NAME or '127.0.0.1' in DOMAIN_NAME or '::1' in DOM
 SECURE_SSL_REDIRECT = not DEBUG
 
 MIDDLEWARE = [
+    'middleware.downtime_middleware.DowntimeMiddleware',  # does a single database call
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',

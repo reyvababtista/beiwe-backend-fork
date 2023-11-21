@@ -48,6 +48,18 @@ def save_all_memory_dict_bytes(task: ForestTask, all_memory_dict_bytes):
     task.save(update_fields=["all_memory_dict_s3_key"])
 
 
+def save_output_file(task: ForestTask, output_file_bytes):
+    from libs.s3 import s3_upload
+    # output_zip_s3_path includes the study id, so we can use raw path
+    s3_upload(task.output_zip_s3_path, output_file_bytes, task.participant, raw_path=True)
+    task.save(update_fields=["output_zip_s3_path"])  # its already committed to the database
+
+
+def download_output_file(task: ForestTask) -> bytes:
+    from libs.s3 import s3_retrieve
+    return s3_retrieve(task.output_zip_s3_path, task.participant, raw_path=True)
+
+
 # our extremely fragile mechanism to get the git commit of the "current" forest version
 def get_forest_git_hash() -> str:
     that_git_prefix = "git+https://git@github.com/onnela-lab/forest@"

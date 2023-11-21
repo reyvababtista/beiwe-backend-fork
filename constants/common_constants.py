@@ -30,15 +30,15 @@ LATEST_POSSIBLE_DATA_TIMESTAMP = int(time.mktime((datetime.utcnow() + timedelta(
 # The format that dates should be in throughout the codebase
 # 1990-01-31T07:30:04 gets you jan 31 1990 at 7:30:04am
 # human string is YYYY-MM-DDThh:mm:ss
-API_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+API_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"  # this is the isoformat without timezone
 API_TIME_FORMAT_WITH_TZ = "%Y-%m-%dT%H:%M:%S (%Z)"
 API_DATE_FORMAT = "%Y-%m-%d"
+LEGIBLE_TIME_FORMAT = "%Y-%m-%d %H:%M:%S (%Z)"
 DEV_TIME_FORMAT = "%Y-%m-%d %H:%M (%Z)"
-DEV_TIME_FORMAT2 = "%Y-%m-%d %H:%M:%S (%Z)"
 DEV_TIME_FORMAT3 = "%Y-%m-%d %H:%M:%S . %f (%Z)"  # leave the extra spaces
 DISPLAY_TIME_FORMAT = "%Y-%m-%d %-I:%M%p (%Z)"
 
-## All s3 file paths must be declared here for the  participant data purge.
+## All s3 file paths must be declared here so that we know where they are for participant data purge.
 CHUNKS_FOLDER = "CHUNKED_DATA"
 PROBLEM_UPLOADS = "PROBLEM_UPLOADS"
 

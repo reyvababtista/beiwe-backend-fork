@@ -52,7 +52,9 @@ class ForestTask(TimestampedModel):
     # Whether or not there was any data output by Forest (None indicates unknown)
     forest_output_exists = models.BooleanField(null=True, blank=True)
     
-    # Jasmine has special parameters, files (stored on S3), these are their s3 file paths.
+    # S3 file paths
+    output_zip_s3_path = models.TextField(blank=True)  # includes study folder in path
+    # Jasmine has special parameters, these are their s3 file paths.
     all_bv_set_s3_key = models.TextField(blank=True)
     all_memory_dict_s3_key = models.TextField(blank=True)
     
@@ -60,6 +62,7 @@ class ForestTask(TimestampedModel):
     jasmine_summary_statistics: Manager[SummaryStatisticDaily]
     sycamore_summary_statistics: Manager[SummaryStatisticDaily]
     willow_summary_statistics: Manager[SummaryStatisticDaily]
+    oak_summary_statistics: Manager[SummaryStatisticDaily]
     
     def get_legible_identifier(self) -> str:
         """ Return a human-readable identifier. """
@@ -72,7 +75,8 @@ class ForestTask(TimestampedModel):
         ])
     
     @property
-    def taskname(self):
+    def taskname(self) -> str:
+        # this is the Foreign key reference field name in SummaryStatisticDaily
         return self.forest_tree + "_task"
     
     #
@@ -185,33 +189,24 @@ class ForestTask(TimestampedModel):
         return path_join(ROOT_FOREST_TASK_PATH, str(self.external_id))
     
     @property
-    def data_base_path(self):
+    def tree_base_path(self):
         """ Path to the base data for this task's tree. /tmp/forest/<uuid>/<tree> """
         return path_join(self.root_path_for_task, self.forest_tree)
     
     @property
-    def interventions_filepath(self) -> str:
-        """ The study interventions file path for the participant's survey data.
-         /tmp/forest/<uuid>/<tree>/<study_objectid>_interventions.json """
-        filename = self.participant.study.object_id + "_interventions.json"
-        return path_join(self.data_base_path, filename)
-    
-    @property
-    def study_config_path(self) -> str:
-        """ The study configuration file file path.
-        /tmp/forest/<uuid>/<tree>/<patient_id>_surveys_and_settings.json """
-        filename = self.participant.study.object_id + "_surveys_and_settings.json"
-        return path_join(self.data_base_path, filename)
-    
-    @property
     def data_input_path(self) -> str:
         """ Path to the input data folder. /tmp/forest/<uuid>/<tree>/data """
-        return path_join(self.data_base_path, "data")
+        return path_join(self.tree_base_path, "data")
     
     @property
     def data_output_path(self) -> str:
         """ Path to the output data folder. /tmp/forest/<uuid>/<tree>/output """
-        return path_join(self.data_base_path, "output")
+        return path_join(self.tree_base_path, "output")
+    
+    @property
+    def task_report_path(self) -> str:
+        """ Path to the task report file. /tmp/forest/<uuid>/<tree>/output/task_report.txt """
+        return path_join(self.data_output_path, "task_report.txt")
     
     @property
     def forest_results_path(self) -> str:
@@ -219,6 +214,20 @@ class ForestTask(TimestampedModel):
         /tmp/forest/<uuid>/<tree>/output/daily/<patient_id>.csv
         Beiwe ONLY collects for streaming the daily summaries. """
         return path_join(self.data_output_path, "daily", f"{self.participant.patient_id}.csv")
+    
+    @property
+    def interventions_filepath(self) -> str:
+        """ The study interventions file path for the participant's survey data.
+         /tmp/forest/<uuid>/<tree>/<study_objectid>_interventions.json """
+        filename = self.participant.study.object_id + "_interventions.json"
+        return path_join(self.tree_base_path, filename)
+    
+    @property
+    def study_config_path(self) -> str:
+        """ The study configuration file file path.
+        /tmp/forest/<uuid>/<tree>/<patient_id>_surveys_and_settings.json """
+        filename = self.participant.study.object_id + "_surveys_and_settings.json"
+        return path_join(self.tree_base_path, filename)
     
     @property
     def all_bv_set_path(self) -> str:

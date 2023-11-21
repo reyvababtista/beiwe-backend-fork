@@ -17,7 +17,7 @@ from django.utils import timezone
 from pkg_resources import DistributionNotFound, get_distribution
 
 from constants.celery_constants import FOREST_QUEUE, ForestTaskStatus
-from constants.common_constants import BEIWE_PROJECT_ROOT
+from constants.common_constants import API_TIME_FORMAT, BEIWE_PROJECT_ROOT
 from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import (CLEANUP_ERROR as CLN_ERR, FOREST_TREE_REQUIRED_DATA_STREAMS,
     ForestTree, NO_DATA_ERROR, ROOT_FOREST_TASK_PATH, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS,
@@ -27,13 +27,13 @@ from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.user_models_participant import Participant
 from libs.celery_control import forest_celery_app, safe_apply_async
 from libs.copy_study import format_study
-from libs.forest_utils import save_all_bv_set_bytes, save_all_memory_dict_bytes
+from libs.forest_utils import save_all_bv_set_bytes, save_all_memory_dict_bytes, save_output_file
 from libs.internal_types import ChunkRegistryQuerySet
 from libs.intervention_utils import intervention_survey_data
 from libs.s3 import s3_retrieve
 from libs.sentry import make_error_sentry, SentryTypes
 from libs.streaming_zip import determine_file_name
-from libs.utils.date_utils import get_timezone_shortcode
+from libs.utils.date_utils import get_timezone_shortcode, legible_time
 
 
 """
@@ -160,6 +160,8 @@ def celery_run_forest(forest_task_id):
 
 def run_forest_task(task: ForestTask, start: datetime, end: datetime):
     """ Given a time range, downloads all data and executes a tree on that data. """
+    ## try-except 1 - the main work block. Download data, run Forest, upload any cache files.
+    ## The except block handles reporting errors.
     try:
         download_data(task, start, end)
         run_forest(task)
@@ -173,19 +175,33 @@ def run_forest_task(task: ForestTask, start: datetime, end: datetime):
             with make_error_sentry(SentryTypes.data_processing, tags=tags):
                 raise
     finally:
-        # This is entirely boilerplate for reporting cleanup operations cleanly to both sentry and
-        # forest task infrastructure.
+        
+        ## try-except 2 - report generation and upload the output of the forest task. Report errors.
+        try:
+            generate_report(task)
+            compress_and_upload_raw_output(task)
+        except Exception as e:
+            print(f"Something went wrong with report generation or output upload. {e}")
+            print(traceback.format_exc())  # Hm, don't know which stack trace this prints 🧐
+            tags = {k: str(v) for k, v in task.as_dict().items()}  # report with many tags
+            with make_error_sentry(SentryTypes.data_processing, tags=tags):
+                raise
+        
+        ## try-except 3 - clean up files. Report errors.
+        # report cleanup operations cleanly to both sentry and forest task infrastructure.
         try:
             log("deleting files 1")
             clean_up_files(task)
         except Exception:
-            # mergeing stack traces, handling null case, then conditionally report with tags
+            # merging stack traces, handling null case, then conditionally report with tags
             task.update_only(stacktrace=((task.stacktrace or "") + CLN_ERR + traceback.format_exc()))
             log("task.stacktrace 2:", task.stacktrace)
             tags = {k: str(v) for k, v in task.as_dict().items()}
             with make_error_sentry(SentryTypes.data_processing, tags=tags):
                 raise
     
+    ## this is functionally a try-except block because all the above real try-except blocks
+    ## re-raise their error inside a reporting with-statement, e.g. make_error_sentry.
     log("task.status:", task.status)
     log("deleting files 2")
     clean_up_files(task)  # if this fails you probably have server oversubscription issues.
@@ -237,7 +253,7 @@ def construct_summary_statistics(task: ForestTask):
         log("path does not exist:", task.forest_results_path)
         return False
     
-    log("tree:", task.taskname)
+    log("tree:", task.forest_tree)
     with open(task.forest_results_path, "r") as f:
         reader = csv.DictReader(f)
         has_data = False
@@ -351,7 +367,78 @@ def ensure_folders_exist(forest_task: ForestTask):
     # folders
     makedirs(forest_task.data_input_path, exist_ok=True)
     makedirs(forest_task.data_output_path, exist_ok=True)
-    makedirs(forest_task.data_base_path, exist_ok=True)
+    makedirs(forest_task.tree_base_path, exist_ok=True)
+
+
+def generate_report(forest_task: ForestTask):
+    now = timezone.now()
+    tz_name = forest_task.participant.study.timezone
+    with open(forest_task.task_report_path, "w") as f:
+        f.write(f"Completed Forest task report for {forest_task.participant.patient_id} on {legible_time(now)}\n")
+        
+        # Forest Datapoints
+        f.write(f"Forest tree: {forest_task.forest_tree}\n")
+        f.write(f"Forest version: {forest_task.forest_version}\n")
+        f.write(f"Forest commit: {forest_task.forest_commit}\n")
+        f.write(f"Forest task id: {forest_task.external_id}\n")
+        
+        # data information
+        f.write(f"Data start date: {forest_task.data_date_start}\n")
+        f.write(f"Data end date: {forest_task.data_date_end} (inclusive)\n")
+        
+        ## Everthing after this point is only available if the task was successful.
+        # (total_file_size might be available if the task failed)
+        if forest_task.total_file_size:
+            # file size in megabytes, 2 decimal places
+            f.write(f"Total file size: {forest_task.total_file_size / 1024 / 1024:.2f}MB\n")
+        
+        # time information
+        p_start = forest_task.process_start_time
+        p_end = forest_task.process_end_time
+        p_download_end = forest_task.process_download_end_time
+        if p_start:
+            f.write(f"Process start time: {legible_time(p_start)} ({legible_time(p_start.astimezone(tz_name))})\n")
+        if p_download_end:
+            f.write(f"Process download end time: {legible_time(p_download_end)} ({legible_time(p_download_end.astimezone(tz_name))})\n")
+        if p_end:
+            f.write(f"Process end time: {legible_time(p_end)} ({legible_time(p_end.astimezone(tz_name))})\n")
+        
+        # runtime details, stack traces and extra parameters
+        if forest_task.stacktrace:
+            f.write("\n")
+            f.write(f"This Forest task encountered an error:\n{forest_task.stacktrace}\n")
+        
+        try:
+            parameters_repr = repr(forest_task.unpickle_from_pickled_parameters())
+        except Exception as e:
+            parameters_repr = f"Could not load parameters from database:\n{e}"
+        f.write(f"\n\nPython representation of any extra parameters that were passed into the Forest tree:\n{parameters_repr}\n")
+
+
+# theoretical code for a version that uploads all output files to s3 from the task to S3
+# todo: test the level of compression we get, identify forest trees that have output files and what they are, it isn't on the info page linked in constants
+def compress_and_upload_raw_output(forest_task: ForestTask):
+    """ Compresses raw output files and uploads them to S3. """
+    # I think it is correct that the file path is present twice.
+    base_file_path = f"{forest_task.id}_{timezone.now().strftime(API_TIME_FORMAT)}_output"
+    s3_path = f"{forest_task.forest_tree}_" + base_file_path + ".zip"
+    file_path = path_join(forest_task.root_path_for_task, base_file_path)
+    
+    filename = shutil.make_archive(
+        base_name=file_path,  # base_name is the zip file path minus the extension
+        format="zip",  # its a zip
+        root_dir=forest_task.data_output_path,  # the root directory of the zip file
+    )
+    # (this only ever runs on *nux, path_join is always correct)
+    forest_task.update(
+        output_zip_s3_path=path_join(
+            forest_task.participant.study.object_id, forest_task.participant.patient_id, s3_path
+        )
+    )
+    
+    with open(filename, "rb") as f:
+        # TODO: someday, optimize s3 stuff so we don't have this hanging out in-memory...
+        save_output_file(forest_task, f.read())
 
 
 # Extras

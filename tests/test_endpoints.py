@@ -527,7 +527,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             except AssertionError:
                 # case - we have a mildly illegal url that needs to be tested along with the others
                 assert url in ("manage_studies/", "manage_studies")
-
+            
             found_something = False
             for urlpattern in urlpatterns:
                 if urlpattern.pattern.match(url.lstrip("/")):

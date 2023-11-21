@@ -51,8 +51,11 @@
             {% endif %}
           </tr>
         </thead>
-
+        
         <tbody>
+        
+          <tr> <p style="color: gray;"> Note: downloading source data provides only the data streams used, and results in the data <b>as it currently is,</b> not the state of the data at the time of the Forest tree ran. 
+          </tr>
           <tr ng-repeat="log in filterableObjects" ng-if="(log.created_on_display + log.patient_id + log.forest_tree_display + log.data_date_start + log.data_date_end + log.status).toLowerCase().includes(filterText.toLowerCase())">
             <td>{% raw %}{{ log.created_on_display }}{% endraw %}</td>
             <td>{% raw %}{{ log.patient_id }}{% endraw %}</td>
@@ -76,9 +79,16 @@
                 <div>
                   <a class="btn btn-link" ng-href="{% raw %}{{ log.download_url|trustAsResourceUrl }}{% endraw %}"
                      style="padding: 0;">
-                    Download Chunked Data
+                    Download Source Data
                   </a>
                 </div>
+                
+                <div ng-if="log.has_output_downloadable_data">
+                  <a class="btn btn-link" ng-href="{% raw %}{{ log.download_output_url|trustAsResourceUrl }}{% endraw %}" style="padding: 0;">
+                    Download Output Data
+                  </a>
+                </div>
+                
                 <div ng-if="log.status === '{{ status_choices.queued }}'">
                   <form action="{% raw %}{{ log.cancel_url|trustAsResourceUrl }}{% endraw %}" method="post">
                     <button class="btn btn-link"

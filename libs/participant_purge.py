@@ -145,7 +145,7 @@ def all_participant_file_paths(participant: Participant) -> List[Tuple[str, str]
 
 
 # Note from developing the Forest task output file uploads - they are contained inside the regular
-# participant data folder. 👍 We good.
+# participant data folder, the jasmine bv_dict etc. are derived and don't have ~pii. 👍 We good.
 def get_all_file_path_prefixes(participant: Participant) -> Tuple[Tuple[str, str]]:
     """ The singular canonical location of all locations where participant data may be stored. """
     base = participant.study.object_id + "/" + participant.patient_id + "/"

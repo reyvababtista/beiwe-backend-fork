@@ -35,70 +35,106 @@ conn: BaseClient = boto3.client(
 
 
 class S3Compressed:
+    """ Class that coordinates the logic of downloading, uploading, decrypting, and decompressing. """
     
-    def __init__(self, s3_path: str, obj: StrOrParticipantOrStudy, bypass_study_folder: bool) -> None:
-        # the .zstd compression is final, it is appended to the end of every
+    def __init__(self, s3_path: str, obj: StrOrParticipantOrStudy, bypass_study_folder: bool):
+        # the .zstd compression is final, it is appended to the end of the file name for accounting
+        # purposes. External code should pass in an unmodified s3_path and this class handles 
+        # transforming it. (currently the transformation is simply to append .zstd)
         self.s3_path: str = s3_path
+        
+        #! fixme: its not clear if knowing that a file is a duplicate is useful as an object property.
         # self.s3_path_normalized: str = self.normalize_s3_file_path(s3_path)
         
         self.bypass_study_folder = bypass_study_folder
         self.smart_key_obj = obj
+        # self.has_decryption_key = False  # set to true when we have a decryption key?
         
         self.raw_data = None
         self.final_data = None
-        self.downloaded = False
+        self.is_downloaded = False
     
     @property
-    def compressed(self):
+    def is_compressed(self) -> bool:
+        """ If the s3 path ends with .zstd that means the file on s3 is compressed. Any upload will
+        be in compressed form (that's the purpose of this whole class). """
         return self.s3_path.endswith(ZSTD_EXTENSION)
     
-    def download(self):
-        if not self.downloaded:
-            if self.compressed:
+    def download(self) -> None:
+        """ Downloads, decrypts, decompresses the file from S3. """
+        # only download once, call appropriate download function.
+        if not self.is_downloaded:
+            if self.is_compressed:
                 self._download_as_uncompressed()
             else:
                 self._download_as_compressed()
     
-    def _download_as_uncompressed(self):
+    def _download_as_uncompressed(self) -> None:
+        """ Only to be called by self.download()! This is a destructive operation!
+        Downloads the uncompressed(!) file, compresses it, re-uploads it to S3 in compressed form,
+        then deletes the old file from s3. """
         self.raw_data = s3_retrieve(self.path_to_non_zstd_path, self.smart_key_obj, self.bypass_study_folder)
-        self.put_data(self.raw_data)  # compresses, sets self.s3_path
-        s3_delete(self.path_to_non_zstd_path)
+        self.push_data(self.raw_data)  # compresses, sets self.s3_path
+        s3_delete(self.path_to_non_zstd_path)   #! FIXME: we removed the s3_delete function in favor of (I think) versioned delete. need to check and update
     
-    def _download_as_compressed(self):
+    def _download_as_compressed(self) -> None:
+        """ Only to be called by self.download()! Downloads the data, sticks it on self.raw_data.
+        We do it this way for 2 reasons: it is useful to be able to control when the network request
+        happens, 2) it reduces memory overhead to not decompress it until we need it. """
         self.raw_data = s3_retrieve(self.path_to_zstd_path, self.smart_key_obj, self.bypass_study_folder)
         self.s3_path = self.path_to_zstd_path
     
     def get_data(self) -> bytes:
+        """ Returns bytes of the file, may run the download ~loop. """
+        # if we have already downloaded the file already, just return it.
         if self.final_data is not None:
             return self.final_data
         
+        # download, decompress, return. (decrypt is handled in download.)
         self.download()
-        if self.compressed:
+        self.decompress_data()
+        return self.final_data
+    
+    def decompress_data(self) -> None:
+        """ Runs the data decompression process if it has not already run. Clears self.raw_data. """
+        if self.is_compressed:
             self.final_data = zstd.decompress(self.raw_data)
             # don't keep the raw data around once we have decompressed it.
             self.raw_data = None
-        
-        return self.final_data
     
-    def put_data(self, data: bytes):
+    def push_data(self, data: bytes, clear_raw_data: bool = False) -> None:
+        """ compresses the data, uploads it to s3. Sets self.s3_path to zstd path. """
         compressed_data = zstd.compress(
             data,
             1,  # compression level (1 yields better compression on average across our data streams
             0,  # auto-tune the number of threads based on cpu cores (no apparent drawbacks)
         )
+        
+        # Memory usage optimization: raw_data may be large, if the outer code we doesn't need it
+        # anymore we can delete it. Ideally all references to that raw_data bytes object are local
+        # (on and only on this object, with no external scope references) and it can be cleared out.
+        if clear_raw_data:
+            self.raw_data = None
+            self.is_downloaded = False
+        
+        # Do the upload (memory usage will be duplicated, possibly triplicated due to python-to-C
+        # transition) due to the encryption step.
         s3_upload(self.path_to_zstd_path, compressed_data, self.smart_key_obj, raw_path=self.bypass_study_folder)
         self.s3_path = self.path_to_zstd_path
     
     @property
-    def path_to_zstd_path(self):
+    def path_to_zstd_path(self) -> str:
         return self.path_to_non_zstd_path + ZSTD_EXTENSION
     
     @property
-    def path_to_non_zstd_path(self):
+    def path_to_non_zstd_path(self) -> str:
+        #! FIXME: does this do exactly what I want it to do? strip iterates over the string? its weird
         return self.s3_path.rstrip(ZSTD_EXTENSION)
     
     @staticmethod
     def normalize_s3_file_path(s3_file_path: str) -> str:
+        """ Takes an s3 file path and returns the normalized version of it.  Normalization currently
+        consists of stripping the .zstd extension and the -duplicate-<random string> suffix."""
         s3_file_path = s3_file_path.rstrip(".zstd")
         if "duplicate" in s3_file_path:
             # duplicate files are named blahblah/datastream/unixtime.csv-duplicate-[rando-string]
@@ -108,6 +144,9 @@ class S3Compressed:
 
 
 def smart_get_study_encryption_key(obj: StrOrParticipantOrStudy) -> bytes:
+    """ Takes a string (of a study object_id), or a participant, or a study, and grabs the
+    encryption from the study. """
+    # participant is the slowest because study is a foreign key.
     if isinstance(obj, Participant):
         return obj.study.encryption_key.encode()
     elif isinstance(obj, Study):
@@ -118,7 +157,9 @@ def smart_get_study_encryption_key(obj: StrOrParticipantOrStudy) -> bytes:
         raise TypeError(f"expected Study, Participant, or str, received '{type(obj)}'")
 
 
-def s3_construct_study_key_path(key_path: str, obj: StrOrParticipantOrStudy):
+def s3_construct_study_key_path(key_path: str, obj: StrOrParticipantOrStudy) -> str:
+    """ obj can be a string (of a study object_id), or a participant, or a study. inserts the study
+    object_id at the start of the key path. """
     if isinstance(obj, Participant):
         study_object_id = obj.study.object_id
     elif isinstance(obj, Study):
@@ -263,7 +304,7 @@ def s3_delete_versioned(key_path: str, version_id: str) -> bool:
 
 # todo: test
 def s3_delete_many_versioned(paths_version_ids: List[Tuple[str, str]]):
-    """ Takes a lisnt of (key_path, version_id) tuples and deletes them all using the boto3
+    """ Takes a list of (key_path, version_id) tuples and deletes them all using the boto3
     delete_objects API.  Returns the number of files deleted, raises errors with reasonable
     clarity inside an errorhandler bundled error. """
     assert S3_BUCKET is not Exception, "libs.s3.s3_delete_many_versioned called inside test"

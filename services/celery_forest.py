@@ -35,30 +35,26 @@ from libs.sentry import make_error_sentry, SentryTypes
 from libs.streaming_zip import determine_file_name
 from libs.utils.date_utils import get_timezone_shortcode, legible_time
 
-
-"""
-This entire code path could be rewritten as a class, but all the data we need or want to track is
-collected on the ForestTask object.  For code organization reasons the [overwhelming] majority of
-code for running any given forest task should be in this file, not attached to the ForestTask
-database model. Deducing file paths, most dealing with constants and other simple lookups, including
-parameters for each tree, should be placed on that class.
-"""
-MIN_TIME = datetime.min.time()
-MAX_TIME = datetime.max.time()
-
-
-class NoSentryException(Exception): pass
-class BadForestField(Exception): pass
-
 #! DON'T MOVE THESE IMPORTS
 # these imports have side effects, specifically importing oak changes logging behavior.
 # The bizarre import structure is to enable local development without having to change imports.
-
 from forest.jasmine.traj2stats import gps_stats_main
 from forest.oak.base import run as run_oak
 from forest.sycamore.base import get_submits_for_tableau
 from forest.willow.log_stats import log_stats_main
 
+
+"""
+This entire code path could be rewritten as a class, but all the data we need or want to track is
+collected on the ForestTask object.  For code organization reasons the [overwhelming] majority of
+code for running any given forest task should be in this file, not attached to the ForestTask
+database model. File paths, constants, simple lookups, parameters should go on that class.
+"""
+
+MIN_TIME = datetime.min.time()
+MAX_TIME = datetime.max.time()
+
+DEBUG_CELERY_FOREST = False
 
 # a lookup for pointing to the correct function for each tree (we need to look up by tree name)
 TREE_TO_FOREST_FUNCTION = {
@@ -68,7 +64,9 @@ TREE_TO_FOREST_FUNCTION = {
     ForestTree.oak: run_oak,
 }
 
-DEBUG_CELERY_FOREST = False
+
+class NoSentryException(Exception): pass
+class BadForestField(Exception): pass
 
 
 def log(*args, **kwargs):

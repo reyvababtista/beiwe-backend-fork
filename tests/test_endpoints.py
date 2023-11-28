@@ -4711,34 +4711,35 @@ class TestForestAnalysisProgress(ResearcherSessionTest):
 
 # class TestForestCreateTasks(ResearcherSessionTest):
 #     ENDPOINT_NAME = "forest_pages.create_tasks"
-
 #     def test(self):
 #         self.smart_get()
 
 
 # class TestForestTaskLog(ResearcherSessionTest):
 #     ENDPOINT_NAME = "forest_pages.task_log"
-
 #     def test(self):
 #         self.smart_get()
 
 
 # class TestForestDownloadTaskLog(ResearcherSessionTest):
 #     ENDPOINT_NAME = "forest_pages.download_task_log"
-
 #     def test(self):
 #         self.smart_get()
 
 
 # class TestForestCancelTask(ResearcherSessionTest):
 #     ENDPOINT_NAME = "forest_pages.cancel_task"
-
 #     def test(self):
 #         self.smart_get()
 
 
 # class TestForestDownloadTaskData(ResearcherSessionTest):
 #     ENDPOINT_NAME = "forest_pages.download_task_data"
+#     def test(self):
+#         self.smart_get()
 
+
+# class TestForestDownloadOutput(ResearcherSessionTest):
+#     ENDPOINT_NAME = "forest_pages.download_task_data"
 #     def test(self):
 #         self.smart_get()

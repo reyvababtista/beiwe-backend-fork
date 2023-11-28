@@ -259,20 +259,6 @@ def get_researcher_allowed_studies_as_query_set(request: ResearcherRequest) -> Q
     )
 
 
-def get_researcher_allowed_studies(request: ResearcherRequest) -> List[Dict]:
-    """
-    Return a list of studies which the currently logged-in researcher is authorized to view and edit.
-    """
-    kwargs = {}
-    if not request.session_researcher.site_admin:
-        kwargs = dict(study_relations__researcher=request.session_researcher)
-    
-    return [
-        study_info_dict for study_info_dict in
-        Study.get_all_studies_by_name().filter(**kwargs).values("name", "object_id", "id", "is_test")
-    ]
-
-
 ################################################################################
 ############################# Site Administrator ###############################
 ################################################################################

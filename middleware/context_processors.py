@@ -23,7 +23,7 @@ def researcher_context_processor(request: ResearcherRequest):
             {"study_relations__researcher": request.session_researcher}
         ret["allowed_studies"] = [
             study_info_dict for study_info_dict in Study.get_all_studies_by_name()
-            .filter(**allowed_studies_kwargs).values("name", "object_id", "id", "is_test")
+            .filter(**allowed_studies_kwargs).values("name", "object_id", "id")
         ]
         ret["is_admin"] = request.session_researcher.is_an_admin()
         ret["site_admin"] = request.session_researcher.site_admin

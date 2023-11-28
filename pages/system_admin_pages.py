@@ -337,7 +337,6 @@ def create_study(request: ResearcherRequest):
     
     name = request.POST.get('name', '')
     encryption_key = request.POST.get('encryption_key', '')
-    is_test = request.POST.get('is_test', "").lower() == 'true'  # 'true' -> True, 'false' -> False
     duplicate_existing_study = request.POST.get('copy_existing_study', None) == 'true'
     forest_enabled = request.POST.get('forest_enabled', "").lower() == 'true'
     
@@ -357,7 +356,7 @@ def create_study(request: ResearcherRequest):
     
     try:
         new_study = Study.create_with_object_id(
-            name=name, encryption_key=encryption_key, is_test=is_test, forest_enabled=forest_enabled
+            name=name, encryption_key=encryption_key, forest_enabled=forest_enabled
         )
         if duplicate_existing_study:
             do_duplicate_step(request, new_study)

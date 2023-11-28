@@ -30,7 +30,7 @@ def log(*args, **kwargs):
 
 
 @require_http_methods(['POST', "GET"])
-@api_study_credential_check(block_test_studies=True)
+@api_study_credential_check()
 @transaction.non_atomic_requests
 def get_data(request: ApiStudyResearcherRequest):
     """ Required: access key, access secret, study_id

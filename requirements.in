@@ -1,5 +1,5 @@
 # core libraries
-Django==3.2.20
+Django==3.2.23
 firebase-admin==5.4.0
 Jinja2==3.1.2
 zstd==1.5.5.1  # This one seems to require manual pinning, version 1.5+ contains performance improvements
@@ -42,3 +42,5 @@ boto3
 django-timezone-field==4.1.1
 
 pip-tools>=7.3.0
+
+git+https://git@github.com/onnela-lab/forest@0d73099c9c5e7129739563b01998810cee65befa

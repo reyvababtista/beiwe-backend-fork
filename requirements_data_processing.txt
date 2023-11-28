@@ -3,7 +3,7 @@ celery==4.4.7
 
 # This is sort-of-temporary, forest is open-source but not a pip-installable package right now.
 # Note that this file is read programmatically in update_forest_version
-git+https://git@github.com/onnela-lab/forest@643c229d1aa170ba9d3bcf2706e4b20db3d3be25
+git+https://git@github.com/onnela-lab/forest@810ef6c1f2779c46be402819fd807402b6769387
 
 
 # it is possible you will need to imstall the following system dependencies on ubuntu:

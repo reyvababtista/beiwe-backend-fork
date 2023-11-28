@@ -3,8 +3,7 @@ from typing import List, Tuple
 
 from django.utils import timezone
 
-from constants.common_constants import PROBLEM_UPLOADS
-from constants.data_processing_constants import CHUNKS_FOLDER
+from constants.common_constants import CHUNKS_FOLDER, PROBLEM_UPLOADS
 from database.user_models_participant import Participant, ParticipantDeletionEvent
 from libs.s3 import s3_delete_many_versioned, s3_list_files, s3_list_versions
 from libs.security import generate_easy_alphanumeric_string
@@ -145,8 +144,10 @@ def all_participant_file_paths(participant: Participant) -> List[Tuple[str, str]
         yield many_file_version_ids
 
 
+# Note from developing the Forest task output file uploads - they are contained inside the regular
+# participant data folder, the jasmine bv_dict etc. are derived and don't have ~pii. 👍 We good.
 def get_all_file_path_prefixes(participant: Participant) -> Tuple[Tuple[str, str]]:
-    """ The singular canonical location of all locations whhre participant data may be stored. """
+    """ The singular canonical location of all locations where participant data may be stored. """
     base = participant.study.object_id + "/" + participant.patient_id + "/"
     chunks_prefix = CHUNKS_FOLDER + "/" + base
     problem_uploads = PROBLEM_UPLOADS + "/" + base

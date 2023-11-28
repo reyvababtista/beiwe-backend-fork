@@ -9,7 +9,8 @@ from Cryptodome.PublicKey import RSA
 from config.settings import (BEIWE_SERVER_AWS_ACCESS_KEY_ID, BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
     S3_BUCKET, S3_REGION_NAME)
 from constants.compression_constants import ZSTD_EXTENSION
-from constants.data_processing_constants import CHUNKS_FOLDER
+from constants.common_constants import CHUNKS_FOLDER
+
 from database.study_models import Study
 from database.user_models_participant import Participant
 from libs.aes import decrypt_server, encrypt_for_server
@@ -52,7 +53,6 @@ class S3Compressed:
         return self.s3_path.endswith(ZSTD_EXTENSION)
     
     def download(self):
-        
         if not self.downloaded:
             if self.compressed:
                 self._download_as_uncompressed()

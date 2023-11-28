@@ -36,7 +36,7 @@ class Study(TimestampedModel):
     # usually is) the researcher is immediately shown the DeviceSettings to edit. The code
     # to create the DeviceSettings object is in database.signals.populate_study_device_settings.
     
-    STUDY_EXPORT_FIELDS = ["name", "is_test", "timezone_name", "deleted", "forest_enabled", "id", "object_id"]
+    STUDY_EXPORT_FIELDS = ["name", "timezone_name", "deleted", "forest_enabled", "id", "object_id"]
     
     name = models.TextField(unique=True, help_text='Name of the study; can be of any length')
     encryption_key = models.CharField(
@@ -47,7 +47,6 @@ class Study(TimestampedModel):
         max_length=24, unique=True, validators=[LengthValidator(24)],
         help_text='ID used for naming S3 files'
     )
-    is_test = models.BooleanField(default=True)
     timezone_name = models.CharField(
         max_length=256, default="America/New_York", null=False, blank=False
     )
@@ -196,6 +195,7 @@ class Study(TimestampedModel):
             super_total += summation
         print(f"total: {super_total / 1024 / 1024:,.0f} MB")
 
+
 class StudyField(UtilityModel):
     study: Study = models.ForeignKey(Study, on_delete=models.PROTECT, related_name='fields')
     field_name = models.TextField()
@@ -275,7 +275,7 @@ class DeviceSettings(TimestampedModel):
     # Text strings
     about_page_text = models.TextField(default=ABOUT_PAGE_TEXT)
     call_clinician_button_text = models.TextField(default='Call My Clinician')
-    consent_form_text = models.TextField(default=CONSENT_FORM_TEXT)
+    consent_form_text = models.TextField(default=CONSENT_FORM_TEXT, blank=True, null=False)
     survey_submit_success_toast_text = models.TextField(default=SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
     
     # Consent sections

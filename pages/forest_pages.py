@@ -1,10 +1,10 @@
 import csv
-import datetime
+import pickle
 from collections import defaultdict
+from datetime import date, datetime, timedelta
 
 import orjson
 from django.contrib import messages
-from django.http import HttpResponse
 from django.http.response import FileResponse, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -12,15 +12,18 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from authentication.admin_authentication import (authenticate_admin,
     authenticate_researcher_study_access, forest_enabled)
+from constants.celery_constants import ForestTaskStatus
 from constants.common_constants import DEV_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATE
 from constants.data_access_api_constants import CHUNK_FIELDS
-from constants.forest_constants import ForestTaskStatus, ForestTree
+from constants.forest_constants import (FOREST_TASKVIEW_PICKLING_EMPTY,
+    FOREST_TASKVIEW_PICKLING_ERROR, FOREST_TREE_REQUIRED_DATA_STREAMS, ForestTree)
 from database.data_access_models import ChunkRegistry
+from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.study_models import Study
 from database.system_models import ForestVersion
-from database.tableau_api_models import ForestTask, SummaryStatisticDaily
 from database.user_models_participant import Participant
 from forms.django_forms import CreateTasksForm
+from libs.forest_utils import download_output_file
 from libs.http_utils import easy_url
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest
 from libs.streaming_zip import ZipGenerator
@@ -40,10 +43,9 @@ TASK_SERIALIZER_FIELDS = [
     # to be popped
     "external_id",  # -> uuid in the urls
     "participant__patient_id",  # -> patient_id
-    "params_dict_cache",  # -> params_dict as json encoded string...
-    "forest_param__name",  # -> forest_param_name
-    "forest_param__notes",  # -> forest_param_notes
+    "pickled_parameters",
     "forest_tree",  # -> forest_tree_display as .title()
+    "output_zip_s3_path", # need to identify that it is present at all
     # datetimes
     "process_end_time",  # -> dev time format
     "process_start_time",  # -> dev time format
@@ -51,33 +53,27 @@ TASK_SERIALIZER_FIELDS = [
     "created_on",  # -> dev time format
 ]
 
-
-
 @require_GET
 @authenticate_researcher_study_access
 @forest_enabled
-def analysis_progress(request: ResearcherRequest, study_id=None):
+def forest_tasks_progress(request: ResearcherRequest, study_id=None):
     study: Study = Study.objects.get(pk=study_id)
     participants: ParticipantQuerySet = Participant.objects.filter(study=study_id)
     
     # generate chart of study analysis progress logs
-    trackers = ForestTask.objects.filter(participant__in=participants).order_by("created_on")
+    tasks = ForestTask.objects.filter(participant__in=participants).order_by("created_on")
     
     start_date = (study.get_earliest_data_time_bin() or study.created_on).date()
     end_date = (study.get_latest_data_time_bin() or timezone.now()).date()
     
+    params = {}
+    results = defaultdict(lambda: "--")
     # this code simultaneously builds up the chart of most recent forest results for date ranges
     # by participant and tree, and tracks the metadata
-    params = dict()
-    results = defaultdict(lambda: "--")
-    tracker: ForestTask
-    for tracker in trackers:
-        for date in daterange(tracker.data_date_start, tracker.data_date_end, inclusive=True):
-            results[(tracker.participant_id, tracker.forest_tree, date)] = tracker.status
-            if tracker.status == ForestTaskStatus.success:
-                params[(tracker.participant_id, tracker.forest_tree, date)] = tracker.forest_param_id
-            else:
-                params[(tracker.participant_id, tracker.forest_tree, date)] = None
+    for task in tasks:
+        for a_date in daterange(task.data_date_start, task.data_date_end, inclusive=True):
+            results[(task.participant_id, task.forest_tree, a_date)] = task
+            params[(task.participant_id, task.forest_tree, a_date)] = task.safe_unpickle_parameters_as_string()
     
     # generate the date range for charting
     dates = list(daterange(start_date, end_date, inclusive=True))
@@ -92,14 +88,14 @@ def analysis_progress(request: ResearcherRequest, study_id=None):
     # ensure that within each tree, only a single set of param values are used (only the most recent runs
     # are considered, and unsuccessful runs are assumed to invalidate old runs, clearing params)
     params_conflict = False
-    for tree in set([k[1] for k in params.keys()]):
-        if len(set([m for k, m in params.items() if m is not None and k[1] == tree])) > 1:
+    for tree in {k[1] for k in params.keys()}:
+        if len({m for k, m in params.items() if m is not None and k[1] == tree}) > 1:
             params_conflict = True
             break
     
     return render(
         request,
-        'forest/analysis_progress.html',
+        'forest/forest_tasks_progress.html',  # has been renamed internally because this is imprecise.
         context=dict(
             study=study,
             chart_columns=["participant", "tree"] + dates,
@@ -151,13 +147,12 @@ def task_log(request: ResearcherRequest, study_id=None):
     query = ForestTask.objects.filter(participant__study_id=study_id)\
         .order_by("-created_on").values(*TASK_SERIALIZER_FIELDS)
     tasks = []
+    
     for task_dict in query:
         extern_id = task_dict.pop("external_id")
         # renames (could be optimized in the query, but speedup is negligible)
-        task_dict["forest_param_name"] = task_dict.pop("forest_param__name")
-        task_dict["forest_param_notes"] = task_dict.pop("forest_param__notes")
         task_dict["patient_id"] = task_dict.pop("participant__patient_id")
-        task_dict["params_dict"] = task_dict.pop("params_dict_cache")
+        
         # rename and transform
         task_dict["forest_tree_display"] = task_dict.pop("forest_tree").title()
         task_dict["created_on_display"] = task_dict.pop("created_on").strftime(DEV_TIME_FORMAT)
@@ -173,9 +168,27 @@ def task_log(request: ResearcherRequest, study_id=None):
         task_dict["cancel_url"] = easy_url(
             "forest_pages.cancel_task", study_id=study_id, forest_task_external_id=extern_id,
         )
+        task_dict["has_output_data"] = task_dict["forest_output_exists"]
         task_dict["download_url"] = easy_url(
             "forest_pages.download_task_data", study_id=study_id, forest_task_external_id=extern_id,
         )
+        
+        # raw output data data is only available if the task has completed successfully, and not
+        # on older tasks that were run before we started saving the output data.
+        if task_dict.pop("output_zip_s3_path"):
+            task_dict["has_output_downloadable_data"] = True
+            task_dict["download_output_url"] = easy_url(
+                "forest_pages.download_output_data", study_id=study_id, forest_task_external_id=extern_id,
+            )
+        
+        # the pickled parameters have some error cases.
+        if task_dict["pickled_parameters"]:
+            try:
+                task_dict["params_dict"] = repr(pickle.loads(task_dict.pop("pickled_parameters")))
+            except Exception:
+                task_dict["params_dict"] = FOREST_TASKVIEW_PICKLING_ERROR
+        else:
+            task_dict["params_dict"] = FOREST_TASKVIEW_PICKLING_EMPTY
         tasks.append(task_dict)
     
     return render(
@@ -213,7 +226,7 @@ def cancel_task(request: ResearcherRequest, study_id, forest_task_external_id):
             external_id=forest_task_external_id, status=ForestTaskStatus.queued
         ).update(
             status=ForestTaskStatus.cancelled,
-            stacktrace=f"Canceled by {request.session_researcher.username} on {datetime.date.today()}",
+            stacktrace=f"Canceled by {request.session_researcher.username} on {date.today()}",
         )
     
     if number_updated > 0:
@@ -228,22 +241,75 @@ def cancel_task(request: ResearcherRequest, study_id, forest_task_external_id):
 @authenticate_admin
 @forest_enabled
 def download_task_data(request: ResearcherRequest, study_id, forest_task_external_id):
+    
     try:
-        tracker: ForestTask = ForestTask.objects.get(
+        forest_task: ForestTask = ForestTask.objects.get(
             external_id=forest_task_external_id, participant__study_id=study_id
         )
     except ForestTask.DoesNotExist:
         return HttpResponse(content="", status=404)
     
-    chunks = ChunkRegistry.objects.filter(participant=tracker.participant).values(*CHUNK_FIELDS)
+    # this time manipulation is copied right out of the celery forest task runner.
+    starttime_midnight = datetime.combine(
+        forest_task.data_date_start, datetime.min.time(), forest_task.participant.study.timezone
+    )
+    endtime_11_59pm = datetime.combine(
+        forest_task.data_date_end, datetime.max.time(), forest_task.participant.study.timezone
+    )
+    
+    chunks: str = ChunkRegistry.objects.filter(
+        participant=forest_task.participant,
+        time_bin__gte=starttime_midnight,
+        time_bin__lt=endtime_11_59pm,  # inclusive
+        data_type__in=FOREST_TREE_REQUIRED_DATA_STREAMS[forest_task.forest_tree]
+    ).values(*CHUNK_FIELDS)
+    
+    filename = "_".join([
+            forest_task.participant.patient_id,
+            forest_task.forest_tree,
+            str(forest_task.data_date_start),
+            str(forest_task.data_date_end),
+            "data",
+        ]) + ".zip"
+    
     f = FileResponse(
         ZipGenerator(chunks, False),
         content_type="zip",
         as_attachment=True,
-        filename=f"{tracker.get_legible_identifier()}.zip",
+        filename=filename,
     )
-    f.set_headers(None)
+    f.set_headers(None)  # this is just a thing you have to do, its a django bug.
     return f
+
+
+@require_GET
+@authenticate_admin
+@forest_enabled
+def download_output_data(request: ResearcherRequest, study_id, forest_task_external_id):
+    try:
+        forest_task: ForestTask = ForestTask.objects.get(
+            external_id=forest_task_external_id, participant__study_id=study_id
+        )
+    except ForestTask.DoesNotExist:
+        return HttpResponse(content="", status=404)
+    
+    filename = "_".join([
+            forest_task.participant.patient_id,
+            forest_task.forest_tree,
+            str(forest_task.data_date_start),
+            str(forest_task.data_date_end),
+            "output",
+            forest_task.created_on.strftime(DEV_TIME_FORMAT),
+        ]) + ".zip"
+    
+    # for some reason FileResponse doesn't work when handed a bytes object, so we are forcing the
+    # headers for attachment and filename in a custom HttpResponse. Baffling. I guess FileResponse
+    # is really only for file-like objects.
+    return HttpResponse(
+        download_output_file(forest_task),
+        content_type="zip",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 def render_create_tasks(request: ResearcherRequest, study: Study):
@@ -259,7 +325,7 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
     start_date = dates[0] if dates else study.created_on.date()
     end_date = dates[-1] if dates else timezone.now().date()
     forest_info = ForestVersion.get_singleton_instance()
-
+    
     # start_date = dates[0] if dates and dates[0] >= EARLIEST_POSSIBLE_DATA_DATE else study.created_on.date()
     # end_date = dates[-1] if dates and dates[-1] <= timezone.now().date() else timezone.now().date()
     return render(

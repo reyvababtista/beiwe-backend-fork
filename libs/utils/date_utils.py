@@ -1,15 +1,25 @@
 from datetime import date, datetime, timedelta, tzinfo
-from typing import List, Union
+from typing import Any, Generator, List, Union
 
 from django.utils.timezone import make_aware
+
+from constants.common_constants import LEGIBLE_TIME_FORMAT
 
 
 date_or_time = Union[date, datetime]
 
 
+def legible_time(time: date_or_time) -> str:
+    """ Returns a legible string representation of a date or datetime including timezone. """
+    # its just iso date, iso time but with a space instead of a T, and then the tz name in parens.
+    # e.g. 2020-01-31 07:30:04 (America/New_York)
+    return time.strftime(LEGIBLE_TIME_FORMAT)
+
+
 def daterange(
     start: datetime, stop: datetime, step: timedelta = timedelta(days=1), inclusive: bool = False
-):
+) -> Generator[datetime, Any, None]:
+    """ Generator yielding day-separated datetimes between start and stop. """
     # source: https://stackoverflow.com/a/1060376/1940450
     if step.days > 0:
         while start < stop:

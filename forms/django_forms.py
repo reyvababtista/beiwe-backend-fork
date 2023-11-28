@@ -1,11 +1,12 @@
 import bleach
 from django import forms
 
-from constants.forest_constants import ForestTaskStatus, ForestTree
+from constants.celery_constants import ForestTaskStatus
+from constants.forest_constants import ForestTree
 from constants.tableau_api_constants import (HEADER_IS_REQUIRED, SERIALIZABLE_FIELD_NAMES,
     SERIALIZABLE_FIELD_NAMES_DROPDOWN, VALID_QUERY_PARAMETERS, X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET)
+from database.forest_models import ForestTask
 from database.study_models import Study
-from database.tableau_api_models import ForestTask
 from database.user_models_participant import Participant
 from forms.django_form_fields import CommaSeparatedListCharField, CommaSeparatedListChoiceField
 
@@ -46,11 +47,13 @@ class CreateTasksForm(forms.Form):
     trees = CommaSeparatedListChoiceField(choices=ForestTree.choices())
     
     def __init__(self, *args, **kwargs):
-        self.study = kwargs.pop("study")
+        # we provide a study parameter, somewhat like a ModelForm
+        self.study: Study = kwargs.pop("study")
         super().__init__(*args, **kwargs)
     
     def clean(self):
         cleaned_data = super().clean()
+        
         # handle cases of missing fields.
         if "date_end" not in cleaned_data:
             self.add_error("date_end", "date end was not provided.")
@@ -64,25 +67,27 @@ class CreateTasksForm(forms.Form):
             self.add_error("date_start", error_message)
             self.add_error("date_end", error_message)
     
+    def clean_trees(self):
+        # trees is required,  this code doesn't execute when it is missing. validity is already
+        # checked by the CommaSeparatedListChoiceField, but we still need to use getlist to access
+        # the many values in the multidict.
+        return self.data.getlist("trees", [])
+    
     def clean_participant_patient_ids(self):
-        """
-        Filter participants to those who are registered in this study and specified in this field
-        (instead of raising a ValidationError if an invalid or non-study patient id is specified).
-        """
-        # TODO: this field is very weird and not using the CommaSeparatedListCharField?
+        """ Filter participants to those who are registered in this study and specified in this
+        field (instead of raising a ValidationError if an invalid or non-study patient id is
+        specified). """
         # need to use getlist to access the many values in the multidict
         patient_ids = self.data.getlist("participant_patient_ids")
-        participants = (
-            Participant
-                .objects
-                .filter(patient_id__in=patient_ids, study=self.study)
-                .values("id", "patient_id")
-        )
+        participants = Participant.objects \
+            .filter(patient_id__in=patient_ids, study=self.study).values("id", "patient_id")
+        
         # get database ids and patient ids
         self.cleaned_data["participant_ids"] = [participant["id"] for participant in participants]
         return [participant["patient_id"] for participant in participants]
     
     def save(self):
+        # generates forest task objects for each selected option.
         forest_tasks = []
         for participant_id in self.cleaned_data["participant_ids"]:
             for tree in self.cleaned_data["trees"]:
@@ -93,7 +98,6 @@ class CreateTasksForm(forms.Form):
                         data_date_start=self.cleaned_data["date_start"],
                         data_date_end=self.cleaned_data["date_end"],
                         status=ForestTaskStatus.queued,
-                        forest_param=None, # TODO: implement forest parameters
                     )
                 )
         ForestTask.objects.bulk_create(forest_tasks)

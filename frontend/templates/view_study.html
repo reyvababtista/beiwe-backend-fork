@@ -51,12 +51,7 @@
 
 
     <div class="col-xs-12 row"> 
-      <i> 
-      <div class="col-xs-9 row pull-left"> 
-        {% if not study.is_test %}
-          Note: data in this study is restricted, only Forest summaries are accessible to Researchers 
-        {% endif %}
-      </div>
+      <i>
       <div class="col-xs-3 pull-right text-align-right margin-right-neg-4"> 
         <p>ID: {{ study.object_id }}</p>
       </div>
@@ -289,7 +284,7 @@
           </div>
           
           <div class="col-xs-4">
-            <p><a class="btn btn-info" href="{{ easy_url('forest_pages.analysis_progress', study_id=study.id) }}">
+            <p><a class="btn btn-info" href="{{ easy_url('forest_pages.forest_tasks_progress', study_id=study.id) }}">
               View Forest Task Summaries
             </a></p>
             View a high-level summary about the data that Forest analysis run on.

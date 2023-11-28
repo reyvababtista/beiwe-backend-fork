@@ -34,7 +34,7 @@ def path(
     
     route_with_slash = route if route.endswith("/") else route + "/"
     route_without_slash = route if not route.endswith("/") else route.rstrip("/")
-
+    
     url_with_slash = simplepath(route_with_slash, view, name=name, kwargs=kwargs)
     url_without_slash = simplepath(route_without_slash, view, name=name, kwargs=kwargs)
     
@@ -66,9 +66,7 @@ path("logout", admin_pages.logout_admin, login_redirect=IGNORE)
 # Admin
 path("view_study/<int:study_id>", admin_pages.view_study, login_redirect=SAFE)
 path("manage_credentials", admin_pages.manage_credentials, login_redirect=IGNORE)
-path(
-    "reset_admin_password", admin_pages.reset_admin_password, login_redirect=IGNORE
-)
+path("reset_admin_password", admin_pages.reset_admin_password, login_redirect=IGNORE)
 path("reset_download_api_credentials", admin_pages.reset_download_api_credentials)
 path("new_api_key", admin_pages.new_tableau_api_key)
 path("disable_tableau_api_key", admin_pages.disable_tableau_api_key)
@@ -222,11 +220,15 @@ path('get_latest_device_settings/ios', mobile_api.get_latest_device_settings, na
 path('graph', mobile_pages.fetch_graph)
 
 # forest pages
-path('studies/<str:study_id>/forest/progress', forest_pages.analysis_progress, login_redirect=SAFE)
+path('studies/<str:study_id>/forest/progress', forest_pages.forest_tasks_progress, login_redirect=SAFE)
 path('studies/<str:study_id>/forest/tasks/create', forest_pages.create_tasks)
+path("studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/cancel", forest_pages.cancel_task)
 path('studies/<str:study_id>/forest/tasks', forest_pages.task_log, login_redirect=SAFE)
 path('forest/tasks/download', forest_pages.download_task_log)
-path("studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/cancel", forest_pages.cancel_task)
+path(
+    "studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/download_output",
+    forest_pages.download_output_data
+)
 path(
     "studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/download",
     forest_pages.download_task_data

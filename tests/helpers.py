@@ -9,20 +9,21 @@ from django.http.response import HttpResponse
 from django.utils import timezone
 
 from config.django_settings import STATIC_ROOT
+from constants.celery_constants import ForestTaskStatus
 from constants.common_constants import BEIWE_PROJECT_ROOT
 from constants.data_stream_constants import IDENTIFIERS
-from constants.forest_constants import DefaultForestParameters, ForestTaskStatus, ForestTree
+from constants.forest_constants import ForestTree
 from constants.message_strings import MESSAGE_SEND_SUCCESS
 from constants.schedule_constants import ScheduleTypes
 from constants.testing_constants import REAL_ROLES
 from constants.user_constants import ANDROID_API, IOS_API, NULL_OS, ResearcherRole
 from database.common_models import generate_objectid_string
 from database.data_access_models import ChunkRegistry, FileToProcess
+from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervention,
     InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
-from database.tableau_api_models import ForestParameters, ForestTask, SummaryStatisticDaily
 from database.user_models_participant import (Participant, ParticipantDeletionEvent,
     ParticipantFCMHistory, ParticipantFieldValue)
 from database.user_models_researcher import Researcher, StudyRelation
@@ -81,14 +82,12 @@ class ReferenceObjectMixin:
         return self.session_study
     
     def generate_study(
-        self, name: str, encryption_key: str = None, object_id: str = None, is_test: bool = None,
-        forest_enabled: bool = None
+        self, name: str, encryption_key: str = None, object_id: str = None, forest_enabled: bool = None
     ):
         study = Study(
             name=name,
             encryption_key=encryption_key or "thequickbrownfoxjumpsoverthelazy",
             object_id=object_id or generate_objectid_string(),
-            is_test=is_test or True,
             forest_enabled=forest_enabled or True,
             timezone_name="UTC",
             deleted=False,
@@ -475,6 +474,7 @@ class ReferenceObjectMixin:
         """ The creation of weekly events is weird, it best to use the real machinery and build
         some unit tests for it. At time of documenting none exist, but there are some integration
         tests. """
+        # 0 indexes to sunday, 6 indexes to saturday.
         self.generate_weekly_schedule(self.default_survey, day_of_week, hour, minute)
         return set_next_weekly(self.default_participant, self.default_survey)
     
@@ -501,27 +501,9 @@ class ReferenceObjectMixin:
     ## Forest objects
     #
     
-    @property
-    def default_forest_params(self) -> ForestParameters:
-        """ Creates a default forest params object.  This is a default object, and will be
-        auto-populated in scenarios where such an object is required but not provided. """
-        try:
-            return self._default_forest_params
-        except AttributeError:
-            pass
-        self._default_forest_params = ForestParameters(
-            name="default forest param",
-            notes="this is junk",
-            tree_name="jasmine",
-            json_parameters=DefaultForestParameters.jasmine_defaults,
-        )
-        self._default_forest_params.save()
-        return self._default_forest_params
-    
     def generate_forest_task(
         self,
         participant: Participant = None,
-        forest_param: ForestParameters = None,
         data_date_start: datetime = timezone.now(),    # generated once at import time. will differ,
         data_date_end: datetime = timezone.now(),      # slightly, but end is always after start.
         forest_tree: str = ForestTree.jasmine,
@@ -529,7 +511,6 @@ class ReferenceObjectMixin:
     ):
         task = ForestTask(
             participant=participant or self.default_participant,
-            forest_param=forest_param or self.default_forest_params,
             data_date_start=data_date_start,
             data_date_end=data_date_end,
             forest_tree=forest_tree,
@@ -610,7 +591,7 @@ class ReferenceObjectMixin:
         field_dict = self.default_summary_statistic_daily_cheatsheet()
         params = {}
         for field in SummaryStatisticDaily._meta.fields:
-            if field.name in ["id", "created_on", "last_updated", "jasmine_task", "willow_task", "sycamore_task"]:
+            if field.name in ["id", "created_on", "last_updated", "jasmine_task", "willow_task", "sycamore_task", "oak_task"]:
                 continue
             elif field.name == "participant":
                 params[field.name] = participant or self.default_participant

@@ -10,10 +10,10 @@ from django.utils import timezone
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import MIDNIGHT_EVERY_DAY
 from database.data_access_models import IOSDecryptionKey
+from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
 from database.schedule_models import (ArchivedEvent, BadWeeklyCount, InterventionDate,
     ScheduledEvent, WeeklySchedule)
-from database.tableau_api_models import ForestTask, SummaryStatisticDaily
 from database.user_models_participant import (Participant, ParticipantDeletionEvent,
     ParticipantFieldValue, PushNotificationDisabledEvent)
 from libs.file_processing.exceptions import BadTimecodeError

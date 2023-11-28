@@ -56,7 +56,7 @@ def api_credential_check(some_function: callable):
     return wrapper
 
 
-def api_study_credential_check(block_test_studies: bool=False) -> callable:
+def api_study_credential_check() -> callable:
     """ Decorate api-credentialed functions to test whether user exists, has provided correct
      credentials, and then attach the study and researcher to the request. """
     def the_decorator(some_function: callable):
@@ -66,8 +66,7 @@ def api_study_credential_check(block_test_studies: bool=False) -> callable:
             assert isinstance(request, HttpRequest), \
                 f"first parameter of {some_function.__name__} must be an HttpRequest, was {type(request)}."
             # populate the ApiStudyResearcherRequest
-            request.api_study, request.api_researcher = \
-                api_check_researcher_study_access(request, block_test_studies)
+            request.api_study, request.api_researcher = api_check_researcher_study_access(request)
             return some_function(*args, **kwargs)
         return the_inner_wrapper
     return the_decorator
@@ -95,19 +94,12 @@ they are complex and easy to misuse.
 """
 
 
-def api_check_researcher_study_access(request: ResearcherRequest, block_test_studies: bool) -> Tuple[Study, Researcher]:
-    """ Checks whether the researcher is allowed to do api access on this study.
-    Parameter allows control of whether to allow the api call to hit a test study. """
+def api_check_researcher_study_access(request: ResearcherRequest) -> Tuple[Study, Researcher]:
+    """ Checks whether the researcher is allowed to do api access on this study. """
+    # these two function cause aborts if they fail, this function exists to bundle them together
+    # without side effects.
     study = api_get_study_confirm_exists(request)
-    researcher = api_get_validate_researcher_on_study(request, study)
-    
-    do_block = block_test_studies and not study.is_test
-    
-    if not researcher.site_admin and do_block:
-        # You're only allowed to download chunked data from test studies, otherwise doesn't exist.
-        log("study not accessible to researcher")
-        return abort(404)
-    
+    researcher = api_get_validate_researcher_on_study(request, study)    
     return study, researcher
 
 
@@ -147,7 +139,7 @@ def api_get_validate_researcher_on_study(request: ResearcherRequest, study: Stud
     
     # case site admins have access to everything.
     if researcher.site_admin:
-        log(f"researcher is site_admin")
+        log("researcher is site_admin")
         return researcher
     
     # if the researcher has no relation to the study, 403.

@@ -3,7 +3,7 @@ import json
 from rest_framework import serializers
 
 from constants.common_constants import DEV_TIME_FORMAT
-from database.tableau_api_models import ForestTask
+from database.forest_models import ForestTask
 
 
 def display_true(a_bool: bool):
@@ -15,13 +15,11 @@ def display_true(a_bool: bool):
         return "Unknown"
 
 
-# FIXME: Get rid of RFS, see forest_pages.task_log for a partial rewrite
+#! FIXME: Get rid of DRF, see forest_pages.task_log for a partial rewrite
 class ForestTaskBaseSerializer(serializers.ModelSerializer):
     created_on_display = serializers.SerializerMethodField()
     forest_tree_display = serializers.SerializerMethodField()
     forest_output_exists_display = serializers.SerializerMethodField()
-    forest_param_name = serializers.SerializerMethodField()
-    forest_param_notes = serializers.SerializerMethodField()
     params_dict = serializers.SerializerMethodField()
     patient_id = serializers.SerializerMethodField()
     
@@ -33,11 +31,8 @@ class ForestTaskBaseSerializer(serializers.ModelSerializer):
             "data_date_start",
             "id",
             "forest_tree_display",
-            "forest_param_name",
-            "forest_param_notes",
             "forest_output_exists",
             "forest_output_exists_display",
-            "params_dict",
             "patient_id",
             "process_download_end_time",
             "process_start_time",
@@ -46,33 +41,19 @@ class ForestTaskBaseSerializer(serializers.ModelSerializer):
             "total_file_size",
         ]
     
-    
-    def get_created_on_display(self, instance):
+    def get_created_on_display(self, instance: ForestTask):
         return instance.created_on.strftime(DEV_TIME_FORMAT)
     
-    def get_forest_tree_display(self, instance):
+    def get_forest_tree_display(self, instance: ForestTask):
         return instance.forest_tree.title()
     
-    def get_forest_output_exists_display(self, instance):
-        if instance.forest_output_exists is True:
-            return "Yes"
-        elif instance.forest_output_exists is False:
-            return "No"
-        else:
-            return "Unknown"
+    def get_forest_output_exists_display(self, instance: ForestTask):
+        return display_true(instance.forest_output_exists)
     
-    def get_forest_param_name(self, instance: ForestTask):
-        return instance.forest_param.name if instance.forest_param_or_none else None
-    
-    def get_forest_param_notes(self, instance: ForestTask):
-        return instance.forest_param.notes if instance.forest_param_or_none else None
-    
-    def get_params_dict(self, instance):
-        if instance.params_dict_cache:
-            return repr(json.loads(instance.params_dict_cache))
+    def get_params_dict(self, instance: ForestTask):
         return repr(instance.get_params_dict())
     
-    def get_patient_id(self, instance):
+    def get_patient_id(self, instance: ForestTask):
         return instance.participant.patient_id
 
 

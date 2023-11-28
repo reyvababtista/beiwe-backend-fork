@@ -34,7 +34,7 @@ from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_S
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.security_constants import MFA_CREATED
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
-    IOS_CERT, MIDNIGHT_EVERY_DAY, OCT_6_NOON_2022)
+    IOS_CERT, MIDNIGHT_EVERY_DAY, THURS_OCT_6_NOON_2022_NY)
 from constants.url_constants import LOGIN_REDIRECT_SAFE, urlpatterns
 from constants.user_constants import ALL_RESEARCHER_TYPES, IOS_API, ResearcherRole
 from database.data_access_models import ChunkRegistry, FileToProcess
@@ -44,7 +44,7 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
 from database.security_models import ApiKey
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
-from database.system_models import FileAsText, GenericEvent
+from database.system_models import FileAsText, GenericEvent, GlobalSettings
 from database.user_models_participant import (Participant, ParticipantDeletionEvent,
     ParticipantFCMHistory)
 from database.user_models_researcher import Researcher, StudyRelation
@@ -423,6 +423,18 @@ class TestLoginPages(BasicSessionTestCase):
         self.assert_present(MFA_CONFIGURATION_SITE_ADMIN, r3.content)
 
 
+class TestDowntime(BasicSessionTestCase):
+    """ Tests our very basic downtime middleware """
+    
+    def test_downtime(self):
+        GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
+        self.easy_get("login_pages.login_page", status_code=200)
+        GlobalSettings.get_singleton_instance().update(downtime_enabled=True)
+        self.easy_get("login_pages.login_page", status_code=503)
+        GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
+        self.easy_get("login_pages.login_page", status_code=200)
+
+
 class TestChooseStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.choose_study"
     
@@ -457,7 +469,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
         "dashboard_api.get_data_for_dashboard_datastream_display",
         "dashboard_api.dashboard_participant_page",
         "data_access_web_form.data_api_web_form_page",
-        "forest_pages.analysis_progress",
+        "forest_pages.forest_tasks_progress",
         "forest_pages.task_log",
         "participant_pages.notification_history",
         "participant_pages.participant_page",
@@ -527,7 +539,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             except AssertionError:
                 # case - we have a mildly illegal url that needs to be tested along with the others
                 assert url in ("manage_studies/", "manage_studies")
-
+            
             found_something = False
             for urlpattern in urlpatterns:
                 if urlpattern.pattern.match(url.lstrip("/")):
@@ -726,7 +738,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
 
 class TestViewStudy(ResearcherSessionTest):
     """ view_study is pretty simple, no custom content in the :
-    tests push_notifications_enabled, study.is_test, study.forest_enabled
+    tests push_notifications_enabled, study.forest_enabled
     populates html elements with custom field values
     populates html elements of survey buttons """
     
@@ -736,17 +748,10 @@ class TestViewStudy(ResearcherSessionTest):
         self.smart_get_status_code(403, self.session_study.id)
     
     def test_view_study_researcher(self):
+        # pretty much just tests that the page loads, removing is_test removed template customizations.
         study = self.session_study
-        study.update(is_test=True)
         self.set_session_study_relation(ResearcherRole.researcher)
-        response = self.smart_get_status_code(200, study.id)
-        
-        # template has several customizations, test for some relevant strings
-        self.assertNotIn(b"data in this study is restricted", response.content)
-        study.update(is_test=False)
-        
-        response = self.smart_get_status_code(200, study.id)
-        self.assertIn(b"data in this study is restricted", response.content)
+        self.smart_get_status_code(200, study.id)
     
     def test_view_study_study_admin(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
@@ -1558,19 +1563,19 @@ class TestEditStudy(ResearcherSessionTest):
     def test_content_study_admin(self):
         """ tests that various important pieces of information are present """
         self.set_session_study_relation(ResearcherRole.study_admin)
-        self.session_study.update(is_test=True, forest_enabled=False)
+        self.session_study.update(forest_enabled=False)
         resp1 = self.smart_get_status_code(200, self.session_study.id)
         self.assert_present("Enable Forest", resp1.content)
         self.assert_not_present("Disable Forest", resp1.content)
         self.assert_present(self.session_researcher.username, resp1.content)
         
-        self.session_study.update(is_test=False, forest_enabled=True)
+        self.session_study.update(forest_enabled=True)
         r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.researcher)
         
+        # tests for presence of own username and other researcher's username in the html
         resp2 = self.smart_get_status_code(200, self.session_study.id)
         self.assert_present(self.session_researcher.username, resp2.content)
         self.assert_present(r2.username, resp2.content)
-        self.assert_present("data in this study is restricted", resp2.content)
 
 
 # FIXME: need to implement tests for copy study.
@@ -1588,11 +1593,10 @@ class TestCreateStudy(ResearcherSessionTest):
         self.assertFalse(Study.objects.filter(name=self.NEW_STUDY_NAME).exists())
     
     def create_study_params(self):
-        """ keys are: name, encryption_key, is_test, copy_existing_study, forest_enabled """
+        """ keys are: name, encryption_key, copy_existing_study, forest_enabled """
         params = dict(
             name=self.NEW_STUDY_NAME,
             encryption_key="a" * 32,
-            is_test="true",
             copy_existing_study="",
             forest_enabled="false",
         )
@@ -4053,7 +4057,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         output_survey = json.loads(resp.content.decode())
         self.assertEqual(output_survey, reference_output)
     
-    @time_machine.travel(OCT_6_NOON_2022)
+    @time_machine.travel(THURS_OCT_6_NOON_2022_NY)
     def test_absolute_schedule_basics(self):
         # test for absolute surveys that they show up regardless of the day of the week they fall on,
         # as long as that day is within the current week.
@@ -4094,7 +4098,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         output_survey = json.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
     
-    @time_machine.travel(OCT_6_NOON_2022)
+    @time_machine.travel(THURS_OCT_6_NOON_2022_NY)
     def test_relative_schedule_basics(self):
         # this test needds to run on a thursday
         # test that a relative survey creates schedules that get output in survey timings at all
@@ -4686,7 +4690,7 @@ class TestResendPushNotifications(ResearcherSessionTest):
 
 # FIXME: make a real test...
 class TestForestAnalysisProgress(ResearcherSessionTest):
-    ENDPOINT_NAME = "forest_pages.analysis_progress"
+    ENDPOINT_NAME = "forest_pages.forest_tasks_progress"
     
     def test(self):
         # hey it loads...
@@ -4699,34 +4703,35 @@ class TestForestAnalysisProgress(ResearcherSessionTest):
 
 # class TestForestCreateTasks(ResearcherSessionTest):
 #     ENDPOINT_NAME = "forest_pages.create_tasks"
-
 #     def test(self):
 #         self.smart_get()
 
 
 # class TestForestTaskLog(ResearcherSessionTest):
 #     ENDPOINT_NAME = "forest_pages.task_log"
-
 #     def test(self):
 #         self.smart_get()
 
 
 # class TestForestDownloadTaskLog(ResearcherSessionTest):
 #     ENDPOINT_NAME = "forest_pages.download_task_log"
-
 #     def test(self):
 #         self.smart_get()
 
 
 # class TestForestCancelTask(ResearcherSessionTest):
 #     ENDPOINT_NAME = "forest_pages.cancel_task"
-
 #     def test(self):
 #         self.smart_get()
 
 
 # class TestForestDownloadTaskData(ResearcherSessionTest):
 #     ENDPOINT_NAME = "forest_pages.download_task_data"
+#     def test(self):
+#         self.smart_get()
 
+
+# class TestForestDownloadOutput(ResearcherSessionTest):
+#     ENDPOINT_NAME = "forest_pages.download_task_data"
 #     def test(self):
 #         self.smart_get()

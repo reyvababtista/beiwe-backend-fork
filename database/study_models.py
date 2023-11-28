@@ -36,7 +36,7 @@ class Study(TimestampedModel):
     # usually is) the researcher is immediately shown the DeviceSettings to edit. The code
     # to create the DeviceSettings object is in database.signals.populate_study_device_settings.
     
-    STUDY_EXPORT_FIELDS = ["name", "is_test", "timezone_name", "deleted", "forest_enabled", "id", "object_id"]
+    STUDY_EXPORT_FIELDS = ["name", "timezone_name", "deleted", "forest_enabled", "id", "object_id"]
     
     name = models.TextField(unique=True, help_text='Name of the study; can be of any length')
     encryption_key = models.CharField(
@@ -47,7 +47,6 @@ class Study(TimestampedModel):
         max_length=24, unique=True, validators=[LengthValidator(24)],
         help_text='ID used for naming S3 files'
     )
-    is_test = models.BooleanField(default=True)
     timezone_name = models.CharField(
         max_length=256, default="America/New_York", null=False, blank=False
     )
@@ -195,6 +194,7 @@ class Study(TimestampedModel):
             print(f"{data_stream}: {summation / 1024 / 1024:,.0f} MB")
             super_total += summation
         print(f"total: {super_total / 1024 / 1024:,.0f} MB")
+
 
 class StudyField(UtilityModel):
     study: Study = models.ForeignKey(Study, on_delete=models.PROTECT, related_name='fields')

@@ -82,14 +82,12 @@ class ReferenceObjectMixin:
         return self.session_study
     
     def generate_study(
-        self, name: str, encryption_key: str = None, object_id: str = None, is_test: bool = None,
-        forest_enabled: bool = None
+        self, name: str, encryption_key: str = None, object_id: str = None, forest_enabled: bool = None
     ):
         study = Study(
             name=name,
             encryption_key=encryption_key or "thequickbrownfoxjumpsoverthelazy",
             object_id=object_id or generate_objectid_string(),
-            is_test=is_test or True,
             forest_enabled=forest_enabled or True,
             timezone_name="UTC",
             deleted=False,

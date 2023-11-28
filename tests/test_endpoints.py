@@ -738,7 +738,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
 
 class TestViewStudy(ResearcherSessionTest):
     """ view_study is pretty simple, no custom content in the :
-    tests push_notifications_enabled, study.is_test, study.forest_enabled
+    tests push_notifications_enabled, study.forest_enabled
     populates html elements with custom field values
     populates html elements of survey buttons """
     
@@ -748,17 +748,10 @@ class TestViewStudy(ResearcherSessionTest):
         self.smart_get_status_code(403, self.session_study.id)
     
     def test_view_study_researcher(self):
+        # pretty much just tests that the page loads, removing is_test removed template customizations.
         study = self.session_study
-        study.update(is_test=True)
         self.set_session_study_relation(ResearcherRole.researcher)
-        response = self.smart_get_status_code(200, study.id)
-        
-        # template has several customizations, test for some relevant strings
-        self.assertNotIn(b"data in this study is restricted", response.content)
-        study.update(is_test=False)
-        
-        response = self.smart_get_status_code(200, study.id)
-        self.assertIn(b"data in this study is restricted", response.content)
+        self.smart_get_status_code(200, study.id)
     
     def test_view_study_study_admin(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
@@ -1570,19 +1563,19 @@ class TestEditStudy(ResearcherSessionTest):
     def test_content_study_admin(self):
         """ tests that various important pieces of information are present """
         self.set_session_study_relation(ResearcherRole.study_admin)
-        self.session_study.update(is_test=True, forest_enabled=False)
+        self.session_study.update(forest_enabled=False)
         resp1 = self.smart_get_status_code(200, self.session_study.id)
         self.assert_present("Enable Forest", resp1.content)
         self.assert_not_present("Disable Forest", resp1.content)
         self.assert_present(self.session_researcher.username, resp1.content)
         
-        self.session_study.update(is_test=False, forest_enabled=True)
+        self.session_study.update(forest_enabled=True)
         r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.researcher)
         
+        # tests for presence of own username and other researcher's username in the html
         resp2 = self.smart_get_status_code(200, self.session_study.id)
         self.assert_present(self.session_researcher.username, resp2.content)
         self.assert_present(r2.username, resp2.content)
-        self.assert_present("data in this study is restricted", resp2.content)
 
 
 # FIXME: need to implement tests for copy study.
@@ -1600,11 +1593,10 @@ class TestCreateStudy(ResearcherSessionTest):
         self.assertFalse(Study.objects.filter(name=self.NEW_STUDY_NAME).exists())
     
     def create_study_params(self):
-        """ keys are: name, encryption_key, is_test, copy_existing_study, forest_enabled """
+        """ keys are: name, encryption_key, copy_existing_study, forest_enabled """
         params = dict(
             name=self.NEW_STUDY_NAME,
             encryption_key="a" * 32,
-            is_test="true",
             copy_existing_study="",
             forest_enabled="false",
         )

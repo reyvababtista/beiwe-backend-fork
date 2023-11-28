@@ -1,3 +1,8 @@
+# This file is extremely out of date, it references old fields and methods that no longer exist.
+# This script runs (ran?) a test that iterated through all of the possible wrong api call issues and
+# confirmed that the correct API errer codes etc. were returned. Rather than updating this script
+# you should update the real tests elsewhere
+
 from os.path import abspath
 from sys import path
 

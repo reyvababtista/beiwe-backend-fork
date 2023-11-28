@@ -1,1 +1,1 @@
-ZSTD_EXTENSION = ".zstd"
+ZSTD_EXTENSION = ".zst"

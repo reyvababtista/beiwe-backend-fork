@@ -1,4 +1,5 @@
 import json
+import logging
 from copy import copy
 from datetime import date, datetime, timedelta
 from io import BytesIO
@@ -423,15 +424,22 @@ class TestLoginPages(BasicSessionTestCase):
 
 class TestDowntime(BasicSessionTestCase):
     """ Tests our very basic downtime middleware """
-    
     def test_downtime(self):
-        GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
-        self.easy_get("login_pages.login_page", status_code=200)
-        GlobalSettings.get_singleton_instance().update(downtime_enabled=True)
-        self.easy_get("login_pages.login_page", status_code=503)
-        GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
-        self.easy_get("login_pages.login_page", status_code=200)
-
+        # this test emits a logging statement `ERROR:django.request:Service Unavailable: /`
+        # that we want to squash, but we want to set logging level back to normal when we are done.
+        previous_logging_level = logging.getLogger("django.request").level
+        try:
+            logging.getLogger("django.request").setLevel(logging.CRITICAL)
+            GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
+            self.easy_get("login_pages.login_page", status_code=200)
+            GlobalSettings.get_singleton_instance().update(downtime_enabled=True)
+            self.easy_get("login_pages.login_page", status_code=503)
+            GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
+            self.easy_get("login_pages.login_page", status_code=200)
+        except Exception:
+            raise
+        finally:
+            logging.getLogger("django.request").setLevel(previous_logging_level)
 
 class TestChooseStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.choose_study"

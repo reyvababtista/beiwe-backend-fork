@@ -570,7 +570,6 @@ class ReferenceObjectMixin:
             self._default_summary_statistic_daily = self.generate_summary_statistic_daily()
             return self._default_summary_statistic_daily
     
-    
     def default_summary_statistic_daily_cheatsheet(self):
         # this is used to populate default values in a SummaryStatisticDaily
         field_dict = {}

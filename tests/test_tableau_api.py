@@ -3,15 +3,20 @@ from datetime import date, timedelta
 import orjson
 from django.http import StreamingHttpResponse
 
+from api.tableau_api import FINAL_SERIALIZABLE_FIELDS
 from authentication.tableau_authentication import (check_tableau_permissions,
     TableauAuthenticationFailed, TableauPermissionDenied)
+from constants.message_strings import TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY
 from constants.tableau_api_constants import (SERIALIZABLE_FIELD_NAMES, X_ACCESS_KEY_ID,
     X_ACCESS_KEY_SECRET)
 from database.security_models import ApiKey
 from database.user_models_researcher import StudyRelation
-from tests.common import ResearcherSessionTest, TableauAPITest
+from tests.common import ResearcherSessionTest, SmartRequestsTestCase, TableauAPITest
 from tests.helpers import compare_dictionaries
 
+#
+## Api key management
+#
 
 class TestNewTableauAPIKey(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.new_tableau_api_key"
@@ -336,3 +341,110 @@ class TableauApiAuthTests(TableauAPITest):
             check_tableau_permissions(
                 self.default_header, study_object_id=self.session_study.object_id
             )
+
+
+class TestWebDataConnector(SmartRequestsTestCase):
+    ENDPOINT_NAME = "tableau_api.web_data_connector"
+    
+    LOCAL_COPY_SERIALIZABLE_FIELD_NAMES = [
+        # Metadata
+        "date",
+        "participant_id",
+        "study_id",
+        "timezone",
+        
+        # Data quantities
+        "beiwe_accelerometer_bytes",
+        "beiwe_ambient_audio_bytes",
+        "beiwe_app_log_bytes",
+        "beiwe_bluetooth_bytes",
+        "beiwe_calls_bytes",
+        "beiwe_devicemotion_bytes",
+        "beiwe_gps_bytes",
+        "beiwe_gyro_bytes",
+        "beiwe_identifiers_bytes",
+        "beiwe_image_survey_bytes",
+        "beiwe_ios_log_bytes",
+        "beiwe_magnetometer_bytes",
+        "beiwe_power_state_bytes",
+        "beiwe_proximity_bytes",
+        "beiwe_reachability_bytes",
+        "beiwe_survey_answers_bytes",
+        "beiwe_survey_timings_bytes",
+        "beiwe_texts_bytes",
+        "beiwe_audio_recordings_bytes",
+        "beiwe_wifi_bytes",
+    ]
+    
+    # This is a very bad test. `content` is actually an html page (because tableau is strange)
+    def test(self):
+        resp = self.smart_get(self.session_study.object_id)
+        content = resp.content.decode()
+        
+        # test that someone has updated this test if the fields ever change
+        for field in self.LOCAL_COPY_SERIALIZABLE_FIELD_NAMES:
+            self.assert_present(field, content)
+        
+        # might as well also run the sanity test...
+        for field in FINAL_SERIALIZABLE_FIELDS:
+            self.assert_present(field.name, content)
+
+
+class TestNewTableauApiKey(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.new_tableau_api_key"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    
+    # FIXME: add tests for sanitization of the input name
+    def test_reset(self):
+        self.assertIsNone(self.session_researcher.api_keys.first())
+        self.smart_post(readable_name="new_name")
+        self.assertIsNotNone(self.session_researcher.api_keys.first())
+        self.assert_present("New Tableau API credentials have been generated for you",
+                             self.redirect_get_contents())
+        self.assertEqual(ApiKey.objects.filter(
+            researcher=self.session_researcher, readable_name="new_name").count(), 1)
+
+
+# admin_pages.disable_tableau_api_key
+class TestDisableTableauApiKey(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.disable_tableau_api_key"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    
+    def test_disable_success(self):
+        # basic test
+        api_key = ApiKey.generate(
+            researcher=self.session_researcher,
+            has_tableau_api_permissions=True,
+            readable_name="something",
+        )
+        self.smart_post(api_key_id=api_key.access_key_id)
+        self.assertFalse(self.session_researcher.api_keys.first().is_active)
+        content = self.redirect_get_contents()
+        self.assert_present(api_key.access_key_id, content)
+        self.assert_present("is now disabled", content)
+    
+    def test_no_match(self):
+        # fail with empty and fail with success
+        self.smart_post(api_key_id="abc")
+        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.redirect_get_contents())
+        api_key = ApiKey.generate(
+            researcher=self.session_researcher,
+            has_tableau_api_permissions=True,
+            readable_name="something",
+        )
+        self.smart_post(api_key_id="abc")
+        api_key.refresh_from_db()
+        self.assertTrue(api_key.is_active)
+        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.redirect_get_contents())
+    
+    def test_already_disabled(self):
+        api_key = ApiKey.generate(
+            researcher=self.session_researcher,
+            has_tableau_api_permissions=True,
+            readable_name="something",
+        )
+        api_key.update(is_active=False)
+        self.smart_post(api_key_id=api_key.access_key_id)
+        api_key.refresh_from_db()
+        self.assertFalse(api_key.is_active)
+        self.assert_present(TABLEAU_API_KEY_IS_DISABLED, self.redirect_get_contents())

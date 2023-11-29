@@ -1,4 +1,5 @@
 import json
+import logging
 from copy import copy
 from datetime import date, datetime, timedelta
 from io import BytesIO
@@ -14,7 +15,6 @@ from django.http.response import FileResponse, HttpResponse, HttpResponseRedirec
 from django.urls import reverse
 from django.utils import timezone
 
-from api.tableau_api import FINAL_SERIALIZABLE_FIELDS
 from config.jinja2 import easy_url
 from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
     IOS_FIREBASE_CREDENTIALS)
@@ -29,8 +29,7 @@ from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_S
     NEW_PASSWORD_RULES_FAIL, NO_DELETION_PERMISSION, PARTICIPANT_LOCKED, PASSWORD_EXPIRED,
     PASSWORD_RESET_FAIL_SITE_ADMIN, PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN,
     PASSWORD_RESET_SUCCESS, PASSWORD_RESET_TOO_SHORT, PASSWORD_WILL_EXPIRE,
-    PUSH_NOTIFICATIONS_NOT_CONFIGURED, TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY,
-    WRONG_CURRENT_PASSWORD)
+    PUSH_NOTIFICATIONS_NOT_CONFIGURED, WRONG_CURRENT_PASSWORD)
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.security_constants import MFA_CREATED
 from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
@@ -54,7 +53,7 @@ from libs.schedules import (get_start_and_end_of_java_timings_week,
     repopulate_absolute_survey_schedule_events, repopulate_relative_survey_schedule_events)
 from libs.security import device_hash, generate_easy_alphanumeric_string
 from tests.common import (BasicSessionTestCase, CommonTestCase, DataApiTest, ParticipantSessionTest,
-    ResearcherSessionTest, SmartRequestsTestCase)
+    ResearcherSessionTest)
 from tests.helpers import DummyThreadPool
 
 
@@ -425,15 +424,22 @@ class TestLoginPages(BasicSessionTestCase):
 
 class TestDowntime(BasicSessionTestCase):
     """ Tests our very basic downtime middleware """
-    
     def test_downtime(self):
-        GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
-        self.easy_get("login_pages.login_page", status_code=200)
-        GlobalSettings.get_singleton_instance().update(downtime_enabled=True)
-        self.easy_get("login_pages.login_page", status_code=503)
-        GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
-        self.easy_get("login_pages.login_page", status_code=200)
-
+        # this test emits a logging statement `ERROR:django.request:Service Unavailable: /`
+        # that we want to squash, but we want to set logging level back to normal when we are done.
+        previous_logging_level = logging.getLogger("django.request").level
+        try:
+            logging.getLogger("django.request").setLevel(logging.CRITICAL)
+            GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
+            self.easy_get("login_pages.login_page", status_code=200)
+            GlobalSettings.get_singleton_instance().update(downtime_enabled=True)
+            self.easy_get("login_pages.login_page", status_code=503)
+            GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
+            self.easy_get("login_pages.login_page", status_code=200)
+        except Exception:
+            raise
+        finally:
+            logging.getLogger("django.request").setLevel(previous_logging_level)
 
 class TestChooseStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.choose_study"
@@ -931,64 +937,6 @@ class TestResetDownloadApiCredentials(ResearcherSessionTest):
                              self.redirect_get_contents())
 
 
-class TestNewTableauApiKey(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.new_tableau_api_key"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
-    
-    # FIXME: add tests for sanitization of the input name
-    def test_reset(self):
-        self.assertIsNone(self.session_researcher.api_keys.first())
-        self.smart_post(readable_name="new_name")
-        self.assertIsNotNone(self.session_researcher.api_keys.first())
-        self.assert_present("New Tableau API credentials have been generated for you",
-                             self.redirect_get_contents())
-        self.assertEqual(ApiKey.objects.filter(
-            researcher=self.session_researcher, readable_name="new_name").count(), 1)
-
-
-# admin_pages.disable_tableau_api_key
-class TestDisableTableauApiKey(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.disable_tableau_api_key"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
-    
-    def test_disable_success(self):
-        # basic test
-        api_key = ApiKey.generate(
-            researcher=self.session_researcher,
-            has_tableau_api_permissions=True,
-            readable_name="something",
-        )
-        self.smart_post(api_key_id=api_key.access_key_id)
-        self.assertFalse(self.session_researcher.api_keys.first().is_active)
-        content = self.redirect_get_contents()
-        self.assert_present(api_key.access_key_id, content)
-        self.assert_present("is now disabled", content)
-    
-    def test_no_match(self):
-        # fail with empty and fail with success
-        self.smart_post(api_key_id="abc")
-        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.redirect_get_contents())
-        api_key = ApiKey.generate(
-            researcher=self.session_researcher,
-            has_tableau_api_permissions=True,
-            readable_name="something",
-        )
-        self.smart_post(api_key_id="abc")
-        api_key.refresh_from_db()
-        self.assertTrue(api_key.is_active)
-        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.redirect_get_contents())
-    
-    def test_already_disabled(self):
-        api_key = ApiKey.generate(
-            researcher=self.session_researcher,
-            has_tableau_api_permissions=True,
-            readable_name="something",
-        )
-        api_key.update(is_active=False)
-        self.smart_post(api_key_id=api_key.access_key_id)
-        api_key.refresh_from_db()
-        self.assertFalse(api_key.is_active)
-        self.assert_present(TABLEAU_API_KEY_IS_DISABLED, self.redirect_get_contents())
 
 
 #
@@ -4465,19 +4413,6 @@ class TestGraph(ParticipantSessionTest):
         self.assertEqual(response.content, b"")
         self.INJECT_DEVICE_TRACKER_PARAMS = True
 
-
-#
-## tableau_api
-#
-
-class TestWebDataConnector(SmartRequestsTestCase):
-    ENDPOINT_NAME = "tableau_api.web_data_connector"
-    
-    def test(self):
-        resp = self.smart_get(self.session_study.object_id)
-        content = resp.content.decode()
-        for field in FINAL_SERIALIZABLE_FIELDS:
-            self.assert_present(field.name, content)
 
 #
 ## push_notifications_api

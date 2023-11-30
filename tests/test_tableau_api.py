@@ -29,7 +29,7 @@ class TestNewTableauAPIKey(ResearcherSessionTest):
             -no other api keys were created associated with that researcher
             -that api key is active and has tableau access  """
         self.assertEqual(ApiKey.objects.count(), 0)
-        resp = self.smart_post(readable_name="test_generated_api_key")
+        self.smart_post(readable_name="test_generated_api_key")
         self.assertEqual(ApiKey.objects.count(), 1)
         api_key = ApiKey.objects.get(readable_name="test_generated_api_key")
         self.assertEqual(api_key.researcher.id, self.session_researcher.id)
@@ -130,7 +130,6 @@ class TestGetTableauDaily(TableauAPITest):
         assert compare_dictionaries(response_object[0], self.full_response_dict)
     
     def test_summary_statistics_daily_all_params_dates_all_populated(self):
-        
         self.generate_summary_statistic_daily()
         params = {"end_date": date.today(), "start_date": date.today(), **self.params_all_defaults}
         resp = self.smart_get_200_auto_headers(**params)
@@ -374,10 +373,67 @@ class TestWebDataConnector(SmartRequestsTestCase):
         "beiwe_texts_bytes",
         "beiwe_audio_recordings_bytes",
         "beiwe_wifi_bytes",
+        
+        # GPS
+        "jasmine_distance_diameter",
+        "jasmine_distance_from_home",
+        "jasmine_distance_traveled",
+        "jasmine_flight_distance_average",
+        "jasmine_flight_distance_stddev",
+        "jasmine_flight_duration_average",
+        "jasmine_flight_duration_stddev",
+        "jasmine_gps_data_missing_duration",
+        "jasmine_home_duration",
+        "jasmine_gyration_radius",
+        "jasmine_significant_location_count",
+        "jasmine_significant_location_entropy",
+        "jasmine_pause_time",
+        "jasmine_obs_duration",
+        "jasmine_obs_day",
+        "jasmine_obs_night",
+        "jasmine_total_flight_time",
+        "jasmine_av_pause_duration",
+        "jasmine_sd_pause_duration",
+        
+        # Willow, Texts
+        "willow_incoming_text_count",
+        "willow_incoming_text_degree",
+        "willow_incoming_text_length",
+        "willow_outgoing_text_count",
+        "willow_outgoing_text_degree",
+        "willow_outgoing_text_length",
+        "willow_incoming_text_reciprocity",
+        "willow_outgoing_text_reciprocity",
+        "willow_outgoing_MMS_count",
+        "willow_incoming_MMS_count",
+        
+        # Willow, Calls
+        "willow_incoming_call_count",
+        "willow_incoming_call_degree",
+        "willow_incoming_call_duration",
+        "willow_outgoing_call_count",
+        "willow_outgoing_call_degree",
+        "willow_outgoing_call_duration",
+        "willow_missed_call_count",
+        "willow_missed_callers",
+        "willow_uniq_individual_call_or_text_count",
+        
+        # Sycamore, Survey Frequency
+        "sycamore_total_surveys",
+        "sycamore_total_completed_surveys",
+        "sycamore_total_opened_surveys",
+        "sycamore_average_time_to_submit",
+        "sycamore_average_time_to_open",
+        "sycamore_average_duration",
+        
+        # Oak, walking statistics
+        "oak_walking_time",
+        "oak_steps",
+        "oak_cadence",
     ]
     
     # This is a very bad test. `content` is actually an html page (because tableau is strange)
-    def test(self):
+    def test_page_content(self):
         resp = self.smart_get(self.session_study.object_id)
         content = resp.content.decode()
         
@@ -385,9 +441,17 @@ class TestWebDataConnector(SmartRequestsTestCase):
         for field in self.LOCAL_COPY_SERIALIZABLE_FIELD_NAMES:
             self.assert_present(field, content)
         
-        # might as well also run the sanity test...
+        # test that all field names are present in the page
         for field in FINAL_SERIALIZABLE_FIELDS:
             self.assert_present(field.name, content)
+    
+    def test_all_fields_present_in_test(self):
+        # sanity check that the fields are present in both copies of this list - yes you have to
+        # update the copy of the list whenever you change the list.
+        for field in self.LOCAL_COPY_SERIALIZABLE_FIELD_NAMES:
+            self.assertIn(field, SERIALIZABLE_FIELD_NAMES)
+        for field in FINAL_SERIALIZABLE_FIELDS:
+            self.assertIn(field.name, self.LOCAL_COPY_SERIALIZABLE_FIELD_NAMES)
 
 
 class TestNewTableauApiKey(ResearcherSessionTest):

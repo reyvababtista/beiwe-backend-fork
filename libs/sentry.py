@@ -15,6 +15,7 @@ from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
 
 
 class SentryTypes:
+    # if you have to go update get_dsn_from_string() if you update this.
     data_processing = "data_processing"
     elastic_beanstalk = "elastic_beanstalk"
     javascript = "javascript"

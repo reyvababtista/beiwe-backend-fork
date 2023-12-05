@@ -35,7 +35,7 @@ def normalize_sentry_dsn(dsn: str):
 
 def get_dsn_from_string(sentry_type: str):
     """ Returns a DSN, even if it is incorrectly formatted. """
-    if sentry_type == SentryTypes.data_processing:
+    if sentry_type in (SentryTypes.data_processing, SentryTypes.script_runner):
         return normalize_sentry_dsn(SENTRY_DATA_PROCESSING_DSN)
     elif sentry_type == SentryTypes.elastic_beanstalk:
         return normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN)

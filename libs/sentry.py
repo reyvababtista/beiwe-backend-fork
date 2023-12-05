@@ -20,6 +20,7 @@ class SentryTypes:
     javascript = "javascript"
     script_runner = "script_runner"
 
+
 def normalize_sentry_dsn(dsn: str):
     if not dsn:
         return dsn

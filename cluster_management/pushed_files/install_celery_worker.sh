@@ -9,9 +9,9 @@
 # This looks like overkill, but resetting logs and permissions is super helpful
 sudo mkdir -p /etc/supervisor/conf.d/
 
-# Files need to have permissions 777 in order for the supervisor and celery
-# processes to have full permissions to write regardless of the runtime user
-# they occur under (supervisord may run as a root service, causing problems).
+# Files need to have permissions 666 in order for the supervisor and celery processes to have full
+# permissions to write regardless of the runtime user they occur under (supervisord may run as a
+# root service, causing problems).
 sudo rm -f /home/ubuntu/supervisord.log*
 sudo touch /home/ubuntu/supervisord.log
 sudo chmod 777 /home/ubuntu/supervisord.log
@@ -19,18 +19,23 @@ sudo chgrp adm /home/ubuntu/supervisord.log
 
 sudo rm -f /home/ubuntu/celery_processing.log*
 sudo touch /home/ubuntu/celery_processing.log
-sudo chmod 777 /home/ubuntu/celery_processing.log
+sudo chmod 666 /home/ubuntu/celery_processing.log
 sudo chgrp adm /home/ubuntu/celery_processing.log
 
 sudo rm -f /home/ubuntu/celery_push_send.log*
 sudo touch /home/ubuntu/celery_push_send.log
-sudo chmod 777 /home/ubuntu/celery_push_send.log
+sudo chmod 666 /home/ubuntu/celery_push_send.log
 sudo chgrp adm /home/ubuntu/celery_push_send.log
 
 sudo rm -f /home/ubuntu/celery_scripts.log*
 sudo touch /home/ubuntu/celery_scripts.log
-sudo chmod 777 /home/ubuntu/celery_scripts.log
+sudo chmod 666 /home/ubuntu/celery_scripts.log
 sudo chgrp adm /home/ubuntu/celery_scripts.log
+
+sudo rm -f /home/ubuntu/celery_forest.log*
+sudo touch /home/ubuntu/celery_forest.log
+sudo chmod 666 /home/ubuntu/celery_forest.log
+sudo chgrp adm /home/ubuntu/celery_forest.log
 
 sudo tee /etc/supervisord.conf >/dev/null <<EOL
 [supervisord]
@@ -70,7 +75,7 @@ startsecs = 5
 [program:celery_forest]
 # the queue and app names are declared in constants.py.
 directory = /home/ubuntu/beiwe-backend/
-command = /home/ubuntu/.pyenv/versions/beiwe/bin/python -m celery -A services.celery_forest worker -Q forest_queue --loglevel=info -Ofair --hostname=%%h_forest --concurrency/=1
+command = /home/ubuntu/.pyenv/versions/beiwe/bin/python -m celery -A services.celery_forest worker -Q forest_queue --loglevel=info -Ofair --hostname=%%h_forest --concurrency=1
 stdout_logfile = /home/ubuntu/celery_forest.log
 stderr_logfile = /home/ubuntu/celery_forest.log
 autostart = true

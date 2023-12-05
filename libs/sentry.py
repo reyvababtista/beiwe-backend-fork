@@ -18,7 +18,7 @@ class SentryTypes:
     data_processing = "data_processing"
     elastic_beanstalk = "elastic_beanstalk"
     javascript = "javascript"
-
+    script_runner = "script_runner"
 
 def normalize_sentry_dsn(dsn: str):
     if not dsn:

@@ -1,4 +1,3 @@
-
 from datetime import datetime, timedelta
 
 import pytz
@@ -6,7 +5,7 @@ from django.utils import timezone
 
 from constants.data_stream_constants import AMBIENT_AUDIO, IMAGE_FILE, VOICE_RECORDING
 from database.data_access_models import ChunkRegistry
-from database.tableau_api_models import SummaryStatisticDaily
+from database.forest_models import SummaryStatisticDaily
 
 
 # Onnela Lab, the first deployment, went live after this date, and it may be early by a whole year.

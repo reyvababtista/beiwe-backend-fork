@@ -180,7 +180,7 @@ path(
 # participant administration
 path('reset_participant_password', participant_administration.reset_participant_password)
 path('toggle_easy_enrollment', participant_administration.toggle_easy_enrollment)
-path('reset_device', participant_administration.reset_device)
+path('clear_device_id', participant_administration.clear_device_id)
 path('retire_participant', participant_administration.retire_participant)
 path('create_new_participant', participant_administration.create_new_participant)
 path('create_many_patients/<str:study_id>', participant_administration.create_many_patients)
@@ -194,7 +194,6 @@ path(
     '<int:study_id>/send_survey_notification/<str:patient_id>',
     push_notifications_api.resend_push_notification
 )
-
 
 # other researcher apis
 path("get-studies/v1", other_researcher_apis.get_studies)

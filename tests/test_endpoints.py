@@ -2965,7 +2965,7 @@ class TestResetParticipantPassword(ResearcherSessionTest):
 
 
 class TestResetDevice(ResearcherSessionTest):
-    ENDPOINT_NAME = "participant_administration.reset_device"
+    ENDPOINT_NAME = "participant_administration.clear_device_id"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
     def test_bad_study_id(self):

@@ -25,7 +25,7 @@ class DisableApiKeyForm(forms.Form):
     api_key_id = forms.CharField()
 
 
-class AuthenticationForm(forms.Form):
+class TableauAuthenticationForm(forms.Form):
     """ Form for fetching request headers """
     
     def __init__(self, *args, **kwargs):
@@ -43,7 +43,7 @@ class AuthenticationForm(forms.Form):
 class CreateTasksForm(forms.Form):
     date_start = forms.DateField()
     date_end = forms.DateField()
-    participant_patient_ids = CommaSeparatedListCharField()  # not actually a comma separated field
+    participant_patient_ids = CommaSeparatedListCharField()  # not actually a comma separated field?
     trees = CommaSeparatedListChoiceField(choices=ForestTree.choices())
     
     def __init__(self, *args, **kwargs):

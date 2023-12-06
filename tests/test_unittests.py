@@ -164,7 +164,7 @@ class TestParticipantDataDeletion(CommonTestCase):
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.deleted, True)
         self.assertEqual(self.default_participant.easy_enrollment, False)
-        self.assertEqual(self.default_participant.unregistered, True)
+        self.assertEqual(self.default_participant.permanently_retired, True)
         self.assertEqual(self.default_participant.device_id, "")
         self.assertEqual(self.default_participant.os_type, "")
     

@@ -153,4 +153,4 @@ PARTICIPANT_LOCKED = "Participant {patient_id} is either already deleted or mark
 NOT_IN_STUDY = "Participant {patient_id} is not in study {study_name}"
 NO_DELETION_PERMISSION = 'You do not have permission to delete participant {patient_id}.'
 
-PARTICIPANT_UNREGISTERED = "{patient_id} was successfully unregistered from the study. They will not be able to upload further data."
+PARTICIPANT_RETIRED_SUCCESS = "{patient_id} was successfully retired from the study. They will not be able to upload further data."

@@ -39,7 +39,7 @@ def run_next_queued_participant_data_deletion():
     # mark the participant as retired (field name is unregistered, its a legacy name), disable
     # easy enrollment, set a random password (validation runs on save so it needs to be valid)
     deletion_event.participant.update(
-        unregistered=True, easy_enrollment=False, device_id="", os_type=""
+        permanently_retired=True, easy_enrollment=False, device_id="", os_type=""
     )
     deletion_event.participant.set_password(generate_easy_alphanumeric_string(50))
     

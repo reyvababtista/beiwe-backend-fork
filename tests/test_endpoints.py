@@ -2888,7 +2888,8 @@ class TestDeleteParticipant(ResearcherSessionTest):
         self.assertEqual(ParticipantDeletionEvent.objects.count(), 0)
     
     def test_deleted_participant(self):
-        self.default_participant.update(unregistered=False, deleted=True)
+        # just being clear that the partricipant is not retired.
+        self.default_participant.update(permanently_retired=False, deleted=True)
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post_redirect(
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
@@ -3081,20 +3082,20 @@ class TestToggleParticipantEasyEnrollment(ResearcherSessionTest):
 
 
 class TestUnregisterParticipant(ResearcherSessionTest):
-    ENDPOINT_NAME = "participant_administration.unregister_participant"
+    ENDPOINT_NAME = "participant_administration.retire_participant"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     # most of this was copy-pasted from TestResetDevice
     
     def test_bad_study_id(self):
-        self.default_participant.update(unregistered=False)
+        self.assertEqual(self.default_participant.permanently_retired, False)
         self.set_session_study_relation(ResearcherRole.researcher)
         resp = self.smart_post(patient_id=self.default_participant.patient_id, study_id=0)
         self.assertEqual(resp.status_code, 404)
         self.default_participant.refresh_from_db()
-        self.assertEqual(self.default_participant.unregistered, False)
+        self.assertEqual(self.default_participant.permanently_retired, False)
     
     def test_wrong_study_id(self):
-        self.default_participant.update(unregistered=False)
+        self.assertEqual(self.default_participant.permanently_retired, False)
         self.set_session_study_relation(ResearcherRole.researcher)
         study2 = self.generate_study("study2")
         self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
@@ -3105,10 +3106,10 @@ class TestUnregisterParticipant(ResearcherSessionTest):
         )
         self.assertEqual(Participant.objects.count(), 1)
         self.default_participant.refresh_from_db()
-        self.assertEqual(self.default_participant.unregistered, False)
+        self.assertEqual(self.default_participant.permanently_retired, False)
     
     def test_bad_participant(self):
-        self.default_participant.update(unregistered=False)
+        self.assertEqual(self.default_participant.permanently_retired, False)
         self.assertEqual(Participant.objects.count(), 1)
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post_redirect(patient_id="invalid", study_id=self.session_study.id)
@@ -3118,43 +3119,44 @@ class TestUnregisterParticipant(ResearcherSessionTest):
         )
         # self.assert_present("does not exist", self.redirect_get_contents(self.session_study.id))
         self.default_participant.refresh_from_db()
-        self.assertEqual(self.default_participant.unregistered, False)
+        self.assertEqual(self.default_participant.permanently_retired, False)
     
-    def test_participant_unregistered_true(self):
-        self.default_participant.update(unregistered=True)
+    def test_participant_permanently_retired_true(self):
+        self.default_participant.update(permanently_retired=True)
         self.assertEqual(Participant.objects.count(), 1)
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post_redirect(
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
         self.assert_present(
-            "is already unregistered",
-            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
+            "already permanently retired",
+            self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content,
         )
         self.default_participant.refresh_from_db()
-        self.assertEqual(self.default_participant.unregistered, True)
+        self.assertEqual(self.default_participant.permanently_retired, True)
     
     def test_success(self):
-        self.default_participant.update(unregistered=False)
+        self.assertEqual(self.default_participant.permanently_retired, False)
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post_redirect(
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
         self.assert_present(
-            "was successfully unregistered from the study",
+            "was successfully retired from the study",
             self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         self.default_participant.refresh_from_db()
-        self.assertEqual(self.default_participant.unregistered, True)
+        self.assertEqual(self.default_participant.permanently_retired, True)
     
     def test_deleted_participant(self):
-        self.default_participant.update(unregistered=False, deleted=True)
+        self.assertEqual(self.default_participant.permanently_retired, False)
+        self.default_participant.update(deleted=True)
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_post_redirect(
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
         self.default_participant.refresh_from_db()
-        self.assertEqual(self.default_participant.unregistered, False)
+        self.assertEqual(self.default_participant.permanently_retired, False)
         page = self.redirect_get_contents(
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
@@ -4137,20 +4139,19 @@ class TestRegisterParticipant(ParticipantSessionTest):
     
     @patch("api.mobile_api.s3_upload")
     @patch("api.mobile_api.get_client_public_key_string")
-    def test_success_unregistered_before(
+    def test_success_unregistered_ever(
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
     ):
-        # This test has no intervention dates, a case doesn't ~really exist anymore because loading
-        # the participant page will populate the value on all participants if it is missing, with a
-        # date value of None. The followup test includes a participant with a None intervention so
-        # its probably fine.
+        # This test has no intervention dates - which is a case that doesn't ~really exist anymore,
+        # because loading the participant page will populate those values on all participants where
+        # it is missing, with a date value of None. The followup test includes a participant with a
+        # None intervention so its probably fine.
         s3_upload.return_value = None
         self.assertIsNone(self.default_participant.last_register_user)
         get_client_public_key_string.return_value = "a_private_key"
-        # unregistered participants have no device id
+        # unenrolled participants have no device id
         self.session_participant.update(device_id="")
         resp = self.smart_post_status_code(200, **self.BASIC_PARAMS)
-        
         response_dict = json.loads(resp.content)
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
@@ -4189,7 +4190,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         # we blanket disabled device id validation
         s3_upload.return_value = None
         get_client_public_key_string.return_value = "a_private_key"
-        # unregistered participants have no device id
+        # unenrolled participants have no device id
         params = self.BASIC_PARAMS
         params['device_id'] = "hhhhhhhhhhhhhhhhhhh"
         self.session_participant.update(device_id="aosnetuhsaronceu")
@@ -4326,7 +4327,7 @@ class TestMobileUpload(ParticipantSessionTest):
         # deleting data on the device, which seems wrong.
         self.skip_next_device_tracker_params
         self.smart_post_status_code(400, file_name="whatever.csv")
-        self.session_participant.update(unregistered=True)
+        self.session_participant.update(permanently_retired=True)
         self.smart_post_status_code(200, file_name="whatever.csv")
         self.assert_no_files_to_process
     

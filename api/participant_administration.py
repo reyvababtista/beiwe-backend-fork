@@ -8,7 +8,8 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 from authentication.admin_authentication import authenticate_researcher_study_access
-from constants.message_strings import NO_DELETION_PERMISSION, NOT_IN_STUDY, PARTICIPANT_UNREGISTERED
+from constants.message_strings import (NO_DELETION_PERMISSION, NOT_IN_STUDY,
+    PARTICIPANT_RETIRED_SUCCESS)
 from constants.user_constants import DATA_DELETION_ALLOWED_RELATIONS
 from database.study_models import Study
 from database.user_models_participant import Participant
@@ -113,7 +114,7 @@ def toggle_easy_enrollment(request: ResearcherRequest):
 
 @require_POST
 @authenticate_researcher_study_access
-def unregister_participant(request: ResearcherRequest):
+def retire_participant(request: ResearcherRequest):
     """ Block participant from uploading further data """
     patient_id = request.POST.get('patient_id', None)
     study_id = request.POST.get('study_id', None)
@@ -131,16 +132,16 @@ def unregister_participant(request: ResearcherRequest):
         participant_not_in_study_message(request, patient_id, study_id)
         return participant_page
     
-    if participant.is_dead:  # block locked participants, participant page displays a message
+    if participant.is_dead:  # block locked participants, participant page already displays a message
         return participant_page
     
-    if participant.unregistered:
-        messages.warning(request, f'Participant {patient_id} is already unregistered')
+    if participant.permanently_retired:
+        messages.warning(request, f'Participant {patient_id} is already permanently retired.')
         return participant_page
     
-    participant.unregistered = True
+    participant.permanently_retired = True
     participant.save()
-    messages.error(request, PARTICIPANT_UNREGISTERED.format(patient_id=patient_id))
+    messages.error(request, PARTICIPANT_RETIRED_SUCCESS.format(patient_id=patient_id))
     return participant_page
 
 

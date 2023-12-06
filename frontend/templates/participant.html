@@ -219,16 +219,16 @@
   <div class="col-md-12 well">
     <div class="col-md-5">
       <div class="h2-middle-margins-vertical text-center row">
-        <form action="/unregister_participant" method="post">
+        <form action="{{ easy_url('participant_administration.retire_participant') }}" method="post">
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
           <button type="submit" class="btn btn-danger large-font-size"
           onclick="return confirm('Are you sure you want to permanently end data collection from {{ participant.patient_id }}?')" 
-            {% if participant.unregistered or locked %} disabled {% endif %}>
+            {% if participant.permanently_retired or locked %} disabled {% endif %}>
             Permenantly Retire Participant
           </button>
         </form>
-        {% if participant.unregistered %}
+        {% if participant.permanently_retired %}
           This participant is already retired.
         {% endif %}
       </div>

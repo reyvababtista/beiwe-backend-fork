@@ -98,8 +98,8 @@ class Participant(AbstractPasswordUser):
     
     deleted = models.BooleanField(default=False)
     
-    # "Unregistered" means the participant is blocked from uploading further data; retired.
-    unregistered = models.BooleanField(default=False)
+    # retired participants are blocked from uploading further data.
+    permanently_retired = models.BooleanField(default=False)
     easy_enrollment = models.BooleanField(default=False)
     
     # related field typings (IDE halp)

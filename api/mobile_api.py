@@ -78,8 +78,8 @@ def upload(request: ParticipantRequest, OS_API=""):
     s3_file_location = file_name.replace("_", "/")
     participant = request.session_participant
     
-    if participant.unregistered:  # "Unregistered" participant uploads should delete their data.
-        log(200, "participant unregistered.")
+    if participant.permanently_retired:  # such a participant's uploads should be deleted.
+        log(200, "participant permanently retired.")
         return HttpResponse(status=200)
     
     # iOS can upload identically named files with different content (and missing decryption keys) so
@@ -205,7 +205,7 @@ def register_user(request: ParticipantRequest, OS_API=""):
     
     participant = request.session_participant
     
-    if participant.unregistered:
+    if participant.permanently_retired:
         return abort(400)
     
     # At this point the device has been checked for validity and will be registered successfully.
@@ -385,7 +385,7 @@ def format_survey_for_device(survey: Survey, participant: Participant):
     
     for schedule in query:
         # The date component is dropped, the representation is now 100% a weekly schedule
-        # the correct timezone is the "canonical form", e.g. in the study timezone (and then in 
+        # the correct timezone is the "canonical form", e.g. in the study timezone (and then in
         # survey timings form as offset from start of day)
         day_index, seconds = decompose_datetime_to_timings(schedule.scheduled_time_in_canonical_form)
         survey_timings[day_index].append(seconds)

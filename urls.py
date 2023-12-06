@@ -181,7 +181,7 @@ path(
 path('reset_participant_password', participant_administration.reset_participant_password)
 path('toggle_easy_enrollment', participant_administration.toggle_easy_enrollment)
 path('reset_device', participant_administration.reset_device)
-path('unregister_participant', participant_administration.unregister_participant)
+path('retire_participant', participant_administration.retire_participant)
 path('create_new_participant', participant_administration.create_new_participant)
 path('create_many_patients/<str:study_id>', participant_administration.create_many_patients)
 path('delete_participant', participant_administration.delete_participant)

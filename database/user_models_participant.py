@@ -53,18 +53,9 @@ class Participant(AbstractPasswordUser):
     DESIRED_ALGORITHM = "sha1"   # Yes, Bad, but this password doesn't actually protect access to data.
     DESIRED_ITERATIONS = 1000  # We will be completely reworking participant authentication soon anyway.
     
-    patient_id = models.CharField(
-        max_length=8, unique=True, validators=[ID_VALIDATOR],
-        help_text='Eight-character unique ID with characters chosen from 1-9 and a-z'
-    )
-    device_id = models.CharField(
-        max_length=256, blank=True,
-        help_text='The ID of the device that the participant is using for the study, if any.'
-    )
-    os_type = models.CharField(
-        max_length=16, choices=OS_TYPE_CHOICES, blank=True,
-        help_text='The type of device the participant is using, if any.'
-    )
+    patient_id = models.CharField(max_length=8, unique=True, validators=[ID_VALIDATOR])
+    device_id = models.CharField(max_length=256, blank=True)
+    os_type = models.CharField(max_length=16, choices=OS_TYPE_CHOICES, blank=True)
     study: Study = models.ForeignKey(
         Study, on_delete=models.PROTECT, related_name='participants', null=False
     )
@@ -82,7 +73,7 @@ class Participant(AbstractPasswordUser):
     last_push_notification_checkin = models.DateTimeField(null=True, blank=True)
     last_survey_checkin = models.DateTimeField(null=True, blank=True)
     
-    # pure tracking
+    # pure tracking - these are used to track the last time a participant did something.
     last_get_latest_surveys = models.DateTimeField(null=True, blank=True)
     last_upload = models.DateTimeField(null=True, blank=True)
     last_register_user = models.DateTimeField(null=True, blank=True)

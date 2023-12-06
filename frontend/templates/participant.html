@@ -173,13 +173,10 @@
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
           <button type="submit" class="btn btn-warning large-font-size"
-            {% if participant.device_id or locked %} disabled {% endif %}>
-            Generate a new password for this participant:
+            {% if locked %} disabled {% endif %}>
+            Generate New Registration Password
           </button>
         </form>
-        {% if participant.device_id %}
-          You may not reset participant passwords on registered devices.
-        {% endif %}
       </div>
     </div>
     <div class="col-md-7 h3-margins-vertical">
@@ -190,28 +187,28 @@
     </div>
   </div>
 
-  {# Unregister Device #}
+  {# Clear Device Token #}
   <div class="col-md-12 well">
     <div class="col-md-5">
       <div class="h2-middle-margins-vertical text-center row">
-        <form action="/reset_device" method="post">
+        <form action="{{ easy_url('participant_administration.clear_device_id') }}" method="post">
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
           <button type="submit" class="btn btn-warning large-font-size"
             {% if not participant.device_id or locked %} disabled {% endif %}>
-            Un-Register Device
+            Clear Device Token
           </button>
         </form>
         {% if not participant.device_id %}
-          There is no device registered for this participant
+          There is no device token present for this participant.
         {% endif %}
       </div>
     </div>
-    <div class="col-md-7 h3-margins-vertical">
-      Resetting a participant's registration password is a two-step process. You should only reset a
-      participant password if you know there is no device registered and uploading data. Click this
-      button if you need to register a new participant or reregister an old participant who has
-      forgotten their password.
+    <div class="col-md-7 h3-margins-vertical"> 
+      Click this button if you need to mark a parrticipant as Not Registered on the study's participant list.
+      This is purely a bookkeeping operation, the underlying value will be repopulated if the device 
+      contacts the server. If the device is out of the participant's control and still uploading data, you
+      should retire this participant id and create a new one in order to ensure that data gathered by Beiwe remains clean.
     </div>
   </div>
 

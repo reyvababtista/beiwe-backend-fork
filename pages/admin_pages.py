@@ -90,7 +90,7 @@ def view_study(request: ResearcherRequest, study_id=None):
             study=study,
             participants_ever_registered_count=study.participants.exclude(os_type='').count(),
             audio_survey_info=get_survey_info('audio_survey'),
-            image_survey_info=get_survey_info('image_survey'),
+            # image_survey_info=get_survey_info('image_survey'),
             tracking_survey_info=get_survey_info('tracking_survey'),
             # these need to be lists because they will be converted to json.
             study_fields=list(study.fields.all().values_list('field_name', flat=True)),

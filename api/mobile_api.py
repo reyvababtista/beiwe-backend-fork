@@ -168,8 +168,8 @@ def register_user(request: ParticipantRequest, OS_API=""):
     """ Checks that the patient id has been granted, and that there is no device registered with
     that id.  If the patient id has no device registered it registers this device and logs the
     bluetooth mac address.
-    Check the documentation in participant_authentication to ensure you have provided the proper credentials.
-    Returns the encryption key for this patient/user. 
+    Check the documentation in participant_authentication to ensure you have provided the proper
+    credentials. Returns the encryption key for this patient/user. 
     
     We used to have a test of the device id to require the device could not be changed without
     contacting the study researcher/admin. It became impossible to maintain this as operating

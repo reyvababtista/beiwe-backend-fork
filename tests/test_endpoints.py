@@ -2302,12 +2302,29 @@ class TestStudyParticipantApi(ResearcherSessionTest):
     SEARCH_PARAMETER = "search[value]"
     SOME_TIMESTAMP = timezone.make_aware(datetime(2020, 10, 1))
     
+    THE_STATUS_FIELD_NAMES = [
+        "last_get_latest_surveys",
+        "last_upload",
+        "last_register_user",
+        "last_set_password",
+        "last_set_fcm_token",
+        "last_get_latest_device_settings",
+    ]
+    
     # This endpoint is stupidly complex, it implements pagination, sorting, search ordering.
+    
+    def setUp(self) -> None:
+        # we need a flag for multiple calls to set_session_study_relation
+        ret = super().setUp()
+        self.STUDY_RELATION_SET = False
+        return ret
     
     @property
     def DEFAULT_PARAMETERS(self):
         # you need to be at least a researcher, factor out this clutter
-        self.set_session_study_relation(ResearcherRole.researcher)
+        if not self.STUDY_RELATION_SET:
+            self.set_session_study_relation(ResearcherRole.researcher)
+            self.STUDY_RELATION_SET = True
         return {
             "draw": 1,
             "start": 0,
@@ -2320,15 +2337,14 @@ class TestStudyParticipantApi(ResearcherSessionTest):
             self.SEARCH_PARAMETER: "",
         }
     
-    @property
-    def DEFAULT_RESPONSE(self):
+    def CONSTRUCT_RESPONSE(self, status: str):
         return {
             "draw": 1,
             "recordsTotal": 1,
             "recordsFiltered": 1,
             "data": [[self.SOME_TIMESTAMP.strftime(API_DATE_FORMAT),
                       self.default_participant.patient_id,
-                      True,
+                      status,
                       "ANDROID"]]
         }
     
@@ -2338,7 +2354,45 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         # this endpoint uses get args, for which we have to pass in the dict as the "data" kwarg
         resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
         content = json.loads(resp.content.decode())
-        self.assertEqual(content, self.DEFAULT_RESPONSE)
+        # this participant has never contacted the server, but it does have a device id.
+        self.assertEqual(content, self.CONSTRUCT_RESPONSE("Inactive"))
+    
+    def test_various_statuses(self):
+        # this test tests all the timestamp fields that are used to determine the status of a participant,
+        # which is displayed on the status column of the participants table.
+        self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
+        
+        # That triple **:
+        # For every field name - set all of them to null, but override the first dici ** with a
+        # second dict ** that forces the status_field_name to the current/appropriate time. (You
+        # can't ** two dicts with overlapping keys as function parameters directly, you get a
+        # "multiple values for keyword argument" error - which is a TypeError for some reason), but
+        # you Can that into an inline dictionary, and then ** that dictionary into the function
+        # parameters.
+        fields_as_nones = {field: None for field in self.THE_STATUS_FIELD_NAMES}
+        t = timezone.now()
+        for status_field_name in self.THE_STATUS_FIELD_NAMES:
+            self.default_participant.update_only(**{**fields_as_nones, **{status_field_name: t}})
+            resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
+            self.assertDictEqual(json.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (just now)"))
+        
+        t = timezone.now() - timedelta(minutes=6)
+        for status_field_name in self.THE_STATUS_FIELD_NAMES:
+            self.default_participant.update_only(**{**fields_as_nones, **{status_field_name: t}})
+            resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
+            self.assertDictEqual(json.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (last hour)"))
+        
+        t = timezone.now() - timedelta(hours=2)
+        for status_field_name in self.THE_STATUS_FIELD_NAMES:
+            self.default_participant.update_only(**{**fields_as_nones, **{status_field_name: t}})
+            resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
+            self.assertDictEqual(json.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (past day)"))
+        
+        t = timezone.now() - timedelta(days=2)
+        for status_field_name in self.THE_STATUS_FIELD_NAMES:
+            self.default_participant.update_only(**{**fields_as_nones, **{status_field_name: t}})
+            resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
+            self.assertDictEqual(json.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (past week)"))
     
     def test_with_intervention(self):
         self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
@@ -2348,7 +2402,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         self.default_populated_intervention_date
         resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
         content = json.loads(resp.content.decode())
-        correct_content = self.DEFAULT_RESPONSE
+        correct_content = self.CONSTRUCT_RESPONSE("Inactive")
         correct_content["data"][0].append(self.CURRENT_DATE.strftime(API_DATE_FORMAT))  # the value populated in the intervention date
         self.assertEqual(content, correct_content)
     
@@ -2357,7 +2411,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         self.default_participant_field_value  # populate database state
         resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
         content = json.loads(resp.content.decode())
-        correct_content = self.DEFAULT_RESPONSE
+        correct_content = self.CONSTRUCT_RESPONSE("Inactive")
         correct_content["data"][0].append(self.DEFAULT_PARTICIPANT_FIELD_VALUE)  # default value
         self.assertEqual(content, correct_content)
     
@@ -2368,7 +2422,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         self.default_participant_field_value
         resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
         content = json.loads(resp.content.decode())
-        correct_content = self.DEFAULT_RESPONSE
+        correct_content = self.CONSTRUCT_RESPONSE("Inactive")
         correct_content["data"][0].append(self.CURRENT_DATE.strftime(API_DATE_FORMAT))
         correct_content["data"][0].append(self.DEFAULT_PARTICIPANT_FIELD_VALUE)
         self.assertEqual(content, correct_content)
@@ -2384,7 +2438,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         p2.update_only(created_on=self.SOME_TIMESTAMP + timedelta(days=1))  # for sorting
         self.generate_intervention_date(p2, self.default_intervention, None)  # correct db population
         # construct the correct response data (yuck)
-        correct_content = self.DEFAULT_RESPONSE
+        correct_content = self.CONSTRUCT_RESPONSE("Inactive")
         correct_content["recordsTotal"] = 2
         correct_content["recordsFiltered"] = 2
         correct_content["data"][0].append(self.CURRENT_DATE.strftime(API_DATE_FORMAT))
@@ -2392,7 +2446,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         # created on, patient id, registered, os_type, intervention date, custom field
         # (registered is based on presence of os_type)
         correct_content["data"].append([
-            p2.created_on.strftime(API_DATE_FORMAT), p2.patient_id, True, "ANDROID", "", ""
+            p2.created_on.strftime(API_DATE_FORMAT), p2.patient_id, "Inactive", "ANDROID", "", ""
         ])
         # request, compare
         params = self.DEFAULT_PARAMETERS
@@ -3010,7 +3064,7 @@ class TestResetDevice(ResearcherSessionTest):
             patient_id=self.default_participant.patient_id, study_id=self.session_study.id
         )
         self.assert_present(
-            "device was reset; password is untouched",
+            "device status has been cleared",
             self.easy_get("admin_pages.view_study", status_code=200, study_id=self.session_study.id).content
         )
         self.default_participant.refresh_from_db()

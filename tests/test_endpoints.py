@@ -2363,7 +2363,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
         
         # That triple **:
-        # For every field name - set all of them to null, but override the first dici ** with a
+        # For every field name - set all of them to null, but override the first dict ** with a
         # second dict ** that forces the status_field_name to the current/appropriate time. (You
         # can't ** two dicts with overlapping keys as function parameters directly, you get a
         # "multiple values for keyword argument" error - which is a TypeError for some reason), but

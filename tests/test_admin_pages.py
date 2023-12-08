@@ -4,7 +4,9 @@ from unittest.mock import MagicMock, patch
 from django.utils import timezone
 
 from config.jinja2 import easy_url
-from constants.message_strings import (NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG,
+from constants.message_strings import (MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING,
+    MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED, MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS,
+    MFA_TEST_DISABLED, MFA_TEST_FAIL, MFA_TEST_SUCCESS, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG,
     NEW_PASSWORD_RULES_FAIL, PASSWORD_RESET_SUCCESS, WRONG_CURRENT_PASSWORD)
 from constants.security_constants import MFA_CREATED
 from constants.user_constants import ResearcherRole
@@ -218,3 +220,151 @@ class TestResetDownloadApiCredentials(ResearcherSessionTest):
             "Your Data-Download API access credentials have been reset",
             self.redirect_get_contents()
         )
+
+
+class TestResetMFASelf(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.reset_mfa_self"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    
+    def test_no_password(self):
+        session = self.client.session
+        orig_mfa = self.session_researcher.reset_mfa()
+        self.smart_post()  # magic redirect smart post, tests for the redirect
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_NO_PASSWORD, resp.content)
+        self.session_researcher.refresh_from_db()
+        self.assertIsNotNone(self.session_researcher.mfa_token)
+        self.assertEqual(orig_mfa, self.session_researcher.mfa_token)  # no change
+        self.assertNotIn(MFA_CREATED, session)
+    
+    def test_bad_password(self):
+        session = self.client.session
+        orig_mfa = self.session_researcher.reset_mfa()
+        self.smart_post(mfa_password="wrong_password")  # magic redirect smart post
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_BAD_PASSWORD, resp.content)
+        self.assertIsNotNone(self.session_researcher.mfa_token)
+        self.assertEqual(orig_mfa, self.session_researcher.mfa_token)  # no change
+        self.assertNotIn(MFA_CREATED, session)
+    
+    def test_mfa_reset_with_mfa_token(self):
+        # case is not accessible from webpage
+        session = self.client.session
+        orig_mfa = self.session_researcher.reset_mfa()
+        self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD)  # magic redirect smart post
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_SUCCESS, resp.content)
+        self.session_researcher.refresh_from_db()
+        self.assertIsNotNone(self.session_researcher.mfa_token)
+        self.assertNotEqual(orig_mfa, self.session_researcher.mfa_token)  # change!
+        self.assertIn(MFA_CREATED, session)
+    
+    def test_mfa_reset_without_mfa_token(self):
+        session = self.client.session
+        self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD)  # magic redirect smart post
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_SUCCESS, resp.content)
+        self.session_researcher.refresh_from_db()
+        self.assertIsNotNone(self.session_researcher.mfa_token)  # change!
+        self.assertIn(MFA_CREATED, session)
+    
+    def test_mfa_clear_with_token(self):
+        session = self.client.session
+        orig_mfa = self.session_researcher.reset_mfa()
+        # disable can be any non-falsy value
+        self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD, disable="true")
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_DISABLED, resp.content)
+        self.session_researcher.refresh_from_db()
+        self.assertIsNone(self.session_researcher.mfa_token)
+        self.assertNotEqual(orig_mfa, self.session_researcher.mfa_token)  # change!
+        self.assertNotIn(MFA_CREATED, session)
+    
+    def test_mfa_clear_without_mfa_token(self):
+        session = self.client.session
+        # disable can be any non-falsy value
+        self.smart_post(mfa_password=self.DEFAULT_RESEARCHER_PASSWORD, disable="true")
+        resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME)
+        self.assert_present(MFA_SELF_DISABLED, resp.content)
+        self.session_researcher.refresh_from_db()
+        self.assertIsNone(self.session_researcher.mfa_token)  # change!
+        self.assertNotIn(MFA_CREATED, session)
+
+
+class TestTestMFA(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.test_mfa"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    
+    def test_mfa_working_fails(self):
+        self.session_researcher.reset_mfa()  # enable mfa
+        if self.session_researcher._mfa_now == "123456":
+            self.session_researcher.reset_mfa()  # ensure mfa code is not 123456
+        
+        self.smart_post()  # magic redirect smart post
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_CODE_MISSING, page)  # missing mfa code
+        
+        self.smart_post(mfa_code="123456")  # wrong mfa code
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_TEST_FAIL, page)
+        
+        self.smart_post(mfa_code="1234567")  # too long mfa code
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_CODE_6_DIGITS, page)
+        
+        self.smart_post(mfa_code="abcdef")  # non-numeric mfa code
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_CODE_DIGITS_ONLY, page)
+        
+        self.smart_post(mfa_code=self.session_researcher._mfa_now)  # correct mfa code
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_TEST_SUCCESS, page)
+        
+        self.session_researcher.clear_mfa()  # disabled mfa
+        self.smart_post(mfa_code="abcdef")
+        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        self.assert_present(MFA_TEST_DISABLED, page)
+
+
+class TestElevateResearcher(ResearcherSessionTest):
+    ENDPOINT_NAME = "system_admin_pages.elevate_researcher"
+    
+    # (this one is tedious.)
+    
+    def test_self_as_researcher_on_study(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_status_code(
+            403, researcher_id=self.session_researcher.id, study_id=self.session_study.id
+        )
+    
+    def test_self_as_study_admin_on_study(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.smart_post_status_code(
+            403, researcher_id=self.session_researcher.id, study_id=self.session_study.id
+        )
+    
+    def test_researcher_as_study_admin_on_study(self):
+        # this is the only case that succeeds
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.researcher)
+        self.smart_post_status_code(302, researcher_id=r2.id, study_id=self.session_study.id)
+        self.assertEqual(r2.study_relations.get().relationship, ResearcherRole.study_admin)
+    
+    def test_study_admin_as_study_admin_on_study(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.study_admin)
+        self.smart_post_status_code(403, researcher_id=r2.id, study_id=self.session_study.id)
+        self.assertEqual(r2.study_relations.get().relationship, ResearcherRole.study_admin)
+    
+    def test_site_admin_as_study_admin_on_study(self):
+        self.session_researcher
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.site_admin)
+        self.smart_post_status_code(403, researcher_id=r2.id, study_id=self.session_study.id)
+        self.assertFalse(r2.study_relations.filter(study=self.session_study).exists())
+    
+    def test_site_admin_as_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.site_admin)
+        self.smart_post_status_code(403, researcher_id=r2.id, study_id=self.session_study.id)
+        self.assertFalse(r2.study_relations.filter(study=self.session_study).exists())

@@ -22,6 +22,9 @@ from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.streaming_bytes_io import StreamingStringsIO
 
 
+#FIXME: rename to participant_administration_api.py
+
+
 @require_POST
 @authenticate_researcher_study_access
 def reset_participant_password(request: ResearcherRequest):

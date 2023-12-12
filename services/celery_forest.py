@@ -24,6 +24,7 @@ from constants.forest_constants import (CLEANUP_ERROR as CLN_ERR, FOREST_TREE_RE
     YEAR_MONTH_DAY)
 from database.data_access_models import ChunkRegistry
 from database.forest_models import ForestTask, SummaryStatisticDaily
+from database.system_models import ForestVersion
 from database.user_models_participant import Participant
 from libs.celery_control import forest_celery_app, safe_apply_async
 from libs.copy_study import format_study
@@ -137,7 +138,8 @@ def celery_run_forest(forest_task_id):
         task.update_only(  # Set metadata on the task to running
             status=ForestTaskStatus.running,
             process_start_time=timezone.now(),
-            forest_version=version
+            forest_version=version,
+            forest_commit=ForestVersion.get_singleton_instance().git_commit,
         )
     
     # ChunkRegistry time_bin hourly chunks are in UTC, and only have hourly datapoints for all

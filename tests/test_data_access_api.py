@@ -7,22 +7,8 @@ from constants.data_stream_constants import ALL_DATA_STREAMS, SURVEY_TIMINGS
 from constants.user_constants import ResearcherRole
 from database.data_access_models import ChunkRegistry
 from database.profiling_models import DataAccessRecord
-from tests.common import CommonTestCase, DataApiTest, ResearcherSessionTest
+from tests.common import CommonTestCase, DataApiTest
 from tests.helpers import DummyThreadPool
-
-
-#
-## data_access_web_form
-#
-class TestDataAccessWebFormPage(ResearcherSessionTest):
-    ENDPOINT_NAME = "data_access_web_form.data_api_web_form_page"
-    
-    def test(self):
-        resp = self.smart_get()
-        self.assert_present("Reset Data-Download API Access Credentials", resp.content)
-        id_key, secret_key = self.session_researcher.reset_access_credentials()
-        resp = self.smart_get()
-        self.assert_not_present("Reset Data-Download API Access Credentials", resp.content)
 
 
 #

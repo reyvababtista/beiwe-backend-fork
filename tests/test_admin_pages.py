@@ -7,11 +7,13 @@ from config.jinja2 import easy_url
 from constants.message_strings import (MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING,
     MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED, MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS,
     MFA_TEST_DISABLED, MFA_TEST_FAIL, MFA_TEST_SUCCESS, NEW_PASSWORD_MISMATCH, NEW_PASSWORD_N_LONG,
-    NEW_PASSWORD_RULES_FAIL, PASSWORD_RESET_SUCCESS, WRONG_CURRENT_PASSWORD)
+    NEW_PASSWORD_RULES_FAIL, PASSWORD_RESET_SUCCESS, TABLEAU_API_KEY_IS_DISABLED,
+    TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
 from constants.security_constants import MFA_CREATED
 from constants.user_constants import ResearcherRole
 from database.security_models import ApiKey
-from tests.common import ResearcherSessionTest
+from libs.http_utils import easy_url
+from tests.common import ResearcherSessionTest, TableauAPITest
 
 
 #
@@ -326,45 +328,129 @@ class TestTestMFA(ResearcherSessionTest):
         self.assert_present(MFA_TEST_DISABLED, page)
 
 
-class TestElevateResearcher(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.elevate_researcher"
+#
+## The tableau stuff
+#
+
+
+class TestNewTableauAPIKey(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.new_tableau_api_key"
     
-    # (this one is tedious.)
+    def test_new_api_key(self):
+        """ Asserts that:
+            -one new api key is added to the database
+            -that api key is linked to the logged in researcher
+            -the correct readable name is associated with the key
+            -no other api keys were created associated with that researcher
+            -that api key is active and has tableau access  """
+        self.assertEqual(ApiKey.objects.count(), 0)
+        self.smart_post(readable_name="test_generated_api_key")
+        self.assertEqual(ApiKey.objects.count(), 1)
+        api_key = ApiKey.objects.get(readable_name="test_generated_api_key")
+        self.assertEqual(api_key.researcher.id, self.session_researcher.id)
+        self.assertTrue(api_key.is_active)
+        self.assertTrue(api_key.has_tableau_api_permissions)
+
+
+class TestDisableTableauAPIKey(TableauAPITest):
+    ENDPOINT_NAME = "admin_pages.disable_tableau_api_key"
     
-    def test_self_as_researcher_on_study(self):
+    def test_disable_tableau_api_key(self):
+        """ Asserts that:
+            -exactly one fewer active api key is present in the database
+            -the api key is no longer active """
+        self.assertEqual(ApiKey.objects.filter(is_active=True).count(), 1)
+        self.smart_post(api_key_id=self.api_key_public)
+        self.assertEqual(ApiKey.objects.filter(is_active=True).count(), 0)
+        self.assertFalse(ApiKey.objects.get(access_key_id=self.api_key_public).is_active)
+
+
+class TestNewTableauApiKey(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.new_tableau_api_key"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    
+    # FIXME: add tests for sanitization of the input name
+    def test_reset(self):
+        self.assertIsNone(self.session_researcher.api_keys.first())
+        self.smart_post(readable_name="new_name")
+        self.assertIsNotNone(self.session_researcher.api_keys.first())
+        self.assert_present(
+            "New Tableau API credentials have been generated for you", self.redirect_get_contents()
+        )
+        self.assertEqual(
+            ApiKey.objects.filter(researcher=self.session_researcher,
+                                  readable_name="new_name").count(), 1
+        )
+
+
+# admin_pages.disable_tableau_api_key
+class TestDisableTableauApiKey(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.disable_tableau_api_key"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    
+    def test_disable_success(self):
+        # basic test
+        api_key = ApiKey.generate(
+            researcher=self.session_researcher,
+            has_tableau_api_permissions=True,
+            readable_name="something",
+        )
+        self.smart_post(api_key_id=api_key.access_key_id)
+        self.assertFalse(self.session_researcher.api_keys.first().is_active)
+        content = self.redirect_get_contents()
+        self.assert_present(api_key.access_key_id, content)
+        self.assert_present("is now disabled", content)
+    
+    def test_no_match(self):
+        # fail with empty and fail with success
+        self.smart_post(api_key_id="abc")
+        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.redirect_get_contents())
+        api_key = ApiKey.generate(
+            researcher=self.session_researcher,
+            has_tableau_api_permissions=True,
+            readable_name="something",
+        )
+        self.smart_post(api_key_id="abc")
+        api_key.refresh_from_db()
+        self.assertTrue(api_key.is_active)
+        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.redirect_get_contents())
+    
+    def test_already_disabled(self):
+        api_key = ApiKey.generate(
+            researcher=self.session_researcher,
+            has_tableau_api_permissions=True,
+            readable_name="something",
+        )
+        api_key.update(is_active=False)
+        self.smart_post(api_key_id=api_key.access_key_id)
+        api_key.refresh_from_db()
+        self.assertFalse(api_key.is_active)
+        self.assert_present(TABLEAU_API_KEY_IS_DISABLED, self.redirect_get_contents())
+
+
+
+class TestChooseStudy(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.choose_study"
+    
+    # these tests tost behavior of redirection without anything in the most_recent_page tracking
+    # or as forwarding from the login page via the referrer url parameter into the post parameter
+    
+    def test_2_studies(self):
+        study2 = self.generate_study("study2")
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.smart_post_status_code(
-            403, researcher_id=self.session_researcher.id, study_id=self.session_study.id
+        self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
+        resp = self.smart_get_status_code(200)
+        self.assert_present(self.session_study.name, resp.content)
+        self.assert_present(study2.name, resp.content)
+    
+    def test_1_study(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_get_status_code(302)
+        self.assertEqual(
+            resp.url, easy_url("admin_pages.view_study", study_id=self.session_study.id)
         )
     
-    def test_self_as_study_admin_on_study(self):
-        self.set_session_study_relation(ResearcherRole.study_admin)
-        self.smart_post_status_code(
-            403, researcher_id=self.session_researcher.id, study_id=self.session_study.id
-        )
-    
-    def test_researcher_as_study_admin_on_study(self):
-        # this is the only case that succeeds
-        self.set_session_study_relation(ResearcherRole.study_admin)
-        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.researcher)
-        self.smart_post_status_code(302, researcher_id=r2.id, study_id=self.session_study.id)
-        self.assertEqual(r2.study_relations.get().relationship, ResearcherRole.study_admin)
-    
-    def test_study_admin_as_study_admin_on_study(self):
-        self.set_session_study_relation(ResearcherRole.study_admin)
-        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.study_admin)
-        self.smart_post_status_code(403, researcher_id=r2.id, study_id=self.session_study.id)
-        self.assertEqual(r2.study_relations.get().relationship, ResearcherRole.study_admin)
-    
-    def test_site_admin_as_study_admin_on_study(self):
-        self.session_researcher
-        self.set_session_study_relation(ResearcherRole.study_admin)
-        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.site_admin)
-        self.smart_post_status_code(403, researcher_id=r2.id, study_id=self.session_study.id)
-        self.assertFalse(r2.study_relations.filter(study=self.session_study).exists())
-    
-    def test_site_admin_as_site_admin(self):
-        self.set_session_study_relation(ResearcherRole.site_admin)
-        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.site_admin)
-        self.smart_post_status_code(403, researcher_id=r2.id, study_id=self.session_study.id)
-        self.assertFalse(r2.study_relations.filter(study=self.session_study).exists())
+    def test_no_study(self):
+        self.set_session_study_relation(None)
+        resp = self.smart_get_status_code(200)
+        self.assert_not_present(self.session_study.name, resp.content)

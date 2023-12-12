@@ -245,11 +245,52 @@ class BasicSessionTestCase(CommonTestCase):
     def do_researcher_logout(self):
         return self.client.get(self.smart_reverse("admin_pages.logout_admin"))
 
+
 class SmartRequestsTestCase(BasicSessionTestCase):
+    """ An ENDPOINT_NAME is a string of the form "file_endpoint_is_in.view_name", for example
+    "login_pages.validate_login" or "participant_pages.participant_page". These tests must also be
+    in a test file that mimics the endpoint name, for example test_login_pages.py or
+    test_participant_pages.py. These rules are enforced enforced by the test class as two #
+    automatic tests that are tacked on to the end of every test class implemented below.
+    
+    REDIRECT_ENDPOINT_NAME is identical in form to ENDPOINT_NAME, it is used to make testing an
+    exceptionally common pattern trivial. """
     ENDPOINT_NAME = None
     REDIRECT_ENDPOINT_NAME = None
     IGNORE_THIS_ENDPOINT = "ignore this endpoint"  # turns out we need to suppress this sometimes...
     
+    def test_has_valid_endpoint_name_and_is_placed_in_correct_file(self):
+        # case: [currently] subclasses that but are intended to be further subclassed are contained
+        # in the tests.common, so they can break the rules.
+        if self.__class__.__module__ == "tests.common" or self.ENDPOINT_NAME == self.IGNORE_THIS_ENDPOINT:
+            return
+        
+        # Rule: test classes should be in a test file with the same structure module name  as the
+        # endpoint they are testing.
+        target_according_to_filename = self.__class__.__module__.split(".")[-1].replace("test_", "")
+        target_according_to_endpoint_name = self.ENDPOINT_NAME.split(".")[0]
+        full_test_class_location = f"{self.__class__.__module__}.{self.__class__.__name__}"
+        assert target_according_to_filename == target_according_to_endpoint_name, (
+            f"Test class '{full_test_class_location.replace('.', ' . ')}' is in the wrong file.\n\n"
+            f"it targets the endpoint '{self.ENDPOINT_NAME}',\nbut "
+            f"it is located in    '{self.__class__.__module__}.py'.\n"
+            f"It should be in         'tests.test_{target_according_to_endpoint_name}.py\n"
+            f"along with all the other endpoint tests for {target_according_to_endpoint_name}."
+        )
+        
+        # Rule: subclasses must have a valid endpoint name or be explicitly set to
+        # IGNORE_THIS_ENDPOINT. REDIRECT_ENDPOINT_NAME must be None or a valid endpoint name.
+        end_name = self.ENDPOINT_NAME  # using variable names to shorten these because ...
+        ignore = self.IGNORE_THIS_ENDPOINT
+        r_end_name = self.REDIRECT_ENDPOINT_NAME
+        # check endpoints ard redirects are valid
+        assert end_name in ENDPOINTS_BY_NAME or end_name == ignore, \
+            f"Test class {self.__class__.__name__}'s ENDPOINT_NAME `{end_name}` does not exist."
+        # assert r_end_name != ignore and (end_name is None or r_end_name not in ENDPOINTS_BY_NAME):
+        assert r_end_name in ENDPOINTS_BY_NAME or r_end_name is None, \
+            f"{self.__class__.__name__}'s REDIRECT_ENDPOINT_NAME {r_end_name}` does not exist."
+    
+    ## Machinery for ensuring our smart_* methods that require redirects are used correctly.
     def ensure_has_redirect(some_function: Callable):
         """ Wrapped functions must have a class variable REDIRECT_ENDPOINT_NAME populated. """
         @wraps(some_function)
@@ -272,18 +313,6 @@ class SmartRequestsTestCase(BasicSessionTestCase):
                 )
             return some_function(*args, **kwargs)
         return checker_function
-    
-    @classmethod
-    def setUpClass(cls) -> None:
-        end_name = cls.ENDPOINT_NAME  # using variable names to shorten these because ...
-        ignore = cls.IGNORE_THIS_ENDPOINT
-        r_end_name = cls.REDIRECT_ENDPOINT_NAME
-        # check endpoints ard redirects are valid
-        if end_name not in ENDPOINTS_BY_NAME and end_name != ignore:
-            print(f"Test class {cls.__name__}'s ENDPOINT_NAME `{end_name}` does not exist.")
-        if r_end_name is not None and r_end_name not in ENDPOINTS_BY_NAME and r_end_name != ignore:
-            print(f"{cls.__name__}'s REDIRECT_ENDPOINT_NAME {r_end_name}` does not exist.")
-        return super().setUpClass()
     
     def smart_post(self, *reverse_args, reverse_kwargs=None, **post_params) -> HttpResponse:
         """ A wrapper to do a post request, using reverse on the ENDPOINT_NAME, and with a

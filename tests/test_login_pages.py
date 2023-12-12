@@ -16,7 +16,7 @@ from constants.url_constants import LOGIN_REDIRECT_SAFE, urlpatterns
 from constants.user_constants import ResearcherRole
 from database.study_models import Study
 from database.system_models import GlobalSettings
-from tests.common import BasicSessionTestCase, ResearcherSessionTest
+from tests.common import BasicSessionTestCase
 
 
 #
@@ -420,33 +420,6 @@ class TestDowntime(BasicSessionTestCase):
             raise
         finally:
             logging.getLogger("django.request").setLevel(previous_logging_level)
-
-
-class TestChooseStudy(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.choose_study"
-    
-    # these tests tost behavior of redirection without anything in the most_recent_page tracking
-    # or as forwarding from the login page via the referrer url parameter into the post parameter
-    
-    def test_2_studies(self):
-        study2 = self.generate_study("study2")
-        self.set_session_study_relation(ResearcherRole.researcher)
-        self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
-        resp = self.smart_get_status_code(200)
-        self.assert_present(self.session_study.name, resp.content)
-        self.assert_present(study2.name, resp.content)
-    
-    def test_1_study(self):
-        self.set_session_study_relation(ResearcherRole.researcher)
-        resp = self.smart_get_status_code(302)
-        self.assertEqual(
-            resp.url, easy_url("admin_pages.view_study", study_id=self.session_study.id)
-        )
-    
-    def test_no_study(self):
-        self.set_session_study_relation(None)
-        resp = self.smart_get_status_code(200)
-        self.assert_not_present(self.session_study.name, resp.content)
 
 
 class TestResearcherRedirectionLogic(BasicSessionTestCase):

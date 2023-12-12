@@ -147,6 +147,7 @@ class Study(TimestampedModel):
             only_after_epoch: if True, will filter results only for datetimes after the Unix epoch
                               (1970-01-01T00:00:00Z)
             only_before_now: if True, will filter results only for datetimes before now """
+        
         time_bins: QuerySet[datetime] = self.chunk_registries.values_list("time_bin", flat=True)
         comparator = operator.lt if earliest else operator.gt
         now = timezone.now()

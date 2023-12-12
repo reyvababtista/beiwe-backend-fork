@@ -57,42 +57,62 @@ TASK_SERIALIZER_FIELDS = [
 @authenticate_researcher_study_access
 @forest_enabled
 def forest_tasks_progress(request: ResearcherRequest, study_id=None):
-    study: Study = Study.objects.get(pk=study_id)
+    # generates a chart of study analysis progress logs
+    study = Study.objects.get(pk=study_id)
     participants: ParticipantQuerySet = Participant.objects.filter(study=study_id)
     
-    # generate chart of study analysis progress logs
+    # later tasks will overwrite earlier tasks - this is intentional.
+    # number of forest tasks shouldn't be the bottleneck here.
     tasks = ForestTask.objects.filter(participant__in=participants).order_by("created_on")
     
+    # these are quite optimized buuuuut it is still slow.
     start_date = (study.get_earliest_data_time_bin() or study.created_on).date()
     end_date = (study.get_latest_data_time_bin() or timezone.now()).date()
     
     params = {}
-    results = defaultdict(lambda: "--")
-    # this code simultaneously builds up the chart of most recent forest results for date ranges
-    # by participant and tree, and tracks the metadata
+    results = defaultdict(lambda: "-")
+    chart_elements_lookup = {False: "N", None: "?"}
+    # this loop builds the chart of whether there are forest results for date ranges
+    # per-participant- -and-tree. The tasks query is ordered by creation date, so later tasks will
+    # overwrite earlier tasks. a "-" means no task has been run, "N" means a task ran but there was
+    # no output, "?" means there the code ran successfully but there was an error reading in the
+    # data so we MIGHT have data, and "Y" means there was definitely data.
     for task in tasks:
         for a_date in daterange(task.data_date_start, task.data_date_end, inclusive=True):
-            results[(task.participant_id, task.forest_tree, a_date)] = task
-            params[(task.participant_id, task.forest_tree, a_date)] = task.safe_unpickle_parameters_as_string()
+            key = (task.participant_id, task.forest_tree, a_date)
+            in_table = results[key]  # will populates with a "-" on first access
+            output_exists = task.forest_output_exists
+            if in_table == "Y" or output_exists:  # always force "Y"
+                results[key] = "Y"
+            elif in_table != "?":
+                # We have some nice constraints here:
+                # 1. output_exists is False or None, so chart_elements_lookup[false or None]
+                #    can only return "N" or "?".
+                # 2. The chart's current field is "-", "N", or "?"
+                # 3. If in_table is a ? we can just skip it because we cannot upgrade from ? to Y here.
+                #  So, we just skip if we are already at ? in the chart element, and otherwise we do the lookup.
+                results[key] = chart_elements_lookup[output_exists]
+            params[key] = task.safe_unpickle_parameters_as_string()
     
-    # generate the date range for charting
+    # generate the date range for the chart, we need it many times.
     dates = list(daterange(start_date, end_date, inclusive=True))
-    
     chart = []
     for participant in participants:
-        for tree in ForestTree.values():
-            row = [participant.patient_id, tree] + \
-                [results[(participant.id, tree, date)] for date in dates]
+        for tree_name in ForestTree.values():
+            # we need to make a list of lists with the participant and tree name
+            row = [participant.patient_id, tree_name] + \
+                [results[(participant.id, tree_name, date)] for date in dates]
             chart.append(row)
     
     # ensure that within each tree, only a single set of param values are used (only the most recent runs
     # are considered, and unsuccessful runs are assumed to invalidate old runs, clearing params)
     params_conflict = False
-    for tree in {k[1] for k in params.keys()}:
-        if len({m for k, m in params.items() if m is not None and k[1] == tree}) > 1:
+    for tree_name in {k[1] for k in params.keys()}:
+        if len({m for k, m in params.items() if m is not None and k[1] == tree_name}) > 1:
             params_conflict = True
             break
     
+    chart_json = orjson.dumps(chart).decode()  # may be huge, but orjson is very fast.
     return render(
         request,
         'forest/forest_tasks_progress.html',  # has been renamed internally because this is imprecise.
@@ -103,7 +123,7 @@ def forest_tasks_progress(request: ResearcherRequest, study_id=None):
             params_conflict=params_conflict,
             start_date=start_date,
             end_date=end_date,
-            chart=chart  # this uses the jinja safe filter and should never involve user input
+            chart=chart_json  # this uses the jinja safe filter and should never involve user input
         )
     )
 
@@ -157,6 +177,7 @@ def task_log(request: ResearcherRequest, study_id=None):
         task_dict["forest_tree_display"] = task_dict.pop("forest_tree").title()
         task_dict["created_on_display"] = task_dict.pop("created_on").strftime(DEV_TIME_FORMAT)
         task_dict["forest_output_exists_display"] = display_true(task_dict["forest_output_exists"])
+        
         # dates/times that require safety
         task_dict["process_end_time"] = task_dict["process_end_time"].strftime(DEV_TIME_FORMAT) \
              if task_dict["process_end_time"] else None

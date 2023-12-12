@@ -115,19 +115,28 @@
             <div class="panel panel-default">
               <div class="panel-heading">Task Metadata</div>
               <div class="panel-body">
+                
                 <dl style="margin-bottom: 0;">
-                  <dt>Patient ID</dt>
-                  <dd>{% raw %}{{ modalLog.patient_id }}{% endraw %}</dd>
-                  <dt>Tree</dt>
-                  <dd>{% raw %}{{ modalLog.forest_tree_display }}{% endraw %}</dd>
-                  <dt>Data Date Start</dt>
-                  <dd>{% raw %}{{ modalLog.data_date_start }}{% endraw %}</dd>
-                  <dt>Data Date End</dt>
-                  <dd>{% raw %}{{ modalLog.data_date_end }}{% endraw %}</dd>
-                  <dt>Status</dt>
-                  <dd>{% raw %}{{ modalLog.status }}{% endraw %}</dd>
-                  <dt>Created On</dt>
-                  <dd>{% raw %}{{ modalLog.created_on_display }}{% endraw %}</dd>
+                  <div class="col-xs-6">
+                    <dt>Patient ID</dt>
+                    <dd>{% raw %}{{ modalLog.patient_id }}{% endraw %}</dd>
+                    <dt>Tree</dt>
+                    <dd>{% raw %}{{ modalLog.forest_tree_display }}{% endraw %}</dd>
+                    <dt>Task ID</dt>
+                    <dd>{% raw %}{{ modalLog.external_id }}{% endraw %}</dd>
+                    <dt>Forest Commit</dt>
+                    <dd>{% raw %}{{ modalLog.forest_commit }}{% endraw %}</dd>
+                  </div>
+                  <div class="col-xs-6"></div>
+                    <dt>Data Date Start</dt>
+                    <dd>{% raw %}{{ modalLog.data_date_start }}{% endraw %}</dd>
+                    <dt>Data Date End</dt>
+                    <dd>{% raw %}{{ modalLog.data_date_end }}{% endraw %}</dd>
+                    <dt>Status</dt>
+                    <dd>{% raw %}{{ modalLog.status }}{% endraw %}</dd>
+                    <dt>Created On</dt>
+                    <dd>{% raw %}{{ modalLog.created_on_display }}{% endraw %}</dd>
+                  </div>
                 </dl>
               </div>
             </div>

@@ -1,7 +1,7 @@
 import csv
 import pickle
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 import orjson
 from django.contrib import messages
@@ -45,7 +45,8 @@ TASK_SERIALIZER_FIELDS = [
     "participant__patient_id",  # -> patient_id
     "pickled_parameters",
     "forest_tree",  # -> forest_tree_display as .title()
-    "output_zip_s3_path", # need to identify that it is present at all
+    "forest_commit",
+    "output_zip_s3_path",  # need to identify that it is present at all
     # datetimes
     "process_end_time",  # -> dev time format
     "process_start_time",  # -> dev time format
@@ -169,7 +170,12 @@ def task_log(request: ResearcherRequest, study_id=None):
     tasks = []
     
     for task_dict in query:
-        extern_id = task_dict.pop("external_id")
+        extern_id = task_dict["external_id"]
+        
+        # the commit is populated when the task runs, not when it is queued.
+        task_dict["forest_commit"] = task_dict["forest_commit"] if task_dict["forest_commit"] else \
+            "(exact commit missing)"
+        
         # renames (could be optimized in the query, but speedup is negligible)
         task_dict["patient_id"] = task_dict.pop("participant__patient_id")
         

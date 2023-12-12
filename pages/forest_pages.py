@@ -184,13 +184,18 @@ def task_log(request: ResearcherRequest, study_id=None):
         task_dict["created_on_display"] = task_dict.pop("created_on").strftime(DEV_TIME_FORMAT)
         task_dict["forest_output_exists_display"] = display_true(task_dict["forest_output_exists"])
         
-        # dates/times that require safety
+        # dates/times that require safety (yes it could be less obnoxious)
         task_dict["process_end_time"] = task_dict["process_end_time"].strftime(DEV_TIME_FORMAT) \
-             if task_dict["process_end_time"] else None
+            if task_dict["process_end_time"] else None
         task_dict["process_start_time"] = task_dict["process_start_time"].strftime(DEV_TIME_FORMAT) \
-             if task_dict["process_start_time"] else None
+            if task_dict["process_start_time"] else None
         task_dict["process_download_end_time"] = task_dict["process_download_end_time"].strftime(DEV_TIME_FORMAT) \
-             if task_dict["process_download_end_time"] else None
+            if task_dict["process_download_end_time"] else None
+        task_dict["data_date_end"] = task_dict["data_date_end"].isoformat() \
+            if task_dict["data_date_end"] else None
+        task_dict["data_date_start"] = task_dict["data_date_start"].isoformat() \
+            if task_dict["data_date_start"] else None
+        
         # urls
         task_dict["cancel_url"] = easy_url(
             "forest_pages.cancel_task", study_id=study_id, forest_task_external_id=extern_id,

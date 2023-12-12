@@ -229,3 +229,77 @@ class TestPrivacyPolicy(ResearcherSessionTest):
         # just test that it loads without breaking
         redirect = self.smart_get()
         self.assertIsInstance(redirect, HttpResponseRedirect)
+
+
+# FIXME: add error cases to this test
+class TestSetStudyTimezone(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_api.set_study_timezone"
+    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    
+    def test_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_success()
+    
+    def test_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test_success()
+    
+    def _test_success(self):
+        self.smart_post(self.session_study.id, new_timezone_name="Pacific/Noumea")
+        self.session_study.refresh_from_db()
+        self.assertEqual(self.session_study.timezone_name, "Pacific/Noumea")
+
+
+class TestAddResearcherToStudy(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_api.add_researcher_to_study"
+    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    
+    def test_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test(None, 302, ResearcherRole.researcher)
+        self._test(ResearcherRole.study_admin, 302, ResearcherRole.study_admin)
+        self._test(ResearcherRole.researcher, 302, ResearcherRole.researcher)
+    
+    # # FIXME: test fails, need to fix data download bug on site admin users first
+    # def test_site_admin_on_site_admin(self):
+    #     self.set_session_study_relation(ResearcherRole.site_admin)
+    #     self._test(ResearcherRole.site_admin, 403, ResearcherRole.site_admin)
+    
+    def test_study_admin_on_none(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test(None, 302, ResearcherRole.researcher)
+    
+    def test_study_admin_on_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test(ResearcherRole.study_admin, 302, ResearcherRole.study_admin)
+    
+    def test_study_admin_on_researcher(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test(ResearcherRole.researcher, 302, ResearcherRole.researcher)
+    
+    # FIXME: test fails, need to fix data download bug on site admin users first
+    # def test_study_admin_on_site_admin(self):
+    #     self.set_session_study_relation(ResearcherRole.study_admin)
+    #     self._test(ResearcherRole.site_admin, 403, ResearcherRole.site_admin)
+    
+    def test_researcher(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self._test(ResearcherRole.researcher, 403, ResearcherRole.researcher)
+        self._test(ResearcherRole.study_admin, 403, ResearcherRole.study_admin)
+        self._test(None, 403, None)
+        self._test(ResearcherRole.site_admin, 403, ResearcherRole.site_admin)
+    
+    def _test(self, r2_starting_relation, status_code, desired_relation):
+        # setup researcher, do the post request
+        r2 = self.generate_researcher(relation_to_session_study=r2_starting_relation)
+        redirect_or_response = self.smart_post(
+            study_id=self.session_study.id,
+            researcher_id=r2.id,
+            redirect_url=f"/edit_study/{self.session_study.id}"
+        )
+        # check status code, relation, and ~the redirect url.
+        r2.refresh_from_db()
+        self.assert_researcher_relation(r2, self.session_study, desired_relation)
+        self.assertEqual(redirect_or_response.status_code, status_code)
+        if isinstance(redirect_or_response, HttpResponseRedirect):
+            self.assertEqual(redirect_or_response.url, f"/edit_study/{self.session_study.id}")

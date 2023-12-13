@@ -7,7 +7,6 @@ from django.http.response import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 
-from config.jinja2 import easy_url
 from constants.message_strings import (MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING,
     MFA_CODE_WRONG, MFA_CONFIGURATION_REQUIRED, MFA_CONFIGURATION_SITE_ADMIN, PASSWORD_EXPIRED,
     PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_TOO_SHORT,
@@ -17,6 +16,7 @@ from constants.user_constants import EXPIRY_NAME, ResearcherRole
 from database.study_models import Study
 from database.system_models import GlobalSettings
 from database.user_models_researcher import ResearcherSession
+from libs.http_utils import easy_url
 from tests.common import BasicSessionTestCase
 
 

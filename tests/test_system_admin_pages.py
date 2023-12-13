@@ -6,7 +6,6 @@ from django.db import models
 from django.forms.fields import NullBooleanField
 from django.http.response import HttpResponse, HttpResponseRedirect
 
-from config.jinja2 import easy_url
 from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
     IOS_FIREBASE_CREDENTIALS)
 from constants.message_strings import MFA_RESET_BAD_PERMISSIONS
@@ -16,6 +15,7 @@ from constants.user_constants import ALL_RESEARCHER_TYPES, ResearcherRole
 from database.study_models import DeviceSettings, Study
 from database.system_models import FileAsText
 from database.user_models_researcher import Researcher
+from libs.http_utils import easy_url
 from libs.security import generate_easy_alphanumeric_string
 from tests.common import ResearcherSessionTest
 

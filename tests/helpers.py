@@ -500,6 +500,14 @@ class ReferenceObjectMixin:
     #
     ## Forest objects
     #
+    @property
+    def default_forest_task(self) -> ForestTask:
+        try:
+            return self._default_forest_task
+        except AttributeError:
+            pass
+        self._default_forest_task = self.generate_forest_task(self.default_participant)
+        return self._default_forest_task
     
     def generate_forest_task(
         self,

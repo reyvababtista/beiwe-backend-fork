@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.shortcuts import redirect, render
@@ -17,7 +17,7 @@ from constants.message_strings import (MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, 
     PASSWORD_RESET_SUCCESS, RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE, TABLEAU_API_KEY_IS_DISABLED,
     TABLEAU_API_KEY_NOW_DISABLED, TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
 from constants.security_constants import MFA_CREATED
-from constants.user_constants import ResearcherRole
+from constants.user_constants import EXPIRY_NAME, ResearcherRole
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
@@ -209,7 +209,7 @@ def manage_credentials(request: ResearcherRequest):
 
 @require_POST
 @authenticate_researcher_login
-def reset_admin_password(request: ResearcherRequest):
+def researcher_change_my_password(request: ResearcherRequest):
     try:
         current_password = request.POST['current_password']
         new_password = request.POST['new_password']
@@ -217,8 +217,7 @@ def reset_admin_password(request: ResearcherRequest):
     except KeyError:
         return abort(400)
     
-    username = request.session_researcher.username
-    if not Researcher.check_password(username, current_password):
+    if not Researcher.check_password(request.session_researcher.username, current_password):
         messages.warning(request, WRONG_CURRENT_PASSWORD)
         return redirect('admin_pages.manage_credentials')
     
@@ -235,6 +234,10 @@ def reset_admin_password(request: ResearcherRequest):
     request.session_researcher.set_password(new_password)
     request.session_researcher.update(password_force_reset=False)
     messages.warning(request, PASSWORD_RESET_SUCCESS)
+    # expire the session so that the user has to log in again with the new password. (Ve have a
+    # feature over in handle_session_expiry in admin_authentication that will block the session
+    # period from being extended again if the timeout is within 10 seconds of expiring.)
+    request.session[EXPIRY_NAME] = timezone.now() + timedelta(seconds=5)
     return redirect('admin_pages.manage_credentials')
 
 

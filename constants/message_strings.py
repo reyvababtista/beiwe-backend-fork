@@ -113,7 +113,7 @@ MFA_TEST_SUCCESS = "MFA code was correct, MFA is working correctly."
 MFA_TEST_FAIL = "MFA code was incorrect."
 
 # self password reset
-PASSWORD_RESET_SUCCESS = "Your password has been reset!"
+PASSWORD_RESET_SUCCESS = "Your password has been reset! You will be logged out momentarily."
 WRONG_CURRENT_PASSWORD = "The Current Password you have entered is invalid"
 NEW_PASSWORD_MISMATCH = "New Password does not match Confirm New Password"
 NEW_PASSWORD_N_LONG = "Your New Password must be at least {length} characters long."

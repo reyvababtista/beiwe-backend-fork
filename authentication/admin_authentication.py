@@ -1,6 +1,6 @@
 import functools
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Optional
 
 import bleach
 from django.contrib import messages
@@ -17,7 +17,7 @@ from constants.message_strings import (MFA_CONFIGURATION_REQUIRED, MFA_CONFIGURA
     PASSWORD_WILL_EXPIRE)
 from constants.url_constants import LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE
 from constants.user_constants import (ALL_RESEARCHER_TYPES, EXPIRY_NAME, ResearcherRole,
-    SESSION_NAME, SESSION_UUID)
+    SESSION_NAME, SESSION_TIMEOUT_HOURS, SESSION_UUID)
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.http_utils import easy_url
@@ -72,9 +72,9 @@ def logout_researcher(request: HttpRequest):
 
 
 def log_in_researcher(request: ResearcherRequest, username: str):
-    """ populate session for a researcher """
+    """ Populate session for a researcher - should only be called from  validate_login endpoint. """
     request.session[SESSION_UUID] = generate_easy_alphanumeric_string()
-    request.session[EXPIRY_NAME] = datetime.now() + timedelta(hours=18)
+    request.session[EXPIRY_NAME] = timezone.now() + timedelta(hours=SESSION_TIMEOUT_HOURS)
     request.session[SESSION_NAME] = username
 
 
@@ -92,9 +92,7 @@ def check_is_logged_in(request: ResearcherRequest):
         log("no session key present")
         return False
     
-    if assert_session_unexpired(request):
-        # update the session expiry for another 6 hours
-        request.session[EXPIRY_NAME] = datetime.now() + timedelta(hours=6)
+    if handle_session_expiry(request):
         return True
     else:
         log("session had expired")
@@ -102,13 +100,25 @@ def check_is_logged_in(request: ResearcherRequest):
     return False
 
 
-def assert_session_unexpired(request: ResearcherRequest):
-    # probably a development environment issue, sometimes the datetime is naive.
-    expiry_datetime = request.session[EXPIRY_NAME]
-    if is_naive(expiry_datetime):
-        return expiry_datetime > datetime.now()
-    else:
-        return expiry_datetime > timezone.now()
+def handle_session_expiry(request: ResearcherRequest):
+    # Sometimes the datetime is naive, probably a development environment bug? We force a timezone
+    # in updating the expiry later, this is a safety check.
+    expiry_time: datetime = request.session[EXPIRY_NAME]
+    now = datetime.now() if is_naive(expiry_time) else timezone.now()
+    
+    # session has expired, do not refresh - the returned-to code will call logout_researcher.
+    if expiry_time < now:
+        return False
+    
+    # If the session has (less than) 10 seconds until its timeout period, WE DON'T REFRESH IT. This
+    # is how we implement a you-will-be-logged-out feature. A failure mode of 10 seconds where the
+    # page works and then logs you out is.... fine. Its fine.
+    if (expiry_time - now).total_seconds() < 10:
+        return True
+    
+    # reset the session expiry to 2 hours from now - force timezone'd datetime.
+    request.session[EXPIRY_NAME] = timezone.now() + timedelta(hours=SESSION_TIMEOUT_HOURS)
+    return True
 
 
 def populate_session_researcher(request: ResearcherRequest):

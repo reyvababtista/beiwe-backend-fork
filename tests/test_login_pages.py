@@ -13,9 +13,10 @@ from constants.message_strings import (MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, 
     PASSWORD_RESET_FORCED, PASSWORD_RESET_SITE_ADMIN, PASSWORD_RESET_TOO_SHORT,
     PASSWORD_WILL_EXPIRE)
 from constants.url_constants import LOGIN_REDIRECT_SAFE, urlpatterns
-from constants.user_constants import ResearcherRole
+from constants.user_constants import EXPIRY_NAME, ResearcherRole
 from database.study_models import Study
 from database.system_models import GlobalSettings
+from database.user_models_researcher import ResearcherSession
 from tests.common import BasicSessionTestCase
 
 
@@ -242,7 +243,7 @@ class TestLoginPages(BasicSessionTestCase):
         self.session_researcher
         self.do_default_login()
         self.session_researcher.update(password_force_reset=True)
-        resp = self.client.post(reverse("admin_pages.reset_admin_password"))
+        resp = self.client.post(reverse("admin_pages.researcher_change_my_password"))
         self.assertIsInstance(resp, HttpResponse)
         self.assertEqual(resp.status_code, 400)
     
@@ -264,6 +265,7 @@ class TestLoginPages(BasicSessionTestCase):
         # set up the current time, then we will travel into the future to test the session expiry
         # in a loop, hour by hour, testing that we redirect to the login page after 18 hours
         self.session_researcher
+        THE_TIMEOUT_HOURS_VARIABLE_YOU_ARE_LOOKING_FOR = 2
         start = datetime.now()
         check_1_happened = False
         check_2_happened = False
@@ -271,18 +273,54 @@ class TestLoginPages(BasicSessionTestCase):
             self.do_default_login()
             # the +1 minute ensures we are passing the hour mark
             with time_machine.travel(start + timedelta(hours=hour, minutes=1)):
-                if hour < 18:
+                if hour < THE_TIMEOUT_HOURS_VARIABLE_YOU_ARE_LOOKING_FOR:
                     resp = self.client.get(reverse("admin_pages.choose_study"))
-                    self.assertEqual(resp.status_code, 200)
+                    self.assertEqual(resp.status_code, 200, msg=f"hour={hour}")
                     check_1_happened = True
                 else:
                     resp = self.client.get(reverse("admin_pages.choose_study"))
-                    self.assertEqual(resp.status_code, 302)
+                    self.assertEqual(resp.status_code, 302, msg=f"hour={hour}")
                     self.assertEqual(resp.url, reverse("login_pages.login_page"))
                     check_2_happened = True
         # make sure we actually tested both cases
         self.assertTrue(check_1_happened)
         self.assertTrue(check_2_happened)
+    
+    def test_sub_ten_second_whatever_the_opposite_of_a_grace_period_is(self):
+        # we have a feature where within 10 seconds of your logout period your session will NOT be
+        # extended.  This feature exists to allow us to have a you-will-be-logged-out mechanism.
+        self.assertEqual(ResearcherSession.objects.count(), 0)  # check nothing weird in db.
+        self.session_researcher
+        self.do_default_login()
+        original_expiry = self.client.session[EXPIRY_NAME]
+        # assert session is currently 2 hours in the future (yep you have to update this test too)
+        self.assertGreater(original_expiry, timezone.now() + timedelta(hours=1, minutes=59))
+        self.assertLess(original_expiry, timezone.now() + timedelta(hours=2, minutes=1))
+        # NOPE you can't do this
+        # This doesn't work, manipulating the ssession directly is hard the assertEqual fails.
+        #  within_ten_second_expiry = timezone.now() + timedelta(seconds=9)
+        #  self.client.session[EXPIRY_NAME] = ten_second_expiry
+        #  self.client.session.save()
+        #  self.assertEqual(self.client.session[EXPIRY_NAME], ten_second_expiry)
+        # So its easier time travel to the future to test this.
+        # within 10 seconds:
+        with time_machine.travel(original_expiry - timedelta(seconds=9)):
+            # hit a page, confirm check expiry didn't change
+            resp = self.client.get(reverse("admin_pages.choose_study"))
+            self.assertEqual(resp.status_code, 200)
+            new_expiry = self.client.session[EXPIRY_NAME]
+            self.assertEqual(new_expiry, original_expiry)
+        # after 10 seconds:
+        with time_machine.travel(original_expiry + timedelta(seconds=1)):
+            # hit a page, confirm check expiry deleted
+            resp: HttpResponseRedirect = self.easy_get("admin_pages.choose_study")
+            self.assertEqual(resp.status_code, 302)
+            self.assertEqual(resp.url, easy_url("login_pages.login_page"))
+            try:
+                self.client.session[EXPIRY_NAME]
+                self.fail("session expiry should have been deleted")
+            except KeyError as e:
+                self.assertEqual(e.args[0], EXPIRY_NAME)
     
     def test_password_too_short_site_admin(self):
         # test that the password too short redirect applies to admin endpoints

@@ -61,7 +61,7 @@
             <td>{% raw %}{{ log.external_id }}{% endraw %}</td>
             <td>{% raw %}{{ log.patient_id }}{% endraw %}</td>
             <td>{% raw %}{{ log.forest_tree_display }}{% endraw %}</td>
-            <td>Start: {% raw %}{{ log.data_date_start }}{% endraw %} <br> End: {% raw %}{{ log.data_date_end }}{% endraw %}</td>
+            <td>{% raw %}{{ log.data_date_start }}{% endraw %} - {% raw %}{{ log.data_date_end }}{% endraw %}</td>
             <td ng-class="{ {{ status_choices.queued }}: 'list-group-item-info',
                             {{ status_choices.running }}: 'list-group-item-primary',
                             {{ status_choices.success }}: 'list-group-item-success',
@@ -127,7 +127,7 @@
                     <dt>Forest Commit</dt>
                     <dd>{% raw %}{{ modalLog.forest_commit }}{% endraw %}</dd>
                   </div>
-                  <div class="col-xs-6"></div>
+                  <div class="col-xs-6">
                     <dt>Data Date Start</dt>
                     <dd>{% raw %}{{ modalLog.data_date_start }}{% endraw %}</dd>
                     <dt>Data Date End</dt>

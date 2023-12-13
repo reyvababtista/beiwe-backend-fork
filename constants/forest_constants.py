@@ -12,6 +12,7 @@ ROOT_FOREST_TASK_PATH = "/tmp/forest/"
 FOREST_PICKLING_ERROR = "This Forest task's parameters directly referenced code objects in the Forest codebase which have changed such that they cannot be recovered."
 FOREST_TASKVIEW_PICKLING_ERROR = "An error occurred when trying to view this tasks parameters.  This is likely due to a change in the Forest codebase."
 FOREST_TASKVIEW_PICKLING_EMPTY = "This task's saved parameters are empty... ¯\\_(ツ)_/¯"
+FOREST_NO_TASK = "Sorry, we were unable to find that Forest task."
 
 # runtime errors
 NO_DATA_ERROR = 'No chunked data found for participant for the dates specified.'

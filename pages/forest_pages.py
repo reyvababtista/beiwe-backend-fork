@@ -5,6 +5,7 @@ from datetime import date, datetime
 
 import orjson
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.http.response import FileResponse, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -15,7 +16,7 @@ from authentication.admin_authentication import (authenticate_admin,
 from constants.celery_constants import ForestTaskStatus
 from constants.common_constants import DEV_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATE
 from constants.data_access_api_constants import CHUNK_FIELDS
-from constants.forest_constants import (FOREST_TASKVIEW_PICKLING_EMPTY,
+from constants.forest_constants import (FOREST_NO_TASK, FOREST_TASKVIEW_PICKLING_EMPTY,
     FOREST_TASKVIEW_PICKLING_ERROR, FOREST_TREE_REQUIRED_DATA_STREAMS, ForestTree)
 from database.data_access_models import ChunkRegistry
 from database.forest_models import ForestTask, SummaryStatisticDaily
@@ -158,6 +159,43 @@ def create_tasks(request: ResearcherRequest, study_id=None):
     
     form.save()
     messages.success(request, "Forest tasks successfully queued!")
+    return redirect(easy_url("forest_pages.task_log", study_id=study_id))
+
+
+@require_http_methods(['GET', 'POST'])
+@authenticate_admin
+@forest_enabled
+def rerun_forest_task(request: ResearcherRequest, study_id=None):
+    # Only a SITE admin can queue forest tasks
+    if not request.session_researcher.site_admin:
+        return HttpResponse(content="", status=403)
+    try:
+        study = Study.objects.get(pk=study_id)
+    except Study.DoesNotExist:
+        return HttpResponse(content="", status=404)
+    
+    task_id = request.POST.get("external_id", None)
+    if not task_id:
+        messages.warning(request, FOREST_NO_TASK)
+        return redirect(easy_url("forest_pages.task_log", study_id=study_id))
+    
+    try:
+        task_to_copy = ForestTask.objects.get(external_id=task_id)
+    except (ForestTask.DoesNotExist, ValidationError):
+        messages.warning(request, FOREST_NO_TASK)
+        return redirect(easy_url("forest_pages.task_log", study_id=study_id))
+    
+    new_task = ForestTask(
+        participant=task_to_copy.participant,
+        forest_tree=task_to_copy.forest_tree,
+        data_date_start=task_to_copy.data_date_start,
+        data_date_end=task_to_copy.data_date_end,
+        status=ForestTaskStatus.queued,
+    )
+    new_task.save()
+    messages.success(
+        request, f"Made a copy of {task_to_copy.external_id} with id {new_task.external_id}."
+    )
     return redirect(easy_url("forest_pages.task_log", study_id=study_id))
 
 

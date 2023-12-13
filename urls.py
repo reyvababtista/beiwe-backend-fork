@@ -220,6 +220,7 @@ path('graph', mobile_pages.fetch_graph)
 
 # forest pages
 path('studies/<str:study_id>/forest/tasks/create', forest_pages.create_tasks)
+path('studies/<str:study_id>/forest/tasks/rerun', forest_pages.rerun_forest_task)
 path('studies/<str:study_id>/forest/progress', forest_pages.forest_tasks_progress, login_redirect=SAFE)
 path("studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/cancel", forest_pages.cancel_task)
 path('studies/<str:study_id>/forest/tasks', forest_pages.task_log, login_redirect=SAFE)

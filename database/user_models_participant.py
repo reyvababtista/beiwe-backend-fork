@@ -21,6 +21,7 @@ from database.study_models import Study
 from database.user_models_common import AbstractPasswordUser
 from database.validators import ID_VALIDATOR
 from libs.firebase_config import check_firebase_instance
+from libs.s3 import s3_retrieve
 from libs.security import (compare_password, device_hash, django_password_components,
     generate_easy_alphanumeric_string)
 
@@ -200,7 +201,6 @@ class Participant(AbstractPasswordUser):
         return get_client_private_key(self.patient_id, self.study.object_id)
     
     def s3_retrieve(self, s3_path: str) -> bytes:
-        from libs.s3 import s3_retrieve
         raw_path = s3_path.startswith(self.study.object_id)
         return s3_retrieve(s3_path, self, raw_path=raw_path)
     

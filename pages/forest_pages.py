@@ -27,6 +27,7 @@ from forms.django_forms import CreateTasksForm
 from libs.forest_utils import download_output_file
 from libs.http_utils import easy_url
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest
+from libs.s3 import NoSuchKeyException
 from libs.streaming_zip import ZipGenerator
 from libs.utils.date_utils import daterange
 from serializers.forest_serializers import display_true, ForestTaskCsvSerializer
@@ -314,7 +315,6 @@ def cancel_task(request: ResearcherRequest, study_id, forest_task_external_id):
 @authenticate_admin
 @forest_enabled
 def download_task_data(request: ResearcherRequest, study_id, forest_task_external_id):
-    
     try:
         forest_task: ForestTask = ForestTask.objects.get(
             external_id=forest_task_external_id, participant__study_id=study_id
@@ -363,7 +363,7 @@ def download_output_data(request: ResearcherRequest, study_id, forest_task_exter
         forest_task: ForestTask = ForestTask.objects.get(
             external_id=forest_task_external_id, participant__study_id=study_id
         )
-    except ForestTask.DoesNotExist:
+    except (ForestTask.DoesNotExist, ValidationError):
         return HttpResponse(content="", status=404)
     
     filename = "_".join([
@@ -375,11 +375,17 @@ def download_output_data(request: ResearcherRequest, study_id, forest_task_exter
             forest_task.created_on.strftime(DEV_TIME_FORMAT),
         ]) + ".zip"
     
+    try:
+        file_content = download_output_file(forest_task)
+    except NoSuchKeyException:
+        # limit the error scope we are catching here, we want those errors reported.
+        return HttpResponse(content="Unable to find report file. ¯\\_(ツ)_/¯", status=404)
+    
     # for some reason FileResponse doesn't work when handed a bytes object, so we are forcing the
     # headers for attachment and filename in a custom HttpResponse. Baffling. I guess FileResponse
     # is really only for file-like objects.
     return HttpResponse(
-        download_output_file(forest_task),
+        file_content,
         content_type="zip",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )

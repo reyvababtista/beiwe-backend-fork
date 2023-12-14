@@ -32,7 +32,7 @@ class SingletonModel(TimestampedModel):
         abstract = True
     
     @classmethod
-    def get_singleton_instance(cls):
+    def get_singleton_instance(cls):  # oof, can't annotate this intelligently.
         """ An objectively dumb way of making sure we only ever have one of these. """
         count = cls.objects.count()
         if count > 1:

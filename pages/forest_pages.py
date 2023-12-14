@@ -165,7 +165,7 @@ def create_tasks(request: ResearcherRequest, study_id=None):
 @require_http_methods(['GET', 'POST'])
 @authenticate_admin
 @forest_enabled
-def rerun_forest_task(request: ResearcherRequest, study_id=None):
+def copy_forest_task(request: ResearcherRequest, study_id=None):
     # Only a SITE admin can queue forest tasks
     if not request.session_researcher.site_admin:
         return HttpResponse(content="", status=403)
@@ -218,6 +218,7 @@ def task_log(request: ResearcherRequest, study_id=None):
         task_dict["patient_id"] = task_dict.pop("participant__patient_id")
         
         # rename and transform
+        task_dict["has_output_data"] = task_dict["forest_output_exists"]
         task_dict["forest_tree_display"] = task_dict.pop("forest_tree").title()
         task_dict["created_on_display"] = task_dict.pop("created_on").strftime(DEV_TIME_FORMAT)
         task_dict["forest_output_exists_display"] = display_true(task_dict["forest_output_exists"])
@@ -238,7 +239,7 @@ def task_log(request: ResearcherRequest, study_id=None):
         task_dict["cancel_url"] = easy_url(
             "forest_pages.cancel_task", study_id=study_id, forest_task_external_id=extern_id,
         )
-        task_dict["has_output_data"] = task_dict["forest_output_exists"]
+        task_dict["copy_url"] = easy_url("forest_pages.copy_forest_task", study_id=study_id)
         task_dict["download_url"] = easy_url(
             "forest_pages.download_task_data", study_id=study_id, forest_task_external_id=extern_id,
         )
@@ -260,7 +261,7 @@ def task_log(request: ResearcherRequest, study_id=None):
         else:
             task_dict["params_dict"] = FOREST_TASKVIEW_PICKLING_EMPTY
         tasks.append(task_dict)
-    
+    forest_info = ForestVersion.get_singleton_instance()
     return render(
         request,
         "forest/task_log.html",
@@ -268,6 +269,8 @@ def task_log(request: ResearcherRequest, study_id=None):
             study=Study.objects.get(pk=study_id),
             status_choices=ForestTaskStatus,
             forest_log=orjson.dumps(tasks).decode(),  # orjson is very fast and handles the remaining date objects
+            forest_commit=forest_info.git_commit or "commit not found",
+            forest_version=forest_info.package_version or "version not found",
         )
     )
 

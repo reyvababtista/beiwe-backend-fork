@@ -65,7 +65,7 @@ class TestForestAnalysisProgress(ResearcherSessionTest):
 
 
 class TestRerunForestTask(ResearcherSessionTest):
-    ENDPOINT_NAME = "forest_pages.rerun_forest_task"
+    ENDPOINT_NAME = "forest_pages.copy_forest_task"
     REDIRECT_ENDPOINT_NAME = "forest_pages.task_log"
     
     def test_no_task_specified(self):

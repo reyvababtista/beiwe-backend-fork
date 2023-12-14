@@ -16,6 +16,7 @@ from constants.data_stream_constants import (CHUNKABLE_FILES, IDENTIFIERS,
 from constants.user_constants import OS_TYPE_CHOICES
 from database.models import TimestampedModel
 from database.user_models_participant import Participant
+from libs.s3 import s3_retrieve
 from libs.security import chunk_hash
 
 
@@ -56,7 +57,6 @@ class ChunkRegistry(TimestampedModel):
     )
     
     def s3_retrieve(self) -> bytes:
-        from libs.s3 import s3_retrieve
         return s3_retrieve(self.chunk_path, self.study.object_id, raw_path=True)
     
     @classmethod
@@ -146,7 +146,7 @@ class ChunkRegistry(TimestampedModel):
 
 
 class FileToProcess(TimestampedModel):
-    # todo: this should have a max length of 66 characters on audio recordings
+    # this should have a max length of 66 characters on audio recordings
     s3_file_path = models.CharField(max_length=256, blank=False, unique=True)
     study: Study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='files_to_process')
     participant: Participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='files_to_process')
@@ -154,7 +154,6 @@ class FileToProcess(TimestampedModel):
     deleted = models.BooleanField(default=False)
     
     def s3_retrieve(self) -> bytes:
-        from libs.s3 import s3_retrieve
         return s3_retrieve(self.s3_file_path, self.study, raw_path=True)
     
     @staticmethod

@@ -3,7 +3,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import dateutil
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponseRedirect
 from django.http.response import FileResponse
 
 from constants.data_stream_constants import GPS
@@ -61,13 +61,41 @@ class TestForestAnalysisProgress(ResearcherSessionTest):
 #         self.smart_get()
 
 
-# class TestForestDownloadTaskData(ResearcherSessionTest):
-#     ENDPOINT_NAME = "forest_pages.download_task_data"
-#     def test(self):
-#         self.smart_get()
-
-
 class TestForestDownloadOutput(ResearcherSessionTest):
+    ENDPOINT_NAME = "forest_pages.download_output_data"
+    REDIRECT_ENDPOINT_NAME = ResearcherSessionTest.IGNORE_THIS_ENDPOINT
+    
+    def test_no_relation_cannot(self):
+        self.smart_get_status_code(403, self.session_study.id, self.default_forest_task.external_id)
+    
+    def test_researcher_cannot(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_get_status_code(403, self.session_study.id, self.default_forest_task.external_id)
+    
+    @patch("libs.forest_utils.s3_retrieve")
+    def test_study_admin_can(self, s3_retrieve: MagicMock):
+        s3_retrieve.return_value = SIMPLE_FILE_CONTENTS
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        resp = self.smart_get_status_code(
+            200, self.session_study.id, self.default_forest_task.external_id)
+        self.assertEqual(resp.content, SIMPLE_FILE_CONTENTS)
+    
+    @patch("libs.forest_utils.s3_retrieve")
+    def test_site_admin_can(self, s3_retrieve: MagicMock):
+        s3_retrieve.return_value = SIMPLE_FILE_CONTENTS
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        resp = self.smart_get_status_code(
+            200, self.session_study.id, self.default_forest_task.external_id)
+        self.assertEqual(resp.content, SIMPLE_FILE_CONTENTS)
+    
+    def test_404(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.smart_get_status_code(404, self.session_study.id, "abc123")
+        self.smart_get_status_code(404, self.session_study.id, uuid.uuid4())
+
+
+
+class TestForestDownloadTaskData(ResearcherSessionTest):
     # you need to look at tests/test_data_access_api.py to understand the weird problems that can
     # happen with this use of the data access api code. I'm not redocumenting it.
     
@@ -116,8 +144,6 @@ class TestForestDownloadOutput(ResearcherSessionTest):
             200, self.session_study.id, self.default_forest_task.external_id
         )
         self.assertIn(SIMPLE_FILE_CONTENTS, b"".join(resp.streaming_content))
-
-
 
 
 class TestRerunForestTask(ResearcherSessionTest):

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from django.http.response import FileResponse
 
 from constants.data_stream_constants import ALL_DATA_STREAMS, SURVEY_TIMINGS
+from constants.testing_constants import EMPTY_ZIP, SIMPLE_FILE_CONTENTS
 from constants.user_constants import ResearcherRole
 from database.data_access_models import ChunkRegistry
 from database.profiling_models import DataAccessRecord
@@ -35,8 +36,6 @@ class TestGetData(DataApiTest):
     
     ENDPOINT_NAME = "data_access_api.get_data"
     
-    EMPTY_ZIP = b'PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-    SIMPLE_FILE_CONTENTS = b"this is the file content you are looking for"
     REGISTRY_HASH = "registry_hash"
     
     # retain and usethis structure in order to force a test addition on a new file type.
@@ -160,7 +159,7 @@ class TestGetData(DataApiTest):
         self.assertEqual(i, 1)
         # this is an empty zip file as output by the api.  PK\x05\x06 is zip-speak for an empty
         # container.  Behavior can vary on how zip decompressors handle an empty zip, some fail.
-        self.assertEqual(file_bytes, self.EMPTY_ZIP)
+        self.assertEqual(file_bytes, EMPTY_ZIP)
         
         # test without web_form, which will create the registry file (which is empty)
         resp2: FileResponse = self.smart_post(study_pk=self.session_study.id)
@@ -174,7 +173,7 @@ class TestGetData(DataApiTest):
     @patch("libs.streaming_zip.s3_retrieve")
     def _test_downloads_and_file_naming(self, s3_retrieve: MagicMock):
         # basics
-        s3_retrieve.return_value = self.SIMPLE_FILE_CONTENTS
+        s3_retrieve.return_value = SIMPLE_FILE_CONTENTS
         self.set_session_study_relation(ResearcherRole.researcher)
         
         # need to test all data types
@@ -188,25 +187,25 @@ class TestGetData(DataApiTest):
     @patch("libs.streaming_zip.s3_retrieve")
     def _test_data_streams(self, s3_retrieve: MagicMock):
         # basics
-        s3_retrieve.return_value = self.SIMPLE_FILE_CONTENTS
+        s3_retrieve.return_value = SIMPLE_FILE_CONTENTS
         self.set_session_study_relation(ResearcherRole.researcher)
         file_path = "some_file_path.csv"
         basic_args = ("accelerometer", file_path, "2020-10-05 02:00Z")
         
         # assert normal args actually work
         file_contents = self.generate_chunkregistry_and_download(*basic_args)
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
         
         # test matching data type downloads
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_data_streams='["accelerometer"]'
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
         # same with only the string (no brackets, client.post handles serialization)
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_data_streams="accelerometer"
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
         
         # test invalid data stream
         file_contents = self.generate_chunkregistry_and_download(
@@ -217,19 +216,19 @@ class TestGetData(DataApiTest):
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_data_streams='["gyro"]'
         )
-        self.assertEqual(file_contents, self.EMPTY_ZIP)
+        self.assertEqual(file_contents, EMPTY_ZIP)
     
     @patch("libs.streaming_zip.s3_retrieve")
     def _test_registry_doesnt_download(self, s3_retrieve: MagicMock):
         # basics
-        s3_retrieve.return_value = self.SIMPLE_FILE_CONTENTS
+        s3_retrieve.return_value = SIMPLE_FILE_CONTENTS
         self.set_session_study_relation(ResearcherRole.researcher)
         file_path = "some_file_path.csv"
         basic_args = ("accelerometer", file_path, "2020-10-05 02:00Z")
         
         # assert normal args actually work
         file_contents = self.generate_chunkregistry_and_download(*basic_args)
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
         
         # test that file is not downloaded when a valid json registry is present
         # (the test for the empty zip is much, easiest, even if this combination of parameters
@@ -237,13 +236,13 @@ class TestGetData(DataApiTest):
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, registry=json.dumps({file_path: self.REGISTRY_HASH}), force_web_form=True
         )
-        self.assertEqual(file_contents, self.EMPTY_ZIP)
+        self.assertEqual(file_contents, EMPTY_ZIP)
         
         # test that a non-matching hash does not block download.
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, registry=json.dumps({file_path: "bad hash value"})
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
         
         # test bad json objects
         self.generate_chunkregistry_and_download(
@@ -260,49 +259,49 @@ class TestGetData(DataApiTest):
     @patch("libs.streaming_zip.s3_retrieve")
     def _test_time_bin(self, s3_retrieve: MagicMock):
         # basics
-        s3_retrieve.return_value = self.SIMPLE_FILE_CONTENTS
+        s3_retrieve.return_value = SIMPLE_FILE_CONTENTS
         self.set_session_study_relation(ResearcherRole.researcher)
         basic_args = ("accelerometer", "some_file_path.csv", "2020-10-05 02:00Z")
         
         # generic request should succeed
         file_contents = self.generate_chunkregistry_and_download(*basic_args)
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
-        self.assertIn(self.SIMPLE_FILE_CONTENTS, file_contents)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
+        self.assertIn(SIMPLE_FILE_CONTENTS, file_contents)
         
         # the api time parameter format is "%Y-%m-%dT%H:%M:%S"
         # from a time before time_bin of chunkregistry
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_time_bin_start="2020-10-05T01:00:00",
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
-        self.assertIn(self.SIMPLE_FILE_CONTENTS, file_contents)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
+        self.assertIn(SIMPLE_FILE_CONTENTS, file_contents)
         
         # inner check should be equal to or after the given date
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_time_bin_start="2020-10-05T02:00:00",
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
-        self.assertIn(self.SIMPLE_FILE_CONTENTS, file_contents)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
+        self.assertIn(SIMPLE_FILE_CONTENTS, file_contents)
         
         # inner check should be equal to or before the given date
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_time_bin_end="2020-10-05T02:00:00",
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
-        self.assertIn(self.SIMPLE_FILE_CONTENTS, file_contents)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
+        self.assertIn(SIMPLE_FILE_CONTENTS, file_contents)
         
         # this should fail, start date is late
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_time_bin_start="2020-10-05T03:00:00",
         )
-        self.assertEqual(file_contents, self.EMPTY_ZIP)
+        self.assertEqual(file_contents, EMPTY_ZIP)
         
         # this should succeed, end date is after start date
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_time_bin_end="2020-10-05T03:00:00",
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
-        self.assertIn(self.SIMPLE_FILE_CONTENTS, file_contents)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
+        self.assertIn(SIMPLE_FILE_CONTENTS, file_contents)
         
         # should succeed, within time range
         file_contents = self.generate_chunkregistry_and_download(
@@ -310,8 +309,8 @@ class TestGetData(DataApiTest):
             query_time_bin_start="2020-10-05T02:00:00",
             query_time_bin_end="2020-10-05T03:00:00",
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
-        self.assertIn(self.SIMPLE_FILE_CONTENTS, file_contents)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
+        self.assertIn(SIMPLE_FILE_CONTENTS, file_contents)
         
         # test with bad time bins, returns no data, user error, no special case handling
         file_contents = self.generate_chunkregistry_and_download(
@@ -319,7 +318,7 @@ class TestGetData(DataApiTest):
             query_time_bin_start="2020-10-05T03:00:00",
             query_time_bin_end="2020-10-05T02:00:00",
         )
-        self.assertEqual(file_contents, self.EMPTY_ZIP)
+        self.assertEqual(file_contents, EMPTY_ZIP)
         
         # test inclusive
         file_contents = self.generate_chunkregistry_and_download(
@@ -327,8 +326,8 @@ class TestGetData(DataApiTest):
             query_time_bin_start="2020-10-05T02:00:00",
             query_time_bin_end="2020-10-05T02:00:00",
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
-        self.assertIn(self.SIMPLE_FILE_CONTENTS, file_contents)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
+        self.assertIn(SIMPLE_FILE_CONTENTS, file_contents)
         
         # test bad time format
         self.generate_chunkregistry_and_download(
@@ -338,14 +337,14 @@ class TestGetData(DataApiTest):
     @patch("libs.streaming_zip.s3_retrieve")
     def _test_user_query(self, s3_retrieve: MagicMock):
         # basics
-        s3_retrieve.return_value = self.SIMPLE_FILE_CONTENTS
+        s3_retrieve.return_value = SIMPLE_FILE_CONTENTS
         self.set_session_study_relation(ResearcherRole.researcher)
         basic_args = ("accelerometer", "some_file_path.csv", "2020-10-05 02:00Z")
         
         # generic request should succeed
         file_contents = self.generate_chunkregistry_and_download(*basic_args)
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
-        self.assertIn(self.SIMPLE_FILE_CONTENTS, file_contents)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
+        self.assertIn(SIMPLE_FILE_CONTENTS, file_contents)
         
         # Test bad username
         output_status_code = self.generate_chunkregistry_and_download(
@@ -357,28 +356,28 @@ class TestGetData(DataApiTest):
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_patient_ids=[self.default_participant.patient_id],
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
-        self.assertIn(self.SIMPLE_FILE_CONTENTS, file_contents)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
+        self.assertIn(SIMPLE_FILE_CONTENTS, file_contents)
         # same but just the string
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_patient_ids=self.default_participant.patient_id,
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
-        self.assertIn(self.SIMPLE_FILE_CONTENTS, file_contents)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
+        self.assertIn(SIMPLE_FILE_CONTENTS, file_contents)
         
         # test empty patients doesn't do anything
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_patient_ids='[]',
         )
-        self.assertNotEqual(file_contents, self.EMPTY_ZIP)
-        self.assertIn(self.SIMPLE_FILE_CONTENTS, file_contents)
+        self.assertNotEqual(file_contents, EMPTY_ZIP)
+        self.assertIn(SIMPLE_FILE_CONTENTS, file_contents)
         
         # test no matching data. create user, query for that user
         self.generate_participant(self.session_study, "jeff")
         file_contents = self.generate_chunkregistry_and_download(
             *basic_args, query_patient_ids='["jeff"]',
         )
-        self.assertEqual(file_contents, self.EMPTY_ZIP)
+        self.assertEqual(file_contents, EMPTY_ZIP)
     
     def generate_chunkregistry_and_download(
         self,

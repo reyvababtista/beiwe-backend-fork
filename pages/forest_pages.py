@@ -16,8 +16,9 @@ from authentication.admin_authentication import (authenticate_admin,
 from constants.celery_constants import ForestTaskStatus
 from constants.common_constants import DEV_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATE
 from constants.data_access_api_constants import CHUNK_FIELDS
-from constants.forest_constants import (FOREST_NO_TASK, FOREST_TASKVIEW_PICKLING_EMPTY,
-    FOREST_TASKVIEW_PICKLING_ERROR, FOREST_TREE_REQUIRED_DATA_STREAMS, ForestTree)
+from constants.forest_constants import (FOREST_NO_TASK, FOREST_TASK_CANCELLED,
+    FOREST_TASKVIEW_PICKLING_EMPTY, FOREST_TASKVIEW_PICKLING_ERROR,
+    FOREST_TREE_REQUIRED_DATA_STREAMS, ForestTree)
 from database.data_access_models import ChunkRegistry
 from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.study_models import Study
@@ -295,18 +296,21 @@ def cancel_task(request: ResearcherRequest, study_id, forest_task_external_id):
     if not request.session_researcher.site_admin:
         return HttpResponse(content="", status=403)
     
-    number_updated = \
-        ForestTask.objects.filter(
+    try:
+        number_updated = ForestTask.objects.filter(
             external_id=forest_task_external_id, status=ForestTaskStatus.queued
         ).update(
             status=ForestTaskStatus.cancelled,
             stacktrace=f"Canceled by {request.session_researcher.username} on {date.today()}",
         )
+    except ValidationError:
+        # malformed uuids throw a validation error
+        number_updated = 0
     
     if number_updated > 0:
-        messages.success(request, "Forest task successfully cancelled.")
+        messages.success(request, FOREST_TASK_CANCELLED)
     else:
-        messages.warning(request, "Sorry, we were unable to find or cancel this Forest task.")
+        messages.warning(request, FOREST_NO_TASK)
     
     return redirect(easy_url("forest_pages.task_log", study_id=study_id))
 

@@ -3,11 +3,12 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import dateutil
-from django.http import FileResponse, HttpResponseRedirect
+from django.http import FileResponse
 from django.http.response import FileResponse
 
+from constants.celery_constants import ForestTaskStatus
 from constants.data_stream_constants import GPS
-from constants.forest_constants import FOREST_NO_TASK, ForestTree
+from constants.forest_constants import FOREST_NO_TASK, FOREST_TASK_CANCELLED, ForestTree
 from constants.testing_constants import EMPTY_ZIP, SIMPLE_FILE_CONTENTS
 from constants.user_constants import ResearcherRole
 from database.forest_models import ForestTask
@@ -55,10 +56,43 @@ class TestForestAnalysisProgress(ResearcherSessionTest):
 #         self.smart_get()
 
 
-# class TestForestCancelTask(ResearcherSessionTest):
-#     ENDPOINT_NAME = "forest_pages.cancel_task"
-#     def test(self):
-#         self.smart_get()
+class TestForestCancelTask(ResearcherSessionTest):
+    ENDPOINT_NAME = "forest_pages.cancel_task"
+    REDIRECT_ENDPOINT_NAME = "forest_pages.task_log"
+    
+    def test_no_relation_cannot(self):
+        self.smart_post_status_code(403, self.session_study.id, self.default_forest_task.external_id)
+        self.default_forest_task.refresh_from_db()
+        self.assertEqual(self.default_forest_task.status, ForestTaskStatus.queued)
+    
+    def test_researcher_cannot(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_status_code(403, self.session_study.id, self.default_forest_task.external_id)
+        self.default_forest_task.refresh_from_db()
+        self.assertEqual(self.default_forest_task.status, ForestTaskStatus.queued)
+    
+    def test_study_admin_cannot(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_status_code(403, self.session_study.id, self.default_forest_task.external_id)
+        self.default_forest_task.refresh_from_db()
+        self.assertEqual(self.default_forest_task.status, ForestTaskStatus.queued)
+    
+    def test_site_admin_can(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.smart_post_redirect(self.session_study.id, self.default_forest_task.external_id)
+        self.default_forest_task.refresh_from_db()
+        self.assertEqual(self.default_forest_task.status, ForestTaskStatus.cancelled)
+        self.assert_present(
+            FOREST_TASK_CANCELLED, self.redirect_get_contents(self.session_study.id)
+        )
+    
+    def test_bad_uuid(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.smart_post_redirect(self.session_study.id, "abc123")
+        self.assert_present(FOREST_NO_TASK, self.redirect_get_contents(self.session_study.id))
+        # and then a working wrong one
+        self.smart_post_redirect(self.session_study.id, uuid.uuid4())
+        self.assert_present(FOREST_NO_TASK, self.redirect_get_contents(self.session_study.id))
 
 
 class TestForestDownloadOutput(ResearcherSessionTest):
@@ -92,7 +126,6 @@ class TestForestDownloadOutput(ResearcherSessionTest):
         self.set_session_study_relation(ResearcherRole.site_admin)
         self.smart_get_status_code(404, self.session_study.id, "abc123")
         self.smart_get_status_code(404, self.session_study.id, uuid.uuid4())
-
 
 
 class TestForestDownloadTaskData(ResearcherSessionTest):

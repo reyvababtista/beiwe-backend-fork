@@ -154,3 +154,9 @@ THURS_OCT_6_NOON_2022_NY = datetime(2022, 10, 6, 12, tzinfo=_MERICA_NY)  # Thurs
 THURS_OCT_13_NOON_2022_NY = datetime(2022, 10, 13, 12, tzinfo=_MERICA_NY)  # Thursday
 THURS_OCT_20_NOON_2022_NY = datetime(2022, 10, 20, 12, tzinfo=_MERICA_NY)  # Thursday
 THURS_OCT_27_NOON_2022_NY = datetime(2022, 10, 27, 12, tzinfo=_MERICA_NY)  # Thursday
+
+
+## these are variables for use in tests that deal with the data access api code. Its a bit haphazard.
+# this includes the byte indicator of a zip file and no data, e.g. it is an empty zip file.
+EMPTY_ZIP = b'PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+SIMPLE_FILE_CONTENTS = b"this is the file content you are looking for"

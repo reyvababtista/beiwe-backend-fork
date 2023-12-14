@@ -286,8 +286,9 @@ class SmartRequestsTestCase(BasicSessionTestCase):
         # check endpoints ard redirects are valid
         assert end_name in ENDPOINTS_BY_NAME or end_name == ignore, \
             f"Test class {self.__class__.__name__}'s ENDPOINT_NAME `{end_name}` does not exist."
+
         # assert r_end_name != ignore and (end_name is None or r_end_name not in ENDPOINTS_BY_NAME):
-        assert r_end_name in ENDPOINTS_BY_NAME or r_end_name is None, \
+        assert r_end_name == ignore or (r_end_name in ENDPOINTS_BY_NAME or r_end_name is None), \
             f"{self.__class__.__name__}'s REDIRECT_ENDPOINT_NAME {r_end_name}` does not exist."
     
     ## Machinery for ensuring our smart_* methods that require redirects are used correctly.

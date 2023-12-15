@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import MagicMock, patch
 
 import dateutil
@@ -48,12 +48,69 @@ class TestForestAnalysisProgress(ResearcherSessionTest):
 
 
 # TODO: make a test for whether a tsudy admin can hit this endpoint? I think there's a bug in the authenticate_admin decorator that allows that.....
-# class TestForestDownloadTaskLog(ResearcherSessionTest):
-#     ENDPOINT_NAME = "forest_pages.download_task_log"
-#
-#     def test(self):
-#         # this streams a csv of tasks on a tsudy
-#         self.smart_get()
+class TestForestDownloadTaskLog(ResearcherSessionTest):
+    ENDPOINT_NAME = "forest_pages.download_task_log"
+    REDIRECT_ENDPOINT_NAME = ResearcherSessionTest.IGNORE_THIS_ENDPOINT
+    
+    header_row = "Created On,Data Date End,Data Date Start,Id,Forest Tree,"\
+        "Forest Output Exists,Patient Id,Process Start Time,Process Download End Time,"\
+        "Process End Time,Status,Total File Size\r\n"
+    
+    def test_no_relation_no_site_admin_no_worky(self):
+        # this streams a csv of tasks on a study
+        resp = self.smart_get_status_code(403, self.session_study.id)
+        self.assertEqual(resp.content, b"")
+    
+    def test_researcher_no_worky(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_get_status_code(403, self.session_study.id)
+        self.assertEqual(resp.content, b"")
+    
+    def test_study_admin_no_worky(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        resp = self.smart_get_status_code(403, self.session_study.id)
+        self.assertEqual(resp.content, b"")
+    
+    def test_site_admin_can(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        resp = self.smart_get_status_code(200, self.session_study.id)
+        self.assertEqual(b"".join(resp.streaming_content).decode(), self.header_row)
+    
+    def test_single_forest_task(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.default_forest_task.update(
+            created_on=datetime(2020, 1, 1, tzinfo=dateutil.tz.UTC),
+            data_date_start=date(2020, 1, 1),
+            data_date_end=date(2020, 1, 5),
+            forest_tree=ForestTree.jasmine,
+            forest_output_exists=True,
+            process_start_time=datetime(2020, 1, 1, tzinfo=dateutil.tz.UTC),  # midnight
+            process_download_end_time=datetime(2020, 1, 1, 1, tzinfo=dateutil.tz.UTC),  # 1am
+            process_end_time=datetime(2020, 1, 1, 2, tzinfo=dateutil.tz.UTC),  # 2am
+            status=ForestTaskStatus.success,
+            total_file_size=123456789,
+        )
+        
+        resp = self.smart_get_status_code(200, self.session_study.id)
+        content = b"".join(resp.streaming_content).decode()
+        self.assertEqual(content.count("\r\n"), 2)
+        line = content.splitlines()[1]
+        
+        # 12 columns, 11 commas
+        self.assertEqual(line.count(","), 11)
+        items = line.split(",")
+        self.assertEqual(items[0], "2020-01-01 00:00 (UTC)")                   # Created On
+        self.assertEqual(items[1], "2020-01-05")                               # Data Date End
+        self.assertEqual(items[2], "2020-01-01")                               # Data Date Start
+        self.assertEqual(items[3], str(self.default_forest_task.external_id))  # duh
+        self.assertEqual(items[4], "Jasmine")                                  # Forest Tree
+        self.assertEqual(items[5], "Yes")                                      # Forest Output Exists
+        self.assertEqual(items[6], "patient1")                                 # Patient Id
+        self.assertEqual(items[7], "2020-01-01 00:00 (UTC)")                   # Process Start Time
+        self.assertEqual(items[8], "2020-01-01 01:00 (UTC)")                   # Process Download End Time
+        self.assertEqual(items[9], "2020-01-01 02:00 (UTC)")                   # Process End Time
+        self.assertEqual(items[10], "success")                                 # Status
+        self.assertEqual(items[11], "123456789")                               # Total File Size
 
 
 class TestForestCancelTask(ResearcherSessionTest):

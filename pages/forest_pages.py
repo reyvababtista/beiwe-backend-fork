@@ -2,10 +2,12 @@ import csv
 import pickle
 from collections import defaultdict
 from datetime import date, datetime
+from typing import Dict
 
 import orjson
 from django.contrib import messages
 from django.core.exceptions import ValidationError
+from django.db.models import QuerySet
 from django.http.response import FileResponse, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -31,7 +33,6 @@ from libs.internal_types import ParticipantQuerySet, ResearcherRequest
 from libs.s3 import NoSuchKeyException
 from libs.streaming_zip import ZipGenerator
 from libs.utils.date_utils import daterange
-from serializers.forest_serializers import display_true, ForestTaskCsvSerializer
 
 
 TASK_SERIALIZER_FIELDS = [
@@ -223,19 +224,14 @@ def task_log(request: ResearcherRequest, study_id=None):
         task_dict["has_output_data"] = task_dict["forest_output_exists"]
         task_dict["forest_tree_display"] = task_dict.pop("forest_tree").title()
         task_dict["created_on_display"] = task_dict.pop("created_on").strftime(DEV_TIME_FORMAT)
-        task_dict["forest_output_exists_display"] = display_true(task_dict["forest_output_exists"])
+        task_dict["forest_output_exists_display"] = yes_no_unknown(task_dict["forest_output_exists"])
         
         # dates/times that require safety (yes it could be less obnoxious)
-        task_dict["process_end_time"] = task_dict["process_end_time"].strftime(DEV_TIME_FORMAT) \
-            if task_dict["process_end_time"] else None
-        task_dict["process_start_time"] = task_dict["process_start_time"].strftime(DEV_TIME_FORMAT) \
-            if task_dict["process_start_time"] else None
-        task_dict["process_download_end_time"] = task_dict["process_download_end_time"].strftime(DEV_TIME_FORMAT) \
-            if task_dict["process_download_end_time"] else None
-        task_dict["data_date_end"] = task_dict["data_date_end"].isoformat() \
-            if task_dict["data_date_end"] else None
-        task_dict["data_date_start"] = task_dict["data_date_start"].isoformat() \
-            if task_dict["data_date_start"] else None
+        dict_datetime_to_display(task_dict, "process_end_time", None)
+        dict_datetime_to_display(task_dict, "process_start_time", None)
+        dict_datetime_to_display(task_dict, "process_download_end_time", None)
+        task_dict["data_date_end"] = task_dict["data_date_end"].isoformat()if task_dict["data_date_end"] else None
+        task_dict["data_date_start"] = task_dict["data_date_start"].isoformat()if task_dict["data_date_start"] else None
         
         # urls
         task_dict["cancel_url"] = easy_url(
@@ -274,18 +270,6 @@ def task_log(request: ResearcherRequest, study_id=None):
             forest_commit=forest_info.git_commit or "commit not found",
             forest_version=forest_info.package_version or "version not found",
         )
-    )
-
-
-@require_GET
-@authenticate_admin
-def download_task_log(request: ResearcherRequest):
-    forest_tasks = ForestTask.objects.order_by("created_on")
-    return FileResponse(
-        stream_forest_task_log_csv(forest_tasks),
-        content_type="text/csv",
-        filename=f"forest_task_log_{timezone.now().isoformat()}.csv",
-        as_attachment=True,
     )
 
 
@@ -428,17 +412,79 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
     )
 
 
-def stream_forest_task_log_csv(forest_tasks):
-    buffer = CSVBuffer()
-    writer = csv.DictWriter(buffer, fieldnames=ForestTaskCsvSerializer.Meta.fields)
-    writer.writeheader()
-    yield buffer.read()
+@require_GET
+@authenticate_admin
+def download_task_log(request: ResearcherRequest, study_id=str):
+    if not request.session_researcher.site_admin:
+        return HttpResponse(content="", status=403)
     
-    for forest_task in forest_tasks:
-        writer.writerow(ForestTaskCsvSerializer(forest_task).data)
+    # study id is already validated by the url pattern?
+    forest_tasks = ForestTask.objects.filter(participant__study_id=study_id)
+    
+    return FileResponse(
+        stream_forest_task_log_csv(forest_tasks),
+        content_type="text/csv",
+        filename=f"forest_task_log_{timezone.now().isoformat()}.csv",
+        as_attachment=True,
+    )
+
+
+def stream_forest_task_log_csv(forest_tasks: QuerySet[ForestTask]):
+    # titles of rows as values, query filter values as keys
+    field_map = {
+        "created_on": "Created On",
+        "data_date_end": "Data Date End",
+        "data_date_start": "Data Date Start",
+        "external_id": "Id",
+        "forest_tree": "Forest Tree",
+        "forest_output_exists": "Forest Output Exists",
+        "participant__patient_id": "Patient Id",
+        "process_start_time": "Process Start Time",
+        "process_download_end_time": "Process Download End Time",
+        "process_end_time": "Process End Time",
+        "status": "Status",
+        "total_file_size": "Total File Size",
+    }
+    
+    # setup
+    buffer = CSVBuffer()
+    # the csv writer isn't well handled in the vscode ide. its has a writerow and writerows method,
+    # writes to a file-like object, CSVBuffer might be overkill, strio or bytesio might be work
+    writer = csv.writer(buffer, dialect="excel")
+    writer.writerow(field_map.values())
+    yield buffer.read()  # write the header
+    
+    # yield rows
+    for forest_data in forest_tasks.values(*field_map.keys()):
+        dict_datetime_to_display(forest_data, "created_on", "")
+        dict_datetime_to_display(forest_data, "process_start_time", "")
+        dict_datetime_to_display(forest_data, "process_download_end_time", "")
+        dict_datetime_to_display(forest_data, "process_end_time", "")
+        forest_data["forest_tree"] = forest_data["forest_tree"].title()
+        forest_data["forest_output_exists"] = yes_no_unknown(forest_data["forest_output_exists"])
+        writer.writerow(forest_data.values())
         yield buffer.read()
 
 
+def dict_datetime_to_display(some_dict: Dict[str, datetime], key: str, default: str = None):
+    # this pattern is repeated numerous times.
+    dt = some_dict[key]
+    if dt is None:
+        some_dict[key] = default
+    else:
+        some_dict[key] = dt.strftime(DEV_TIME_FORMAT)
+
+
+def yes_no_unknown(a_bool: bool):
+    if a_bool is True:
+        return "Yes"
+    elif a_bool is False:
+        return "No"
+    else:
+        return "Unknown"
+
+
+# we need a class that has a read and write method for the csv writer machinery to use.
 class CSVBuffer:
     line = ""
     

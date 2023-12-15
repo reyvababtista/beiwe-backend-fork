@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from database.security_models import ApiKey
 
-
+# FIXMME: this is the only remaining DRF serializer we can do it we can finally get rid of them all
 class ApiKeySerializer(serializers.ModelSerializer):
     class Meta:
         model = ApiKey
@@ -14,24 +14,3 @@ class ApiKeySerializer(serializers.ModelSerializer):
             "readable_name",
         ]
 
-
-# class SummaryStatisticDailySerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = SummaryStatisticDaily
-#         fields = SERIALIZABLE_FIELD_NAMES
-
-#     participant_id = serializers.SlugRelatedField(
-#         slug_field="patient_id", source="participant", read_only=True
-#     )
-#     study_id = serializers.SerializerMethodField()  # Study object id
-
-#     def __init__(self, *args, fields=None, **kwargs):
-#         """ dynamically modify the subset of fields on instantiation """
-#         super().__init__(*args, **kwargs)
-#         if fields is not None:
-#             for field_name in set(self.fields) - set(fields):
-#                 # is this pop valid? the value is a cached property... this needs to be tested.
-#                 self.fields.pop(field_name)
-
-#     def get_study_id(self, obj):
-#         return obj.participant.study.object_id

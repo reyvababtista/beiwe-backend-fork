@@ -13,8 +13,8 @@ from django.db.models import Manager
 from django.utils import timezone
 
 from config.settings import DOMAIN_NAME
-from constants.data_stream_constants import IDENTIFIERS
-from constants.user_constants import ANDROID_API, IOS_API, OS_TYPE_CHOICES
+from constants.data_stream_constants import ALL_DATA_STREAMS, IDENTIFIERS
+from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API, OS_TYPE_CHOICES
 from database.common_models import UtilityModel
 from database.models import TimestampedModel
 from database.study_models import Study
@@ -130,6 +130,16 @@ class Participant(AbstractPasswordUser):
             "last_get_latest_device_settings": f"{(now - self.last_get_latest_device_settings).total_seconds() // 60} minutes ago" if self.last_get_latest_device_settings else None,
         }
     
+    def get_data_summary(self) -> Dict[str, Union[str, int]]:
+        """ Assembles a summary of data quantities for the participant, for debugging. """
+        data = {stream: 0 for stream in ALL_DATA_STREAMS}
+        for data_type, size in self.chunk_registries.values_list("data_type", "file_size").iterator():
+            data[data_type] += size
+        
+        # print with  2 digits after decimal point
+        for k, v in data.items():
+            print(f"{k}:", f"{v / 1024 / 1024:.2f} MB")
+
     @property
     def timezone(self) -> tzinfo:
         """ So pytz.timezone("America/New_York") provides a tzinfo-like object that is wrong by 4
@@ -203,6 +213,19 @@ class Participant(AbstractPasswordUser):
     def s3_retrieve(self, s3_path: str) -> bytes:
         raw_path = s3_path.startswith(self.study.object_id)
         return s3_retrieve(s3_path, self, raw_path=raw_path)
+    
+    @property
+    def is_active_one_week(self) -> bool:
+        return self._is_active(timezone.now() - timedelta(days=7))
+    
+    def _is_active(self, now: datetime) -> bool:
+        # get the most recent timestamp from the list of fields, and check if it is more recent than
+        # now the participant is considered active.
+        for key in ACTIVE_PARTICIPANT_FIELDS:
+            value = getattr(self, key)
+            if value is not None and value >= now:
+                return True
+        return False
     
     @property
     def is_dead(self) -> bool:

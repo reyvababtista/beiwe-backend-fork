@@ -1,5 +1,6 @@
 import os
 from os.path import join
+import platform
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -13,6 +14,7 @@ from libs.sentry import normalize_sentry_dsn
 # we are not actually using it in any server runtime capacity.
 SECRET_KEY = FLASK_SECRET_KEY
 
+# TODO: remove sqlite support entirely.
 if DB_MODE == DB_MODE_SQLITE:
     DATABASES = {
         'default': {
@@ -49,6 +51,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 DEBUG = 'localhost' in DOMAIN_NAME or '127.0.0.1' in DOMAIN_NAME or '::1' in DOMAIN_NAME
 
 SECURE_SSL_REDIRECT = not DEBUG
+
+# mac os homebrew postgres has configuration complexities that are not worth the effort to resolve.
+if not SECURE_SSL_REDIRECT and DB_MODE == DB_MODE_POSTGRES and platform.system() == "Darwin":
+    DATABASES['default']['OPTIONS']['sslmode'] = 'disable'
 
 MIDDLEWARE = [
     'middleware.downtime_middleware.DowntimeMiddleware',  # does a single database call

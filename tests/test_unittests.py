@@ -1,4 +1,5 @@
 import time
+import typing
 import unittest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
@@ -6,9 +7,11 @@ from unittest.mock import MagicMock, patch
 import dateutil
 from dateutil.tz import gettz
 from django.utils import timezone
+from api.study_api import determine_registered_status
 
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import MIDNIGHT_EVERY_DAY
+from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS
 from database.data_access_models import IOSDecryptionKey
 from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
@@ -23,6 +26,9 @@ from libs.participant_purge import (confirm_deleted, get_all_file_path_prefixes,
 from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_and_schedule,
     NoSchedulesException)
 from tests.common import CommonTestCase
+
+
+NoneType = type(None)  # noqa
 
 
 # timezones should be compared using the 'is' operator
@@ -465,3 +471,52 @@ class TestParticipantTimeZone(CommonTestCase):
         self.assertIs(p.timezone, gettz("America/Los_Angeles"))
         self.assertEqual(p.unknown_timezone, False)
         self.assertEqual(p.last_updated, last_update)
+
+
+class TestParticipantActive(CommonTestCase):
+    """ We need a test for keeping the status of "this is an active participant" up to date across
+    some distinct code paths """
+    
+    def test_determine_registered_status(self):
+        # determine_registered_status is code in an important optimized codepath for the study page,
+        # it can't be factored down to a call on a Participant object because it operates on contents
+        # out of a values_list query.  It also deals with creating strings and needs to know if the
+        # registered field is set (which we don't care about in other places).
+        annotes = determine_registered_status.__annotations__
+        correct_annotations = {
+            'now': datetime,
+            'registered': bool,
+            'last_upload': typing.Union[datetime, NoneType],  # can't import NoneType...
+            'last_get_latest_surveys': typing.Union[datetime, NoneType],
+            'last_set_password': typing.Union[datetime, NoneType],
+            'last_set_fcm_token': typing.Union[datetime, NoneType],
+            'last_get_latest_device_settings': typing.Union[datetime, NoneType],
+            'last_register_user': typing.Union[datetime, NoneType]
+        }
+        self.assertDictEqual(annotes, correct_annotations)
+    
+    def test_participant_is_active_one_week_false(self):
+        # this test is self referential...
+        now = timezone.now()
+        more_than_a_week_ago = now - timedelta(days=8)
+        p = self.default_participant
+        for field_outer in ACTIVE_PARTICIPANT_FIELDS:
+            for field_inner in ACTIVE_PARTICIPANT_FIELDS:
+                if field_inner != field_outer:
+                    setattr(p, field_inner, None)
+                else:
+                    setattr(p, field_inner, more_than_a_week_ago)
+            self.assertFalse(p.is_active_one_week)
+    
+    def test_participant_is_active_one_week_true(self):
+        # this test is self referential...
+        now = timezone.now()
+        less_than_a_week_ago = now - timedelta(days=6)
+        p = self.default_participant
+        for field_outer in ACTIVE_PARTICIPANT_FIELDS:
+            for field_inner in ACTIVE_PARTICIPANT_FIELDS:
+                if field_inner != field_outer:
+                    setattr(p, field_inner, None)
+                else:
+                    setattr(p, field_inner, less_than_a_week_ago)
+            self.assertTrue(p.is_active_one_week)

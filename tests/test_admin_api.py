@@ -9,6 +9,8 @@ from database.user_models_researcher import Researcher, StudyRelation
 from tests.common import ResearcherSessionTest
 
 
+# trunk-ignore-all(ruff/B018)
+
 #
 ## admin_api
 #

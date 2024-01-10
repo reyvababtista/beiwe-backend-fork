@@ -94,6 +94,25 @@ class Participant(AbstractPasswordUser):
     permanently_retired = models.BooleanField(default=False)
     easy_enrollment = models.BooleanField(default=False)
     
+    # Participant experiments, beta features - these fields literally may not be used Anywhere, some
+    # of them are filler for future features that may or may not be implemented. Some are for
+    # backend feature, some are for app features. (features under active development should be
+    # annotated in some way but no promises.)
+    enable_heartbeat = models.BooleanField(default=False)  # backend, under active development
+    enable_aggressive_background_persistence = models.BooleanField(default=False)  # app, under active development
+    enable_binary_uploads = models.BooleanField(default=False)
+    enable_new_authentication = models.BooleanField(default=False)
+    enable_developer_datastream = models.BooleanField(default=False)
+    enable_beta_features = models.BooleanField(default=False)
+    EXPERIMENT_FIELDS = (
+        "enable_heartbeat",
+        "enable_aggressive_background_persistence",
+        "enable_binary_uploads",
+        "enable_new_authentication",
+        "enable_developer_datastream",
+        "enable_beta_features",
+    )
+    
     # related field typings (IDE halp)
     archived_events: Manager[ArchivedEvent]
     chunk_registries: Manager[ChunkRegistry]

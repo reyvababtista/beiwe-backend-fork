@@ -1,5 +1,5 @@
 import json
-import string
+
 
 ABOUT_PAGE_TEXT = (
     'The Beiwe application runs on your phone and helps researchers collect information about your '

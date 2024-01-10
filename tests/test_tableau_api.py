@@ -19,7 +19,6 @@ from tests.helpers import compare_dictionaries
 #
 
 
-
 class TestGetTableauDaily(TableauAPITest):
     ENDPOINT_NAME = "tableau_api.get_tableau_daily"
     today = date.today()

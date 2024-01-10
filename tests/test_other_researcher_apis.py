@@ -8,6 +8,8 @@ from database.user_models_researcher import Researcher
 from tests.common import DataApiTest
 
 
+# trunk-ignore-all(ruff/B018)
+
 #
 ## other_researcher_apis
 #

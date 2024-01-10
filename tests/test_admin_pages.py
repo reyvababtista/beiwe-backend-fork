@@ -17,6 +17,8 @@ from libs.http_utils import easy_url
 from tests.common import ResearcherSessionTest, TableauAPITest
 
 
+# trunk-ignore-all(ruff/B018)
+
 #
 ## admin_pages
 #

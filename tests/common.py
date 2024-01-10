@@ -26,15 +26,18 @@ from tests.helpers import ReferenceObjectMixin, render_test_html_file
 from urls import urlpatterns
 
 
+# trunk-ignore-all(ruff/B018)
+
 # if we import this from constants.url_constants then its not populated because ... Django.
 ENDPOINTS_BY_NAME = {pattern.name: pattern for pattern in urlpatterns}
 
-# this makes print statements during debugging easier to read by bracketting the statement of which
-# test is running with some separater.
+# this makes print statements during debugging easier to read by bracketing the statement of which
+# test is running with some separator.
 VERBOSE_2_OR_3 = ("-v2" in argv or "-v3" in argv) and "-v1" not in argv
 VERBOSE_3 = "-v3" in argv and "-v2" not in argv and "-v1" not in argv
 
 
+# trunk-ignore(ruff/E402,ruff/E703)
 from libs import s3;  # (the ; and this comment blocks automatic reformatting of imports here.
 s3.S3_BUCKET = Exception   # force disable potentially active s3 connections.
 
@@ -286,7 +289,7 @@ class SmartRequestsTestCase(BasicSessionTestCase):
         # check endpoints ard redirects are valid
         assert end_name in ENDPOINTS_BY_NAME or end_name == ignore, \
             f"Test class {self.__class__.__name__}'s ENDPOINT_NAME `{end_name}` does not exist."
-
+        
         # assert r_end_name != ignore and (end_name is None or r_end_name not in ENDPOINTS_BY_NAME):
         assert r_end_name == ignore or (r_end_name in ENDPOINTS_BY_NAME or r_end_name is None), \
             f"{self.__class__.__name__}'s REDIRECT_ENDPOINT_NAME {r_end_name}` does not exist."

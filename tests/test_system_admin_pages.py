@@ -19,6 +19,7 @@ from libs.http_utils import easy_url
 from libs.security import generate_easy_alphanumeric_string
 from tests.common import ResearcherSessionTest
 
+# trunk-ignore-all(ruff/B018)
 
 #
 ## system_admin_pages

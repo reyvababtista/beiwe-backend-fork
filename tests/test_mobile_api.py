@@ -7,6 +7,8 @@ from django.utils import timezone
 
 from constants.common_constants import BEIWE_PROJECT_ROOT
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
+from constants.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT, DEFAULT_CONSENT_SECTIONS,
+    SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
 from constants.testing_constants import MIDNIGHT_EVERY_DAY, THURS_OCT_6_NOON_2022_NY
 from database.data_access_models import FileToProcess
 from database.schedule_models import AbsoluteSchedule, ScheduledEvent, WeeklySchedule
@@ -17,6 +19,8 @@ from libs.schedules import (get_start_and_end_of_java_timings_week,
 from libs.security import device_hash
 from tests.common import ParticipantSessionTest
 
+
+# trunk-ignore-all(ruff/B018)
 
 #
 ## mobile_api
@@ -368,13 +372,76 @@ class TestGetLatestDeviceSettings(ParticipantSessionTest):
     ENDPOINT_NAME = "mobile_api.get_latest_device_settings"
     
     def test_success(self):
-        self.assertIsNone(self.default_participant.last_get_latest_device_settings)
+        p = self.default_participant
+        # update the dict below, only very long strings should reference their variables.
+        # (I guess id is special too)
+        correct_data = {
+            'id': self.default_study.device_settings.id,
+            'accelerometer': True,
+            'gps': True,
+            'calls': True,
+            'texts': True,
+            'wifi': True,
+            'bluetooth': False,
+            'power_state': True,
+            'use_anonymized_hashing': True,
+            'use_gps_fuzzing': False,
+            'call_clinician_button_enabled': True,
+            'call_research_assistant_button_enabled': True,
+            'ambient_audio': False,
+            'proximity': False,
+            'gyro': False,
+            'magnetometer': False,
+            'devicemotion': False,
+            'reachability': True,
+            'allow_upload_over_cellular_data': False,
+            'accelerometer_off_duration_seconds': 10,
+            'accelerometer_on_duration_seconds': 10,
+            'accelerometer_frequency': 10,
+            'ambient_audio_off_duration_seconds': 600,
+            'ambient_audio_on_duration_seconds': 600,
+            'ambient_audio_bitrate': 24000,
+            'ambient_audio_sampling_rate': 44100,
+            'bluetooth_on_duration_seconds': 60,
+            'bluetooth_total_duration_seconds': 300,
+            'bluetooth_global_offset_seconds': 0,
+            'check_for_new_surveys_frequency_seconds': 3600,
+            'create_new_data_files_frequency_seconds': 900,
+            'gps_off_duration_seconds': 600,
+            'gps_on_duration_seconds': 60,
+            'seconds_before_auto_logout': 600,
+            'upload_data_files_frequency_seconds': 3600,
+            'voice_recording_max_time_length_seconds': 240,
+            'wifi_log_frequency_seconds': 300,
+            'gyro_off_duration_seconds': 600,
+            'gyro_on_duration_seconds': 60,
+            'gyro_frequency': 10,
+            'magnetometer_off_duration_seconds': 600,
+            'magnetometer_on_duration_seconds': 60,
+            'devicemotion_off_duration_seconds': 600,
+            'devicemotion_on_duration_seconds': 60,
+            'about_page_text': ABOUT_PAGE_TEXT,
+            'call_clinician_button_text': 'Call My Clinician',
+            'consent_form_text': CONSENT_FORM_TEXT,
+            'survey_submit_success_toast_text': SURVEY_SUBMIT_SUCCESS_TOAST_TEXT,
+            'consent_sections': DEFAULT_CONSENT_SECTIONS,
+            # Experiment features, yep you gotta manually change it when you change them.
+            'enable_heartbeat': False,
+            'enable_aggressive_background_persistence': False,
+            'enable_binary_uploads': False,
+            'enable_new_authentication': False,
+            'enable_developer_datastream': False,
+            'enable_beta_features': False
+        }
+        
+        self.assertIsNone(p.last_get_latest_device_settings)
         response = self.smart_post_status_code(200)
         response_json_loaded = json.loads(response.content.decode())
-        self.assertEqual(self.default_study.device_settings.export(), response_json_loaded)
-        self.default_participant.refresh_from_db()
-        self.assertIsNotNone(self.default_participant.last_get_latest_device_settings)
-        self.assertIsInstance(self.default_participant.last_get_latest_device_settings, datetime)
+        self.assertEqual(correct_data, response_json_loaded)
+        
+        p.refresh_from_db()
+        self.assertIsNotNone(p.last_get_latest_device_settings)
+        self.assertIsInstance(p.last_get_latest_device_settings, datetime)
     
     def test_deleted_participant(self):
         self.INJECT_DEVICE_TRACKER_PARAMS = False
@@ -507,4 +574,3 @@ class TestMobileUpload(ParticipantSessionTest):
         response = self.smart_post_status_code(403)
         self.assertEqual(response.content, b"")
         self.INJECT_DEVICE_TRACKER_PARAMS = True
-

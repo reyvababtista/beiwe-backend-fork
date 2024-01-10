@@ -12,6 +12,8 @@ from services.celery_push_notifications import get_surveys_and_schedules
 from tests.common import CommonTestCase
 
 
+# trunk-ignore-all(ruff/B018)
+
 class TestCelery(CommonTestCase):
     pass
 

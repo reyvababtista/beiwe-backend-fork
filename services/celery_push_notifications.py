@@ -3,6 +3,7 @@ import random
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import List, Tuple
+
 from dateutil.tz import gettz
 from django.utils import timezone
 from firebase_admin.messaging import (AndroidConfig, Message, Notification, QuotaExceededError,
@@ -23,6 +24,7 @@ from libs.firebase_config import check_firebase_instance
 from libs.internal_types import DictOfStrStr, DictOfStrToListOfStr
 from libs.schedules import set_next_weekly
 from libs.sentry import make_error_sentry, SentryTypes
+
 
 UTC = gettz("UTC")
 

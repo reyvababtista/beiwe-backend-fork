@@ -28,6 +28,7 @@ from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_
 from tests.common import CommonTestCase
 
 
+# trunk-ignore-all(ruff/B018)
 NoneType = type(None)  # noqa
 
 

@@ -313,9 +313,11 @@ def get_latest_device_settings(request: ParticipantRequest, OS_API=""):
     """ Extremely simple endpoint that returns the device settings for the study as a json string. 
     Endpoint is used by the app to periodically check for changes to the device settings. """
     request.session_participant.update_only(last_get_latest_device_settings=timezone.now())
-    return HttpResponse(
-        json.dumps(request.session_participant.study.device_settings.export())
-    )
+    # assemble the dictionary of device settings and the participant's experiment fields
+    settings_dictionary = request.session_participant.study.device_settings.export()
+    for field in Participant.EXPERIMENT_FIELDS:
+        settings_dictionary[field] = getattr(request.session_participant, field)
+    return HttpResponse(json.dumps(settings_dictionary))
 
 
 @determine_os_api

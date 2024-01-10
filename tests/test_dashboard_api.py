@@ -11,6 +11,8 @@ from database.user_models_participant import Participant
 from tests.common import ResearcherSessionTest
 
 
+# trunk-ignore-all(ruff/B018)
+
 #
 ## dashboard_api
 #

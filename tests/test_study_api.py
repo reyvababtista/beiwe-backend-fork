@@ -9,6 +9,7 @@ from database.schedule_models import Intervention
 from database.study_models import StudyField
 from tests.common import ResearcherSessionTest
 
+# trunk-ignore-all(ruff/B018)
 
 #
 ## study_api

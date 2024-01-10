@@ -2,7 +2,7 @@
 Django==3.2.23
 firebase-admin==5.4.0
 Jinja2==3.1.2
-zstd==1.5.5.1  # This one seems to require manual pinning, version 1.5+ contains performance improvements
+zstd # used to require it be pinned to get 1.5.5.1
 orjson==3.9.5
 
 # various extensions
@@ -16,7 +16,7 @@ pypng
 pyotp
 
 # This version of pycryptodome results in "from Cryptodome import ..." imports.
-pycryptodomex==3.19.1  # locked version, only update this manuallly, has had breaking changes in the past
+pycryptodomex==3.20.0  # locked version, only update this manuallly, has had breaking changes in the past
 
 # error reporting
 raven==6.10  # raven has been sunset at 6.10

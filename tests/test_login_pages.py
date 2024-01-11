@@ -15,7 +15,7 @@ from constants.url_constants import LOGIN_REDIRECT_SAFE, urlpatterns
 from constants.user_constants import EXPIRY_NAME, ResearcherRole
 from database.study_models import Study
 from database.system_models import GlobalSettings
-from database.user_models_researcher import ResearcherSession
+from database.user_models_researcher import Researcher, ResearcherSession
 from libs.http_utils import easy_url
 from tests.common import BasicSessionTestCase
 
@@ -350,6 +350,24 @@ class TestLoginPages(BasicSessionTestCase):
         self.session_researcher.update_only(password_min_length=8)
         self.set_session_study_relation(ResearcherRole.researcher)
         self.do_default_login()
+        # random endpoint that will trigger a redirect
+        resp = self.simple_get(easy_url("admin_pages.choose_study"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.url, reverse("admin_pages.manage_credentials"))
+        page = self.simple_get(resp.url, status_code=200).content
+        self.assert_present(PASSWORD_RESET_TOO_SHORT, page)
+        # assert that this behavior does not rely on the force reset flag
+        self.assertFalse(self.session_researcher.password_force_reset)
+    
+    def test_password_too_short_bad_state(self):
+        # we got an error report from the Researcher.check_password call inside the validate_login
+        # function, a validation error password too short message.  Cannot reproduce.
+        self.session_researcher._force_set_password("2short")
+        # have to bypass the password min length check validator to set up bad database state.
+        # default password minimum length is 8, 7 is the highest number to cause the redirect.
+        Researcher.objects.filter(id=self.session_researcher.id).update(password_min_length=7)
+        self.do_login(self.DEFAULT_RESEARCHER_NAME, "2short")
+        
         # random endpoint that will trigger a redirect
         resp = self.simple_get(easy_url("admin_pages.choose_study"))
         self.assertEqual(resp.status_code, 302)

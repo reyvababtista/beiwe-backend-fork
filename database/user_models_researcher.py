@@ -78,6 +78,20 @@ class Researcher(AbstractPasswordUser):
         # set_password calls save(), and we don't want to set values if it (somehow) fails
         super().set_password(password)
     
+    def _force_set_password(self, password: str, fake_password_length: int = 8):
+        # literally only for use in tests, not even in a terminal shell.
+        from constants.common_constants import RUNNING_TESTS
+        if not RUNNING_TESTS:
+            class UncatchableException(BaseException): pass
+            raise UncatchableException("completely illegal operation")
+        self.password_last_changed = timezone.now()
+        self.password_min_length = fake_password_length
+        password_hash, salt = self.generate_hash_and_salt(password.encode())
+        self.password = to_django_password_components(
+            self.DESIRED_ALGORITHM, self.DESIRED_ITERATIONS, password_hash, salt
+        )
+        self.save()
+    
     @classmethod
     def check_password(cls, username: str, compare_me: str) -> bool:
         """ Checks if the provided password matches the hash of the provided Researcher's password. """

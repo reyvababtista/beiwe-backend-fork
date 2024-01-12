@@ -10,10 +10,13 @@ from database.schedule_models import ArchivedEvent, ScheduledEvent
 from database.user_models_participant import ParticipantFCMHistory
 from tests.common import ParticipantSessionTest, ResearcherSessionTest
 
+# ignore hardcoded password strings, this is a test file
+# trunk-ignore-all(bandit/B106)
 
 #
 ## push_notifications_api
 #
+
 class TestPushNotificationSetFCMToken(ParticipantSessionTest):
     ENDPOINT_NAME = "push_notifications_api.set_fcm_token"
     

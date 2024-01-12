@@ -42,9 +42,8 @@ SESSION_UUID = "session_uuid"
 SESSION_TIMEOUT_HOURS = 2
 
 # These fields are used to indicate that a participant is still "active", active is defined as 
-# is still hitting the backend in the passed *time period*.
+# is still hitting the backend in the passed *insert your time period here*.
 ACTIVE_PARTICIPANT_FIELDS = (
-    'registered',
     'last_upload',
     'last_get_latest_surveys',
     'last_set_password',

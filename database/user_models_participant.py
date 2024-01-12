@@ -7,6 +7,7 @@ from typing import Dict, Tuple, Union
 
 from Cryptodome.PublicKey import RSA
 from dateutil.tz import gettz
+from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import MinLengthValidator
 from django.db import models
 from django.db.models import Manager
@@ -14,7 +15,8 @@ from django.utils import timezone
 
 from config.settings import DOMAIN_NAME
 from constants.data_stream_constants import ALL_DATA_STREAMS, IDENTIFIERS
-from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API, OS_TYPE_CHOICES
+from constants.user_constants import (ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API,
+    OS_TYPE_CHOICES)
 from database.common_models import UtilityModel
 from database.models import TimestampedModel
 from database.study_models import Study
@@ -67,6 +69,7 @@ class Participant(AbstractPasswordUser):
     unknown_timezone = models.BooleanField(default=True)  # flag for using participant's timezone.
     
     push_notification_unreachable_count = models.SmallIntegerField(default=0, null=False, blank=False)
+    last_heartbeat = models.DateTimeField(null=True, blank=True)
     
     # TODO: clean out or maybe rename these fields to distinguish from last_updated? also wehave two survey checkin timestamps
     # new checkin logic
@@ -158,7 +161,7 @@ class Participant(AbstractPasswordUser):
         # print with  2 digits after decimal point
         for k, v in data.items():
             print(f"{k}:", f"{v / 1024 / 1024:.2f} MB")
-
+    
     @property
     def timezone(self) -> tzinfo:
         """ So pytz.timezone("America/New_York") provides a tzinfo-like object that is wrong by 4
@@ -241,6 +244,8 @@ class Participant(AbstractPasswordUser):
         # get the most recent timestamp from the list of fields, and check if it is more recent than
         # now the participant is considered active.
         for key in ACTIVE_PARTICIPANT_FIELDS:
+            if not hasattr(self, key):
+                raise ImproperlyConfigured("Participant model does not have a field named {key}.")
             value = getattr(self, key)
             if value is not None and value >= now:
                 return True
@@ -253,6 +258,7 @@ class Participant(AbstractPasswordUser):
     @property
     def has_deletion_event(self) -> bool:
         try:
+            # trunk-ignore(ruff/B018)
             self.deletion_event
             return True
         except ParticipantDeletionEvent.DoesNotExist:

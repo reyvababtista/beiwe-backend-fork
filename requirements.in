@@ -1,7 +1,7 @@
 # core libraries
 Django==3.2.23
 firebase-admin==5.4.0
-Jinja2==3.1.2
+Jinja2 # used to require pinning, I guess review if there is a major version bump.
 zstd # used to require it be pinned to get 1.5.5.1
 orjson==3.9.5
 

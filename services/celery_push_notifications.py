@@ -311,12 +311,12 @@ def celery_send_survey_push_notification(fcm_token: str, survey_obj_ids: List[st
         reference_schedule = schedules.order_by("scheduled_time").first()
         survey_obj_ids = list(set(survey_obj_ids))  # Dedupe-dedupe
         
-        logi(f"Sending push notification to {patient_id} for {survey_obj_ids}...")
+        log(f"Sending push notification to {patient_id} for {survey_obj_ids}...")
         try:
             send_survey_push_notification(participant, reference_schedule, survey_obj_ids, fcm_token)
         # error types are documented at firebase.google.com/docs/reference/fcm/rest/v1/ErrorCode
         except UnregisteredError:
-            logi("\nUnregisteredError\n")
+            log("\nUnregisteredError\n")
             # Is an internal 404 http response, it means the token that was used has been disabled.
             # Mark the fcm history as out of date, return early.
             ParticipantFCMHistory.objects.filter(token=fcm_token).update(unregistered=timezone.now())

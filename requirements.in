@@ -43,4 +43,5 @@ django-timezone-field==4.1.1
 
 pip-tools>=7.3.0
 
-git+https://git@github.com/onnela-lab/forest@0d73099c9c5e7129739563b01998810cee65befa
+# this target points at what is currently the "beiwe-taskrunner" branch of the forest repo.
+git+https://git@github.com/onnela-lab/forest@1dc532b591ff3ac05a0289829c34ffe1d69c3bfe

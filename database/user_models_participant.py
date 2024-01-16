@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, tzinfo
 from pprint import pprint
-from typing import Dict, Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 from Cryptodome.PublicKey import RSA
 from dateutil.tz import gettz
@@ -135,7 +135,7 @@ class Participant(AbstractPasswordUser):
     summarystatisticdaily_set: Manager[SummaryStatisticDaily]
     
     @property
-    def _recents(self) -> Dict[str, Union[str, datetime]]:
+    def _recents(self) -> Dict[str, Union[str, Optional[str]]]:
         self.refresh_from_db()
         now = timezone.now()
         return {

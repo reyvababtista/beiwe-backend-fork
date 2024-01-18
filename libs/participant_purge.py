@@ -118,6 +118,8 @@ def confirm_deleted(deletion_event: ParticipantDeletionEvent):
         raise AssertionError("still have database entries for scheduled_events")
     if deletion_event.participant.archived_events.exists():
         raise AssertionError("still have database entries for archived_events")
+    if deletion_event.participant.heartbeats.exists():
+        raise AssertionError("still have database entries for heartbeats")  
     
     # mark the deletion event as _confirmed_ completed
     deletion_event.purge_confirmed_time = timezone.now()

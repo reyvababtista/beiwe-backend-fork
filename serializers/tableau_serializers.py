@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from database.security_models import ApiKey
 
+
 # FIXMME: this is the only remaining DRF serializer we can do it we can finally get rid of them all
 class ApiKeySerializer(serializers.ModelSerializer):
     class Meta:
@@ -13,4 +14,3 @@ class ApiKeySerializer(serializers.ModelSerializer):
             "is_active",
             "readable_name",
         ]
-

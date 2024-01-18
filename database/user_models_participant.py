@@ -69,7 +69,7 @@ class Participant(AbstractPasswordUser):
     unknown_timezone = models.BooleanField(default=True)  # flag for using participant's timezone.
     
     push_notification_unreachable_count = models.SmallIntegerField(default=0, null=False, blank=False)
-    last_heartbeat = models.DateTimeField(null=True, blank=True)
+    last_heartbeat_notification = models.DateTimeField(null=True, blank=True)
     
     # TODO: clean out or maybe rename these fields to distinguish from last_updated? also wehave two survey checkin timestamps
     # new checkin logic
@@ -123,6 +123,7 @@ class Participant(AbstractPasswordUser):
     fcm_tokens: Manager[ParticipantFCMHistory]
     field_values: Manager[ParticipantFieldValue]
     files_to_process: Manager[FileToProcess]
+    heartbeats: Manager[Heartbeats]
     intervention_dates: Manager[InterventionDate]
     scheduled_events: Manager[ScheduledEvent]
     upload_trackers: Manager[UploadTracking]
@@ -239,6 +240,14 @@ class Participant(AbstractPasswordUser):
     @property
     def is_active_one_week(self) -> bool:
         return self._is_active(timezone.now() - timedelta(days=7))
+    
+    @property
+    def last_app_heartbeat(self) -> Optional[datetime]:
+        """ Returns the last time the app sent a heartbeat. """
+        try:
+            return self.heartbeats.latest("timestamp").timestamp
+        except AppHeartbeats.DoesNotExist:
+            return None
     
     def _is_active(self, now: datetime) -> bool:
         # get the most recent timestamp from the list of fields, and check if it is more recent than
@@ -378,3 +387,15 @@ class ParticipantDeletionEvent(TimestampedModel):
             f"{finished_24.count()} in the past 24 hours:\n"
             f"{', '.join(p for p in finished_24.values_list('participant__patient_id', flat=True))}"
         )
+
+
+class AppHeartbeats(UtilityModel):
+    """ Storing heartbeats is intended as a debugging tool for monitoring app uptime, the idea is 
+    that the app checks in every 5 minutes so we can see when it doesn't. (And then send it a push
+    notification)  """
+    participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="heartbeats")
+    timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
+    
+    @classmethod
+    def create(cls, participant: Participant, timestamp: datetime):
+        return cls.objects.create(participant=participant, timestamp=timestamp)

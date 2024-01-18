@@ -214,6 +214,8 @@ path('download_surveys', mobile_api.get_latest_surveys)
 path('download_surveys/ios', mobile_api.get_latest_surveys, name="mobile_api.get_latest_surveys_ios")
 path('get_latest_device_settings', mobile_api.get_latest_device_settings)
 path('get_latest_device_settings/ios', mobile_api.get_latest_device_settings, name="mobile_api.get_latest_device_settings_ios")
+path('mobile-heartbeat', mobile_api.mobile_heartbeat)
+path('mobile-heartbeat/ios', mobile_api.mobile_heartbeat, name="mobile_api.mobile_heartbeat_ios")
 
 # mobile pages
 path('graph', mobile_pages.fetch_graph)

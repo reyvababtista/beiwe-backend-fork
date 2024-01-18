@@ -21,7 +21,7 @@ from constants.schedule_constants import ScheduleTypes
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API
 from database.schedule_models import ScheduledEvent
-from database.user_models_participant import (Participant, ParticipantFCMHistory,
+from database.user_models_participant import (AppHeartbeats, Participant, ParticipantFCMHistory,
     PushNotificationDisabledEvent)
 from libs.celery_control import push_send_celery_app, safe_apply_async
 from libs.firebase_config import check_firebase_instance
@@ -47,13 +47,19 @@ UTC = gettz("UTC")
 ####################################################################################################
 ######################################## HEARTBEAT #################################################
 ####################################################################################################
-
+# There are two senses in which the term "heartbeat" is used in this codebase. One is with respect
+# to the push notification that this celery task pushes to the app, the other is with respect to
+# the periodic checkin that the app makes to the backend.  The periodic checkin is app-code, it hits
+# the moblile_api.mobile_heartbeat endpoint.
 
 def heartbeat_query() -> List[Tuple[int, str]]:
     """ Handles logic of finding all active participants and providing the information required to
     send them all the "heartbeat" push notification to keep them up and running. """
     # active is premised on all of the active participant fields being within the last week
-    one_week_ago = timezone.now() - timedelta(days=7)
+    now = timezone.now()
+    one_week_ago = now - timedelta(days=7)
+    one_hour_ago = now - timedelta(hours=1)
+    
     activity_qs = [
         # Need to do string interpolation to get the field name, using a **{} inline dict unpacking.
         # Creates a Q object like: Q(participant__last_upload__gte=one_week_ago)
@@ -61,23 +67,40 @@ def heartbeat_query() -> List[Tuple[int, str]]:
     ]
     
     # uses operator.or_ (note the underscore) to combine the Q objects as an any match query.
-    # (operator.or_ is the same as |, it is the bitwise or operator)
+    # (operator.or_ is the same as |, it is the bitwise or operator) (reduce just applies it)
     any_activity_field_gt_one_week_ago = reduce(operator.or_, activity_qs)
     
-    # Query: get fcm tokens and participant id for all participants activity field that was updated
-    # in the last week, that are not deleted, that are not permanently retired, that have not
-    # heartbeat enabled, where there is a valid fcm token.
+    last_heartbeat_notification_details = (
+        Q(participant__last_heartbeat_notification__lte=one_hour_ago)  # older than an hour ago
+        | Q(participant__last_heartbeat_notification__isnull=True)
+    )
+    
+    # Get all participant ids that have done a heartbeat in the last week - this is difficult to
+    # shove into the other query without blowing everything up due to joining against thousands of
+    # heartbeats. Instead we get the ids with a .distinct and EXCLUDE them from the other query.
+    # (This query should almost never matter because a functional device should be checking in AND
+    # hitting the other endpoints about once an hour.)
+    participant_ids_with_recent_heartbeats = AppHeartbeats.objects.filter(
+        timestamp__gte=one_hour_ago).values_list("participant_id", flat=True).distinct()
+    
+    # Get fcm tokens and participant id for all participants activity field that was updated in the
+    # last week, that are not deleted, that are not permanently retired, that have not heartbeat
+    # enabled, where there is a valid fcm token.
     # This query may return multiple fcm tokens per participant, not ideal, but we haven't had
     # obvious problems in the normal push notification logic and ... its just a push notification.
     return list(
         ParticipantFCMHistory.objects.filter(
             any_activity_field_gt_one_week_ago,
-            participant__deleted=False,
-            participant__permanently_retired=False,
-            participant__enable_heartbeat=True,
-            unregistered=None,  # this is fcm-speak for non-retired fcm token
-            participant__os_type__in=[ANDROID_API, IOS_API],
+            last_heartbeat_notification_details,
+            
+            participant__enable_heartbeat=True,  # TODO: remove this after feature completion.
+            
+            participant__deleted=False,                # no deleted participants
+            participant__permanently_retired=False,    # should be rendundant with deleted.
+            unregistered=None,                         # this is fcm-speak for non-retired fcm token
+            participant__os_type__in=[ANDROID_API, IOS_API],  # just a safety check.
         )
+        .exclude(participant__id__in=participant_ids_with_recent_heartbeats)
         .values_list("participant_id", "token", "participant__os_type")
         .order_by("?")  # randomize the order in case celery is slow?
     )
@@ -136,10 +159,10 @@ def celery_heartbeat_send_push_notification(participant_id: int, fcm_token: str,
             return
         
         except (SenderIdMismatchError, QuotaExceededError):
-            return # ignore these errors, don't update last_heartbeat time.
+            return  # ignore these errors, don't update last_heartbeat_notification time.
         
         # update the last heartbeat time using minimal database operations.
-        Participant.objects.filter(pk=participant_id).update(last_heartbeat=timezone.now())
+        Participant.objects.filter(pk=participant_id).update(last_heartbeat_notification=timezone.now())
 
 
 def send_heartbeat_notification(fcm_token: str, os_type: str):
@@ -155,7 +178,7 @@ def send_heartbeat_notification(fcm_token: str, os_type: str):
         message = Message(
             data=data_kwargs, token=fcm_token, notification=Notification(title="Beiwe", body="")
         )
-        
+    
     send_notification(message)
 
 
@@ -163,7 +186,6 @@ def send_heartbeat_notification(fcm_token: str, os_type: str):
 ############################# PUSH NOTIFICATIONS ###############################
 ################################################################################
 
-# TODO: make this a class
 def get_surveys_and_schedules(now: datetime) -> Tuple[DictOfStrToListOfStr, DictOfStrToListOfStr, DictOfStrStr]:
     """ Mostly this function exists to reduce mess. returns:
     a mapping of fcm tokens to list of survey object ids

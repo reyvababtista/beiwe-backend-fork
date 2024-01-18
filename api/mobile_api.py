@@ -19,7 +19,7 @@ from database.data_access_models import FileToProcess
 from database.schedule_models import ScheduledEvent
 from database.survey_models import Survey
 from database.system_models import FileAsText
-from database.user_models_participant import Participant
+from database.user_models_participant import AppHeartbeats, Participant
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
     IosDecryptionKeyDuplicateError, IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
 from libs.http_utils import determine_os_api
@@ -271,6 +271,16 @@ def set_password(request: ParticipantRequest, OS_API=""):
     if new_password is None:
         return HttpResponse(content="", status=400)
     request.session_participant.set_password(new_password)
+    return HttpResponse(status=200)
+
+
+@determine_os_api
+@minimal_validation
+def mobile_heartbeat(request: ParticipantRequest, OS_API=""):
+    """ This endpoint is hit by the app to indicate that the app is still running.
+    More specifically this is a test that internal timer logic is still working.
+    This endpoint is hit every 5 minutes by the app, at time of writing it is ios-only.  """
+    AppHeartbeats.create(participant=request.session_participant, timestamp=timezone.now())
     return HttpResponse(status=200)
 
 

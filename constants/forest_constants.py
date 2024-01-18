@@ -116,6 +116,8 @@ FOREST_TREE_REQUIRED_DATA_STREAMS = {
 
 ## The following dictionary is a mapping of output CSV fields from various Forest Trees to their
 # summary statistic names.  Note that this data structure is imported and used in tableau constants.
+
+# FIXME: need to update this so that to handle summary statistics with the same names from different trees.
 TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS = {
     # Jasmine, GPS
     "diameter": "jasmine_distance_diameter",

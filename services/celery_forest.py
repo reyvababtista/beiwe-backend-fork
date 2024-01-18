@@ -1,5 +1,6 @@
 import csv
 import json
+import logging
 import os
 import shutil
 import traceback
@@ -17,7 +18,7 @@ from django.utils import timezone
 from pkg_resources import DistributionNotFound, get_distribution
 
 from constants.celery_constants import FOREST_QUEUE, ForestTaskStatus
-from constants.common_constants import API_TIME_FORMAT, BEIWE_PROJECT_ROOT
+from constants.common_constants import API_TIME_FORMAT, BEIWE_PROJECT_ROOT, RUNNING_TESTS
 from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import (CLEANUP_ERROR as CLN_ERR, FOREST_TREE_REQUIRED_DATA_STREAMS,
     ForestTree, NO_DATA_ERROR, ROOT_FOREST_TASK_PATH, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS,
@@ -36,9 +37,6 @@ from libs.sentry import make_error_sentry, SentryTypes
 from libs.streaming_zip import determine_file_name
 from libs.utils.date_utils import get_timezone_shortcode, legible_time
 
-#! DON'T MOVE THESE IMPORTS
-# these imports have side effects, specifically importing oak changes logging behavior.
-# The bizarre import structure is to enable local development without having to change imports.
 from forest.jasmine.traj2stats import gps_stats_main
 from forest.oak.base import run as run_oak
 from forest.sycamore.base import get_submits_for_tableau
@@ -55,7 +53,12 @@ database model. File paths, constants, simple lookups, parameters should go on t
 MIN_TIME = datetime.min.time()
 MAX_TIME = datetime.max.time()
 
-DEBUG_CELERY_FOREST = False
+logger = logging.getLogger("forest_runner")
+logger.setLevel(logging.ERROR) if RUNNING_TESTS else logger.setLevel(logging.INFO)
+log = logger.info
+logw = logger.warning
+loge = logger.error
+logd = logger.debug
 
 # a lookup for pointing to the correct function for each tree (we need to look up by tree name)
 TREE_TO_FOREST_FUNCTION = {
@@ -68,12 +71,6 @@ TREE_TO_FOREST_FUNCTION = {
 
 class NoSentryException(Exception): pass
 class BadForestField(Exception): pass
-
-
-def log(*args, **kwargs):
-    if DEBUG_CELERY_FOREST:
-        print("celery_forest debug: ", end="")
-        print(*args, **kwargs)
 
 
 #
@@ -255,48 +252,65 @@ def construct_summary_statistics(task: ForestTask):
     
     log("tree:", task.forest_tree)
     with open(task.forest_results_path, "r") as f:
-        reader = csv.DictReader(f)
-        has_data = False
-        log("opened file...")
-        
-        for line in reader:
-            has_data = True
-            if task.forest_tree == ForestTree.oak:
-                # oak has a different output format, it is a json file.
-                summary_date = date.fromisoformat(line['date'])
-            else:
-                # at the very least jasmine uses this format.
-                summary_date = date(
-                    int(float(line['year'])),
-                    int(float(line['month'])),
-                    int(float(line['day'])),
-                )
-            # if timestamp is outside of desired range, skip.
-            if not (task.data_date_start < summary_date < task.data_date_end):
-                continue
-            
-            updates = {
-                task.taskname: task,
-                "timezone": get_timezone_shortcode(summary_date, task.participant.study.timezone),
-            }
-            for column_name, value in line.items():
-                if column_name in TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS:
-                    # look up column translation, coerce empty strings to Nones
-                    summary_stat_field = TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS[column_name]
-                    # force Nones on no data fields, not empty strings (db table issue)
-                    updates[summary_stat_field] = value if value != '' else None
-                elif column_name in YEAR_MONTH_DAY or column_name == "date":
-                    # such a column is used to identify the date we update, not a field in a
-                    # SummaryStatisticDaily that we need to update
-                    continue
-                else:
-                    raise BadForestField(column_name)
-            
-            data = {"date": summary_date, "defaults": updates, "participant": task.participant}
-            log("creating SummaryStatisticDaily:", data)
-            SummaryStatisticDaily.objects.update_or_create(**data)
+        log("opened file, parsing...")
+        # csv_parse_and_consume returns True if any data was added to the database
+        with transaction.atomic():
+            return csv_parse_and_consume(task, csv.DictReader(f))
+
+
+def csv_parse_and_consume(task: ForestTask, csv_reader: csv.DictReader) -> bool:
+    """ Parse a csv file and create/update SummaryStatisticDaily objects.
+        This function can be mocked with a list of dicts for testing. """
+    blow_up_on_invalid_columns(csv_reader)
+    rows_processed = 0
     
-    return has_data
+    for csv_row in csv_reader:
+        if task.forest_tree == ForestTree.oak:
+            # oak has a different output format, it is a json file.
+            summary_date = date.fromisoformat(csv_row['date'])
+        else:
+            # at the very least jasmine uses this format.
+            summary_date = date(
+                int(float(csv_row['year'])),
+                int(float(csv_row['month'])),
+                int(float(csv_row['day'])),
+            )
+        
+        # if timestamp is outside of desired range, skip (use <=, this is inclusive)
+        # (Really the scenario should never occurr where this is false, but we check anyway.)
+        if not (task.data_date_start <= summary_date <= task.data_date_end):
+            continue
+        
+        updates = {
+            task.taskname: task,
+            "timezone": get_timezone_shortcode(summary_date, task.participant.study.timezone),
+        }
+        
+        # Extract the desied summary statistics from the csv row. Most columns in csvs have weird
+        # names, we need to look up what the column name means in TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS
+        # force Nones on no data fields, not empty strings (db table issue)
+        # we don't need to do any column name checking, that was done in blow_up_on_invalid_columns
+        for column_name, value in csv_row.items():
+            if column_name in TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS:
+                summary_stat_field = TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS[column_name]
+                updates[summary_stat_field] = value if value != '' else None
+        
+        # TODO: this is probably slow, can we do a bulk update_or_create?
+        SummaryStatisticDaily.objects.update_or_create(
+            date=summary_date, defaults=updates, participant=task.participant,
+        )
+        rows_processed += 1
+    
+    log(f"update {rows_processed} SummaryStatisticDaily rows")
+    return rows_processed > 0
+
+
+def blow_up_on_invalid_columns(csv_reader: csv.DictReader):
+    for column_name in csv_reader.fieldnames:
+        # raise error on unrecognized column names. Data must be to spec.
+        if column_name not in TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS:
+            if column_name not in YEAR_MONTH_DAY and column_name != "date":
+                raise BadForestField(column_name)
 
 
 #

@@ -13,6 +13,7 @@ from constants.testing_constants import MIDNIGHT_EVERY_DAY, THURS_OCT_6_NOON_202
 from database.data_access_models import FileToProcess
 from database.schedule_models import AbsoluteSchedule, ScheduledEvent, WeeklySchedule
 from database.system_models import GenericEvent
+from database.user_models_participant import AppHeartbeats
 from libs.rsa import get_RSA_cipher
 from libs.schedules import (get_start_and_end_of_java_timings_week,
     repopulate_absolute_survey_schedule_events, repopulate_relative_survey_schedule_events)
@@ -574,3 +575,23 @@ class TestMobileUpload(ParticipantSessionTest):
         response = self.smart_post_status_code(403)
         self.assertEqual(response.content, b"")
         self.INJECT_DEVICE_TRACKER_PARAMS = True
+
+
+class TestHeartbeatEndpoint(ParticipantSessionTest):
+    ENDPOINT_NAME = "mobile_api.mobile_heartbeat"
+    
+    # it does one thing
+    def test_success(self):
+        # test that the heartbeat endpoint creates a heartbeat object
+        self.assertEqual(AppHeartbeats.objects.count(), 0)
+        self.smart_post_status_code(200)
+        self.default_participant.refresh_from_db()
+        self.assertEqual(AppHeartbeats.objects.count(), 1)
+        t_foreign = AppHeartbeats.objects.first().timestamp
+        self.assertIsInstance(t_foreign, datetime)
+        # test that the endpoint creates additional heartbeats beyond the first
+        self.smart_post_status_code(200)
+        self.default_participant.refresh_from_db()
+        self.assertEqual(AppHeartbeats.objects.count(), 2)
+        t_foreign = AppHeartbeats.objects.last().timestamp
+        self.assertIsInstance(t_foreign, datetime)

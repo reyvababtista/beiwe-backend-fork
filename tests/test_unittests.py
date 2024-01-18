@@ -17,7 +17,7 @@ from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
 from database.schedule_models import (ArchivedEvent, BadWeeklyCount, InterventionDate,
     ScheduledEvent, WeeklySchedule)
-from database.user_models_participant import (Participant, ParticipantDeletionEvent,
+from database.user_models_participant import (AppHeartbeats, Participant, ParticipantDeletionEvent,
     ParticipantFieldValue, PushNotificationDisabledEvent)
 from libs.file_processing.exceptions import BadTimecodeError
 from libs.file_processing.utility_functions_simple import binify_from_timecode
@@ -363,12 +363,19 @@ class TestParticipantDataDeletion(CommonTestCase):
         ForestTask.objects.all().delete()
         confirm_deleted(self.default_participant_deletion_event)
         
+        # SummaryStatisticDaily
         self.generate_summary_statistic_daily()
         self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
         SummaryStatisticDaily.objects.all().delete()
         confirm_deleted(self.default_participant_deletion_event)
     
-    def test_related_fields(self):
+        # Heartbeats
+        AppHeartbeats.create(self.default_participant, timezone.now())
+        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
+        AppHeartbeats.objects.all().delete()
+        confirm_deleted(self.default_participant_deletion_event)
+    
+    def test_for_all_related_fields(self):
         # this test will fail whenever there is a new related model added to the codebase for a
         # participant, you need to ensure that you have manually added a test to
         # test_confirm_deleted, that it is added to libs.partiicpants_purge.confirm_deleted, and
@@ -389,6 +396,7 @@ class TestParticipantDataDeletion(CommonTestCase):
             "ScheduledEvent",  # confirmed
             "SummaryStatisticDaily",  # confirmed
             "UploadTracking",  # confirmed
+            "AppHeartbeats",  # confirmed
         ]
         for model in Participant._meta.related_objects:
             assert model.related_model.__name__ in relate_models

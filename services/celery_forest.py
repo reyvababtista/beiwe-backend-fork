@@ -106,6 +106,8 @@ def create_forest_celery_tasks():
 #
 @forest_celery_app.task(queue=FOREST_QUEUE)
 def celery_run_forest(forest_task_id):
+    # this use of transaction.atomic should blockmultiple tasks from running at once - I don't think
+    # our usage of celery is such that we need to worry about this.
     with transaction.atomic():
         task: ForestTask = ForestTask.objects.filter(id=forest_task_id).first()
         participant: Participant = task.participant
@@ -169,6 +171,7 @@ def run_forest_task(task: ForestTask, start: datetime, end: datetime):
         log("task.stacktrace 1:", task.stacktrace)
         tags = {k: str(v) for k, v in task.as_dict().items()}  # report with many tags
         if not isinstance(e, NoSentryException):
+            # manually report the error to sentry, unless its one of our special not-reported cases.
             with make_error_sentry(SentryTypes.data_processing, tags=tags):
                 raise
     finally:
@@ -443,7 +446,7 @@ def compress_and_upload_raw_output(forest_task: ForestTask):
         format="zip",  # its a zip
         root_dir=forest_task.data_output_path,  # the root directory of the zip file
     )
-    # (this only ever runs on *nux, path_join is always correct)
+    # (this only ever runs on *nix, path_join is always correct)
     forest_task.update(
         output_zip_s3_path=path_join(
             forest_task.participant.study.object_id, forest_task.participant.patient_id, s3_path

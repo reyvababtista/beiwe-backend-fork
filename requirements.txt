@@ -14,9 +14,9 @@ backcall==0.2.0
     # via ipython
 bleach==6.1.0
     # via -r requirements.in
-boto3==1.34.19
+boto3==1.34.22
     # via -r requirements.in
-botocore==1.34.19
+botocore==1.34.22
     # via
     #   boto3
     #   s3transfer
@@ -60,7 +60,7 @@ executing==2.0.1
     # via stack-data
 firebase-admin==5.4.0
     # via -r requirements.in
-forest @ git+https://git@github.com/onnela-lab/forest@0d73099c9c5e7129739563b01998810cee65befa
+forest @ git+https://git@github.com/onnela-lab/forest@6355d5188fe3f7251b874c0645fce383b18b78e0
     # via -r requirements.in
 google-api-core[grpc]==2.15.0
     # via

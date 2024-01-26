@@ -123,7 +123,7 @@ class Participant(AbstractPasswordUser):
     fcm_tokens: Manager[ParticipantFCMHistory]
     field_values: Manager[ParticipantFieldValue]
     files_to_process: Manager[FileToProcess]
-    heartbeats: Manager[Heartbeats]
+    heartbeats: Manager[AppHeartbeats]
     intervention_dates: Manager[InterventionDate]
     scheduled_events: Manager[ScheduledEvent]
     upload_trackers: Manager[UploadTracking]

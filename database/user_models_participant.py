@@ -399,3 +399,10 @@ class AppHeartbeats(UtilityModel):
     @classmethod
     def create(cls, participant: Participant, timestamp: datetime):
         return cls.objects.create(participant=participant, timestamp=timestamp)
+
+
+class IOSHardExits(UtilityModel):
+    participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="ios_hard_exits")
+    timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
+    # handled means there was a notification sent to the user, or we got a heartbeat.
+    handled = models.DateTimeField(null=False, blank=False, db_index=True)

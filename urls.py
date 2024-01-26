@@ -8,6 +8,7 @@ from django.urls import path as simplepath
 from api import (admin_api, copy_study_api, dashboard_api, data_access_api, mobile_api,
     other_researcher_apis, participant_administration, push_notifications_api, study_api,
     survey_api, tableau_api)
+from config.settings import ENABLE_EXPERIMENTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
 from pages import (admin_pages, data_access_web_form, forest_pages, login_pages, mobile_pages,
@@ -63,8 +64,7 @@ path("validate_login", login_pages.validate_login)  # and same here.
 path("choose_study", admin_pages.choose_study)
 path("logout", admin_pages.logout_admin, login_redirect=IGNORE)
 
-# Admin
-path("view_study/<int:study_id>", admin_pages.view_study, login_redirect=SAFE)
+# Researcher self administration
 path("manage_credentials", admin_pages.manage_credentials, login_redirect=IGNORE)
 path("researcher_change_my_password", admin_pages.researcher_change_my_password, login_redirect=IGNORE)
 path("reset_download_api_credentials", admin_pages.reset_download_api_credentials)
@@ -72,6 +72,9 @@ path("new_api_key", admin_pages.new_tableau_api_key)
 path("disable_tableau_api_key", admin_pages.disable_tableau_api_key)
 path("reset_mfa_self", admin_pages.reset_mfa_self, login_redirect=IGNORE)
 path("test_mfa", admin_pages.test_mfa)
+
+# The point of the thing
+path("view_study/<int:study_id>", admin_pages.view_study, login_redirect=SAFE)
 
 # Dashboard
 path("dashboard/<int:study_id>", dashboard_api.dashboard_page, login_redirect=SAFE)
@@ -101,13 +104,15 @@ path("manage_studies", system_admin_pages.manage_studies, login_redirect=SAFE)
 path("edit_study/<int:study_id>", system_admin_pages.edit_study, login_redirect=SAFE)
 path("reset_researcher_mfa/<int:researcher_id>", system_admin_pages.reset_researcher_mfa)
 
+# study manamegement
 path("create_study", system_admin_pages.create_study)
 path("toggle_study_forest_enabled/<int:study_id>", system_admin_pages.toggle_study_forest_enabled)
 path("delete_study/<int:study_id>", system_admin_pages.delete_study)
 path("edit_study_security/<int:study_id>", system_admin_pages.study_security_page, login_redirect=SAFE)
 path("change_study_security_settings/<int:study_id>", system_admin_pages.change_study_security_settings)
-
 path("device_settings/<int:study_id>", system_admin_pages.device_settings, login_redirect=SAFE)
+
+# firebase credentials
 path("manage_firebase_credentials", system_admin_pages.manage_firebase_credentials, login_redirect=SAFE)
 path("upload_backend_firebase_cert", system_admin_pages.upload_backend_firebase_cert)
 path("upload_android_firebase_cert", system_admin_pages.upload_android_firebase_cert)
@@ -115,7 +120,6 @@ path("upload_ios_firebase_cert", system_admin_pages.upload_ios_firebase_cert)
 path("delete_backend_firebase_cert", system_admin_pages.delete_backend_firebase_cert)
 path("delete_android_firebase_cert", system_admin_pages.delete_android_firebase_cert)
 path("delete_ios_firebase_cert", system_admin_pages.delete_ios_firebase_cert)
-
 
 # data access web form
 path("data_access_web_form", data_access_web_form.data_api_web_form_page, login_redirect=SAFE)
@@ -159,6 +163,17 @@ path(
     participant_pages.participant_page,
     login_redirect=SAFE
 )
+# experiments pages for participants
+if ENABLE_EXPERIMENTS:
+    path(
+        'view_study/<int:study_id>/participant/<str:patient_id>/experiments',
+        participant_pages.experiments_page,
+        login_redirect=SAFE
+    )
+    path(
+        'view_study/<int:study_id>/participant/<str:patient_id>/update_experiments',
+        participant_pages.update_experiments,
+    )
 
 # copy study api
 path('export_study_settings_file/<str:study_id>', copy_study_api.export_study_settings_file)

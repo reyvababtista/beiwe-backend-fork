@@ -60,30 +60,36 @@
         </td>
       </tr>
       <tr>
-        <td><b>Time of Registration</b></td>
+        <td><b>Registration</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_register_user, participant.study.timezone) }}</td>
       </tr>
+      {% if participant.os_type == IOS_API and participant.enable_heartbeat %}
+        <tr>
+          <td><b>Last Heartbeat</b></td>
+          <td>{{ really_nice_time_format_with_tz(participant.last_app_heartbeat, participant.study.timezone) }}</td>
+        </tr>
+      {% endif %}
       <tr>
-        <td><b>Time of last check-in for updated surveys</b></td>
+        <td><b>Last check-in for updated surveys</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_get_latest_surveys, participant.study.timezone) }}</td>
       </tr>
       <tr>
-        <td><b>Time of last file upload event</b></td>
+        <td><b>Last file upload event</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_upload, participant.study.timezone) }}</td>
       </tr>
   {% comment %}
   {# This is just going to confuse people until we change the way passwords work. #}
       <tr>
-        <td><b>Time of last participant password reset</b></td>
+        <td><b>Last participant password reset</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_set_password, participant.study.timezone) }}</td>
       </tr>
   {% endcomment %}
       <tr>
-        <td><b>Time of last notification credential update</b></td>
+        <td><b>Last notification credential update</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_set_fcm_token, participant.study.timezone) }}</td>
       </tr>
       <tr>
-        <td><b>Time of last device settings update</b></td>
+        <td><b>Last device settings update</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_get_latest_device_settings, participant.study.timezone) }}</td>
       </tr>
     </table>
@@ -259,6 +265,25 @@
         This action deletes all data that this participant has ever uploaded, as well as all internal data related to this participant.  All further actions related to this participant will be blocked.  No data from this participant will be downloadable.  Once deletion has finished the particpant will no longer be visible in the list of participants on the study page.  Data deletion may take quite some time.
         <br> <b>This operation is final and cannot be undone.</b>
       </div>
+    </div>
+  {% endif %}
+  
+  {% if ENABLE_EXPERIMENTS %}
+    <div class="col-md-12 well">
+        <div class="col-md-5">
+        <div class="h2-middle-margins-vertical text-center row">
+            <form action="/view_study/{{ study.id }}/participant/{{ participant.patient_id }}/experiments" method="post">
+            <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
+            <input type="hidden" name="study_id" value="{{ study.id }}" {% if locked %} disabled {% endif %}>
+            <button type="submit" class="btn large-font-size btn-success">
+              View Participant Experiments
+            </button>
+            </form>
+        </div>
+        </div>
+        <div class="col-md-7 h3-margins-vertical">
+        Experiments can be enabled on a per-participant basis. Experiments are features that are in development and are not yet ready for general use. Experiments may be buggy, poorly named, abandoned but not deleted, abandoned and forgotten about, completely broken, too dumb to be of any conceivable use, etc. Some experiments may require custom builds of the Beiwe apps, or may be platform specific. If an experiment is in active development there should be an open issue on <a href="https://github.com/onnela-lab/beiwe-backend/issues/" target="_blank"> the Beiwe-Backend github page. </a>
+        </div>
     </div>
   {% endif %}
 

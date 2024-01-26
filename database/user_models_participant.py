@@ -109,11 +109,11 @@ class Participant(AbstractPasswordUser):
     enable_beta_features = models.BooleanField(default=False)
     EXPERIMENT_FIELDS = (
         "enable_heartbeat",
-        "enable_aggressive_background_persistence",
-        "enable_binary_uploads",
-        "enable_new_authentication",
-        "enable_developer_datastream",
-        "enable_beta_features",
+        # "enable_aggressive_background_persistence",
+        # "enable_binary_uploads",
+        # "enable_new_authentication",
+        # "enable_developer_datastream",
+        # "enable_beta_features",
     )
     
     # related field typings (IDE halp)

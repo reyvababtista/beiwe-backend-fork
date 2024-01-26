@@ -21,7 +21,7 @@ from constants.schedule_constants import ScheduleTypes
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API
 from database.schedule_models import ScheduledEvent
-from database.user_models_participant import (AppHeartbeats, Participant, ParticipantFCMHistory,
+from database.user_models_participant import (AppHeartbeats, IOSHardExits, Participant, ParticipantFCMHistory,
     PushNotificationDisabledEvent)
 from libs.celery_control import push_send_celery_app, safe_apply_async
 from libs.firebase_config import check_firebase_instance
@@ -42,6 +42,76 @@ loge = logger.error
 logd = logger.debug
 
 UTC = gettz("UTC")
+
+def create_hard_exit_check_tasks() -> List[Tuple[int, str]]:
+    # the safety check for not having multiple hard exits in the database should be in the endpoint
+    # the app hits when it does that.
+    expiry = (timezone.now() + timedelta(minutes=5)).replace(second=30, microsecond=0)
+    # The big query we would have to make here gets the most recent heartbeat for each participant
+    # and compares it to the most recent hard exit for each participant. That's very hard, so we are
+    # pushing it into celery_resurrection_notification even though that may cause database load
+    # because the the number of concurrent participants with this occurring is very low.
+    pks = IOSHardExits.objects.filter(handled=None).values_list("participant_id", flat=True)
+    for participant_id in pks:
+        safe_apply_async(
+            celery_resurrection_notification,
+            args=participant_id,
+            max_retries=0,
+            expires=expiry,
+            task_track_started=True,
+            task_publish_retry=False,
+            retry=False,
+        )
+
+
+@push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
+def celery_resurrection_notification(particpant_id: int):
+    if not check_firebase_instance():
+        loge("Resurrection - Surveys - Firebase credentials are not configured.")
+        return
+    with make_error_sentry(sentry_type=SentryTypes.data_processing):
+        resurrection_notification(particpant_id)
+
+
+def resurrection_notification(particpant_id: int):
+    # check the most recent heartbeat and the most recent hard exit, if the hard exit is newer
+    # send the notifications. We only need the most recent timestamp
+    hard_exit_timestamp = (
+        IOSHardExits.objects.filter(participant_id=particpant_id, handled=None)
+        .order_by("-timestamp")
+        .values_list("timestamp", flat=True)
+        .first()
+    )
+    
+    # exit early if there are no hard exits because the participant hit the heartbeat endpoint
+    # between the original query and now.
+    if hard_exit_timestamp is None:
+        return
+    
+    # exit early if there is a later heartbeat - this is potentially expensive? the index Should be
+    # a timestamp ordering index, but it may not be?
+    there_is_a_later_heartbeat = AppHeartbeats.objects.filter(
+        participant_id=particpant_id, timestamp__gt=hard_exit_timestamp).exists()
+    
+    if there_is_a_later_heartbeat:
+        log(f"Participant {particpant_id} already restarted app.")
+        IOSHardExits.objects.filter(participant_id=particpant_id, handled=None).update(handled=timezone.now())
+        return
+    
+    # get the fcm token and send them the notification to reopen the app:
+    fcm_token = (
+        ParticipantFCMHistory.objects
+        .filter(participant_id=particpant_id, unregistered=None)
+        .values_list("token", flat=True)
+        .first()
+    )
+    
+    # just give up if they don't have a token and mark as handled because otherwise they are
+    # impossible to get rid of.
+    if not fcm_token:
+        IOSHardExits.objects.filter(participant_id=particpant_id, handled=None).update(handled=timezone.now())
+    
+    send_notification_safely(fcm_token, IOS_API, "Resurrection")
 
 
 ####################################################################################################
@@ -134,38 +204,39 @@ def celery_heartbeat_send_push_notification(participant_id: int, fcm_token: str,
         if not check_firebase_instance():
             loge("Heartbeat - Surveys - Firebase credentials are not configured.")
             return
-        
-        # for full documentation of these errors see celery_send_survey_push_notification.
+        send_notification_safely(fcm_token, os_type, "Heartbeat")
+        # update the last heartbeat time using minimal database operations.
+        Participant.objects.filter(pk=participant_id).update(last_heartbeat_notification=timezone.now())
+
+
+def send_notification_safely(fcm_token:str, os_type: str, logging_tag: str):
+    # for full documentation of these errors see celery_send_survey_push_notification.
         try:
-            send_heartbeat_notification(fcm_token, os_type)
+            _send_notification(fcm_token, os_type)
         except UnregisteredError:
             # this is the only "real" error we handle here because we may as well update the fcm
             # token as invalid as soon as we know.
-            log("\nheartbeat - UnregisteredError\n")
+            log(f"\n{logging_tag} - UnregisteredError\n")
             ParticipantFCMHistory.objects.filter(token=fcm_token).update(unregistered=timezone.now())
             # DON'T raise the error, this is normal behavior.
             return
         
         except ThirdPartyAuthError as e:
-            logw("\nheartbeat - ThirdPartyAuthError\n")
+            logw(f"\n{logging_tag} - ThirdPartyAuthError\n")
             if str(e) != "Auth error from APNS or Web Push Service":
                 raise
             return
         
         except ValueError as e:
-            logw("\nheartbeat - ValueError\n")
+            logw(f"\n{logging_tag} - ValueError\n")
             if "The default Firebase app does not exist" not in str(e):
                 raise
             return
         
         except (SenderIdMismatchError, QuotaExceededError):
             return  # ignore these errors, don't update last_heartbeat_notification time.
-        
-        # update the last heartbeat time using minimal database operations.
-        Participant.objects.filter(pk=participant_id).update(last_heartbeat_notification=timezone.now())
 
-
-def send_heartbeat_notification(fcm_token: str, os_type: str):
+def _send_notification(fcm_token: str, os_type: str):
     # we need a nonce because duplicate notifications won't be delivered.
     data_kwargs = {
         # trunk-ignore(bandit/B311)
@@ -178,7 +249,6 @@ def send_heartbeat_notification(fcm_token: str, os_type: str):
         message = Message(
             data=data_kwargs, token=fcm_token, notification=Notification(title="Beiwe", body="")
         )
-    
     send_notification(message)
 
 

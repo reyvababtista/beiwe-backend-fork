@@ -105,3 +105,7 @@ STORE_DECRYPTION_LINE_ERRORS = getenv('STORE_DECRYPTION_LINE_ERRORS', 'false').l
 # (most logging is limited to a single file, this particular logging is spread across multiple
 # files that would have a cross-import, so it needs to be stuck elsewhere.)
 UPLOAD_LOGGING_ENABLED = getenv('UPLOAD_LOGGING_ENABLED', 'false').lower() == 'true'
+
+# some features are experimental and should not be enabled in production. These features are
+# unfinished and not guaranteed to work.
+ENABLE_EXPERIMENTS = getenv('ENABLE_EXPERIMENTS', 'false').lower() == 'true'

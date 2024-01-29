@@ -9,6 +9,7 @@ from api import (admin_api, copy_study_api, dashboard_api, data_access_api, mobi
     other_researcher_apis, participant_administration, push_notifications_api, study_api,
     survey_api, tableau_api)
 from config.settings import ENABLE_EXPERIMENTS
+from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
 from pages import (admin_pages, data_access_web_form, forest_pages, login_pages, mobile_pages,
@@ -164,7 +165,7 @@ path(
     login_redirect=SAFE
 )
 # experiments pages for participants
-if ENABLE_EXPERIMENTS:
+if ENABLE_EXPERIMENTS or RUNNING_TESTS:
     path(
         'view_study/<int:study_id>/participant/<str:patient_id>/experiments',
         participant_pages.experiments_page,

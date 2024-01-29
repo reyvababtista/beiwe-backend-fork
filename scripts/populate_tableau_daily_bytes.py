@@ -1,6 +1,6 @@
 from collections import defaultdict
 from pprint import pprint
-
+from datetime import date, datetime
 from database.data_access_models import ChunkRegistry
 from database.forest_models import SummaryStatisticDaily
 from database.user_models_participant import Participant
@@ -15,6 +15,8 @@ def calculate_data_quantity_stats(participant: Participant):
     query = ChunkRegistry.objects.filter(participant=participant) \
         .values_list('time_bin', 'data_type', 'file_size').iterator()
     
+    day: date
+    time_bin: datetime
     # Construct a dict formatted like this: dict[date][data_type] = total_bytes
     for time_bin, data_type, file_size in query:
         # if data_type not in ALL_DATA_STREAMS:  # source is chunked data, not needed

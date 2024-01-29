@@ -128,8 +128,11 @@ class TestGetSurveysAndSchedules(TestCelery):
         self.default_participant.try_set_timezone('America/New_York')
         self.validate_basics(schedule)
 
-
 class TestHeartbeatQuery(TestCelery):
+    # this test class relies on behavior of the FalseCeleryApp class. Specifically, FalseCeleryApps
+    # immediately run the created task synchronously, e.g. calls through safe_apply_async simply run
+    # the target function on the same thread completely bypassing Celery.
+    
     @property
     def set_heartbeat_notification_basics(self):
         # we are not testing fcm token details in these tests.
@@ -280,12 +283,11 @@ class TestHeartbeatQuery(TestCelery):
     @patch("services.celery_push_notifications.celery_heartbeat_send_push_notification")
     @patch("services.celery_push_notifications.check_firebase_instance")
     def test_heartbeat_notification_no_participants(
-        self, celery_heartbeat_send_push_notification: MagicMock, check_firebase_instance: MagicMock
+        self, check_firebase_instance: MagicMock, celery_heartbeat_send_push_notification: MagicMock,
     ):
-        # this test relies on the FalseCeleryApp class
         check_firebase_instance.return_value = True
         create_heartbeat_tasks()
-        check_firebase_instance.assert_not_called()
+        check_firebase_instance.assert_called_once()  # don't create heartbeat tasks without firebase
         celery_heartbeat_send_push_notification.assert_not_called()
         self.default_participant.refresh_from_db()
         self.assertIsNone(self.default_participant.last_heartbeat_notification)
@@ -295,12 +297,12 @@ class TestHeartbeatQuery(TestCelery):
     def test_heartbeat_notification_one_participant(
         self, check_firebase_instance: MagicMock, send_notification: MagicMock,
     ):
-        # this test relies on the FalseCeleryApp class
         check_firebase_instance.return_value = True
         self.set_heartbeat_notification_fully_valid
         create_heartbeat_tasks()
         send_notification.assert_called_once()
-        check_firebase_instance.assert_called_once()
+        check_firebase_instance.assert_called()
+        self.assertEqual(check_firebase_instance._mock_call_count, 2)
         self.default_participant.refresh_from_db()
         self.assertIsNotNone(self.default_participant.last_heartbeat_notification)
         self.assertIsInstance(self.default_participant.last_heartbeat_notification, datetime)
@@ -310,7 +312,6 @@ class TestHeartbeatQuery(TestCelery):
     def test_heartbeat_notification_two_participants(
         self, check_firebase_instance: MagicMock, send_notification: MagicMock,
     ):
-        # this test relies on the FalseCeleryApp class
         check_firebase_instance.return_value = True
         self.set_heartbeat_notification_fully_valid
         p2 = self.generate_participant(self.default_study)
@@ -334,7 +335,6 @@ class TestHeartbeatQuery(TestCelery):
     def test_heartbeat_notification_two_participants_one_failure(
         self, check_firebase_instance: MagicMock, send_notification: MagicMock,
     ):
-        # this test relies on the FalseCeleryApp class
         check_firebase_instance.return_value = True
         p2 = self.generate_participant(self.default_study)
         self.generate_fcm_token(p2, None)
@@ -354,69 +354,68 @@ class TestHeartbeatQuery(TestCelery):
         self.assertIsNotNone(p2.last_heartbeat_notification)
         self.assertIsInstance(p2.last_heartbeat_notification, datetime)
     
-    @patch("services.celery_push_notifications.send_heartbeat_notification")
+    @patch("services.celery_push_notifications._send_notification")
     @patch("services.celery_push_notifications.check_firebase_instance")
     def test_heartbeat_notification_errors(
-        self, check_firebase_instance: MagicMock, send_heartbeat_notification: MagicMock,
+        self, check_firebase_instance: MagicMock, _send_notification: MagicMock,
     ):
-        # this test relies on the FalseCeleryApp class
         check_firebase_instance.return_value = True
         self.set_heartbeat_notification_fully_valid
         
-        send_heartbeat_notification.side_effect = ValueError("test")
+        _send_notification.side_effect = ValueError("test")
         self.assertRaises(ValueError, create_heartbeat_tasks)
         self.default_participant.refresh_from_db()
         self.assertIsNone(self.default_participant.last_heartbeat_notification)
         self.assertIsNone(self.default_participant.fcm_tokens.first().unregistered)
         
-        send_heartbeat_notification.side_effect = ThirdPartyAuthError("test")
+        _send_notification.side_effect = ThirdPartyAuthError("test")
         self.assertRaises(ThirdPartyAuthError, create_heartbeat_tasks)
         self.default_participant.refresh_from_db()
         self.assertIsNone(self.default_participant.last_heartbeat_notification)
         self.assertIsNone(self.default_participant.fcm_tokens.first().unregistered)
     
-    @patch("services.celery_push_notifications.send_heartbeat_notification")
+    @patch("services.celery_push_notifications._send_notification")
     @patch("services.celery_push_notifications.check_firebase_instance")
     def test_heartbeat_notification_errors_swallowed(
-        self, check_firebase_instance: MagicMock, send_heartbeat_notification: MagicMock,
+        self, check_firebase_instance: MagicMock, _send_notification: MagicMock,
     ):
         check_firebase_instance.return_value = True
         self.set_heartbeat_notification_fully_valid
         
         # but these don't actually raise the error
-        send_heartbeat_notification.side_effect = ThirdPartyAuthError("Auth error from APNS or Web Push Service")
+        _send_notification.side_effect = ThirdPartyAuthError("Auth error from APNS or Web Push Service")
         create_heartbeat_tasks()  # no error
         self.default_participant.refresh_from_db()
         self.assertIsNone(self.default_participant.last_heartbeat_notification)
         # issues a new query every time, don't need te refresh
         self.assertIsNone(self.default_participant.fcm_tokens.first().unregistered)
         
-        send_heartbeat_notification.side_effect = SenderIdMismatchError("test")
+        _send_notification.side_effect = SenderIdMismatchError("test")
         create_heartbeat_tasks()
         self.default_participant.refresh_from_db()
         self.assertIsNone(self.default_participant.last_heartbeat_notification)
         self.assertIsNone(self.default_participant.fcm_tokens.first().unregistered)
         
-        send_heartbeat_notification.side_effect = SenderIdMismatchError("test")
+        _send_notification.side_effect = SenderIdMismatchError("test")
         create_heartbeat_tasks()
         self.default_participant.refresh_from_db()
         self.assertIsNone(self.default_participant.last_heartbeat_notification)
         self.assertIsNone(self.default_participant.fcm_tokens.first().unregistered)
         
-        send_heartbeat_notification.side_effect = QuotaExceededError("test")
+        _send_notification.side_effect = QuotaExceededError("test")
         create_heartbeat_tasks()
         self.default_participant.refresh_from_db()
         self.assertIsNone(self.default_participant.last_heartbeat_notification)
         self.assertIsNone(self.default_participant.fcm_tokens.first().unregistered)
         
-        send_heartbeat_notification.side_effect = ValueError("The default Firebase app does not exist")
+        _send_notification.side_effect = ValueError("The default Firebase app does not exist")
         create_heartbeat_tasks()
         self.default_participant.refresh_from_db()
         self.assertIsNone(self.default_participant.last_heartbeat_notification)
         self.assertIsNone(self.default_participant.fcm_tokens.first().unregistered)
         
         # unregistered has the side effect of disabling the fcm token, so test it last
-        send_heartbeat_notification.side_effect = UnregisteredError("test")
+        _send_notification.side_effect = UnregisteredError("test")
         create_heartbeat_tasks()
         self.default_participant.refresh_from_db()
         self.assertIsNone(self.default_participant.last_heartbeat_notification)

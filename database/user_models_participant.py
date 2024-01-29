@@ -127,6 +127,7 @@ class Participant(AbstractPasswordUser):
     intervention_dates: Manager[InterventionDate]
     scheduled_events: Manager[ScheduledEvent]
     upload_trackers: Manager[UploadTracking]
+    action_logs: Manager[ParticipantActionLog]
     # undeclared:
     encryptionerrormetadata_set: Manager[EncryptionErrorMetadata]  # TODO: remove when ios stops erroring
     foresttask_set: Manager[ForestTask]
@@ -236,6 +237,10 @@ class Participant(AbstractPasswordUser):
     def s3_retrieve(self, s3_path: str) -> bytes:
         raw_path = s3_path.startswith(self.study.object_id)
         return s3_retrieve(s3_path, self, raw_path=raw_path)
+    
+    def log(self, action: str):
+        return ParticipantActionLog.objects.create(
+            participant=self, timestamp=timezone.now(), action=action)
     
     @property
     def is_active_one_week(self) -> bool:
@@ -401,8 +406,16 @@ class AppHeartbeats(UtilityModel):
         return cls.objects.create(participant=participant, timestamp=timestamp)
 
 
-class IOSHardExits(UtilityModel):
-    participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="ios_hard_exits")
+class ParticipantActionLog(UtilityModel):
+    """ This is a log of actions taken by participants, for debugging purposes. """
+    participant: Participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="action_logs")
     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
-    # handled means there was a notification sent to the user, or we got a heartbeat.
-    handled = models.DateTimeField(null=False, blank=False, db_index=True)
+    action = models.TextField(null=False, blank=False)
+
+
+# feature disabled, untested
+# class IOSHardExits(UtilityModel):
+#     participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="ios_hard_exits")
+#     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
+#     # handled means there was a notification sent to the user, or we got a heartbeat.
+#     handled = models.DateTimeField(null=False, blank=False, db_index=True)

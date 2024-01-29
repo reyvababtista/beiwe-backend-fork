@@ -426,19 +426,22 @@ class TestGetLatestDeviceSettings(ParticipantSessionTest):
             'consent_form_text': CONSENT_FORM_TEXT,
             'survey_submit_success_toast_text': SURVEY_SUBMIT_SUCCESS_TOAST_TEXT,
             'consent_sections': DEFAULT_CONSENT_SECTIONS,
+            
             # Experiment features, yep you gotta manually change it when you change them.
             'enable_heartbeat': False,
-            'enable_aggressive_background_persistence': False,
-            'enable_binary_uploads': False,
-            'enable_new_authentication': False,
-            'enable_developer_datastream': False,
-            'enable_beta_features': False
+            # 'enable_aggressive_background_persistence': False,
+            # 'enable_binary_uploads': False,
+            # 'enable_new_authentication': False,
+            # 'enable_developer_datastream': False,
+            # 'enable_beta_features': False
         }
         
         self.assertIsNone(p.last_get_latest_device_settings)
         response = self.smart_post_status_code(200)
         response_json_loaded = json.loads(response.content.decode())
-        self.assertEqual(correct_data, response_json_loaded)
+        
+        self.maxDiff = None
+        self.assertDictEqual(correct_data, response_json_loaded)
         
         p.refresh_from_db()
         self.assertIsNotNone(p.last_get_latest_device_settings)

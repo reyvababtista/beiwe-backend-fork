@@ -20,7 +20,7 @@ from libs.http_utils import easy_url
 from tests.common import BasicSessionTestCase
 
 
-# trunk-ignore-all(ruff/B018)
+# trunk-ignore-all(ruff/B018,bandit/B101)
 
 #
 ## login_pages
@@ -504,6 +504,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             "system_admin_pages.manage_researchers",
             "system_admin_pages.manage_studies",
             "system_admin_pages.study_security_page",
+            "participant_pages.experiments_page",
         ]
     )
     
@@ -535,6 +536,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             f'/view_study/{self.session_study.id}/participant/{self.default_participant.id}/notification_history',
             f'/studies/{self.session_study.id}/forest/progress/',
             f'/studies/{self.session_study.id}/forest/tasks/',
+            f'/view_study/{self.session_study.id}/participant/{self.default_participant.id}/experiments',
         ]
     
     @property

@@ -1,7 +1,6 @@
-from ast import Dict
 from collections import defaultdict
 from datetime import datetime, tzinfo
-from typing import Callable, Optional
+from typing import Callable, Dict, Optional
 
 from dateutil.tz import UTC
 from django.db.models.query import QuerySet

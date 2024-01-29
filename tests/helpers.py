@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from config.django_settings import STATIC_ROOT
 from constants.celery_constants import ForestTaskStatus
-from constants.common_constants import BEIWE_PROJECT_ROOT
+from constants.common_constants import BEIWE_PROJECT_ROOT, REQUIRED_PARTICIPANT_PURGE_AGE_MINUTES
 from constants.data_stream_constants import IDENTIFIERS
 from constants.forest_constants import ForestTree
 from constants.message_strings import MESSAGE_SEND_SUCCESS
@@ -335,7 +335,7 @@ class ReferenceObjectMixin:
     ):
         ftp = FileToProcess(
             s3_file_path=path,
-            study=study or self._default_study,
+            study=study or self.default_study,
             participant=participant or self.default_participant,
             deleted=deleted,
             os_type=os_type,
@@ -353,7 +353,9 @@ class ReferenceObjectMixin:
         except AttributeError:
             pass
         self._default_participant_deletion_event = self.generate_participant_deletion_event(
-            self.default_participant, last_updated=timezone.now() - timedelta(minutes=42)
+            self.default_participant,
+            confirmed=None,
+            last_updated=timezone.now() - timedelta(minutes=(REQUIRED_PARTICIPANT_PURGE_AGE_MINUTES*2))
         )
         return self._default_participant_deletion_event
     
@@ -570,7 +572,7 @@ class ReferenceObjectMixin:
         return chunk_reg
     
     @property
-    def default_summary_statistic_daily(self):
+    def default_summary_statistic_daily(self) -> SummaryStatisticDaily:
         try:
             return self._default_summary_statistic_daily
         except AttributeError:
@@ -594,7 +596,7 @@ class ReferenceObjectMixin:
                 raise TypeError(f"encountered unhandled SummaryStatisticDaily type: {type(field)}")
         return field_dict
     
-    def generate_summary_statistic_daily(self, a_date: date = None, participant: Participant = None):
+    def generate_summary_statistic_daily(self, a_date: date = None, participant: Participant = None) -> SummaryStatisticDaily:
         field_dict = self.default_summary_statistic_daily_cheatsheet()
         params = {}
         for field in SummaryStatisticDaily._meta.fields:

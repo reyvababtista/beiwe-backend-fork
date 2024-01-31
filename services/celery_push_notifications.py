@@ -282,7 +282,9 @@ def celery_heartbeat_send_push_notification(participant_id: int, fcm_token: str,
             # update the last heartbeat time using minimal database operations, create log entry.
             Participant.objects.filter(pk=participant_id).update(last_heartbeat_notification=now)
             ParticipantActionLog.objects.create(
-                participant_id=participant_id, action=action_log_messages.HEARTBEAT_SENT, timestamp=now
+                participant_id=participant_id,
+                action=action_log_messages.HEARTBEAT_PUSH_NOTIFICATION_SENT,
+                timestamp=now
             )
 
 

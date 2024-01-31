@@ -1,9 +1,9 @@
 from __future__ import annotations
-
+from django.db.models import Manager, QuerySet
 import json
 from datetime import datetime, timedelta, tzinfo
 from pprint import pprint
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from Cryptodome.PublicKey import RSA
 from dateutil.tz import gettz
@@ -14,6 +14,8 @@ from django.db.models import Manager
 from django.utils import timezone
 
 from config.settings import DOMAIN_NAME
+from constants.action_log_messages import HEARTBEAT_PUSH_NOTIFICATION_SENT
+from constants.common_constants import LEGIBLE_TIME_FORMAT
 from constants.data_stream_constants import ALL_DATA_STREAMS, IDENTIFIERS
 from constants.user_constants import (ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API,
     OS_TYPE_CHOICES)
@@ -136,33 +138,9 @@ class Participant(AbstractPasswordUser):
     pushnotificationdisabledevent_set: Manager[PushNotificationDisabledEvent]
     summarystatisticdaily_set: Manager[SummaryStatisticDaily]
     
-    @property
-    def _recents(self) -> Dict[str, Union[str, Optional[str]]]:
-        self.refresh_from_db()
-        now = timezone.now()
-        return {
-            "last_version_code": self.last_version_code,
-            "last_version_name": self.last_version_name,
-            "last_os_version": self.last_os_version,
-            "last_get_latest_surveys": f"{(now - self.last_get_latest_surveys).total_seconds() // 60} minutes ago" if self.last_get_latest_surveys else None,
-            "last_push_notification_checkin": f"{(now - self.last_push_notification_checkin).total_seconds() // 60} minutes ago" if self.last_push_notification_checkin else None,
-            "last_register_user": f"{(now - self.last_register_user).total_seconds() // 60} minutes ago" if self.last_register_user else None,
-            "last_set_fcm_token": f"{(now - self.last_set_fcm_token).total_seconds() // 60} minutes ago" if self.last_set_fcm_token else None,
-            "last_set_password": f"{(now - self.last_set_password).total_seconds() // 60} minutes ago" if self.last_set_password else None,
-            "last_survey_checkin": f"{(now - self.last_survey_checkin).total_seconds() // 60} minutes ago" if self.last_survey_checkin else None,
-            "last_upload": f"{(now - self.last_upload).total_seconds() // 60} minutes ago" if self.last_upload else None,
-            "last_get_latest_device_settings": f"{(now - self.last_get_latest_device_settings).total_seconds() // 60} minutes ago" if self.last_get_latest_device_settings else None,
-        }
-    
-    def get_data_summary(self) -> Dict[str, Union[str, int]]:
-        """ Assembles a summary of data quantities for the participant, for debugging. """
-        data = {stream: 0 for stream in ALL_DATA_STREAMS}
-        for data_type, size in self.chunk_registries.values_list("data_type", "file_size").iterator():
-            data[data_type] += size
-        
-        # print with  2 digits after decimal point
-        for k, v in data.items():
-            print(f"{k}:", f"{v / 1024 / 1024:.2f} MB")
+    ################################################################################################
+    ###################################### Timezones ###############################################
+    ################################################################################################
     
     @property
     def timezone(self) -> tzinfo:
@@ -186,6 +164,10 @@ class Participant(AbstractPasswordUser):
         else:
             # force setting unknown_timezone false if the value is valid
             self.update_only(unknown_timezone=False, timezone_name=new_timezone_name)
+    
+    ################################################################################################
+    ########################## Participant Creation and Passwords ##################################
+    ################################################################################################
     
     @classmethod
     def create_with_password(cls, **kwargs) -> Tuple[str, str]:
@@ -215,6 +197,14 @@ class Participant(AbstractPasswordUser):
         _algorithm, _iterations, password, salt = django_password_components(self.password)
         return compare_password('sha1', 1000, device_hash(compare_me.encode()), password, salt)
     
+    def get_private_key(self) -> RSA.RsaKey:
+        from libs.s3 import get_client_private_key  # weird import triangle
+        return get_client_private_key(self.patient_id, self.study.object_id)
+    
+    ################################################################################################
+    ########################## FCM TOKENS AND PUSH NOTIFICATIONS ###################################
+    ################################################################################################
+    
     def assign_fcm_token(self, fcm_instance_id: str):
         ParticipantFCMHistory.objects.create(participant=self, token=fcm_instance_id)
     
@@ -224,23 +214,31 @@ class Participant(AbstractPasswordUser):
         except ParticipantFCMHistory.DoesNotExist:
             return None
     
+    @property
+    def participant_push_enabled(self) -> bool:
+        return (
+            self.os_type == ANDROID_API and check_firebase_instance(require_android=True) or
+            self.os_type == IOS_API and check_firebase_instance(require_ios=True)
+        )
+    
+    ################################################################################################
+    ###################################### History I Guess #########################################
+    ################################################################################################
+    
     def notification_events(self, **archived_event_filter_kwargs) -> Manager[ArchivedEvent]:
         """ convenience methodd for use debugging in the terminal mostly. """
         from database.schedule_models import ArchivedEvent
         return ArchivedEvent.objects.filter(participant=self) \
             .filter(**archived_event_filter_kwargs).order_by("-scheduled_time")
     
-    def get_private_key(self) -> RSA.RsaKey:
-        from libs.s3 import get_client_private_key  # weird import triangle
-        return get_client_private_key(self.patient_id, self.study.object_id)
-    
-    def s3_retrieve(self, s3_path: str) -> bytes:
-        raw_path = s3_path.startswith(self.study.object_id)
-        return s3_retrieve(s3_path, self, raw_path=raw_path)
-    
     def log(self, action: str):
+        """ Creates a ParticipantActionLog object. """
         return ParticipantActionLog.objects.create(
             participant=self, timestamp=timezone.now(), action=action)
+    
+    ################################################################################################
+    ################################## PARTICIPANT STATE ###########################################
+    ################################################################################################
     
     @property
     def is_active_one_week(self) -> bool:
@@ -278,12 +276,69 @@ class Participant(AbstractPasswordUser):
         except ParticipantDeletionEvent.DoesNotExist:
             return False
     
+    ################################################################################################
+    ######################################### S3 DATA ##############################################
+    ################################################################################################
+    
+    def s3_retrieve(self, s3_path: str) -> bytes:
+        raw_path = s3_path.startswith(self.study.object_id)
+        return s3_retrieve(s3_path, self, raw_path=raw_path)
+    
     @property
-    def participant_push_enabled(self) -> bool:
-        return (
-            self.os_type == ANDROID_API and check_firebase_instance(require_android=True) or
-            self.os_type == IOS_API and check_firebase_instance(require_ios=True)
-        )
+    def get_identifiers(self):
+        for identifier in self.chunk_registries.filter(data_type=IDENTIFIERS).order_by("created_on"):
+            print(identifier.s3_retrieve().decode())
+    
+    ################################################################################################
+    ############################### TERMINAL DEBUGGING FUNCTIONS ###################################
+    ################################################################################################
+    
+    def __str__(self) -> str:
+        return f'{self.patient_id} of Study "{self.study.name}"'
+    
+    @property
+    def _recents(self) -> Dict[str, Union[str, Optional[str]]]:
+        self.refresh_from_db()
+        now = timezone.now()
+        return {
+            "last_version_code": self.last_version_code,
+            "last_version_name": self.last_version_name,
+            "last_os_version": self.last_os_version,
+            "last_get_latest_surveys": f"{(now - self.last_get_latest_surveys).total_seconds() // 60} minutes ago" if self.last_get_latest_surveys else None,
+            "last_push_notification_checkin": f"{(now - self.last_push_notification_checkin).total_seconds() // 60} minutes ago" if self.last_push_notification_checkin else None,
+            "last_register_user": f"{(now - self.last_register_user).total_seconds() // 60} minutes ago" if self.last_register_user else None,
+            "last_set_fcm_token": f"{(now - self.last_set_fcm_token).total_seconds() // 60} minutes ago" if self.last_set_fcm_token else None,
+            "last_set_password": f"{(now - self.last_set_password).total_seconds() // 60} minutes ago" if self.last_set_password else None,
+            "last_survey_checkin": f"{(now - self.last_survey_checkin).total_seconds() // 60} minutes ago" if self.last_survey_checkin else None,
+            "last_upload": f"{(now - self.last_upload).total_seconds() // 60} minutes ago" if self.last_upload else None,
+            "last_get_latest_device_settings": f"{(now - self.last_get_latest_device_settings).total_seconds() // 60} minutes ago" if self.last_get_latest_device_settings else None,
+        }
+    
+    def get_data_summary(self) -> Dict[str, Union[str, int]]:
+        """ Assembles a summary of data quantities for the participant, for debugging. """
+        data = {stream: 0 for stream in ALL_DATA_STREAMS}
+        for data_type, size in self.chunk_registries.values_list("data_type", "file_size").iterator():
+            data[data_type] += size
+        
+        # print with 2 digits after decimal point
+        for k, v in data.items():
+            print(f"{k}:", f"{v / 1024 / 1024:.2f} MB")
+    
+    def logs(self) -> List[str]:
+        return self._logs()
+    
+    def logs_heartbeats_sent(self):
+        return self._logs(HEARTBEAT_PUSH_NOTIFICATION_SENT)
+    
+    def _logs(self, action: str = None)  -> QuerySet[Tuple[datetime, str]]:
+        # this is for terminal debugging - so most recent LAST.
+        query: QuerySet[Tuple[datetime, str]] = self.action_logs.order_by("timestamp").values_list("timestamp", "action")
+        if action:
+            query = query.filter(action=action)
+        tz = self.timezone
+        return [
+            f"{t.astimezone(tz).strftime(LEGIBLE_TIME_FORMAT)}: '{action}'" for t, action in query
+        ]
     
     @property
     def participant_page(self):
@@ -304,14 +359,6 @@ class Participant(AbstractPasswordUser):
             pprint(json.loads(dsr))
         else:
             print("\n(No device status report.)")
-    
-    @property
-    def get_identifiers(self):
-        for identifier in self.chunk_registries.filter(data_type=IDENTIFIERS).order_by("created_on"):
-            print(identifier.s3_retrieve().decode())
-    
-    def __str__(self) -> str:
-        return f'{self.patient_id} of Study "{self.study.name}"'
 
 
 class PushNotificationDisabledEvent(UtilityModel):

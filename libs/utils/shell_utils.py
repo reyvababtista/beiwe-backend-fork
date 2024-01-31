@@ -1,11 +1,14 @@
-from collections import Counter
-from datetime import datetime, timedelta, tzinfo
+from collections import Counter, defaultdict
+from datetime import date, datetime, timedelta, tzinfo
 from pprint import pprint
 from time import sleep
+from typing import Dict, List, Tuple, Union
 
 from dateutil.tz import gettz
+from django.utils import timezone
 from django.utils.timezone import localtime
 
+from constants.action_log_messages import HEARTBEAT_PUSH_NOTIFICATION_SENT
 from constants.common_constants import DEV_TIME_FORMAT
 from constants.message_strings import MESSAGE_SEND_SUCCESS
 from database.data_access_models import FileToProcess
@@ -266,3 +269,72 @@ def find_pending_events(
             f"  {a.get_schedule_type()} FOR {TxtClr.CYAN}{a.participant.patient_id}{TxtClr.BLACK}"
             f" AT {TxtClr.GREEN}{sched_time_print}{TxtClr.BLACK}",
         )
+
+
+def heartbeat_summary(p: Participant, max_age: int = 12):
+    # Get the heartbeat timestamps and push notification events, print out all the timestamps in
+    # day-by-day and hour-by-hour sections print statements, and print time deltas since the
+    # previous received heartbeat event.
+    max_age = (timezone.now() - timedelta(hours=max_age)).replace(minute=0, second=0, microsecond=0)
+    
+    # queries
+    heartbeats_query = p.heartbeats.order_by("timestamp") \
+        .filter(timestamp__gte=max_age) \
+        .values_list("timestamp", flat=True)
+    heartbeat_notifications = p.action_logs.order_by("timestamp") \
+        .filter(action=HEARTBEAT_PUSH_NOTIFICATION_SENT, timestamp__gte=max_age) \
+        .values_list("timestamp", flat=True)
+    
+    # insert events, add a timedelta of difference with the previous event.
+    events: List[Tuple[datetime, Union[timedelta, str]]] = []
+    for i, t in enumerate(heartbeats_query):
+        events.append((
+            as_local(t),
+            timedelta(seconds=0) if i == 0 else t - events[i-1][0]  # force first a delta to 0.
+        ))
+    
+    # add the push notification events, second object in the tuple as a string, then re-sort.
+    for t in heartbeat_notifications:
+        events.append((as_local(t), "heartbeat notification sent."))
+    events.sort(key=lambda x: x[0])
+    
+    # group into days - this is quite the type signature...
+    events_by_day = defaultdict(list)
+    for t, delta_or_message in events:
+       events_by_day[t.date()].append((t, delta_or_message,))
+    
+    # got type signature?
+    events_by_day: Dict[date, List[Tuple[datetime, Union[timedelta, str]]]] = dict(events_by_day)
+    
+    # initialize previous day to the first day
+    prev_day = events[0][0].strftime('%Y-%m-%d')
+    for day, day_data in events_by_day.items():
+        
+        # print the day header if it's a new day
+        if day.strftime('%Y-%m-%d') != prev_day:
+            prev_day = day.strftime('%Y-%m-%d')
+            print(f"\n[{prev_day}]")
+        
+        for hour in range(24):
+            # filter out events that are not in this hour
+            one_hours_data = [(hb, delta_or_message) for (hb, delta_or_message) in day_data if hb.hour == hour]
+            if not one_hours_data:
+                continue
+            
+            # print the hour header if there are events in that hour
+            print(f"  {hour:02}:00 - {hour:02}:59")
+            
+            # print each event in that hour, timedeltas are printed in seconds and minutes. 
+            for t, delta_or_message in one_hours_data:
+                if isinstance(delta_or_message, timedelta):
+                    s = delta_or_message.total_seconds()
+                    print(f"    {t.strftime('%H:%M:%S')} (Δ {s:.1f} sec, {s/60:.1f} min)")
+                else:
+                    print(f"    {t.strftime('%H:%M:%S')} - {delta_or_message}")
+            print()
+    
+    final_timestamp = events[-1][0]
+    print(
+        f"and it has been {(timezone.now() - final_timestamp).total_seconds() / 60:.1f} "
+        "minutes since that last event."
+    )

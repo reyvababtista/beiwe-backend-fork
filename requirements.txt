@@ -60,7 +60,7 @@ executing==2.0.1
     # via stack-data
 firebase-admin==5.4.0
     # via -r requirements.in
-forest @ git+https://git@github.com/onnela-lab/forest@ccf30f70b170f9fb59dcc2fb9e83a90471da84ae
+forest @ git+https://git@github.com/onnela-lab/forest@a1eb117263ba9e831426017e472ab5bbf9277888
     # via -r requirements.in
 google-api-core[grpc]==2.15.0
     # via

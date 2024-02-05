@@ -280,28 +280,29 @@ def heartbeat_summary(p: Participant, max_age: int = 12):
     # queries
     heartbeats_query = p.heartbeats.order_by("timestamp") \
         .filter(timestamp__gte=max_age) \
-        .values_list("timestamp", flat=True)
+        .values_list("timestamp", "message")
     heartbeat_notifications = p.action_logs.order_by("timestamp") \
         .filter(action=HEARTBEAT_PUSH_NOTIFICATION_SENT, timestamp__gte=max_age) \
         .values_list("timestamp", flat=True)
     
     # insert events, add a timedelta of difference with the previous event.
     events: List[Tuple[datetime, Union[timedelta, str]]] = []
-    for i, t in enumerate(heartbeats_query):
+    for i, (t, message) in enumerate(heartbeats_query):
         events.append((
             as_local(t),
-            timedelta(seconds=0) if i == 0 else t - events[i-1][0]  # force first a delta to 0.
+            timedelta(seconds=0) if i == 0 else t - events[i-1][0],  # force first a delta to 0.
+            message
         ))
     
     # add the push notification events, second object in the tuple as a string, then re-sort.
     for t in heartbeat_notifications:
-        events.append((as_local(t), "heartbeat notification sent."))
+        events.append((as_local(t), "heartbeat notification sent.", ""))
     events.sort(key=lambda x: x[0])
     
-    # group into days - this is quite the type signature...
+    # group into days
     events_by_day = defaultdict(list)
-    for t, delta_or_message in events:
-       events_by_day[t.date()].append((t, delta_or_message,))
+    for t, delta_or_message, message in events:
+       events_by_day[t.date()].append((t, delta_or_message, message))
     
     # got type signature?
     events_by_day: Dict[date, List[Tuple[datetime, Union[timedelta, str]]]] = dict(events_by_day)
@@ -317,7 +318,7 @@ def heartbeat_summary(p: Participant, max_age: int = 12):
         
         for hour in range(24):
             # filter out events that are not in this hour
-            one_hours_data = [(hb, delta_or_message) for (hb, delta_or_message) in day_data if hb.hour == hour]
+            one_hours_data = [(hb, delta_or_message, message) for (hb, delta_or_message, message) in day_data if hb.hour == hour]
             if not one_hours_data:
                 continue
             
@@ -325,10 +326,10 @@ def heartbeat_summary(p: Participant, max_age: int = 12):
             print(f"  {hour:02}:00 - {hour:02}:59")
             
             # print each event in that hour, timedeltas are printed in seconds and minutes. 
-            for t, delta_or_message in one_hours_data:
+            for t, delta_or_message, message in one_hours_data:
                 if isinstance(delta_or_message, timedelta):
                     s = delta_or_message.total_seconds()
-                    print(f"    {t.strftime('%H:%M:%S')} (Δ {s:.1f} sec, {s/60:.1f} min)")
+                    print(f"    {t.strftime('%H:%M:%S')} (Δ {s:.1f} sec, {s/60:.1f} min), - {message}")
                 else:
                     print(f"    {t.strftime('%H:%M:%S')} - {delta_or_message}")
             print()

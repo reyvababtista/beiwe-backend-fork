@@ -447,10 +447,11 @@ class AppHeartbeats(UtilityModel):
     notification)  """
     participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="heartbeats")
     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
+    message = models.TextField(null=True, blank=True)
     
     @classmethod
-    def create(cls, participant: Participant, timestamp: datetime):
-        return cls.objects.create(participant=participant, timestamp=timestamp)
+    def create(cls, participant: Participant, timestamp: datetime, message: str = None):
+        return cls.objects.create(participant=participant, timestamp=timestamp, message=message)
 
 
 class ParticipantActionLog(UtilityModel):

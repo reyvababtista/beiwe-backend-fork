@@ -143,7 +143,6 @@ def toggle_easy_enrollment_study(request: ResearcherRequest, study_id: int):
     return redirect(f'/edit_study/{study.pk}')
 
 
-
 """##### Methods responsible for distributing APK file of Android app. #####"""
 
 # these download app version urls are redirects, which get cached in the browser.  The uniqueify

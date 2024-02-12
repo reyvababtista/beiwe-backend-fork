@@ -9,6 +9,7 @@ from typing import Any, List
 
 import dateutil
 from django.db import models
+from django.db.models import QuerySet
 from django.db.models.fields import NOT_PROVIDED
 from django.db.models.fields.related import RelatedField
 from django.utils.timezone import localtime
@@ -24,6 +25,28 @@ def generate_objectid_string():
     return ''.join(random_choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(24))
 
 
+class ObjectIDModel(models.Model):
+    """ Provides logic for generating unique objectid strings for a field. """
+    
+    @classmethod
+    def generate_objectid_string(cls, field_name):
+        """ Takes a django database class and a field name, generates a unique BSON-ObjectId-like
+        string for that field.
+        In order to preserve functionality throughout the codebase we need to generate a random
+        string of exactly 24 characters.  The value must be typeable, and special characters should
+        be avoided. """
+        for _ in range(10):
+            object_id = generate_objectid_string()
+            if not cls.objects.filter(**{field_name: object_id}).exists():
+                break
+        else:
+            raise ObjectIdError("Could not generate unique id for %s." % cls.__name__)
+        return object_id
+    
+    class Meta:
+        abstract = True
+
+
 class JSONTextField(models.TextField):
     """ A TextField for holding JSON-serialized data. This is only different from models.TextField
     in UtilityModel.as_native_json, in that this is not JSON serialized an additional time. """
@@ -33,33 +56,37 @@ class UtilityModel(models.Model):
     """ Provides numerous utility functions and enhancements.
         All Models should subclass UtilityModel. """
     
-    id: int  # this attribute is not correctly populated in some IDEs
+    id: int  # this attribute is not correctly populated as an integer type in some IDEs
+    
+    ######################################## Query Shortcuts #######################################
+    
+    @classmethod
+    def vlist(cls, *args, **kwargs) -> QuerySet[Any]:
+        """ Shortcut for cls.objects.values(*arg), you can still filter etc. """
+        return cls.objects.values_list(*args, **{"flat": True, **kwargs} if len(args) == 1 else kwargs)    
+    
+    @classmethod
+    def vdict(cls, *args, **kwargs) -> QuerySet[Any]:
+        """ Shortcut for cls.objects.values_list(*arg, flat=True), you can still filter etc. """
+        return cls.objects.values(*args, **kwargs)    
+    
+    @classmethod
+    def fltr(cls, *args, **kwargs) -> QuerySet[Any]:
+        """ Shortcut for cls.objects.filter(*args, **kwargs) """
+        return cls.objects.filter(*args, **kwargs)
+    
+    @classmethod
+    def xcld(cls, *args, **kwargs) -> QuerySet[Any]:
+        """ Shortcut for cls.objects.exclude(*args, **kwargs) """
+        return cls.objects.exclude(*args, **kwargs)
+    
+    ################################## Show nice information #######################################
     
     @classmethod
     def nice_count(cls):
         count = cls.objects.count()
         print("{:,}".format(count))
         return count
-    
-    @classmethod
-    def generate_objectid_string(cls, field_name):
-        """ Takes a django database class and a field name, generates a unique BSON-ObjectId-like
-        string for that field.
-        In order to preserve functionality throughout the codebase we need to generate a random
-        string of exactly 24 characters.  The value must be typeable, and special characters
-        should be avoided. """
-        for _ in range(10):
-            object_id = generate_objectid_string()
-            if not cls.objects.filter(**{field_name: object_id}).exists():
-                break
-        else:
-            raise ObjectIdError("Could not generate unique id for %s." % cls.__name__)
-        
-        return object_id
-    
-    def as_dict(self):
-        """ Provides a dictionary representation of the object """
-        return {field.name: getattr(self, field.name) for field in self._meta.fields}
     
     @property
     def pprint(self):
@@ -85,16 +112,25 @@ class UtilityModel(models.Model):
                 print(f"{field.name} - {type(field).__name__} - {field.related_model.__name__}")
             else:
                 print(f"{field.name} - {type(field).__name__}")
-            
             info = []
-            
-            if field.blank: info.append("blank")
-            if field.null: info.append("null")
-            if field.db_index: info.append("db_index")
-            if field.default != NOT_PROVIDED: info.append(f'default: {field.default}')
+            if field.blank: 
+                info.append("blank")
+            if field.null: 
+                info.append("null")
+            if field.db_index: 
+                info.append("db_index")
+            if field.default != NOT_PROVIDED: 
+                info.append(f'default: {field.default}')
             if info:
                 print("\t", ", ".join(info), "\n", sep="")
-            else: print()
+            else:
+                print()
+    
+    ###################################### Basic Serialization #####################################
+    
+    def as_dict(self):
+        """ Provides a dictionary representation of the object """
+        return {field.name: getattr(self, field.name) for field in self._meta.fields}
     
     @property
     def _contents(self):
@@ -136,10 +172,6 @@ class UtilityModel(models.Model):
         ret.update(self._related)
         return ret
     
-    @classmethod
-    def local_field_names(cls) -> List[str]:
-        return [f.name for f in cls._meta.fields if not isinstance(f, RelatedField)]
-    
     def as_unpacked_native_python(self, field_names: Tuple[str]) -> Dict[str, Any]:
         """ This function returns a dictionary of the desired fields, unpacking any JSONTextField.
         DO NOT MAKE A VERSION OF THIS THAT TRIVIALLY RETURNS THE ENTIRE MODEL'S DATA. We had that
@@ -165,6 +197,13 @@ class UtilityModel(models.Model):
                 ret[field.name] = getattr(self, field.name)
         
         return ret
+    
+    @classmethod
+    def local_field_names(cls) -> List[str]:
+        """ helper for mostly these basic serialization methods, but useful elswhere. """
+        return [f.name for f in cls._meta.fields if not isinstance(f, RelatedField)]
+    
+    #################################### Mutation Methods ##########################################
     
     def save(self, *args, **kwargs):
         # Raise a ValidationError if any data is invalid

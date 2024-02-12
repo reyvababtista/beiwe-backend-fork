@@ -7,7 +7,7 @@ from django.db import models
 from django.db.models import Manager, QuerySet
 
 from constants.study_constants import AUDIO_SURVEY_SETTINGS, IMAGE_SURVEY_SETTINGS
-from database.common_models import JSONTextField, TimestampedModel
+from database.common_models import JSONTextField, ObjectIDModel, TimestampedModel
 from database.validators import LengthValidator
 
 
@@ -19,7 +19,7 @@ except ImportError:
     pass
 
 
-class SurveyBase(TimestampedModel):
+class SurveyBase(TimestampedModel, ObjectIDModel):
     """ SurveyBase contains all fields that we want to have copied into a survey backup whenever
     it is updated. (used in surveys and survey archives.) """
     

@@ -51,6 +51,9 @@
           {% if participant.os_type == "IOS" %}
             {% if participant.last_version_code %}
               {{ participant.last_version_code }}
+              {% if participant.last_version_name %}
+                <span style="color: rgb(192, 192, 192);">({{ participant.last_version_name }})</span>
+              {% endif %}
             {% endif %}
           {% elif participant.os_type == "ANDROID" %}
             {% if participant.last_version_name %}
@@ -60,30 +63,36 @@
         </td>
       </tr>
       <tr>
-        <td><b>Time of Registration</b></td>
+        <td><b>Registration</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_register_user, participant.study.timezone) }}</td>
       </tr>
+      {% if participant.os_type == IOS_API and participant.enable_heartbeat %}
+        <tr>
+          <td><b>Last Heartbeat</b></td>
+          <td>{{ really_nice_time_format_with_tz(participant.last_app_heartbeat, participant.study.timezone) }}</td>
+        </tr>
+      {% endif %}
       <tr>
-        <td><b>Time of last check-in for updated surveys</b></td>
+        <td><b>Last check-in for updated surveys</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_get_latest_surveys, participant.study.timezone) }}</td>
       </tr>
       <tr>
-        <td><b>Time of last file upload event</b></td>
+        <td><b>Last file upload event</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_upload, participant.study.timezone) }}</td>
       </tr>
   {% comment %}
   {# This is just going to confuse people until we change the way passwords work. #}
       <tr>
-        <td><b>Time of last participant password reset</b></td>
+        <td><b>Last participant password reset</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_set_password, participant.study.timezone) }}</td>
       </tr>
   {% endcomment %}
       <tr>
-        <td><b>Time of last notification credential update</b></td>
+        <td><b>Last notification credential update</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_set_fcm_token, participant.study.timezone) }}</td>
       </tr>
       <tr>
-        <td><b>Time of last device settings update</b></td>
+        <td><b>Last device settings update</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_get_latest_device_settings, participant.study.timezone) }}</td>
       </tr>
     </table>
@@ -173,13 +182,10 @@
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
           <button type="submit" class="btn btn-warning large-font-size"
-            {% if participant.device_id or locked %} disabled {% endif %}>
-            Generate a new password for this participant:
+            {% if locked %} disabled {% endif %}>
+            Generate New Registration Password
           </button>
         </form>
-        {% if participant.device_id %}
-          You may not reset participant passwords on registered devices.
-        {% endif %}
       </div>
     </div>
     <div class="col-md-7 h3-margins-vertical">
@@ -190,28 +196,28 @@
     </div>
   </div>
 
-  {# Unregister Device #}
+  {# Clear Device Token #}
   <div class="col-md-12 well">
     <div class="col-md-5">
       <div class="h2-middle-margins-vertical text-center row">
-        <form action="/reset_device" method="post">
+        <form action="{{ easy_url('participant_administration.clear_device_id') }}" method="post">
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
           <button type="submit" class="btn btn-warning large-font-size"
             {% if not participant.device_id or locked %} disabled {% endif %}>
-            Un-Register Device
+            Clear Device Token
           </button>
         </form>
         {% if not participant.device_id %}
-          There is no device registered for this participant
+          There is no device token present for this participant.
         {% endif %}
       </div>
     </div>
-    <div class="col-md-7 h3-margins-vertical">
-      Resetting a participant's registration password is a two-step process. You should only reset a
-      participant password if you know there is no device registered and uploading data. Click this
-      button if you need to register a new participant or reregister an old participant who has
-      forgotten their password.
+    <div class="col-md-7 h3-margins-vertical"> 
+      Click this button if you need to mark a parrticipant as Not Registered on the study's participant list.
+      This is purely a bookkeeping operation, the underlying value will be repopulated if the device 
+      contacts the server. If the device is out of the participant's control and still uploading data, you
+      should retire this participant id and create a new one in order to ensure that data gathered by Beiwe remains clean.
     </div>
   </div>
 
@@ -219,16 +225,16 @@
   <div class="col-md-12 well">
     <div class="col-md-5">
       <div class="h2-middle-margins-vertical text-center row">
-        <form action="/unregister_participant" method="post">
+        <form action="{{ easy_url('participant_administration.retire_participant') }}" method="post">
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
           <button type="submit" class="btn btn-danger large-font-size"
           onclick="return confirm('Are you sure you want to permanently end data collection from {{ participant.patient_id }}?')" 
-            {% if participant.unregistered or locked %} disabled {% endif %}>
+            {% if participant.permanently_retired or locked %} disabled {% endif %}>
             Permenantly Retire Participant
           </button>
         </form>
-        {% if participant.unregistered %}
+        {% if participant.permanently_retired %}
           This participant is already retired.
         {% endif %}
       </div>
@@ -262,6 +268,25 @@
         This action deletes all data that this participant has ever uploaded, as well as all internal data related to this participant.  All further actions related to this participant will be blocked.  No data from this participant will be downloadable.  Once deletion has finished the particpant will no longer be visible in the list of participants on the study page.  Data deletion may take quite some time.
         <br> <b>This operation is final and cannot be undone.</b>
       </div>
+    </div>
+  {% endif %}
+  
+  {% if ENABLE_EXPERIMENTS %}
+    <div class="col-md-12 well">
+        <div class="col-md-5">
+        <div class="h2-middle-margins-vertical text-center row">
+            <form action="/view_study/{{ study.id }}/participant/{{ participant.patient_id }}/experiments" method="post">
+            <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
+            <input type="hidden" name="study_id" value="{{ study.id }}" {% if locked %} disabled {% endif %}>
+            <button type="submit" class="btn large-font-size btn-success">
+              View Participant Experiments
+            </button>
+            </form>
+        </div>
+        </div>
+        <div class="col-md-7 h3-margins-vertical">
+        Experiments can be enabled on a per-participant basis. Experiments are features that are in development and are not yet ready for general use. Experiments may be buggy, poorly named, abandoned but not deleted, abandoned and forgotten about, completely broken, too dumb to be of any conceivable use, etc. Some experiments may require custom builds of the Beiwe apps, or may be platform specific. If an experiment is in active development there should be an open issue on <a href="https://github.com/onnela-lab/beiwe-backend/issues/" target="_blank"> the Beiwe-Backend github page. </a>
+        </div>
     </div>
   {% endif %}
 

@@ -19,7 +19,7 @@ from database.data_access_models import FileToProcess
 from database.schedule_models import ScheduledEvent
 from database.survey_models import Survey
 from database.system_models import FileAsText
-from database.user_models_participant import Participant
+from database.user_models_participant import AppHeartbeats, Participant
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
     IosDecryptionKeyDuplicateError, IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
 from libs.http_utils import determine_os_api
@@ -78,8 +78,8 @@ def upload(request: ParticipantRequest, OS_API=""):
     s3_file_location = file_name.replace("_", "/")
     participant = request.session_participant
     
-    if participant.unregistered:  # "Unregistered" participant uploads should delete their data.
-        log(200, "participant unregistered.")
+    if participant.permanently_retired:  # such a participant's uploads should be deleted.
+        log(200, "participant permanently retired.")
         return HttpResponse(status=200)
     
     # iOS can upload identically named files with different content (and missing decryption keys) so
@@ -168,8 +168,8 @@ def register_user(request: ParticipantRequest, OS_API=""):
     """ Checks that the patient id has been granted, and that there is no device registered with
     that id.  If the patient id has no device registered it registers this device and logs the
     bluetooth mac address.
-    Check the documentation in participant_authentication to ensure you have provided the proper credentials.
-    Returns the encryption key for this patient/user. 
+    Check the documentation in participant_authentication to ensure you have provided the proper
+    credentials. Returns the encryption key for this patient/user. 
     
     We used to have a test of the device id to require the device could not be changed without
     contacting the study researcher/admin. It became impossible to maintain this as operating
@@ -205,7 +205,7 @@ def register_user(request: ParticipantRequest, OS_API=""):
     
     participant = request.session_participant
     
-    if participant.unregistered:
+    if participant.permanently_retired:
         return abort(400)
     
     # At this point the device has been checked for validity and will be registered successfully.
@@ -274,6 +274,18 @@ def set_password(request: ParticipantRequest, OS_API=""):
     return HttpResponse(status=200)
 
 
+@determine_os_api
+@minimal_validation
+def mobile_heartbeat(request: ParticipantRequest, OS_API=""):
+    """ This endpoint is hit by the app to indicate that the app is still running.
+    More specifically this is a test that internal timer logic is still working.
+    This endpoint is hit every 5 minutes by the app, at time of writing it is ios-only.  """
+    AppHeartbeats.create(participant=request.session_participant, timestamp=timezone.now(),
+                         message = request.POST.get("message", None))
+    
+    return HttpResponse(status=200)
+
+
 ################################################################################
 ########################## FILE NAME FUNCTIONALITY #############################
 ################################################################################
@@ -313,9 +325,11 @@ def get_latest_device_settings(request: ParticipantRequest, OS_API=""):
     """ Extremely simple endpoint that returns the device settings for the study as a json string. 
     Endpoint is used by the app to periodically check for changes to the device settings. """
     request.session_participant.update_only(last_get_latest_device_settings=timezone.now())
-    return HttpResponse(
-        json.dumps(request.session_participant.study.device_settings.export())
-    )
+    # assemble the dictionary of device settings and the participant's experiment fields
+    settings_dictionary = request.session_participant.study.device_settings.export()
+    for field in Participant.EXPERIMENT_FIELDS:
+        settings_dictionary[field] = getattr(request.session_participant, field)
+    return HttpResponse(json.dumps(settings_dictionary))
 
 
 @determine_os_api
@@ -385,7 +399,7 @@ def format_survey_for_device(survey: Survey, participant: Participant):
     
     for schedule in query:
         # The date component is dropped, the representation is now 100% a weekly schedule
-        # the correct timezone is the "canonical form", e.g. in the study timezone (and then in 
+        # the correct timezone is the "canonical form", e.g. in the study timezone (and then in
         # survey timings form as offset from start of day)
         day_index, seconds = decompose_datetime_to_timings(schedule.scheduled_time_in_canonical_form)
         survey_timings[day_index].append(seconds)

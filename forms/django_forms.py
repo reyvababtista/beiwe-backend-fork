@@ -25,7 +25,7 @@ class DisableApiKeyForm(forms.Form):
     api_key_id = forms.CharField()
 
 
-class AuthenticationForm(forms.Form):
+class TableauAuthenticationForm(forms.Form):
     """ Form for fetching request headers """
     
     def __init__(self, *args, **kwargs):
@@ -43,7 +43,7 @@ class AuthenticationForm(forms.Form):
 class CreateTasksForm(forms.Form):
     date_start = forms.DateField()
     date_end = forms.DateField()
-    participant_patient_ids = CommaSeparatedListCharField()  # not actually a comma separated field
+    participant_patient_ids = CommaSeparatedListCharField()  # not actually a comma separated field?
     trees = CommaSeparatedListChoiceField(choices=ForestTree.choices())
     
     def __init__(self, *args, **kwargs):
@@ -160,7 +160,6 @@ class ApiQueryForm(forms.Form):
 
 
 class StudySecuritySettingsForm(forms.ModelForm):
-    
     class Meta:
         fields = [
             "password_minimum_length", "password_max_age_enabled", "password_max_age_days", "mfa_required"
@@ -169,3 +168,13 @@ class StudySecuritySettingsForm(forms.ModelForm):
     
     password_max_age_enabled = forms.CheckboxInput()
     mfa_required = forms.CheckboxInput()
+
+
+class ParticipantExperimentForm(forms.ModelForm):
+    class Meta:
+        fields = Participant.EXPERIMENT_FIELDS
+        model = Participant
+    
+    # (hackily) iterate over EXPERIMENT_FIELDS and set its widget to CheckboxInput
+    for field in Participant.EXPERIMENT_FIELDS:
+        locals()[field] = forms.CheckboxInput()

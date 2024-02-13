@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, tzinfo
-from typing import Callable, Optional
+from typing import Callable, Dict, Optional
 
 from dateutil.tz import UTC
 from django.db.models.query import QuerySet
@@ -38,7 +38,7 @@ def timeslice_to_end_of_day(timeslice: int, tz: tzinfo):
 
 def populate_data_quantity(
     chunkregistry_query: QuerySet, study_timezone: tzinfo
-) -> defaultdict(lambda: defaultdict(int)):
+) -> Dict[datetime, Dict[str, int]]:
     # Constructs a dict formatted like this: dict[date][data_type] = total_bytes
     daily_data_quantities = defaultdict(lambda: defaultdict(int))
     time_bin: datetime

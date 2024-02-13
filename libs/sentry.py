@@ -15,9 +15,11 @@ from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
 
 
 class SentryTypes:
+    # if you have to go update get_dsn_from_string() if you update this.
     data_processing = "data_processing"
     elastic_beanstalk = "elastic_beanstalk"
     javascript = "javascript"
+    script_runner = "script_runner"
 
 
 def normalize_sentry_dsn(dsn: str):
@@ -34,7 +36,7 @@ def normalize_sentry_dsn(dsn: str):
 
 def get_dsn_from_string(sentry_type: str):
     """ Returns a DSN, even if it is incorrectly formatted. """
-    if sentry_type == SentryTypes.data_processing:
+    if sentry_type in (SentryTypes.data_processing, SentryTypes.script_runner):
         return normalize_sentry_dsn(SENTRY_DATA_PROCESSING_DSN)
     elif sentry_type == SentryTypes.elastic_beanstalk:
         return normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN)

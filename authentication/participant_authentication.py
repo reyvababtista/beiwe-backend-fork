@@ -8,6 +8,7 @@ from database.user_models_participant import Participant
 from libs.internal_types import ParticipantRequest
 from middleware.abort_middleware import abort
 
+
 DEBUG_PARTICIPANT_AUTHENTICATION = False
 
 
@@ -20,15 +21,15 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
     """Check if user exists, check if the provided passwords match, and if the device id matches."""
     # even if the password won't be checked we want the key to be present.
     try:
-        rp = request.POST
+        post_data = request.POST
     except UnreadablePostError:
         return abort(500)
     
-    if "patient_id" not in rp or "password" not in rp or "device_id" not in rp:
+    if "patient_id" not in post_data or "password" not in post_data or "device_id" not in post_data:
         log("missing parameters entirely.")
-        log("patient_id:", "patient_id" in rp)
-        log("password:", "password" in rp)
-        log("device_id:", "device_id" in rp)
+        log("patient_id:", "patient_id" in post_data)
+        log("password:", "password" in post_data)
+        log("device_id:", "device_id" in post_data)
         return False
     log("all parameters present...")
     
@@ -47,8 +48,16 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
         return abort(500)
     
     if session_participant.is_dead:
-        log("locked participant")
+        log("dead participant")
         return False
+    
+    # request.POST['device_id'] is a string, session_participant.device_id will eventually be a uuid
+    device_id = request.POST['device_id']
+    if session_participant.device_id != device_id:
+        if not device_id:
+            # this should not happen ever. If it does it is a bug in the app.
+            raise Exception("device_id was empty in a request to the server.")
+        session_participant.update_only(device_id=device_id)
     
     # check participants and studies for easy enrollment
     if registration:
@@ -84,7 +93,7 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
         # protect against problematic inputs
         if request.POST["timezone"] is None or request.POST["timezone"] != "":
             session_participant.try_set_timezone(request.POST["timezone"])
-        
+    
     # attach session partipant to request object, defining the ParticipantRequest class.
     request.session_participant = session_participant
     return True

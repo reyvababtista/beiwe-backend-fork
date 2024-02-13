@@ -94,7 +94,7 @@ PASSWORD_EXPIRED = "Your password has expired, please reset your password."
 PASSWORD_RESET_FORCED = "You have had your password administratively reset, please set a new password."
 PASSWORD_RESET_FAIL_SITE_ADMIN = "You cannot manually set a password of a site admin. If you must do so please contact your system administrator."
 PASSWORD_RESET_SITE_ADMIN = "Site Administrators must reset their passwords to ensure they are at least 20 characters in length."
-PASSWORD_RESET_TOO_SHORT = "A study you are authorized on has a new minimum password length requirement, update your password to continue."
+PASSWORD_RESET_TOO_SHORT = "A global setting or a study you are authorized on has a new minimum password length requirement, update your password to continue."
 
 ## mfa notices
 MFA_CONFIGURATION_REQUIRED = "You must configure MFA before you can use the site."
@@ -113,7 +113,7 @@ MFA_TEST_SUCCESS = "MFA code was correct, MFA is working correctly."
 MFA_TEST_FAIL = "MFA code was incorrect."
 
 # self password reset
-PASSWORD_RESET_SUCCESS = "Your password has been reset!"
+PASSWORD_RESET_SUCCESS = "Your password has been reset! You will be logged out momentarily."
 WRONG_CURRENT_PASSWORD = "The Current Password you have entered is invalid"
 NEW_PASSWORD_MISMATCH = "New Password does not match Confirm New Password"
 NEW_PASSWORD_N_LONG = "Your New Password must be at least {length} characters long."
@@ -153,4 +153,4 @@ PARTICIPANT_LOCKED = "Participant {patient_id} is either already deleted or mark
 NOT_IN_STUDY = "Participant {patient_id} is not in study {study_name}"
 NO_DELETION_PERMISSION = 'You do not have permission to delete participant {patient_id}.'
 
-PARTICIPANT_UNREGISTERED = "{patient_id} was successfully unregistered from the study. They will not be able to upload further data."
+PARTICIPANT_RETIRED_SUCCESS = "{patient_id} was successfully retired from the study. They will not be able to upload further data."

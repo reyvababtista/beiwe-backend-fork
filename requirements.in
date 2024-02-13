@@ -1,8 +1,8 @@
 # core libraries
-Django==3.2.23
+Django==3.2.24
 firebase-admin==5.4.0
-Jinja2==3.1.2
-zstd==1.5.5.1  # This one seems to require manual pinning, version 1.5+ contains performance improvements
+Jinja2 # used to require pinning, I guess review if there is a major version bump.
+zstd # used to require it be pinned to get 1.5.5.1
 orjson==3.9.5
 
 # various extensions
@@ -16,7 +16,7 @@ pypng
 pyotp
 
 # This version of pycryptodome results in "from Cryptodome import ..." imports.
-pycryptodomex==3.19.0  # locked version, only update this manuallly, has had breaking changes in the past
+pycryptodomex==3.20.0  # locked version, only update this manuallly, has had breaking changes in the past
 
 # error reporting
 raven==6.10  # raven has been sunset at 6.10
@@ -43,4 +43,5 @@ django-timezone-field==4.1.1
 
 pip-tools>=7.3.0
 
-git+https://git@github.com/onnela-lab/forest@0d73099c9c5e7129739563b01998810cee65befa
+# this target points at what is currently the "beiwe-taskrunner" branch of the forest repo.
+git+https://git@github.com/onnela-lab/forest@a1eb117263ba9e831426017e472ab5bbf9277888

@@ -17,7 +17,7 @@ from constants.data_stream_constants import ALL_DATA_STREAMS
 from constants.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT,
     DEFAULT_CONSENT_SECTIONS_JSON, SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
 from constants.user_constants import ResearcherRole
-from database.common_models import UtilityModel
+from database.common_models import ObjectIDModel, UtilityModel
 from database.models import JSONTextField, TimestampedModel
 from database.validators import LengthValidator
 
@@ -30,7 +30,7 @@ except ImportError:
     pass
 
 
-class Study(TimestampedModel):
+class Study(TimestampedModel, ObjectIDModel):
     # When a Study object is created, a default DeviceSettings object is automatically
     # created alongside it. If the Study is created via the researcher interface (as it
     # usually is) the researcher is immediately shown the DeviceSettings to edit. The code
@@ -79,6 +79,7 @@ class Study(TimestampedModel):
         # object exists.  If not, create it.
         super().save(*args, **kwargs)
         try:
+            # trunk-ignore(ruff/B018)
             self.device_settings
         except ObjectDoesNotExist:
             settings = DeviceSettings(study=self)
@@ -147,6 +148,7 @@ class Study(TimestampedModel):
             only_after_epoch: if True, will filter results only for datetimes after the Unix epoch
                               (1970-01-01T00:00:00Z)
             only_before_now: if True, will filter results only for datetimes before now """
+        
         time_bins: QuerySet[datetime] = self.chunk_registries.values_list("time_bin", flat=True)
         comparator = operator.lt if earliest else operator.gt
         now = timezone.now()

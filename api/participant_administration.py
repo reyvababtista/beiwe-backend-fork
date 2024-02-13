@@ -8,7 +8,8 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 from authentication.admin_authentication import authenticate_researcher_study_access
-from constants.message_strings import NO_DELETION_PERMISSION, NOT_IN_STUDY, PARTICIPANT_UNREGISTERED
+from constants.message_strings import (NO_DELETION_PERMISSION, NOT_IN_STUDY,
+    PARTICIPANT_RETIRED_SUCCESS)
 from constants.user_constants import DATA_DELETION_ALLOWED_RELATIONS
 from database.study_models import Study
 from database.user_models_participant import Participant
@@ -19,6 +20,9 @@ from libs.participant_purge import add_particpiant_for_deletion
 from libs.s3 import create_client_key_pair, s3_upload
 from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.streaming_bytes_io import StreamingStringsIO
+
+
+#FIXME: rename to participant_administration_api.py
 
 
 @require_POST
@@ -41,7 +45,7 @@ def reset_participant_password(request: ResearcherRequest):
         participant_not_in_study_message(request, patient_id, study_id)
         return participant_page
     
-    if participant.is_dead:  # block locked participants, participant page displays a message
+    if participant.is_dead:  # block locked participants, participant page already displays a message
         return participant_page
     
     new_password = participant.reset_password()
@@ -51,7 +55,7 @@ def reset_participant_password(request: ResearcherRequest):
 
 @require_POST
 @authenticate_researcher_study_access
-def reset_device(request: ResearcherRequest):
+def clear_device_id(request: ResearcherRequest):
     """ Resets a participant's device. The participant will not be able to connect until they
     register a new device. """
     patient_id = request.POST.get('patient_id', None)
@@ -63,20 +67,19 @@ def reset_device(request: ResearcherRequest):
     try:
         participant = Participant.objects.get(patient_id=patient_id)
     except Participant.DoesNotExist:
-        messages.error(request, f'The participant {patient_id} does not exist')
+        messages.error(request, f'The participant "{bleach.clean(patient_id)}" does not exist')
         return participant_page
     
     if participant.study.id != int(study_id):  # the standard not-in-study
         participant_not_in_study_message(request, patient_id, study_id)
         return participant_page
     
-    if participant.is_dead:  # block locked participants, participant page displays a message
-        
+    if participant.is_dead:  # block locked participants, participant page already displays a message
         return participant_page
     
     participant.device_id = ""
     participant.save()
-    messages.success(request, f'For patient {patient_id}, device was reset; password is untouched.')
+    messages.success(request, f'Participant {patient_id}\'s device status has been cleared.')
     return participant_page
 
 
@@ -92,14 +95,14 @@ def toggle_easy_enrollment(request: ResearcherRequest):
     try:
         participant = Participant.objects.get(patient_id=patient_id)
     except Participant.DoesNotExist:
-        messages.error(request, f'The participant {patient_id} does not exist')
+        messages.error(request, f'The participant "{bleach.clean(patient_id)}" does not exist')
         return participant_page
     
     if participant.study.id != int(study_id):  # the standard not-in-study
         participant_not_in_study_message(request, patient_id, study_id)
         return participant_page
     
-    if participant.is_dead:  # block locked participants, participant page displays a message
+    if participant.is_dead:  # block locked participants, participant page already displays a message
         return participant_page
     
     participant.easy_enrollment = not participant.easy_enrollment
@@ -113,7 +116,7 @@ def toggle_easy_enrollment(request: ResearcherRequest):
 
 @require_POST
 @authenticate_researcher_study_access
-def unregister_participant(request: ResearcherRequest):
+def retire_participant(request: ResearcherRequest):
     """ Block participant from uploading further data """
     patient_id = request.POST.get('patient_id', None)
     study_id = request.POST.get('study_id', None)
@@ -124,23 +127,23 @@ def unregister_participant(request: ResearcherRequest):
     try:
         participant = Participant.objects.get(patient_id=patient_id)
     except Participant.DoesNotExist:
-        messages.error(request, f'The participant {patient_id} does not exist')
+        messages.error(request, f'The participant "{bleach.clean(patient_id)}" does not exist')
         return participant_page  # okay that is wrong... I don't think we care though, just causes 404?
     
     if participant.study.id != int(study_id):  # the standard not-in-study
         participant_not_in_study_message(request, patient_id, study_id)
         return participant_page
     
-    if participant.is_dead:  # block locked participants, participant page displays a message
+    if participant.is_dead:  # block locked participants, participant page already displays a message
         return participant_page
     
-    if participant.unregistered:
-        messages.warning(request, f'Participant {patient_id} is already unregistered')
+    if participant.permanently_retired:
+        messages.warning(request, f'Participant {patient_id} is already permanently retired.')
         return participant_page
     
-    participant.unregistered = True
+    participant.permanently_retired = True
     participant.save()
-    messages.error(request, PARTICIPANT_UNREGISTERED.format(patient_id=patient_id))
+    messages.error(request, PARTICIPANT_RETIRED_SUCCESS.format(patient_id=patient_id))
     return participant_page
 
 
@@ -157,14 +160,14 @@ def delete_participant(request: ResearcherRequest):
     try:
         participant = Participant.objects.get(patient_id=patient_id)
     except Participant.DoesNotExist:
-        messages.error(request, f'The participant {patient_id} does not exist')
+        messages.error(request, f'The participant "{bleach.clean(patient_id)}" does not exist')
         return participant_page  # okay that is wrong... I don't think we care though, just causes 404?
     
     if participant.study.id != int(study_id):  # the standard not-in-study
         participant_not_in_study_message(request, patient_id, study_id)
         return participant_page
     
-    if participant.is_dead:  # block locked participants, participant page displays a message
+    if participant.is_dead:  # block locked participants, participant page already displays a message
         return participant_page
     
     relation = request.session_researcher.get_study_relation(study_id)

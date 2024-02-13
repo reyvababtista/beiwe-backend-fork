@@ -1,10 +1,13 @@
 import csv
 import pickle
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
+from typing import Dict
 
 import orjson
 from django.contrib import messages
+from django.core.exceptions import ValidationError
+from django.db.models import QuerySet
 from django.http.response import FileResponse, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -15,8 +18,9 @@ from authentication.admin_authentication import (authenticate_admin,
 from constants.celery_constants import ForestTaskStatus
 from constants.common_constants import DEV_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATE
 from constants.data_access_api_constants import CHUNK_FIELDS
-from constants.forest_constants import (FOREST_TASKVIEW_PICKLING_EMPTY,
-    FOREST_TASKVIEW_PICKLING_ERROR, FOREST_TREE_REQUIRED_DATA_STREAMS, ForestTree)
+from constants.forest_constants import (FOREST_NO_TASK, FOREST_TASK_CANCELLED,
+    FOREST_TASKVIEW_PICKLING_EMPTY, FOREST_TASKVIEW_PICKLING_ERROR,
+    FOREST_TREE_REQUIRED_DATA_STREAMS, ForestTree)
 from database.data_access_models import ChunkRegistry
 from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.study_models import Study
@@ -26,9 +30,9 @@ from forms.django_forms import CreateTasksForm
 from libs.forest_utils import download_output_file
 from libs.http_utils import easy_url
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest
+from libs.s3 import NoSuchKeyException
 from libs.streaming_zip import ZipGenerator
 from libs.utils.date_utils import daterange
-from serializers.forest_serializers import display_true, ForestTaskCsvSerializer
 
 
 TASK_SERIALIZER_FIELDS = [
@@ -45,7 +49,8 @@ TASK_SERIALIZER_FIELDS = [
     "participant__patient_id",  # -> patient_id
     "pickled_parameters",
     "forest_tree",  # -> forest_tree_display as .title()
-    "output_zip_s3_path", # need to identify that it is present at all
+    "forest_commit",
+    "output_zip_s3_path",  # need to identify that it is present at all
     # datetimes
     "process_end_time",  # -> dev time format
     "process_start_time",  # -> dev time format
@@ -57,42 +62,62 @@ TASK_SERIALIZER_FIELDS = [
 @authenticate_researcher_study_access
 @forest_enabled
 def forest_tasks_progress(request: ResearcherRequest, study_id=None):
-    study: Study = Study.objects.get(pk=study_id)
+    # generates a chart of study analysis progress logs
+    study = Study.objects.get(pk=study_id)
     participants: ParticipantQuerySet = Participant.objects.filter(study=study_id)
     
-    # generate chart of study analysis progress logs
+    # later tasks will overwrite earlier tasks - this is intentional.
+    # number of forest tasks shouldn't be the bottleneck here.
     tasks = ForestTask.objects.filter(participant__in=participants).order_by("created_on")
     
+    # these are quite optimized buuuuut it is still slow.
     start_date = (study.get_earliest_data_time_bin() or study.created_on).date()
     end_date = (study.get_latest_data_time_bin() or timezone.now()).date()
     
     params = {}
-    results = defaultdict(lambda: "--")
-    # this code simultaneously builds up the chart of most recent forest results for date ranges
-    # by participant and tree, and tracks the metadata
+    results = defaultdict(lambda: "-")
+    chart_elements_lookup = {False: "N", None: "?"}
+    # this loop builds the chart of whether there are forest results for date ranges
+    # per-participant- -and-tree. The tasks query is ordered by creation date, so later tasks will
+    # overwrite earlier tasks. a "-" means no task has been run, "N" means a task ran but there was
+    # no output, "?" means there the code ran successfully but there was an error reading in the
+    # data so we MIGHT have data, and "Y" means there was definitely data.
     for task in tasks:
         for a_date in daterange(task.data_date_start, task.data_date_end, inclusive=True):
-            results[(task.participant_id, task.forest_tree, a_date)] = task
-            params[(task.participant_id, task.forest_tree, a_date)] = task.safe_unpickle_parameters_as_string()
+            key = (task.participant_id, task.forest_tree, a_date)
+            in_table = results[key]  # will populates with a "-" on first access
+            output_exists = task.forest_output_exists
+            if in_table == "Y" or output_exists:  # always force "Y"
+                results[key] = "Y"
+            elif in_table != "?":
+                # We have some nice constraints here:
+                # 1. output_exists is False or None, so chart_elements_lookup[false or None]
+                #    can only return "N" or "?".
+                # 2. The chart's current field is "-", "N", or "?"
+                # 3. If in_table is a ? we can just skip it because we cannot upgrade from ? to Y here.
+                #  So, we just skip if we are already at ? in the chart element, and otherwise we do the lookup.
+                results[key] = chart_elements_lookup[output_exists]
+            params[key] = task.safe_unpickle_parameters_as_string()
     
-    # generate the date range for charting
+    # generate the date range for the chart, we need it many times.
     dates = list(daterange(start_date, end_date, inclusive=True))
-    
     chart = []
     for participant in participants:
-        for tree in ForestTree.values():
-            row = [participant.patient_id, tree] + \
-                [results[(participant.id, tree, date)] for date in dates]
+        for tree_name in ForestTree.values():
+            # we need to make a list of lists with the participant and tree name
+            row = [participant.patient_id, tree_name] + \
+                [results[(participant.id, tree_name, date)] for date in dates]
             chart.append(row)
     
     # ensure that within each tree, only a single set of param values are used (only the most recent runs
     # are considered, and unsuccessful runs are assumed to invalidate old runs, clearing params)
     params_conflict = False
-    for tree in {k[1] for k in params.keys()}:
-        if len({m for k, m in params.items() if m is not None and k[1] == tree}) > 1:
+    for tree_name in {k[1] for k in params.keys()}:
+        if len({m for k, m in params.items() if m is not None and k[1] == tree_name}) > 1:
             params_conflict = True
             break
     
+    chart_json = orjson.dumps(chart).decode()  # may be huge, but orjson is very fast.
     return render(
         request,
         'forest/forest_tasks_progress.html',  # has been renamed internally because this is imprecise.
@@ -103,7 +128,7 @@ def forest_tasks_progress(request: ResearcherRequest, study_id=None):
             params_conflict=params_conflict,
             start_date=start_date,
             end_date=end_date,
-            chart=chart  # this uses the jinja safe filter and should never involve user input
+            chart=chart_json  # this uses the jinja safe filter and should never involve user input
         )
     )
 
@@ -140,6 +165,43 @@ def create_tasks(request: ResearcherRequest, study_id=None):
     return redirect(easy_url("forest_pages.task_log", study_id=study_id))
 
 
+@require_http_methods(['GET', 'POST'])
+@authenticate_admin
+@forest_enabled
+def copy_forest_task(request: ResearcherRequest, study_id=None):
+    # Only a SITE admin can queue forest tasks
+    if not request.session_researcher.site_admin:
+        return HttpResponse(content="", status=403)
+    try:
+        study = Study.objects.get(pk=study_id)
+    except Study.DoesNotExist:
+        return HttpResponse(content="", status=404)
+    
+    task_id = request.POST.get("external_id", None)
+    if not task_id:
+        messages.warning(request, FOREST_NO_TASK)
+        return redirect(easy_url("forest_pages.task_log", study_id=study_id))
+    
+    try:
+        task_to_copy = ForestTask.objects.get(external_id=task_id)
+    except (ForestTask.DoesNotExist, ValidationError):
+        messages.warning(request, FOREST_NO_TASK)
+        return redirect(easy_url("forest_pages.task_log", study_id=study_id))
+    
+    new_task = ForestTask(
+        participant=task_to_copy.participant,
+        forest_tree=task_to_copy.forest_tree,
+        data_date_start=task_to_copy.data_date_start,
+        data_date_end=task_to_copy.data_date_end,
+        status=ForestTaskStatus.queued,
+    )
+    new_task.save()
+    messages.success(
+        request, f"Made a copy of {task_to_copy.external_id} with id {new_task.external_id}."
+    )
+    return redirect(easy_url("forest_pages.task_log", study_id=study_id))
+
+
 @require_GET
 @authenticate_researcher_study_access
 @forest_enabled
@@ -149,26 +211,33 @@ def task_log(request: ResearcherRequest, study_id=None):
     tasks = []
     
     for task_dict in query:
-        extern_id = task_dict.pop("external_id")
+        extern_id = task_dict["external_id"]
+        
+        # the commit is populated when the task runs, not when it is queued.
+        task_dict["forest_commit"] = task_dict["forest_commit"] if task_dict["forest_commit"] else \
+            "(exact commit missing)"
+        
         # renames (could be optimized in the query, but speedup is negligible)
         task_dict["patient_id"] = task_dict.pop("participant__patient_id")
         
         # rename and transform
+        task_dict["has_output_data"] = task_dict["forest_output_exists"]
         task_dict["forest_tree_display"] = task_dict.pop("forest_tree").title()
         task_dict["created_on_display"] = task_dict.pop("created_on").strftime(DEV_TIME_FORMAT)
-        task_dict["forest_output_exists_display"] = display_true(task_dict["forest_output_exists"])
-        # dates/times that require safety
-        task_dict["process_end_time"] = task_dict["process_end_time"].strftime(DEV_TIME_FORMAT) \
-             if task_dict["process_end_time"] else None
-        task_dict["process_start_time"] = task_dict["process_start_time"].strftime(DEV_TIME_FORMAT) \
-             if task_dict["process_start_time"] else None
-        task_dict["process_download_end_time"] = task_dict["process_download_end_time"].strftime(DEV_TIME_FORMAT) \
-             if task_dict["process_download_end_time"] else None
+        task_dict["forest_output_exists_display"] = yes_no_unknown(task_dict["forest_output_exists"])
+        
+        # dates/times that require safety (yes it could be less obnoxious)
+        dict_datetime_to_display(task_dict, "process_end_time", None)
+        dict_datetime_to_display(task_dict, "process_start_time", None)
+        dict_datetime_to_display(task_dict, "process_download_end_time", None)
+        task_dict["data_date_end"] = task_dict["data_date_end"].isoformat()if task_dict["data_date_end"] else None
+        task_dict["data_date_start"] = task_dict["data_date_start"].isoformat()if task_dict["data_date_start"] else None
+        
         # urls
         task_dict["cancel_url"] = easy_url(
             "forest_pages.cancel_task", study_id=study_id, forest_task_external_id=extern_id,
         )
-        task_dict["has_output_data"] = task_dict["forest_output_exists"]
+        task_dict["copy_url"] = easy_url("forest_pages.copy_forest_task", study_id=study_id)
         task_dict["download_url"] = easy_url(
             "forest_pages.download_task_data", study_id=study_id, forest_task_external_id=extern_id,
         )
@@ -190,7 +259,7 @@ def task_log(request: ResearcherRequest, study_id=None):
         else:
             task_dict["params_dict"] = FOREST_TASKVIEW_PICKLING_EMPTY
         tasks.append(task_dict)
-    
+    forest_info = ForestVersion.get_singleton_instance()
     return render(
         request,
         "forest/task_log.html",
@@ -198,19 +267,9 @@ def task_log(request: ResearcherRequest, study_id=None):
             study=Study.objects.get(pk=study_id),
             status_choices=ForestTaskStatus,
             forest_log=orjson.dumps(tasks).decode(),  # orjson is very fast and handles the remaining date objects
+            forest_commit=forest_info.git_commit or "commit not found",
+            forest_version=forest_info.package_version or "version not found",
         )
-    )
-
-
-@require_GET
-@authenticate_admin
-def download_task_log(request: ResearcherRequest):
-    forest_tasks = ForestTask.objects.order_by("created_on")
-    return FileResponse(
-        stream_forest_task_log_csv(forest_tasks),
-        content_type="text/csv",
-        filename=f"forest_task_log_{timezone.now().isoformat()}.csv",
-        as_attachment=True,
     )
 
 
@@ -221,18 +280,21 @@ def cancel_task(request: ResearcherRequest, study_id, forest_task_external_id):
     if not request.session_researcher.site_admin:
         return HttpResponse(content="", status=403)
     
-    number_updated = \
-        ForestTask.objects.filter(
+    try:
+        number_updated = ForestTask.objects.filter(
             external_id=forest_task_external_id, status=ForestTaskStatus.queued
         ).update(
             status=ForestTaskStatus.cancelled,
             stacktrace=f"Canceled by {request.session_researcher.username} on {date.today()}",
         )
+    except ValidationError:
+        # malformed uuids throw a validation error
+        number_updated = 0
     
     if number_updated > 0:
-        messages.success(request, "Forest task successfully cancelled.")
+        messages.success(request, FOREST_TASK_CANCELLED)
     else:
-        messages.warning(request, "Sorry, we were unable to find or cancel this Forest task.")
+        messages.warning(request, FOREST_NO_TASK)
     
     return redirect(easy_url("forest_pages.task_log", study_id=study_id))
 
@@ -241,7 +303,6 @@ def cancel_task(request: ResearcherRequest, study_id, forest_task_external_id):
 @authenticate_admin
 @forest_enabled
 def download_task_data(request: ResearcherRequest, study_id, forest_task_external_id):
-    
     try:
         forest_task: ForestTask = ForestTask.objects.get(
             external_id=forest_task_external_id, participant__study_id=study_id
@@ -290,7 +351,7 @@ def download_output_data(request: ResearcherRequest, study_id, forest_task_exter
         forest_task: ForestTask = ForestTask.objects.get(
             external_id=forest_task_external_id, participant__study_id=study_id
         )
-    except ForestTask.DoesNotExist:
+    except (ForestTask.DoesNotExist, ValidationError):
         return HttpResponse(content="", status=404)
     
     filename = "_".join([
@@ -302,11 +363,17 @@ def download_output_data(request: ResearcherRequest, study_id, forest_task_exter
             forest_task.created_on.strftime(DEV_TIME_FORMAT),
         ]) + ".zip"
     
+    try:
+        file_content = download_output_file(forest_task)
+    except NoSuchKeyException:
+        # limit the error scope we are catching here, we want those errors reported.
+        return HttpResponse(content="Unable to find report file. ¯\\_(ツ)_/¯", status=404)
+    
     # for some reason FileResponse doesn't work when handed a bytes object, so we are forcing the
     # headers for attachment and filename in a custom HttpResponse. Baffling. I guess FileResponse
     # is really only for file-like objects.
     return HttpResponse(
-        download_output_file(forest_task),
+        file_content,
         content_type="zip",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
@@ -345,17 +412,79 @@ def render_create_tasks(request: ResearcherRequest, study: Study):
     )
 
 
-def stream_forest_task_log_csv(forest_tasks):
-    buffer = CSVBuffer()
-    writer = csv.DictWriter(buffer, fieldnames=ForestTaskCsvSerializer.Meta.fields)
-    writer.writeheader()
-    yield buffer.read()
+@require_GET
+@authenticate_admin
+def download_task_log(request: ResearcherRequest, study_id=str):
+    if not request.session_researcher.site_admin:
+        return HttpResponse(content="", status=403)
     
-    for forest_task in forest_tasks:
-        writer.writerow(ForestTaskCsvSerializer(forest_task).data)
+    # study id is already validated by the url pattern?
+    forest_tasks = ForestTask.objects.filter(participant__study_id=study_id)
+    
+    return FileResponse(
+        stream_forest_task_log_csv(forest_tasks),
+        content_type="text/csv",
+        filename=f"forest_task_log_{timezone.now().isoformat()}.csv",
+        as_attachment=True,
+    )
+
+
+def stream_forest_task_log_csv(forest_tasks: QuerySet[ForestTask]):
+    # titles of rows as values, query filter values as keys
+    field_map = {
+        "created_on": "Created On",
+        "data_date_end": "Data Date End",
+        "data_date_start": "Data Date Start",
+        "external_id": "Id",
+        "forest_tree": "Forest Tree",
+        "forest_output_exists": "Forest Output Exists",
+        "participant__patient_id": "Patient Id",
+        "process_start_time": "Process Start Time",
+        "process_download_end_time": "Process Download End Time",
+        "process_end_time": "Process End Time",
+        "status": "Status",
+        "total_file_size": "Total File Size",
+    }
+    
+    # setup
+    buffer = CSVBuffer()
+    # the csv writer isn't well handled in the vscode ide. its has a writerow and writerows method,
+    # writes to a file-like object, CSVBuffer might be overkill, strio or bytesio might be work
+    writer = csv.writer(buffer, dialect="excel")
+    writer.writerow(field_map.values())
+    yield buffer.read()  # write the header
+    
+    # yield rows
+    for forest_data in forest_tasks.values(*field_map.keys()):
+        dict_datetime_to_display(forest_data, "created_on", "")
+        dict_datetime_to_display(forest_data, "process_start_time", "")
+        dict_datetime_to_display(forest_data, "process_download_end_time", "")
+        dict_datetime_to_display(forest_data, "process_end_time", "")
+        forest_data["forest_tree"] = forest_data["forest_tree"].title()
+        forest_data["forest_output_exists"] = yes_no_unknown(forest_data["forest_output_exists"])
+        writer.writerow(forest_data.values())
         yield buffer.read()
 
 
+def dict_datetime_to_display(some_dict: Dict[str, datetime], key: str, default: str = None):
+    # this pattern is repeated numerous times.
+    dt = some_dict[key]
+    if dt is None:
+        some_dict[key] = default
+    else:
+        some_dict[key] = dt.strftime(DEV_TIME_FORMAT)
+
+
+def yes_no_unknown(a_bool: bool):
+    if a_bool is True:
+        return "Yes"
+    elif a_bool is False:
+        return "No"
+    else:
+        return "Unknown"
+
+
+# we need a class that has a read and write method for the csv writer machinery to use.
 class CSVBuffer:
     line = ""
     

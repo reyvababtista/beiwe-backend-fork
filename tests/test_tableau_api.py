@@ -6,48 +6,17 @@ from django.http import StreamingHttpResponse
 from api.tableau_api import FINAL_SERIALIZABLE_FIELDS
 from authentication.tableau_authentication import (check_tableau_permissions,
     TableauAuthenticationFailed, TableauPermissionDenied)
-from constants.message_strings import TABLEAU_API_KEY_IS_DISABLED, TABLEAU_NO_MATCHING_API_KEY
 from constants.tableau_api_constants import (SERIALIZABLE_FIELD_NAMES, X_ACCESS_KEY_ID,
     X_ACCESS_KEY_SECRET)
 from database.security_models import ApiKey
 from database.user_models_researcher import StudyRelation
-from tests.common import ResearcherSessionTest, SmartRequestsTestCase, TableauAPITest
+from tests.common import SmartRequestsTestCase, TableauAPITest
 from tests.helpers import compare_dictionaries
 
+
 #
-## Api key management
+## Tableau API
 #
-
-class TestNewTableauAPIKey(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.new_tableau_api_key"
-    
-    def test_new_api_key(self):
-        """ Asserts that:
-            -one new api key is added to the database
-            -that api key is linked to the logged in researcher
-            -the correct readable name is associated with the key
-            -no other api keys were created associated with that researcher
-            -that api key is active and has tableau access  """
-        self.assertEqual(ApiKey.objects.count(), 0)
-        resp = self.smart_post(readable_name="test_generated_api_key")
-        self.assertEqual(ApiKey.objects.count(), 1)
-        api_key = ApiKey.objects.get(readable_name="test_generated_api_key")
-        self.assertEqual(api_key.researcher.id, self.session_researcher.id)
-        self.assertTrue(api_key.is_active)
-        self.assertTrue(api_key.has_tableau_api_permissions)
-
-
-class TestDisableTableauAPIKey(TableauAPITest):
-    ENDPOINT_NAME = "admin_pages.disable_tableau_api_key"
-    
-    def test_disable_tableau_api_key(self):
-        """ Asserts that:
-            -exactly one fewer active api key is present in the database
-            -the api key is no longer active """
-        self.assertEqual(ApiKey.objects.filter(is_active=True).count(), 1)
-        self.smart_post(api_key_id=self.api_key_public)
-        self.assertEqual(ApiKey.objects.filter(is_active=True).count(), 0)
-        self.assertFalse(ApiKey.objects.get(access_key_id=self.api_key_public).is_active)
 
 
 class TestGetTableauDaily(TableauAPITest):
@@ -130,7 +99,6 @@ class TestGetTableauDaily(TableauAPITest):
         assert compare_dictionaries(response_object[0], self.full_response_dict)
     
     def test_summary_statistics_daily_all_params_dates_all_populated(self):
-        
         self.generate_summary_statistic_daily()
         params = {"end_date": date.today(), "start_date": date.today(), **self.params_all_defaults}
         resp = self.smart_get_200_auto_headers(**params)
@@ -374,10 +342,67 @@ class TestWebDataConnector(SmartRequestsTestCase):
         "beiwe_texts_bytes",
         "beiwe_audio_recordings_bytes",
         "beiwe_wifi_bytes",
+        
+        # GPS
+        "jasmine_distance_diameter",
+        "jasmine_distance_from_home",
+        "jasmine_distance_traveled",
+        "jasmine_flight_distance_average",
+        "jasmine_flight_distance_stddev",
+        "jasmine_flight_duration_average",
+        "jasmine_flight_duration_stddev",
+        "jasmine_gps_data_missing_duration",
+        "jasmine_home_duration",
+        "jasmine_gyration_radius",
+        "jasmine_significant_location_count",
+        "jasmine_significant_location_entropy",
+        "jasmine_pause_time",
+        "jasmine_obs_duration",
+        "jasmine_obs_day",
+        "jasmine_obs_night",
+        "jasmine_total_flight_time",
+        "jasmine_av_pause_duration",
+        "jasmine_sd_pause_duration",
+        
+        # Willow, Texts
+        "willow_incoming_text_count",
+        "willow_incoming_text_degree",
+        "willow_incoming_text_length",
+        "willow_outgoing_text_count",
+        "willow_outgoing_text_degree",
+        "willow_outgoing_text_length",
+        "willow_incoming_text_reciprocity",
+        "willow_outgoing_text_reciprocity",
+        "willow_outgoing_MMS_count",
+        "willow_incoming_MMS_count",
+        
+        # Willow, Calls
+        "willow_incoming_call_count",
+        "willow_incoming_call_degree",
+        "willow_incoming_call_duration",
+        "willow_outgoing_call_count",
+        "willow_outgoing_call_degree",
+        "willow_outgoing_call_duration",
+        "willow_missed_call_count",
+        "willow_missed_callers",
+        "willow_uniq_individual_call_or_text_count",
+        
+        # Sycamore, Survey Frequency
+        "sycamore_total_surveys",
+        "sycamore_total_completed_surveys",
+        "sycamore_total_opened_surveys",
+        "sycamore_average_time_to_submit",
+        "sycamore_average_time_to_open",
+        "sycamore_average_duration",
+        
+        # Oak, walking statistics
+        "oak_walking_time",
+        "oak_steps",
+        "oak_cadence",
     ]
     
     # This is a very bad test. `content` is actually an html page (because tableau is strange)
-    def test(self):
+    def test_page_content(self):
         resp = self.smart_get(self.session_study.object_id)
         content = resp.content.decode()
         
@@ -385,66 +410,14 @@ class TestWebDataConnector(SmartRequestsTestCase):
         for field in self.LOCAL_COPY_SERIALIZABLE_FIELD_NAMES:
             self.assert_present(field, content)
         
-        # might as well also run the sanity test...
+        # test that all field names are present in the page
         for field in FINAL_SERIALIZABLE_FIELDS:
             self.assert_present(field.name, content)
-
-
-class TestNewTableauApiKey(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.new_tableau_api_key"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
-    # FIXME: add tests for sanitization of the input name
-    def test_reset(self):
-        self.assertIsNone(self.session_researcher.api_keys.first())
-        self.smart_post(readable_name="new_name")
-        self.assertIsNotNone(self.session_researcher.api_keys.first())
-        self.assert_present("New Tableau API credentials have been generated for you",
-                             self.redirect_get_contents())
-        self.assertEqual(ApiKey.objects.filter(
-            researcher=self.session_researcher, readable_name="new_name").count(), 1)
-
-
-# admin_pages.disable_tableau_api_key
-class TestDisableTableauApiKey(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.disable_tableau_api_key"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
-    
-    def test_disable_success(self):
-        # basic test
-        api_key = ApiKey.generate(
-            researcher=self.session_researcher,
-            has_tableau_api_permissions=True,
-            readable_name="something",
-        )
-        self.smart_post(api_key_id=api_key.access_key_id)
-        self.assertFalse(self.session_researcher.api_keys.first().is_active)
-        content = self.redirect_get_contents()
-        self.assert_present(api_key.access_key_id, content)
-        self.assert_present("is now disabled", content)
-    
-    def test_no_match(self):
-        # fail with empty and fail with success
-        self.smart_post(api_key_id="abc")
-        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.redirect_get_contents())
-        api_key = ApiKey.generate(
-            researcher=self.session_researcher,
-            has_tableau_api_permissions=True,
-            readable_name="something",
-        )
-        self.smart_post(api_key_id="abc")
-        api_key.refresh_from_db()
-        self.assertTrue(api_key.is_active)
-        self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.redirect_get_contents())
-    
-    def test_already_disabled(self):
-        api_key = ApiKey.generate(
-            researcher=self.session_researcher,
-            has_tableau_api_permissions=True,
-            readable_name="something",
-        )
-        api_key.update(is_active=False)
-        self.smart_post(api_key_id=api_key.access_key_id)
-        api_key.refresh_from_db()
-        self.assertFalse(api_key.is_active)
-        self.assert_present(TABLEAU_API_KEY_IS_DISABLED, self.redirect_get_contents())
+    def test_all_fields_present_in_test(self):
+        # sanity check that the fields are present in both copies of this list - yes you have to
+        # update the copy of the list whenever you change the list.
+        for field in self.LOCAL_COPY_SERIALIZABLE_FIELD_NAMES:
+            self.assertIn(field, SERIALIZABLE_FIELD_NAMES)
+        for field in FINAL_SERIALIZABLE_FIELDS:
+            self.assertIn(field.name, self.LOCAL_COPY_SERIALIZABLE_FIELD_NAMES)

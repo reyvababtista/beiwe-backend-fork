@@ -8,6 +8,7 @@ from database.survey_models import Survey
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import ResearcherRequest
 
+#FIXME: this file should be merged into survey_api.py, its fine that it renders a page.
 
 @authenticate_researcher_study_access
 def render_edit_survey(request: ResearcherRequest, study_id: int, survey_id: int):

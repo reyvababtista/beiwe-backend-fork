@@ -1,8 +1,8 @@
-from datetime import date
-
-from config.settings import SENTRY_JAVASCRIPT_DSN
+from config.settings import ENABLE_EXPERIMENTS
+from constants.user_constants import ANDROID_API, IOS_API
 from database.study_models import Study
 from libs.internal_types import ResearcherRequest
+
 
 # NOTE: there is documentation on the django documentation page about using context processors with
 # jinja2. search for "Using context processors with Jinja2 templates is discouraged"
@@ -28,4 +28,7 @@ def researcher_context_processor(request: ResearcherRequest):
         ret["is_admin"] = request.session_researcher.is_an_admin()
         ret["site_admin"] = request.session_researcher.site_admin
         ret["session_researcher"] = request.session_researcher
+        ret["IOS_API"] = IOS_API
+        ret["ANDROID_API"] = ANDROID_API
+        ret["ENABLE_EXPERIMENTS"] = ENABLE_EXPERIMENTS
     return ret

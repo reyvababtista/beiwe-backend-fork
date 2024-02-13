@@ -10,12 +10,14 @@ from django.views.decorators.http import require_GET, require_http_methods
 
 from api.participant_administration import add_fields_and_interventions
 from authentication.admin_authentication import authenticate_researcher_study_access
+from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import API_DATE_FORMAT
 from constants.message_strings import PARTICIPANT_LOCKED
 from constants.user_constants import DATA_DELETION_ALLOWED_RELATIONS
 from database.schedule_models import ArchivedEvent
 from database.study_models import Study
 from database.user_models_participant import Participant
+from forms.django_forms import ParticipantExperimentForm
 from libs.firebase_config import check_firebase_instance
 from libs.http_utils import easy_url, really_nice_time_format_with_tz
 from libs.internal_types import ArchivedEventQuerySet, ResearcherRequest
@@ -102,6 +104,39 @@ def participant_page(request: ResearcherRequest, study_id: int, patient_id: str)
     messages.success(request, f'Successfully edited participant {participant.patient_id}.')
     return end_redirect
 
+
+@authenticate_researcher_study_access
+def experiments_page(request: ResearcherRequest, study_id: int, patient_id: str):
+    if not ENABLE_EXPERIMENTS:
+        raise Exception("YO EXPERIMENTS ARE DISABLED HOW IS THIS RUNNING 1")
+    participant = get_object_or_404(Participant, patient_id=patient_id)
+    # just render the page with the current state of the ParticipantExperimentForm.
+    # page is almost nothing but that form.
+    return render(
+        request,
+        'participant_experiments.html',
+        context=dict(
+            participant=participant,
+            form=ParticipantExperimentForm(instance=participant),
+        )
+    )
+    
+@authenticate_researcher_study_access
+def update_experiments(request: ResearcherRequest, study_id: int, patient_id: str):
+    if not ENABLE_EXPERIMENTS:
+        raise Exception("YO EXPERIMENTS ARE DISABLED HOW IS THIS RUNNING 2")
+    # use the ParticipantExperimentForm to validate the input, update the participant
+    # and then redirect back to the participant page.
+    participant = get_object_or_404(Participant, patient_id=patient_id)
+    
+    form = ParticipantExperimentForm(request.POST)
+    if form.is_valid():
+        # form.save() doesn't tries to overwrite every field, which is stupid.
+        participant.update(**form.cleaned_data)
+        messages.success(request, f'Successfully updated participant {participant.patient_id}.')
+    else:
+        messages.error(request, 'Invalid form data, what are you doing?')
+    return redirect(easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id))
 
 def render_participant_page(request: ResearcherRequest, participant: Participant, study: Study):
     # to reduce database queries we get all the data across 4 queries and then merge it together.

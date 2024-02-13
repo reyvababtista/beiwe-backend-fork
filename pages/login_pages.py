@@ -42,6 +42,11 @@ def validate_login(request: HttpRequest):
     mfa_code = request.POST.get("mfa_code", "")
     
     # Test password, username, if the don't match return to login page.
+    # Known bug, 2023-12-24 - this endpoint threw
+    # "ValidationError: {'password_min_length': ['Ensure this value is greater than or equal to 8.']}""
+    # on Researcher.check_password. Was unable to reproduce. test_password_too_short_bad_state tests
+    # that min_password_length at least results in a redirect to the manage credentials page on a
+    # successful password challenge with that state, but does not trigger such an error.
     if not (username and password and Researcher.check_password(username, password)):
         messages.warning(request, "Incorrect username & password combination; try again.")
         return redirect(reverse("login_pages.login_page"))

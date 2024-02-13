@@ -1,26 +1,31 @@
 from __future__ import annotations
-
+from django.db.models import Manager, QuerySet
 import json
 from datetime import datetime, timedelta, tzinfo
 from pprint import pprint
-from typing import Dict, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from Cryptodome.PublicKey import RSA
 from dateutil.tz import gettz
+from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import MinLengthValidator
 from django.db import models
 from django.db.models import Manager
 from django.utils import timezone
 
 from config.settings import DOMAIN_NAME
-from constants.data_stream_constants import IDENTIFIERS
-from constants.user_constants import ANDROID_API, IOS_API, OS_TYPE_CHOICES
+from constants.action_log_messages import HEARTBEAT_PUSH_NOTIFICATION_SENT
+from constants.common_constants import LEGIBLE_TIME_FORMAT
+from constants.data_stream_constants import ALL_DATA_STREAMS, IDENTIFIERS
+from constants.user_constants import (ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API,
+    OS_TYPE_CHOICES)
 from database.common_models import UtilityModel
 from database.models import TimestampedModel
 from database.study_models import Study
 from database.user_models_common import AbstractPasswordUser
 from database.validators import ID_VALIDATOR
 from libs.firebase_config import check_firebase_instance
+from libs.s3 import s3_retrieve
 from libs.security import (compare_password, device_hash, django_password_components,
     generate_easy_alphanumeric_string)
 
@@ -53,18 +58,9 @@ class Participant(AbstractPasswordUser):
     DESIRED_ALGORITHM = "sha1"   # Yes, Bad, but this password doesn't actually protect access to data.
     DESIRED_ITERATIONS = 1000  # We will be completely reworking participant authentication soon anyway.
     
-    patient_id = models.CharField(
-        max_length=8, unique=True, validators=[ID_VALIDATOR],
-        help_text='Eight-character unique ID with characters chosen from 1-9 and a-z'
-    )
-    device_id = models.CharField(
-        max_length=256, blank=True,
-        help_text='The ID of the device that the participant is using for the study, if any.'
-    )
-    os_type = models.CharField(
-        max_length=16, choices=OS_TYPE_CHOICES, blank=True,
-        help_text='The type of device the participant is using, if any.'
-    )
+    patient_id = models.CharField(max_length=8, unique=True, validators=[ID_VALIDATOR])
+    device_id = models.CharField(max_length=256, blank=True)
+    os_type = models.CharField(max_length=16, choices=OS_TYPE_CHOICES, blank=True)
     study: Study = models.ForeignKey(
         Study, on_delete=models.PROTECT, related_name='participants', null=False
     )
@@ -75,6 +71,7 @@ class Participant(AbstractPasswordUser):
     unknown_timezone = models.BooleanField(default=True)  # flag for using participant's timezone.
     
     push_notification_unreachable_count = models.SmallIntegerField(default=0, null=False, blank=False)
+    last_heartbeat_notification = models.DateTimeField(null=True, blank=True)
     
     # TODO: clean out or maybe rename these fields to distinguish from last_updated? also wehave two survey checkin timestamps
     # new checkin logic
@@ -82,7 +79,7 @@ class Participant(AbstractPasswordUser):
     last_push_notification_checkin = models.DateTimeField(null=True, blank=True)
     last_survey_checkin = models.DateTimeField(null=True, blank=True)
     
-    # pure tracking
+    # pure tracking - these are used to track the last time a participant did something.
     last_get_latest_surveys = models.DateTimeField(null=True, blank=True)
     last_upload = models.DateTimeField(null=True, blank=True)
     last_register_user = models.DateTimeField(null=True, blank=True)
@@ -98,9 +95,28 @@ class Participant(AbstractPasswordUser):
     
     deleted = models.BooleanField(default=False)
     
-    # "Unregistered" means the participant is blocked from uploading further data; retired.
-    unregistered = models.BooleanField(default=False)
+    # retired participants are blocked from uploading further data.
+    permanently_retired = models.BooleanField(default=False)
     easy_enrollment = models.BooleanField(default=False)
+    
+    # Participant experiments, beta features - these fields literally may not be used Anywhere, some
+    # of them are filler for future features that may or may not be implemented. Some are for
+    # backend feature, some are for app features. (features under active development should be
+    # annotated in some way but no promises.)
+    enable_heartbeat = models.BooleanField(default=False)  # backend, under active development
+    enable_aggressive_background_persistence = models.BooleanField(default=False)  # app, under active development
+    enable_binary_uploads = models.BooleanField(default=False)
+    enable_new_authentication = models.BooleanField(default=False)
+    enable_developer_datastream = models.BooleanField(default=False)
+    enable_beta_features = models.BooleanField(default=False)
+    EXPERIMENT_FIELDS = (
+        "enable_heartbeat",
+        # "enable_aggressive_background_persistence",
+        # "enable_binary_uploads",
+        # "enable_new_authentication",
+        # "enable_developer_datastream",
+        # "enable_beta_features",
+    )
     
     # related field typings (IDE halp)
     archived_events: Manager[ArchivedEvent]
@@ -109,9 +125,11 @@ class Participant(AbstractPasswordUser):
     fcm_tokens: Manager[ParticipantFCMHistory]
     field_values: Manager[ParticipantFieldValue]
     files_to_process: Manager[FileToProcess]
+    heartbeats: Manager[AppHeartbeats]
     intervention_dates: Manager[InterventionDate]
     scheduled_events: Manager[ScheduledEvent]
     upload_trackers: Manager[UploadTracking]
+    action_logs: Manager[ParticipantActionLog]
     # undeclared:
     encryptionerrormetadata_set: Manager[EncryptionErrorMetadata]  # TODO: remove when ios stops erroring
     foresttask_set: Manager[ForestTask]
@@ -120,23 +138,9 @@ class Participant(AbstractPasswordUser):
     pushnotificationdisabledevent_set: Manager[PushNotificationDisabledEvent]
     summarystatisticdaily_set: Manager[SummaryStatisticDaily]
     
-    @property
-    def _recents(self) -> Dict[str, Union[str, datetime]]:
-        self.refresh_from_db()
-        now = timezone.now()
-        return {
-            "last_version_code": self.last_version_code,
-            "last_version_name": self.last_version_name,
-            "last_os_version": self.last_os_version,
-            "last_get_latest_surveys": f"{(now - self.last_get_latest_surveys).total_seconds() // 60} minutes ago" if self.last_get_latest_surveys else None,
-            "last_push_notification_checkin": f"{(now - self.last_push_notification_checkin).total_seconds() // 60} minutes ago" if self.last_push_notification_checkin else None,
-            "last_register_user": f"{(now - self.last_register_user).total_seconds() // 60} minutes ago" if self.last_register_user else None,
-            "last_set_fcm_token": f"{(now - self.last_set_fcm_token).total_seconds() // 60} minutes ago" if self.last_set_fcm_token else None,
-            "last_set_password": f"{(now - self.last_set_password).total_seconds() // 60} minutes ago" if self.last_set_password else None,
-            "last_survey_checkin": f"{(now - self.last_survey_checkin).total_seconds() // 60} minutes ago" if self.last_survey_checkin else None,
-            "last_upload": f"{(now - self.last_upload).total_seconds() // 60} minutes ago" if self.last_upload else None,
-            "last_get_latest_device_settings": f"{(now - self.last_get_latest_device_settings).total_seconds() // 60} minutes ago" if self.last_get_latest_device_settings else None,
-        }
+    ################################################################################################
+    ###################################### Timezones ###############################################
+    ################################################################################################
     
     @property
     def timezone(self) -> tzinfo:
@@ -160,6 +164,10 @@ class Participant(AbstractPasswordUser):
         else:
             # force setting unknown_timezone false if the value is valid
             self.update_only(unknown_timezone=False, timezone_name=new_timezone_name)
+    
+    ################################################################################################
+    ########################## Participant Creation and Passwords ##################################
+    ################################################################################################
     
     @classmethod
     def create_with_password(cls, **kwargs) -> Tuple[str, str]:
@@ -189,6 +197,14 @@ class Participant(AbstractPasswordUser):
         _algorithm, _iterations, password, salt = django_password_components(self.password)
         return compare_password('sha1', 1000, device_hash(compare_me.encode()), password, salt)
     
+    def get_private_key(self) -> RSA.RsaKey:
+        from libs.s3 import get_client_private_key  # weird import triangle
+        return get_client_private_key(self.patient_id, self.study.object_id)
+    
+    ################################################################################################
+    ########################## FCM TOKENS AND PUSH NOTIFICATIONS ###################################
+    ################################################################################################
+    
     def assign_fcm_token(self, fcm_instance_id: str):
         ParticipantFCMHistory.objects.create(participant=self, token=fcm_instance_id)
     
@@ -198,20 +214,54 @@ class Participant(AbstractPasswordUser):
         except ParticipantFCMHistory.DoesNotExist:
             return None
     
+    @property
+    def participant_push_enabled(self) -> bool:
+        return (
+            self.os_type == ANDROID_API and check_firebase_instance(require_android=True) or
+            self.os_type == IOS_API and check_firebase_instance(require_ios=True)
+        )
+    
+    ################################################################################################
+    ###################################### History I Guess #########################################
+    ################################################################################################
+    
     def notification_events(self, **archived_event_filter_kwargs) -> Manager[ArchivedEvent]:
         """ convenience methodd for use debugging in the terminal mostly. """
         from database.schedule_models import ArchivedEvent
         return ArchivedEvent.objects.filter(participant=self) \
             .filter(**archived_event_filter_kwargs).order_by("-scheduled_time")
     
-    def get_private_key(self) -> RSA.RsaKey:
-        from libs.s3 import get_client_private_key  # weird import triangle
-        return get_client_private_key(self.patient_id, self.study.object_id)
+    def log(self, action: str):
+        """ Creates a ParticipantActionLog object. """
+        return ParticipantActionLog.objects.create(
+            participant=self, timestamp=timezone.now(), action=action)
     
-    def s3_retrieve(self, s3_path: str) -> bytes:
-        from libs.s3 import s3_retrieve
-        raw_path = s3_path.startswith(self.study.object_id)
-        return s3_retrieve(s3_path, self, raw_path=raw_path)
+    ################################################################################################
+    ################################## PARTICIPANT STATE ###########################################
+    ################################################################################################
+    
+    @property
+    def is_active_one_week(self) -> bool:
+        return self._is_active(timezone.now() - timedelta(days=7))
+    
+    @property
+    def last_app_heartbeat(self) -> Optional[datetime]:
+        """ Returns the last time the app sent a heartbeat. """
+        try:
+            return self.heartbeats.latest("timestamp").timestamp
+        except AppHeartbeats.DoesNotExist:
+            return None
+    
+    def _is_active(self, now: datetime) -> bool:
+        # get the most recent timestamp from the list of fields, and check if it is more recent than
+        # now the participant is considered active.
+        for key in ACTIVE_PARTICIPANT_FIELDS:
+            if not hasattr(self, key):
+                raise ImproperlyConfigured("Participant model does not have a field named {key}.")
+            value = getattr(self, key)
+            if value is not None and value >= now:
+                return True
+        return False
     
     @property
     def is_dead(self) -> bool:
@@ -220,17 +270,75 @@ class Participant(AbstractPasswordUser):
     @property
     def has_deletion_event(self) -> bool:
         try:
+            # trunk-ignore(ruff/B018)
             self.deletion_event
             return True
         except ParticipantDeletionEvent.DoesNotExist:
             return False
     
+    ################################################################################################
+    ######################################### S3 DATA ##############################################
+    ################################################################################################
+    
+    def s3_retrieve(self, s3_path: str) -> bytes:
+        raw_path = s3_path.startswith(self.study.object_id)
+        return s3_retrieve(s3_path, self, raw_path=raw_path)
+    
     @property
-    def participant_push_enabled(self) -> bool:
-        return (
-            self.os_type == ANDROID_API and check_firebase_instance(require_android=True) or
-            self.os_type == IOS_API and check_firebase_instance(require_ios=True)
-        )
+    def get_identifiers(self):
+        for identifier in self.chunk_registries.filter(data_type=IDENTIFIERS).order_by("created_on"):
+            print(identifier.s3_retrieve().decode())
+    
+    ################################################################################################
+    ############################### TERMINAL DEBUGGING FUNCTIONS ###################################
+    ################################################################################################
+    
+    def __str__(self) -> str:
+        return f'{self.patient_id} of Study "{self.study.name}"'
+    
+    @property
+    def _recents(self) -> Dict[str, Union[str, Optional[str]]]:
+        self.refresh_from_db()
+        now = timezone.now()
+        return {
+            "last_version_code": self.last_version_code,
+            "last_version_name": self.last_version_name,
+            "last_os_version": self.last_os_version,
+            "last_get_latest_surveys": f"{(now - self.last_get_latest_surveys).total_seconds() // 60} minutes ago" if self.last_get_latest_surveys else None,
+            "last_push_notification_checkin": f"{(now - self.last_push_notification_checkin).total_seconds() // 60} minutes ago" if self.last_push_notification_checkin else None,
+            "last_register_user": f"{(now - self.last_register_user).total_seconds() // 60} minutes ago" if self.last_register_user else None,
+            "last_set_fcm_token": f"{(now - self.last_set_fcm_token).total_seconds() // 60} minutes ago" if self.last_set_fcm_token else None,
+            "last_set_password": f"{(now - self.last_set_password).total_seconds() // 60} minutes ago" if self.last_set_password else None,
+            "last_survey_checkin": f"{(now - self.last_survey_checkin).total_seconds() // 60} minutes ago" if self.last_survey_checkin else None,
+            "last_upload": f"{(now - self.last_upload).total_seconds() // 60} minutes ago" if self.last_upload else None,
+            "last_get_latest_device_settings": f"{(now - self.last_get_latest_device_settings).total_seconds() // 60} minutes ago" if self.last_get_latest_device_settings else None,
+        }
+    
+    def get_data_summary(self) -> Dict[str, Union[str, int]]:
+        """ Assembles a summary of data quantities for the participant, for debugging. """
+        data = {stream: 0 for stream in ALL_DATA_STREAMS}
+        for data_type, size in self.chunk_registries.values_list("data_type", "file_size").iterator():
+            data[data_type] += size
+        
+        # print with 2 digits after decimal point
+        for k, v in data.items():
+            print(f"{k}:", f"{v / 1024 / 1024:.2f} MB")
+    
+    def logs(self) -> List[str]:
+        return self._logs()
+    
+    def logs_heartbeats_sent(self):
+        return self._logs(HEARTBEAT_PUSH_NOTIFICATION_SENT)
+    
+    def _logs(self, action: str = None)  -> QuerySet[Tuple[datetime, str]]:
+        # this is for terminal debugging - so most recent LAST.
+        query: QuerySet[Tuple[datetime, str]] = self.action_logs.order_by("timestamp").values_list("timestamp", "action")
+        if action:
+            query = query.filter(action=action)
+        tz = self.timezone
+        return [
+            f"{t.astimezone(tz).strftime(LEGIBLE_TIME_FORMAT)}: '{action}'" for t, action in query
+        ]
     
     @property
     def participant_page(self):
@@ -251,14 +359,6 @@ class Participant(AbstractPasswordUser):
             pprint(json.loads(dsr))
         else:
             print("\n(No device status report.)")
-    
-    @property
-    def get_identifiers(self):
-        for identifier in self.chunk_registries.filter(data_type=IDENTIFIERS).order_by("created_on"):
-            print(identifier.s3_retrieve().decode())
-    
-    def __str__(self) -> str:
-        return f'{self.patient_id} of Study "{self.study.name}"'
 
 
 class PushNotificationDisabledEvent(UtilityModel):
@@ -339,3 +439,31 @@ class ParticipantDeletionEvent(TimestampedModel):
             f"{finished_24.count()} in the past 24 hours:\n"
             f"{', '.join(p for p in finished_24.values_list('participant__patient_id', flat=True))}"
         )
+
+
+class AppHeartbeats(UtilityModel):
+    """ Storing heartbeats is intended as a debugging tool for monitoring app uptime, the idea is 
+    that the app checks in every 5 minutes so we can see when it doesn't. (And then send it a push
+    notification)  """
+    participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="heartbeats")
+    timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
+    message = models.TextField(null=True, blank=True)
+    
+    @classmethod
+    def create(cls, participant: Participant, timestamp: datetime, message: str = None):
+        return cls.objects.create(participant=participant, timestamp=timestamp, message=message)
+
+
+class ParticipantActionLog(UtilityModel):
+    """ This is a log of actions taken by participants, for debugging purposes. """
+    participant: Participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="action_logs")
+    timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
+    action = models.TextField(null=False, blank=False)
+
+
+# feature disabled, untested
+# class IOSHardExits(UtilityModel):
+#     participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="ios_hard_exits")
+#     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
+#     # handled means there was a notification sent to the user, or we got a heartbeat.
+#     handled = models.DateTimeField(null=False, blank=False, db_index=True)

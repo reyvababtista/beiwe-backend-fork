@@ -2,6 +2,7 @@ import itertools
 from typing import List, Tuple
 
 from django.utils import timezone
+from constants import action_log_messages
 
 from constants.common_constants import CHUNKS_FOLDER, PROBLEM_UPLOADS
 from database.user_models_participant import Participant, ParticipantDeletionEvent
@@ -13,7 +14,7 @@ DELETION_PAGE_SIZE = 250
 
 
 def add_particpiant_for_deletion(participant: Participant):
-    """ adds a participant to the deletion queue. """
+    """ Adds a participant to the deletion queue. """
     try:
         ParticipantDeletionEvent.objects.get(participant=participant)
         return
@@ -31,6 +32,9 @@ def run_next_queued_participant_data_deletion():
         purge_confirmed_time__isnull=True,
         last_updated__lt=timezone.now() - timezone.timedelta(minutes=30),
     ).first()
+    
+    #! if you are writing a test and this is happening it might be because the last_updated field
+    #! is specifically updated over in confirm_deleted as a control mechanism to prevent overlaps.
     if not deletion_event:
         return
     
@@ -38,8 +42,10 @@ def run_next_queued_participant_data_deletion():
     
     # mark the participant as retired (field name is unregistered, its a legacy name), disable
     # easy enrollment, set a random password (validation runs on save so it needs to be valid)
+    deletion_event.participant.log(action_log_messages.PARTICIPANT_DELETION_EVENT_STARTED)
+    
     deletion_event.participant.update(
-        unregistered=True, easy_enrollment=False, device_id="", os_type=""
+        permanently_retired=True, easy_enrollment=False, device_id="", os_type=""
     )
     deletion_event.participant.set_password(generate_easy_alphanumeric_string(50))
     
@@ -59,8 +65,12 @@ def run_next_queued_participant_data_deletion():
     deletion_event.participant.scheduled_events.all().delete()
     deletion_event.participant.archived_events.all().delete()
     deletion_event.participant.intervention_dates.all().delete()
+    deletion_event.participant.heartbeats.all().delete()
+    #! BUT WE DON'T DELETE ACTION LOGS.
+    # deletion_event.participant.action_logs.all().delete()
     confirm_deleted(deletion_event)
     deletion_event.participant.update(deleted=True)
+    deletion_event.participant.log(action_log_messages.PARTICIPANT_DELETION_EVENT_DONE)
 
 
 def delete_participant_data(deletion_event: ParticipantDeletionEvent):
@@ -118,6 +128,12 @@ def confirm_deleted(deletion_event: ParticipantDeletionEvent):
         raise AssertionError("still have database entries for scheduled_events")
     if deletion_event.participant.archived_events.exists():
         raise AssertionError("still have database entries for archived_events")
+    if deletion_event.participant.heartbeats.exists():
+        raise AssertionError("still have database entries for heartbeats")  
+    
+    #! BUT WE DON'T DELETE ACTION LOGS, in fact there should be at least 1
+    if not deletion_event.participant.action_logs.exists():
+        raise AssertionError("For some reason there are no action logs for this participant.")
     
     # mark the deletion event as _confirmed_ completed
     deletion_event.purge_confirmed_time = timezone.now()

@@ -11,7 +11,7 @@ from constants.tableau_api_constants import (APIKEY_NO_ACCESS_MESSAGE,
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.user_models_researcher import StudyRelation
-from forms.django_forms import AuthenticationForm
+from forms.django_forms import TableauAuthenticationForm
 from libs.internal_types import TableauRequest
 
 
@@ -54,7 +54,7 @@ def authenticate_tableau(some_function):
 
 def check_tableau_permissions(request: HttpRequest, study_object_id=None):
     """ Authenticate API key and check permissions for access to a study/participant data. """
-    authorization_form = AuthenticationForm(request.headers)
+    authorization_form = TableauAuthenticationForm(request.headers)
     
     # sanitize
     if not authorization_form.is_valid():

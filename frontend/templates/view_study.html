@@ -74,7 +74,7 @@
           <tr>
             <th>Creation Date</th>
             <th>Patient ID</th>
-            <th>Phone registered</th>
+            <th>Status</th>
             <th>Phone OS</th>
             {% if push_notifications_enabled %}
               {% for intervention in interventions | sort(case_sensitive=False) %}
@@ -187,45 +187,6 @@
           {% endfor %}
         {% else %}
           This study does not have any Audio Surveys.
-        {% endif %}
-      </div>
-    </div>
-
-    <div class="col-xs-11 row"> 
-      <h3 class="row"> Image Surveys </h3>
-    </div>
-    <div class="col-xs-1"> 
-      <a href="/create_survey/{{ study.id }}/image_survey" class="btn btn-info h3-margins pull-right">
-        Create New <b>Image Survey</b></a>
-    </div>
-
-    <div class="row">
-      <div class="list-group well col-xs-12">
-        {% if image_survey_info %}
-          {% for info in image_survey_info %}
-          
-            <div class="col-xs-12">
-              <a href="/edit_survey/{{study_id}}/{{info["id"] }}" class="list-group-item survey-button-margins row">  
-                {% if info["name"] != "" %}
-                  <span class="col-xs-9 row"> {{info["name"]}} </span>
-                {% else %}
-                  <span class="col-xs-9 row" style="color:gray;"> (Unnamed Survey) </span>
-                {% endif %}
-                
-                {# stick these metadata into a small table so we can stack them #}
-                <table class="pull-right survey-inline-table survey-micro-label">
-                  <tr> <td>
-                    <span> Survey ID #{{info["object_id"]}} </span>
-                  </td> </tr>
-                  <tr> <td>
-                    <span> Updated: {{info["last_updated"]}} </span>
-                  </td></tr>
-                </table>
-                </a>
-            </div>
-          {% endfor %}
-        {% else %}
-          This study does not have any Image Surveys.
         {% endif %}
       </div>
     </div>

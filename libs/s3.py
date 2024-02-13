@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Generator, List, Optional, Tuple
 
 import boto3
@@ -8,15 +10,17 @@ from Cryptodome.PublicKey import RSA
 from config.settings import (BEIWE_SERVER_AWS_ACCESS_KEY_ID, BEIWE_SERVER_AWS_SECRET_ACCESS_KEY,
     S3_BUCKET, S3_REGION_NAME)
 from constants.common_constants import CHUNKS_FOLDER
-from database.study_models import Study
-from database.user_models_participant import Participant
 from libs.aes import decrypt_server, encrypt_for_server
-from libs.internal_types import StrOrParticipantOrStudy
 from libs.rsa import generate_key_pairing, get_RSA_cipher, prepare_X509_key_for_java
 
 
 # NOTE: S3_BUCKET is patched during tests to be the Exception class, which is (obviously) invalid.
 # The asserts in this file are protections for runninsg s3 commands inside tests.
+
+try:
+    from libs.internal_types import StrOrParticipantOrStudy  # this is purely for ide assistance
+except ImportError:
+    pass
 
 
 class NoSuchKeyException(Exception): pass
@@ -32,6 +36,8 @@ conn: BaseClient = boto3.client(
 
 
 def smart_get_study_encryption_key(obj: StrOrParticipantOrStudy) -> bytes:
+    from database.study_models import Study
+    from database.user_models_participant import Participant
     if isinstance(obj, Participant):
         return obj.study.encryption_key.encode()
     elif isinstance(obj, Study):
@@ -43,6 +49,8 @@ def smart_get_study_encryption_key(obj: StrOrParticipantOrStudy) -> bytes:
 
 
 def s3_construct_study_key_path(key_path: str, obj: StrOrParticipantOrStudy):
+    from database.study_models import Study
+    from database.user_models_participant import Participant
     if isinstance(obj, Participant):
         study_object_id = obj.study.object_id
     elif isinstance(obj, Study):

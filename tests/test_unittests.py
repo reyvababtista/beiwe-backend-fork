@@ -1,4 +1,5 @@
 import time
+import typing
 import unittest
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
@@ -7,15 +8,15 @@ import dateutil
 from dateutil.tz import gettz
 from django.utils import timezone
 
+from api.study_api import determine_registered_status
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import MIDNIGHT_EVERY_DAY
+from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS
 from database.data_access_models import IOSDecryptionKey
-from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
-from database.schedule_models import (ArchivedEvent, BadWeeklyCount, InterventionDate,
-    ScheduledEvent, WeeklySchedule)
-from database.user_models_participant import (Participant, ParticipantDeletionEvent,
-    ParticipantFieldValue, PushNotificationDisabledEvent)
+from database.schedule_models import BadWeeklyCount, WeeklySchedule
+from database.user_models_participant import (AppHeartbeats, Participant, ParticipantActionLog,
+    ParticipantDeletionEvent, PushNotificationDisabledEvent)
 from libs.file_processing.exceptions import BadTimecodeError
 from libs.file_processing.utility_functions_simple import binify_from_timecode
 from libs.participant_purge import (confirm_deleted, get_all_file_path_prefixes,
@@ -25,11 +26,35 @@ from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_
 from tests.common import CommonTestCase
 
 
+# trunk-ignore-all(ruff/B018,bandit/B101)
+NoneType = type(None)  # noqa
+
+
 # timezones should be compared using the 'is' operator
 THE_ONE_TRUE_TIMEZONE = gettz("America/New_York")
 THE_OTHER_ACCEPTABLE_TIMEZONE = gettz("UTC")
 
 COUNT_OF_PATHS_RETURNED_FROM_GET_ALL_FILE_PATH_PREFIXES = 4
+
+# Decorator for class instance methods that injects these three mocks, used in data purge tests.
+# @patch('libs.participant_purge.s3_list_files')
+# @patch('libs.participant_purge.s3_delete_many_versioned')
+# @patch('libs.participant_purge.s3_list_versions')
+# These patches are for the database table deletions.  s3_list_files specifically would result in an
+# assertion error stating that the base s3 file path is not empty, so we patch that in the rest of
+# the tests, which are database purge tests.
+def data_purge_mock_s3_calls(func):
+    s3_delete_many_versioned = patch('libs.participant_purge.s3_delete_many_versioned')
+    s3_list_files = patch('libs.participant_purge.s3_list_files')
+    s3_list_versions = patch('libs.participant_purge.s3_list_versions')
+    s3_list_files.return_value = []
+    s3_list_versions.return_value = []
+    s3_delete_many_versioned.return_value = []
+    def wrapper(self, *args, **kwargs):
+        with s3_delete_many_versioned, s3_list_files, s3_list_versions:
+            return func(self, *args, **kwargs)
+    return wrapper
+
 
 class TestTimingsSchedules(CommonTestCase):
     
@@ -164,7 +189,7 @@ class TestParticipantDataDeletion(CommonTestCase):
         self.default_participant.refresh_from_db()
         self.assertEqual(self.default_participant.deleted, True)
         self.assertEqual(self.default_participant.easy_enrollment, False)
-        self.assertEqual(self.default_participant.unregistered, True)
+        self.assertEqual(self.default_participant.permanently_retired, True)
         self.assertEqual(self.default_participant.device_id, "")
         self.assertEqual(self.default_participant.os_type, "")
     
@@ -253,138 +278,166 @@ class TestParticipantDataDeletion(CommonTestCase):
         self.default_participant_deletion_event.refresh_from_db()
         self.assertIsNone(self.default_participant_deletion_event.purge_confirmed_time)
     
-    # actually a unittest!
-    @patch('libs.participant_purge.s3_list_files')
-    def test_confirm_deleted(self, s3_list_files: MagicMock):
-        # s3_list_files should result in an assertion error stating that the base s3 file path is not empty
-        s3_list_files.return_value = []
-        
-        # ChunkRegistry
-        self.default_chunkregistry
+    @property
+    def assert_confirm_deletion_raises_then_reset_last_updated(self):
+        self.default_participant_deletion_event.refresh_from_db()
+        last_updated = self.default_participant_deletion_event.last_updated
         self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        self.default_chunkregistry.delete()
+        ParticipantDeletionEvent.objects.filter(
+            pk=self.default_participant_deletion_event.pk).update(last_updated=last_updated)
+    
+    def test_assert_confirm_deletion_raises_then_reset_last_updated_works(self):
+        class GoodError(Exception): pass
+        text_1 ="this test should have raised an assertion error, " \
+                "all database tests for TestParticipantDataDeletion invalidated."
+        text_2 = text_1 + " (second instance)"
+        text_1 = text_1 + " (first instance)"
+        try:
+            self.assert_confirm_deletion_raises_then_reset_last_updated
+            raise GoodError(text_1)
+        except AssertionError:
+            FALSE_IF_IT_FAILED = False
+        except GoodError:
+            FALSE_IF_IT_FAILED = True
+        assert FALSE_IF_IT_FAILED, text_2
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_ChunkRegistry(self):
+        self.default_participant_deletion_event
+        self.default_chunkregistry
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)  # errors means test failure
         
-        # summary statistic
+    @data_purge_mock_s3_calls
+    def test_confirm_SummaryStatisticDaily(self):
         self.default_summary_statistic_daily
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        self.default_summary_statistic_daily.delete()
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)
-        
-        # LineEncryptionError - we don't need test infrastructure these, we just do not care.
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_LineEncryptionError(self):
         LineEncryptionError.objects.create(
             base64_decryption_key="abc123",
             participant=self.default_participant,
             type=LineEncryptionError.PADDING_ERROR
         )
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        LineEncryptionError.objects.all().delete()
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)
-        
-        # IosDecryptionKey
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_IOSDecryptionKey(self):
         IOSDecryptionKey.objects.create(
             participant=self.default_participant, base64_encryption_key="abc123", file_name="abc123"
         )
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        IOSDecryptionKey.objects.all().delete()
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)
-        
-        task = self.generate_forest_task()
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        task.delete()
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_ForestTask(self):
+        self.generate_forest_task()
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)
-        
-        # EncryptionErrorMetadata
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_EncryptionErrorMetadata(self):
         EncryptionErrorMetadata.objects.create(
             file_name="a", total_lines=1, number_errors=1, error_lines="a", error_types="a", participant=self.default_participant
         )
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        EncryptionErrorMetadata.objects.all().delete()
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)
-        
-        # FileToProcess
-        ftp = self.generate_file_to_process("a_path")
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        ftp.delete()
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_FileToProcess(self):
+        self.generate_file_to_process("a_path")
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)
-        
-        # PushNotificationDisabledEvent
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_PushNotificationDisabledEvent(self):
         PushNotificationDisabledEvent.objects.create(participant=self.default_participant, count=1)
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        PushNotificationDisabledEvent.objects.all().delete()
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)
-        
-        # ParticipantFCMHistory
-        fcm_token = self.populate_default_fcm_token
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        fcm_token.delete()
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_ParticipantFCMHistory(self):
+        self.populate_default_fcm_token
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)
-        
-        # ParticipantFieldValue
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_ParticipantFieldValue(self):
         self.default_participant_field_value
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        ParticipantFieldValue.objects.all().delete()
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)
-        
-        # UploadTracking
+    @data_purge_mock_s3_calls
+    def test_confirm_UploadTracking(self):
         UploadTracking.objects.create(
             file_path=" ", file_size=0, timestamp=timezone.now(), participant=self.default_participant
         )
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        UploadTracking.objects.all().delete()
-        confirm_deleted(self.default_participant_deletion_event)
-        
-        # ScheduledEvent, ArchivedEvent (they have a relation)
-        sched_event = self.generate_a_real_weekly_schedule_event_with_schedule()[0]
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        sched_event.archive(self_delete=True, status="deleted", created_on=timezone.now())
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        ScheduledEvent.objects.all().delete()
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        ArchivedEvent.objects.all().delete()
-        confirm_deleted(self.default_participant_deletion_event)
-        
-        # InterventionDate
-        self.default_populated_intervention_date
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        InterventionDate.objects.all().delete()
-        confirm_deleted(self.default_participant_deletion_event)
-        
-        # ForestTask
-        self.generate_forest_task()
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        ForestTask.objects.all().delete()
-        confirm_deleted(self.default_participant_deletion_event)
-        
-        self.generate_summary_statistic_daily()
-        self.assertRaises(AssertionError, confirm_deleted, self.default_participant_deletion_event)
-        SummaryStatisticDaily.objects.all().delete()
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)
     
-    def test_related_fields(self):
-        # this test will fail whenever there is a new related model added to the codebase for a
-        # participant, you need to ensure that you have manually added a test to
-        # test_confirm_deleted, that it is added to libs.partiicpants_purge.confirm_deleted, and
-        # libs.participant_purge.run_next_queued_participant_data_deletion
-        relate_models = [
-            "ParticipantDeletionEvent",  # this is why we are here...
-            "ArchivedEvent",  # confirmed
-            "ChunkRegistry",  # confirmed
-            "EncryptionErrorMetadata",  # confirmed
-            "FileToProcess",  # confirmed
-            "ForestTask",  # confirmed
-            "InterventionDate",  # confirmed
-            "IOSDecryptionKey",  # confirmed
-            "LineEncryptionError",  # confirmed
-            "ParticipantFCMHistory",  # confirmed
-            "ParticipantFieldValue",  # confirmed
-            "PushNotificationDisabledEvent",  # in confirmed
-            "ScheduledEvent",  # confirmed
-            "SummaryStatisticDaily",  # confirmed
-            "UploadTracking",  # confirmed
-        ]
+    @data_purge_mock_s3_calls
+    def test_confirm_ScheduledEvent(self):
+        sched_event = self.generate_a_real_weekly_schedule_event_with_schedule()[0]
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        sched_event.archive(self_delete=True, status="deleted", created_on=timezone.now())
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_ArchivedEvent(self):
+        # its easiest to use a scheduled event to create an archived event...
+        sched_event = self.generate_a_real_weekly_schedule_event_with_schedule()[0]
+        sched_event.archive(self_delete=True, status="deleted", created_on=timezone.now())
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
+        confirm_deleted(self.default_participant_deletion_event)
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_InterventionDate(self):
+        self.default_populated_intervention_date
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
+        confirm_deleted(self.default_participant_deletion_event)
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_AppHeartbeats(self):
+        AppHeartbeats.create(self.default_participant, timezone.now())
+        self.assert_confirm_deletion_raises_then_reset_last_updated
+        run_next_queued_participant_data_deletion()
+        confirm_deleted(self.default_participant_deletion_event)
+        
+    @data_purge_mock_s3_calls
+    def test_confirm_ParticipantActionLog(self):
+        # this test is weird, we create an action log
+        # ParticipantActionLog.objects.create(
+        #     participant=self.default_participant, timestamp=timezone.now(), action="junk action"
+        # )
+        
+        self.default_participant_deletion_event
+        self.assertEqual(ParticipantActionLog.objects.count(), 0)
+        run_next_queued_participant_data_deletion()
+        self.assertEqual(ParticipantActionLog.objects.count(), 2)
+        
+    def test_for_all_related_fields(self):
+        # This test will fail whenever there is a new related model added to the codebase.
         for model in Participant._meta.related_objects:
-            assert model.related_model.__name__ in relate_models
+            model_name = model.related_model.__name__
+            # but not the deletion operation that's kinda important...
+            if model_name == "ParticipantDeletionEvent":
+                continue
+            assert hasattr(TestParticipantDataDeletion, f"test_confirm_{model_name}"), \
+                f"missing test_confirm_{model_name} for {model_name}"
 
 
 class TestParticipantTimeZone(CommonTestCase):
@@ -465,3 +518,52 @@ class TestParticipantTimeZone(CommonTestCase):
         self.assertIs(p.timezone, gettz("America/Los_Angeles"))
         self.assertEqual(p.unknown_timezone, False)
         self.assertEqual(p.last_updated, last_update)
+
+
+class TestParticipantActive(CommonTestCase):
+    """ We need a test for keeping the status of "this is an active participant" up to date across
+    some distinct code paths """
+    
+    def test_determine_registered_status(self):
+        # determine_registered_status is code in an important optimized codepath for the study page,
+        # it can't be factored down to a call on a Participant object because it operates on contents
+        # out of a values_list query.  It also deals with creating strings and needs to know if the
+        # registered field is set (which we don't care about in other places).
+        annotes = determine_registered_status.__annotations__
+        correct_annotations = {
+            'now': datetime,
+            'registered': bool,
+            'last_upload': typing.Union[datetime, NoneType],  # can't import NoneType...
+            'last_get_latest_surveys': typing.Union[datetime, NoneType],
+            'last_set_password': typing.Union[datetime, NoneType],
+            'last_set_fcm_token': typing.Union[datetime, NoneType],
+            'last_get_latest_device_settings': typing.Union[datetime, NoneType],
+            'last_register_user': typing.Union[datetime, NoneType]
+        }
+        self.assertDictEqual(annotes, correct_annotations)
+    
+    def test_participant_is_active_one_week_false(self):
+        # this test is self referential...
+        now = timezone.now()
+        more_than_a_week_ago = now - timedelta(days=8)
+        p = self.default_participant
+        for field_outer in ACTIVE_PARTICIPANT_FIELDS:
+            for field_inner in ACTIVE_PARTICIPANT_FIELDS:
+                if field_inner != field_outer:
+                    setattr(p, field_inner, None)
+                else:
+                    setattr(p, field_inner, more_than_a_week_ago)
+            self.assertFalse(p.is_active_one_week)
+    
+    def test_participant_is_active_one_week_true(self):
+        # this test is self referential...
+        now = timezone.now()
+        less_than_a_week_ago = now - timedelta(days=6)
+        p = self.default_participant
+        for field_outer in ACTIVE_PARTICIPANT_FIELDS:
+            for field_inner in ACTIVE_PARTICIPANT_FIELDS:
+                if field_inner != field_outer:
+                    setattr(p, field_inner, None)
+                else:
+                    setattr(p, field_inner, less_than_a_week_ago)
+            self.assertTrue(p.is_active_one_week)

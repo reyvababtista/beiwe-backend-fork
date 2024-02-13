@@ -39,3 +39,17 @@ ALL_RESEARCHER_TYPES = (ResearcherRole.study_admin, ResearcherRole.researcher)
 SESSION_NAME = "researcher_username"
 EXPIRY_NAME = "expiry"
 SESSION_UUID = "session_uuid"
+SESSION_TIMEOUT_HOURS = 2
+
+# These fields are used to indicate that a participant is still "active", active is defined as
+# is still hitting the backend in the passed *insert your time period here*.
+# Don't forget that you need to query the AppHeartbeat model to get the last time the app heartbat.
+ACTIVE_PARTICIPANT_FIELDS = (
+    'last_upload',
+    'last_get_latest_surveys',
+    'last_set_password',
+    'last_set_fcm_token',
+    'last_get_latest_device_settings',
+    'last_register_user',
+)
+# Don't forget that you need to query the AppHeartbeat model to get the last time the app heartbat.

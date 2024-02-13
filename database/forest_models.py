@@ -49,7 +49,7 @@ class ForestTask(TimestampedModel):
     process_end_time = models.DateTimeField(null=True, blank=True)
     status = models.TextField(choices=ForestTaskStatus.choices())
     stacktrace = models.TextField(null=True, blank=True, default=None)
-    # Whether or not there was any data output by Forest (None indicates unknown)
+    # Whether or not there was any data output by Forest (None means construct_summary_statistics errored)
     forest_output_exists = models.BooleanField(null=True, blank=True)
     
     # S3 file paths
@@ -345,3 +345,23 @@ class SummaryStatisticDaily(TimestampedModel):
         constraints = [
             models.UniqueConstraint(fields=['date', 'participant'], name="unique_summary_statistic")
         ]
+    
+    @classmethod
+    def beiwe_fields(cls):
+        return [field.name for field in cls._meta.get_fields() if field.name.startswith("beiwe_")]
+    
+    @classmethod
+    def jasmine_fields(cls):
+        return [field.name for field in cls._meta.get_fields() if field.name.startswith("jasmine_")]
+    
+    @classmethod
+    def willow_fields(cls):
+        return [field.name for field in cls._meta.get_fields() if field.name.startswith("willow_")]
+    
+    @classmethod
+    def sycamore_fields(cls):
+        return [field.name for field in cls._meta.get_fields() if field.name.startswith("sycamore_")]
+    
+    @classmethod
+    def oak_fields(cls):
+        return [field.name for field in cls._meta.get_fields() if field.name.startswith("oak_")]

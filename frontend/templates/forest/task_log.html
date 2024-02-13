@@ -41,10 +41,10 @@
         <thead>
           <tr>
             <th scope="col">Created On</th>
+            <th scope="col">Task ID</th>
             <th scope="col">Patient ID</th>
             <th scope="col">Tree</th>
-            <th scope="col">Data Start Date</th>
-            <th scope="col">Data End Date</th>
+            <th scope="col">Data Start and End Date</th>
             <th scope="col">Status</th>
             {% if site_admin %}
               <th scope="col">Actions</th>
@@ -53,15 +53,14 @@
         </thead>
         
         <tbody>
-        
           <tr> <p style="color: gray;"> Note: downloading source data provides only the data streams used, and results in the data <b>as it currently is,</b> not the state of the data at the time of the Forest tree ran. 
           </tr>
           <tr ng-repeat="log in filterableObjects" ng-if="(log.created_on_display + log.patient_id + log.forest_tree_display + log.data_date_start + log.data_date_end + log.status).toLowerCase().includes(filterText.toLowerCase())">
-            <td>{% raw %}{{ log.created_on_display }}{% endraw %}</td>
+            <td style="word-break: break-word; max-width: 110px;">{% raw %}{{ log.created_on_display }}{% endraw %}</td>
+            <td style="word-break: break-word; max-width: 110px;">{% raw %}{{ log.external_id }}{% endraw %}</td>
             <td>{% raw %}{{ log.patient_id }}{% endraw %}</td>
             <td>{% raw %}{{ log.forest_tree_display }}{% endraw %}</td>
-            <td>{% raw %}{{ log.data_date_start }}{% endraw %}</td>
-            <td>{% raw %}{{ log.data_date_end }}{% endraw %}</td>
+            <td>{% raw %}{{ log.data_date_start }}{% endraw %} - {% raw %}{{ log.data_date_end }}{% endraw %}</td>
             <td ng-class="{ {{ status_choices.queued }}: 'list-group-item-info',
                             {{ status_choices.running }}: 'list-group-item-primary',
                             {{ status_choices.success }}: 'list-group-item-success',
@@ -98,6 +97,17 @@
                     </button>
                   </form>
                 </div>
+              
+                <div ng-if="log.status !== '{{ status_choices.queued }}'">
+                  <form action="{% raw %}{{ log.copy_url|trustAsResourceUrl }}{% endraw %}" method="post">
+                    <button class="btn btn-link"
+                      onclick="return confirm('This will make a copy of this Forest task queued up to run. It will use the current version of forest ({{ forest_version }}, {{ forest_commit }}), unless the runtime version is updated between now and the time the task starts.')"
+                      style="padding: 0;" type="submit">
+                      Rerun This Task
+                    </button>
+                    <input type="hidden" id="external_id" name="external_id" value="{% raw %}{{ log.external_id }}{% endraw %}" />
+                  </form>
+                </div>
               </td>
             {% endif %}
           </tr>
@@ -115,19 +125,28 @@
             <div class="panel panel-default">
               <div class="panel-heading">Task Metadata</div>
               <div class="panel-body">
+                
                 <dl style="margin-bottom: 0;">
-                  <dt>Patient ID</dt>
-                  <dd>{% raw %}{{ modalLog.patient_id }}{% endraw %}</dd>
-                  <dt>Tree</dt>
-                  <dd>{% raw %}{{ modalLog.forest_tree_display }}{% endraw %}</dd>
-                  <dt>Data Date Start</dt>
-                  <dd>{% raw %}{{ modalLog.data_date_start }}{% endraw %}</dd>
-                  <dt>Data Date End</dt>
-                  <dd>{% raw %}{{ modalLog.data_date_end }}{% endraw %}</dd>
-                  <dt>Status</dt>
-                  <dd>{% raw %}{{ modalLog.status }}{% endraw %}</dd>
-                  <dt>Created On</dt>
-                  <dd>{% raw %}{{ modalLog.created_on_display }}{% endraw %}</dd>
+                  <div class="col-xs-6">
+                    <dt>Patient ID</dt>
+                    <dd>{% raw %}{{ modalLog.patient_id }}{% endraw %}</dd>
+                    <dt>Tree</dt>
+                    <dd>{% raw %}{{ modalLog.forest_tree_display }}{% endraw %}</dd>
+                    <dt>Task ID</dt>
+                    <dd>{% raw %}{{ modalLog.external_id }}{% endraw %}</dd>
+                    <dt>Forest Commit</dt>
+                    <dd>{% raw %}{{ modalLog.forest_commit }}{% endraw %}</dd>
+                  </div>
+                  <div class="col-xs-6">
+                    <dt>Data Date Start</dt>
+                    <dd>{% raw %}{{ modalLog.data_date_start }}{% endraw %}</dd>
+                    <dt>Data Date End</dt>
+                    <dd>{% raw %}{{ modalLog.data_date_end }}{% endraw %}</dd>
+                    <dt>Status</dt>
+                    <dd>{% raw %}{{ modalLog.status }}{% endraw %}</dd>
+                    <dt>Created On</dt>
+                    <dd>{% raw %}{{ modalLog.created_on_display }}{% endraw %}</dd>
+                  </div>
                 </dl>
               </div>
             </div>

@@ -22,6 +22,10 @@ alias restart='sudo killall -s 1 supervisord; htop -u apache'
 
 alias log='sudo tail -f /var/log/httpd/access_log /var/log/httpd/error_log /var/log/cfn-* /var/log/eb-* /var/log/messages'
 alias logs='log'
+alias log-important='sudo tail -f /var/log/httpd/access_log /var/log/httpd/error_log /var/log/messages'
+alias logi='log-important'
+alias logimportant='log-important'
+alias log_important='log-important'
 alias logeb="/var/log/cfn-* /var/log/eb-*"
 alias loghttpd='tail -f /var/log/httpd/*'
 alias logdjango='sudo tail -f  /var/log/web.stdout.log'

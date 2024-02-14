@@ -16,9 +16,9 @@ backcall==0.2.0
     # via ipython
 bleach==6.1.0
     # via -r requirements.in
-boto3==1.34.39
+boto3==1.34.41
     # via -r requirements.in
-botocore==1.34.39
+botocore==1.34.41
     # via
     #   boto3
     #   s3transfer
@@ -62,9 +62,9 @@ executing==2.0.1
     # via stack-data
 firebase-admin==5.4.0
     # via -r requirements.in
-forest @ git+https://git@github.com/onnela-lab/forest@a1eb117263ba9e831426017e472ab5bbf9277888
+forest @ git+https://git@github.com/onnela-lab/forest@1c0e7bcc9bed574b0392db7004921c51a440b4e0
     # via -r requirements.in
-google-api-core[grpc]==2.17.0
+google-api-core[grpc]==2.17.1
     # via
     #   firebase-admin
     #   google-api-core
@@ -72,7 +72,7 @@ google-api-core[grpc]==2.17.0
     #   google-cloud-core
     #   google-cloud-firestore
     #   google-cloud-storage
-google-api-python-client==2.117.0
+google-api-python-client==2.118.0
     # via firebase-admin
 google-auth==2.27.0
     # via
@@ -284,7 +284,7 @@ ssqueezepy==0.6.4
     # via forest
 stack-data==0.6.3
     # via ipython
-threadpoolctl==3.2.0
+threadpoolctl==3.3.0
     # via scikit-learn
 timezonefinder==6.4.1
     # via forest

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 from django.db.models import Manager, QuerySet
 import json
 from datetime import datetime, timedelta, tzinfo
@@ -351,12 +352,14 @@ class Participant(AbstractPasswordUser):
     @property
     def pprint(self):
         d = self._pprint()
+        d.pop("password") # not important or desired
+        d.pop("device_id") # not important or desired
         dsr = d.pop("device_status_report")
         pprint(d)
         # it can be None, and empty string
         if dsr:
             print("\nDevice Status Report:")
-            pprint(json.loads(dsr))
+            pprint(json.loads(dsr), width=os.get_terminal_size().columns)
         else:
             print("\n(No device status report.)")
 

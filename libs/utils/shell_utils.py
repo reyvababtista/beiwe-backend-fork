@@ -275,6 +275,7 @@ def heartbeat_summary(p: Participant, max_age: int = 12):
     # Get the heartbeat timestamps and push notification events, print out all the timestamps in
     # day-by-day and hour-by-hour sections print statements, and print time deltas since the
     # previous received heartbeat event.
+    # (this code quality is terrible becaus it was cobbled together as-needed.)
     max_age = (timezone.now() - timedelta(hours=max_age)).replace(minute=0, second=0, microsecond=0)
     
     # queries
@@ -293,6 +294,10 @@ def heartbeat_summary(p: Participant, max_age: int = 12):
             timedelta(seconds=0) if i == 0 else t - events[i-1][0],  # force first a delta to 0.
             message
         ))
+    
+    if not events:
+        print(f"No heartbeats found in the last {int} hours.")
+        return
     
     # add the push notification events, second object in the tuple as a string, then re-sort.
     for t in heartbeat_notifications:

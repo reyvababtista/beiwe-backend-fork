@@ -56,7 +56,7 @@ def upload_and_create_file_to_process_and_log(
         ):
             # don't abort 500, we want to limit 500 errors on the ELB in production (uhg)
             log("backoff for duplicate race condition.", str(e))
-            return abort(400)
+            return HttpResponse(content=b"backoff, duplicate race condition.", status=400)
     
     # record that an upload occurred
     UploadTracking.objects.create(
@@ -65,7 +65,7 @@ def upload_and_create_file_to_process_and_log(
         timestamp=timezone.now(),
         participant=participant,
     )
-    return HttpResponse(status=200)
+    return HttpResponse(content=b"upload successful.", status=200)
 
 
 def upload_problem_file(

@@ -73,43 +73,43 @@ def upload(request: ParticipantRequest, OS_API=""):
         or file_name.startswith("PersistedInstallation")  # come from firebase.
         or not contains_valid_extension(file_name)  # generic junk file test
     ):
-        return HttpResponse(status=200)
+        return HttpResponse(content=b"file obviously invalid.", status=200)
     
     s3_file_location = file_name.replace("_", "/")
     participant = request.session_participant
     
     if participant.permanently_retired:  # such a participant's uploads should be deleted.
         log(200, "participant permanently retired.")
-        return HttpResponse(status=200)
+        return HttpResponse(content=b"participant permantently retired.", status=200)
     
     # iOS can upload identically named files with different content (and missing decryption keys) so
     # we need to return a 400 to back off. The device can try again later when the extant FTP has
     # been processed. (ios files with bad decryption keys fail and don't create new FTPs.)
     if FileToProcess.test_file_path_exists(s3_file_location, participant.study.object_id):
         log("400, FileToProcess.test_file_path_exists")
-        return HttpResponse(content="", status=400)
+        return HttpResponse(content="file already present, upload again later (your bug!)", status=400)
     
     # attempt to decrypt, some scenarios delete remote files even if decryption fails
     try:
         file_contents = get_uploaded_file(request)
         decryptor = DeviceDataDecryptor(s3_file_location, file_contents, participant)
-    except RemoteDeleteFileScenario:
+    except RemoteDeleteFileScenario as e:
         log(200, "RemoteDeleteFileScenario")  # errors were unrecoverable, delete the file.
-        return HttpResponse(status=200)
+        return HttpResponse(content=f"file was bad due to '{e}', delete it.", status=200)
     
     except (DecryptionKeyInvalidError, IosDecryptionKeyNotFoundError, IosDecryptionKeyDuplicateError) as e:
         # IOS has a complex issue where it splits files into multiple segments, but the key is only
         # present on the first section. We stash those files and attempt to extract useful
         # information on the data processing server.
         upload_problem_file(file_contents, participant, s3_file_location, e)
-        return HttpResponse(status=200)
+        return HttpResponse(content=f"file had decryption key error '{e}'", status=200)
     
     # if uploaded data actually exists, and has a valid extension
     if decryptor.decrypted_file and file_name and contains_valid_extension(file_name):
         return upload_and_create_file_to_process_and_log(s3_file_location, participant, decryptor)
     elif not decryptor.decrypted_file:
         # file was empty (probably unreachable code due to decryption architecture
-        return HttpResponse(status=200)
+        return HttpResponse("empty file?", status=200)
     else:
         return make_upload_error_report(participant.patient_id, file_name)
 
@@ -155,7 +155,8 @@ def make_upload_error_report(patient_id: str, file_name: str):
     sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
     sentry_client.captureMessage(error_message)
     log(400, error_message, "(upload error report)")
-    return abort(400)
+    # error message needs to be a byte string
+    return HttpResponse(content=error_message.encode(), status=400)
 
 
 ################################################################################

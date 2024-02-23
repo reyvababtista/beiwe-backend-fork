@@ -362,7 +362,13 @@ class Participant(AbstractPasswordUser):
             pprint(json.loads(dsr), width=os.get_terminal_size().columns)
         else:
             print("\n(No device status report.)")
-
+    
+    def get_status_report_datum(self, key: str):
+        """ For debugging, returns the value of a key in the device status report. """
+        if not self.device_status_report:
+            return "(no device status report)"
+        data: dict = json.loads(self.device_status_report)
+        return data.get(key, f"(no match for '{key}')")
 
 class PushNotificationDisabledEvent(UtilityModel):
     # There may be many events

@@ -306,7 +306,7 @@ class Participant(AbstractPasswordUser):
             app_version = str(self.last_version_name) + " " + str(self.last_version_code)
         
         # testing on a (sloooowww) aws T3 server got about 20us on a 1.5k string of json data
-        # with a compression ratio of about 3x. zlib was 
+        # with a compression ratio of about 3x.  7 was slightly better than others on test data.
         if self.device_status_report:
             compressed_data = zstd.compress(self.device_status_report.encode(), 7, 1)
         else:
@@ -518,21 +518,35 @@ class DeviceStatusReportHistory(UtilityModel):
     os_version = models.CharField(max_length=32, blank=False, null=False)
     app_version = models.CharField(max_length=32, blank=False, null=False)
     endpoint = models.TextField(null=False, blank=False)
-    compressed_report = models.BinaryField(null=False, blank=False)
-    # TextField(null=False, blank=False)
+    # it's memoryview because that's how binary fields binary. Use .compressed_bytes to get bytes.
+    compressed_report: memoryview = models.BinaryField(null=False, blank=False)
+    
+    @property
+    def compressed_bytes(self) -> int:
+        return self.compressed_report.tobytes()
     
     @property
     def decompress(self) -> Dict[str, Union[str, int]]:
-        return zstd.decompress(self.compressed_report).decode()
+        return zstd.decompress(self.compressed_bytes).decode()
     
     @property
     def load_json(self):
-        return orjson.loads(zstd.decompress(self.compressed_report))
+        return orjson.loads(zstd.decompress(self.compressed_bytes))
+    
+    @classmethod
+    def bulk_decode(cls, list_of_compressed_reports: List[bytes]) -> List[str]:
+        return [
+            zstd.decompress(cls.memview_to_bytes(report)).decode() for report in list_of_compressed_reports
+        ]
+    
+    @classmethod
+    def bulk_load_json(cls, list_of_compressed_reports: List[bytes]) -> List[Dict[str, Union[str, int]]]:
+        return [
+            orjson.loads(zstd.decompress(cls.memview_to_bytes(report))) for report in list_of_compressed_reports
+        ]
     
     @staticmethod
-    def bulk_decode(list_of_compressed_reports: List[bytes]) -> List[str]:
-        return [zstd.decompress(report).decode() for report in list_of_compressed_reports]
-    
-    @staticmethod
-    def bulk_load_json(list_of_compressed_reports: List[bytes]) -> List[Dict[str, Union[str, int]]]:
-        return [orjson.loads(zstd.decompress(report)) for report in list_of_compressed_reports]
+    def memview_to_bytes(memview: memoryview) -> bytes:
+        if isinstance(memview, bytes):
+            return memview
+        return memview.tobytes()

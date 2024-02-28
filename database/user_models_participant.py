@@ -1,17 +1,20 @@
 from __future__ import annotations
-import os
-from django.db.models import Manager, QuerySet
+
 import json
+import os
 from datetime import datetime, timedelta, tzinfo
 from pprint import pprint
+import stat
 from typing import Dict, List, Optional, Tuple, Union
 
+import orjson
+import zstd
 from Cryptodome.PublicKey import RSA
 from dateutil.tz import gettz
 from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import MinLengthValidator
 from django.db import models
-from django.db.models import Manager
+from django.db.models import Manager, QuerySet
 from django.utils import timezone
 
 from config.settings import DOMAIN_NAME
@@ -123,6 +126,7 @@ class Participant(AbstractPasswordUser):
     archived_events: Manager[ArchivedEvent]
     chunk_registries: Manager[ChunkRegistry]
     deletion_event: Manager[ParticipantDeletionEvent]
+    device_status_reports: Manager[DeviceStatusReportHistory]
     fcm_tokens: Manager[ParticipantFCMHistory]
     field_values: Manager[ParticipantFieldValue]
     files_to_process: Manager[FileToProcess]
@@ -289,6 +293,33 @@ class Participant(AbstractPasswordUser):
     def get_identifiers(self):
         for identifier in self.chunk_registries.filter(data_type=IDENTIFIERS).order_by("created_on"):
             print(identifier.s3_retrieve().decode())
+    
+    ################################################################################################
+    ######################################### LOGGING ##############################################
+    ################################################################################################
+    
+    def generate_device_status_report_history(self, url: str):
+        # this is just stupid but a mistake ages ago means we have to do this.
+        if self.last_os_version == IOS_API:
+            app_version = str(self.last_version_code) + " " + str(self.last_version_name)
+        else:
+            app_version = str(self.last_version_name) + " " + str(self.last_version_code)
+        
+        # testing on a (sloooowww) aws T3 server got about 20us on a 1.5k string of json data
+        # with a compression ratio of about 3x. zlib was 
+        if self.device_status_report:
+            compressed_data = zstd.compress(self.device_status_report.encode(), 7, 1)
+        else:
+            compressed_data = b"empty"
+        
+        DeviceStatusReportHistory.objects.create(
+            participant=self,
+            app_os=self.os_type,
+            os_version=self.last_os_version or "None",
+            app_version=app_version, 
+            endpoint=url,
+            compressed_report=compressed_data,
+        )
     
     ################################################################################################
     ############################### TERMINAL DEBUGGING FUNCTIONS ###################################
@@ -463,6 +494,7 @@ class AppHeartbeats(UtilityModel):
         return cls.objects.create(participant=participant, timestamp=timestamp, message=message)
 
 
+# todo: add more ParticipantActionLog entries
 class ParticipantActionLog(UtilityModel):
     """ This is a log of actions taken by participants, for debugging purposes. """
     participant: Participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="action_logs")
@@ -476,3 +508,31 @@ class ParticipantActionLog(UtilityModel):
 #     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
 #     # handled means there was a notification sent to the user, or we got a heartbeat.
 #     handled = models.DateTimeField(null=False, blank=False, db_index=True)
+
+# device status report history 
+class DeviceStatusReportHistory(UtilityModel):
+    participant = models.ForeignKey(
+        Participant, null=False, on_delete=models.PROTECT, related_name="device_status_reports"
+    )
+    app_os = models.CharField(max_length=32, blank=False, null=False)
+    os_version = models.CharField(max_length=32, blank=False, null=False)
+    app_version = models.CharField(max_length=32, blank=False, null=False)
+    endpoint = models.TextField(null=False, blank=False)
+    compressed_report = models.BinaryField(null=False, blank=False)
+    # TextField(null=False, blank=False)
+    
+    @property
+    def decompress(self) -> Dict[str, Union[str, int]]:
+        return zstd.decompress(self.compressed_report).decode()
+    
+    @property
+    def load_json(self):
+        return orjson.loads(zstd.decompress(self.compressed_report))
+    
+    @staticmethod
+    def bulk_decode(list_of_compressed_reports: List[bytes]) -> List[str]:
+        return [zstd.decompress(report).decode() for report in list_of_compressed_reports]
+    
+    @staticmethod
+    def bulk_load_json(list_of_compressed_reports: List[bytes]) -> List[Dict[str, Union[str, int]]]:
+        return [orjson.loads(zstd.decompress(report)) for report in list_of_compressed_reports]

@@ -50,7 +50,8 @@ def run_next_queued_participant_data_deletion():
     deletion_event.participant.set_password(generate_easy_alphanumeric_string(50))
     
     delete_participant_data(deletion_event)
-    # MAKE SURE TO UPDATE TESTS IF YOU ADD MORE RELATIONS TO THIS LIST
+    # A meta test that checks that a test for every single related field is present will fail
+    # whenever a new relation is added. You have to manually make that test.
     deletion_event.participant.chunk_registries.all().delete()
     deletion_event.participant.summarystatisticdaily_set.all().delete()
     deletion_event.participant.lineencryptionerror_set.all().delete()
@@ -66,6 +67,8 @@ def run_next_queued_participant_data_deletion():
     deletion_event.participant.archived_events.all().delete()
     deletion_event.participant.intervention_dates.all().delete()
     deletion_event.participant.heartbeats.all().delete()
+    deletion_event.participant.device_status_reports.all().delete()
+    
     #! BUT WE DON'T DELETE ACTION LOGS.
     # deletion_event.participant.action_logs.all().delete()
     confirm_deleted(deletion_event)
@@ -130,6 +133,8 @@ def confirm_deleted(deletion_event: ParticipantDeletionEvent):
         raise AssertionError("still have database entries for archived_events")
     if deletion_event.participant.heartbeats.exists():
         raise AssertionError("still have database entries for heartbeats")  
+    if deletion_event.participant.device_status_reports.exists():
+        raise AssertionError("still have database entries for device_status_reports")  
     
     #! BUT WE DON'T DELETE ACTION LOGS, in fact there should be at least 1
     if not deletion_event.participant.action_logs.exists():

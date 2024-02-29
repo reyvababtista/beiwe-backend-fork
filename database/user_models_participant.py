@@ -314,10 +314,10 @@ class Participant(AbstractPasswordUser):
         
         DeviceStatusReportHistory.objects.create(
             participant=self,
-            app_os=self.os_type,
+            app_os=self.os_type or "None",
             os_version=self.last_os_version or "None",
-            app_version=app_version, 
-            endpoint=url,
+            app_version=app_version or "None", 
+            endpoint=url or "None",
             compressed_report=compressed_data,
         )
     

@@ -31,13 +31,15 @@ def upload_and_create_file_to_process_and_log(
         s3_upload(s3_file_location, decryptor.decrypted_file, participant)
     
     elif decryptor.used_ios_decryption_key_cache:
-        # if the upload required the ios key cache that means we have a split file and need to merge them.
+        # found duplicate file name, merge the existing file with the new file.
+        # if the upload required the ios key cache that means we have a split file.
         s3_upload(
             s3_file_location,
             b"\n".join([s3_retrieve(s3_file_location, participant), decryptor.decrypted_file]),
             participant,
         )
     else:
+        # duplicate file, did NOT used an ios_decryption_key_cache key. its just a duplicate.
         old_file_location = s3_file_location
         s3_file_location = s3_duplicate_name(s3_file_location)
         log(f"renamed duplicate '{old_file_location}' to '{s3_file_location}'")

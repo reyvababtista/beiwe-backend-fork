@@ -18,6 +18,7 @@ from database.study_models import Study
 from database.survey_models import Survey
 from database.user_models_participant import Participant
 from database.user_models_researcher import Researcher
+from libs.s3 import s3_list_files
 from libs.utils.dev_utils import disambiguate_participant_survey, TxtClr
 
 
@@ -344,3 +345,33 @@ def heartbeat_summary(p: Participant, max_age: int = 12):
         f"and it has been {(timezone.now() - final_timestamp).total_seconds() / 60:.1f} "
         "minutes since that last event."
     )
+
+
+def describe_problem_uploads():
+    # path is a string that looks like this, including those extra 10 characters at the end:
+    #    PROBLEM_UPLOADS/5873fe38644ad7557b168e43/c3b7mk7j/gps/1664315342657.csvQWERTYUIOP
+    participant_counts = defaultdict(int)
+    study_counts = defaultdict(int)
+    print("counting files...")
+    
+    # may be hundreds of thousands of files
+    for count, path in enumerate(s3_list_files("PROBLEM_UPLOADS", as_generator=True)):
+        if count % 10000 == 0:
+            print(count, "...", end="", sep="", flush=True)
+        
+        patient_id = path.split("/")[2]
+        study_object_id = path.split("/")[1]
+        participant_counts[patient_id] += 1
+        study_counts[study_object_id] += 1
+    
+    print("\n")
+    print("total number of files:", count)
+    print()
+    participant_counts = dict(participant_counts)
+    study_counts = dict(study_counts)
+    from pprint import pprint
+    print("participant file counts:")
+    pprint(dict(sorted(list(participant_counts.items()), key=lambda x: x[1], reverse=True)), sort_dicts=False)
+    print()
+    print("study file counts:")
+    pprint(dict(sorted(list(study_counts.items()), key=lambda x: x[1], reverse=True)), sort_dicts=False)

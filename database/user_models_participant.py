@@ -113,6 +113,7 @@ class Participant(AbstractPasswordUser):
     enable_new_authentication = models.BooleanField(default=False)
     enable_developer_datastream = models.BooleanField(default=False)
     enable_beta_features = models.BooleanField(default=False)
+    enable_extensive_device_info_tracking = models.BooleanField(default=False)
     EXPERIMENT_FIELDS = (
         "enable_heartbeat",
         # "enable_aggressive_background_persistence",
@@ -120,6 +121,7 @@ class Participant(AbstractPasswordUser):
         # "enable_new_authentication",
         # "enable_developer_datastream",
         # "enable_beta_features",
+        "enable_extensive_device_info_tracking",
     )
     
     # related field typings (IDE halp)

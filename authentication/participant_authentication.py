@@ -89,7 +89,8 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
         session_participant.update_only(**tracking_updates)
     
     # we generate a log of the device status report, we do compress the data tho.
-    session_participant.generate_device_status_report_history(request.path_info)
+    if session_participant.enable_extensive_device_info_tracking:
+        session_participant.generate_device_status_report_history(request.path_info)
     
     # updating the timezone is a special case, has internal logic.
     if "timezone" in request.POST:

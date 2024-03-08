@@ -5,7 +5,7 @@ class DynamicParameter(Exception): pass
 #NOTE: integer values need to be strings
 def get_base_eb_configuration():
     return [
-        
+
         # Instance launch configuration details
         {
             'Namespace': 'aws:autoscaling:launchconfiguration',
@@ -20,14 +20,14 @@ def get_base_eb_configuration():
             'OptionName': 'EC2KeyName',
             'Value': DynamicParameter("EC2KeyName")
         },
-        
+
         # open up the ssh port for debugging - adds to the security group
         {
             'Namespace': 'aws:autoscaling:launchconfiguration',
             'OptionName': 'SSHSourceRestriction',
             'Value': 'tcp,22,22,0.0.0.0/0'
         },
-    
+
         # cloudwatch alarms
         {
             'Namespace': 'aws:autoscaling:trigger',
@@ -38,14 +38,14 @@ def get_base_eb_configuration():
             'OptionName': 'EvaluationPeriods',
             'Value': '1'
         },
-    
+
         # environment variables
         {
             'Namespace': 'aws:cloudformation:template:parameter',
             'OptionName': 'EnvironmentVariables',
             'Value': DynamicParameter("EnvironmentVariables"),
         },
-        
+
         # },{ # could not get this to play well, so we modify it after the environment creates it.
         #     'Namespace': 'aws:autoscaling:launchconfiguration',
         #     'OptionName': 'SecurityGroups',
@@ -56,7 +56,7 @@ def get_base_eb_configuration():
             'OptionName': 'InstancePort',
             'Value': '80'
         },
-        
+
         # deployment network details
         # {
         #     'Namespace': 'aws:ec2:vpc',
@@ -73,7 +73,7 @@ def get_base_eb_configuration():
         #     'OptionName': 'Subnets',
         #     'Value': 'subnet-10718a66,subnet-ea9599c1,subnet-8018a9bd,subnet-bf1f02e6'
         # },
-        
+
         # static network details
         # {   # todo: not in a vpc?
         #     'Namespace': 'aws:ec2:vpc',
@@ -168,7 +168,7 @@ def get_base_eb_configuration():
             'OptionName': 'Timeout',
             'Value': 'PT30M'
         },
-        
+
         # Logging settings
         {
             'Namespace': 'aws:elasticbeanstalk:cloudwatch:logs',
@@ -183,7 +183,7 @@ def get_base_eb_configuration():
             'OptionName': 'StreamLogs',
             'Value': 'false'
         },
-        
+
         # miscellaneous EB configuration
         {
             'Namespace': 'aws:elasticbeanstalk:command',
@@ -221,7 +221,7 @@ def get_base_eb_configuration():
             'OptionName': 'RollbackLaunchOnFailure',
             'Value': 'false'
         },
-        
+
         # Python environment configuration
         {
             'Namespace': 'aws:elasticbeanstalk:container:python',
@@ -236,7 +236,7 @@ def get_base_eb_configuration():
             'OptionName': 'WSGIPath',
             'Value': 'wsgi.py'
         },
-        
+
         # Elastic Beanstalk system Notifications
         {   # These settings generate the SNS instance for sending these emails.
             'Namespace': 'aws:elasticbeanstalk:sns:topics',
@@ -247,7 +247,7 @@ def get_base_eb_configuration():
             'OptionName': 'Notification Protocol',
             'Value': 'email'
         },
-    
+
         # Health check/Reporting details
         {
             'Namespace': 'aws:elasticbeanstalk:healthreporting:system',
@@ -306,7 +306,7 @@ def get_base_eb_configuration():
             'OptionName': 'UnhealthyThreshold',
             'Value': '5'
         },
-    
+
         # Storage configuration.  We use the default, which is 8gb gp2.
         # {
         #     'Namespace': 'aws:autoscaling:launchconfiguration',
@@ -317,15 +317,18 @@ def get_base_eb_configuration():
         # }, {
         #     'Namespace': 'aws:autoscaling:launchconfiguration',
         #     'OptionName': 'RootVolumeIOPS',
-        # }, {
-        #     'Namespace': 'aws:autoscaling:launchconfiguration',
-        #     'OptionName': 'RootVolumeSize',
-        # },{
-        #     'Namespace': 'aws:autoscaling:launchconfiguration',
-        #     'OptionName': 'RootVolumeType',
         # },
-        
-        
+        {
+            'Namespace': 'aws:autoscaling:launchconfiguration',
+            'OptionName': 'RootVolumeSize',
+            'Value': '24'
+        },{
+            'Namespace': 'aws:autoscaling:launchconfiguration',
+            'OptionName': 'RootVolumeType',
+            'Value': 'gp2'
+        },
+
+
         ##
         ##   Elastic Load Balancer configuration
         ##

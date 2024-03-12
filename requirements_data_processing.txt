@@ -1,5 +1,6 @@
 # data processing
-celery==4.4.7
+# celery 5.0.5 has an incompatability with ... pip-tools.
+celery==5.0.5
 
 # This is sort-of-temporary, forest is open-source but not a pip-installable package right now.
 # Note that this file is read programmatically in update_forest_version

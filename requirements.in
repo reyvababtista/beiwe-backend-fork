@@ -1,5 +1,5 @@
 # core libraries
-Django==3.2.24
+Django==4.2.11
 firebase-admin==5.4.0
 Jinja2 # used to require pinning, I guess review if there is a major version bump.
 zstd # used to require it be pinned to get 1.5.5.1
@@ -7,7 +7,7 @@ orjson==3.9.15
 
 # various extensions
 djangorestframework==3.14.0
-django-extensions==3.2.1
+django-extensions==3.2.3
 
 python-dateutil==2.8.2  # this is currently locked due to our old celery requirement.
 
@@ -26,19 +26,18 @@ cronutils==0.3.2
 bleach>=4.1.0
 
 # server requirement
-# You have to upgrade django to greater than 2.2 (apparently) in order to upgrade psycopg2 to 2.9.x
-psycopg2>=2.9.7
+psycopg>=3.1.18
 
 # ipython can exhibit weird issues that make it look like the codebase is broken.  Most issues
 # are resolved by forcing this relatively new version of ipython.
 ipython>=8.12.2
-uwsgi>=2.0.22
+uwsgi>=2.0.24
 
 # Keep these dependencies up to date
 boto3
 
 # Ug due to pytz.timezone("America/New_York") being off by 4 minutes (aka ... wrong) we had to abandon
-# this library. but we can't remove it because it is used in migrations.
+# this library. but we can't remove it because it is used in migrations. That was probably an old pytz bug.
 django-timezone-field==4.1.1
 
 pip-tools>=7.3.0

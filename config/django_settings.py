@@ -27,6 +27,7 @@ if DB_MODE == DB_MODE_SQLITE:
         },
     }
 elif DB_MODE == DB_MODE_POSTGRES:
+    CONN_HEALTH_CHECKS = True  # new in django 4.1, allows for health checks on the database connection
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -124,7 +125,7 @@ TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 
 # server settings....
 if DEBUG:
-    ALLOWED_HOSTS = "*"
+    ALLOWED_HOSTS = ("*", )
 else:
     # we only allow the domain name to be the referrer
     ALLOWED_HOSTS = [DOMAIN_NAME]

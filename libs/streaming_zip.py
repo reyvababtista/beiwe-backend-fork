@@ -3,7 +3,7 @@ from multiprocessing.pool import ThreadPool
 from typing import Generator, Iterable, Tuple
 from zipfile import ZIP_STORED, ZipFile
 
-from constants.data_stream_constants import (IMAGE_FILE, SURVEY_ANSWERS, SURVEY_TIMINGS,
+from constants.data_stream_constants import (SURVEY_ANSWERS, SURVEY_TIMINGS,
     VOICE_RECORDING)
 from database.study_models import Study
 from libs.s3 import s3_retrieve
@@ -23,16 +23,6 @@ def determine_file_name(chunk):
         return "%s/%s/%s/%s.%s" % (chunk["participant__patient_id"], chunk["data_type"],
                                    chunk["chunk_path"].rsplit("/", 2)[1], # this is the survey id
                                    str(chunk["time_bin"]).replace(":", "_"), extension)
-    
-    elif chunk["data_type"] == IMAGE_FILE:
-        # add the survey_id from the file path.
-        return "%s/%s/%s/%s/%s" % (
-            chunk["participant__patient_id"],
-            chunk["data_type"],
-            chunk["chunk_path"].rsplit("/", 3)[1],  # this is the survey id
-            chunk["chunk_path"].rsplit("/", 2)[1],  # this is the instance of the user taking a survey
-            chunk["chunk_path"].rsplit("/", 1)[1]
-        )
     
     elif chunk["data_type"] == SURVEY_TIMINGS:
         # add the survey_id from the database entry.

@@ -49,11 +49,6 @@ REFERENCE_CHUNKREGISTRY_HEADERS = {
         ANDROID_API: b'timestamp,UTC time,patient_id,MAC,phone_number,device_id,device_os,os_version,product,brand,hardware_id,manufacturer,model,beiwe_version',
         IOS_API:     b'timestamp,UTC time,patient_id,MAC,phone_number,device_id,device_os,os_version,product,brand,hardware_id,manufacturer,model,beiwe_version',
     },
-    # IMAGE_FILE: {  # this is an image survey file, which appears (from our development staging server so this is not the final word to have multiple possible) headers.  Image surveys aren't actually a thing, so comment out for now.
-    #     ANDROID:     b'index,question1_answer,question2_answer,created_on_timestamp,gps_info',  # ios-only datastream None,
-    #     IOS_API:     b'index,question1_answer,question2_answer,created_on_timestamp,gps_info',
-    #               'question1_answer,question2_answer,created_on_timestamp,gps_info',
-    # },
     IOS_LOG_FILE: {
         ANDROID_API: b'timestamp,UTC time,launchId,memory,battery,event,msg,d1,d2,d3,d4',  # ios-only datastream
         IOS_API:     b'timestamp,UTC time,launchId,memory,battery,event,msg,d1,d2,d3,d4',

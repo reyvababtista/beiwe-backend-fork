@@ -8,7 +8,6 @@ DEVICEMOTION = "devicemotion"
 GPS = "gps"
 GYRO = "gyro"
 IDENTIFIERS = "identifiers"
-IMAGE_FILE = "image_survey"
 IOS_LOG_FILE = "ios_log"
 MAGNETOMETER = "magnetometer"
 POWER_STATE = "power_state"
@@ -31,7 +30,6 @@ ALL_DATA_STREAMS = [
     GPS,
     GYRO,
     IDENTIFIERS,
-    IMAGE_FILE,
     IOS_LOG_FILE,
     MAGNETOMETER,
     POWER_STATE,
@@ -64,7 +62,6 @@ UPLOAD_FILE_TYPE_MAPPING = {
     "wifiLog": WIFI,
     "proximity": PROXIMITY,
     "ios_log": IOS_LOG_FILE,
-    "imageSurvey": IMAGE_FILE,
     "ambientAudio": AMBIENT_AUDIO,
     "identifiers": IDENTIFIERS,  # not processed through data upload.
 }
@@ -92,7 +89,6 @@ DATA_STREAM_TO_S3_FILE_NAME_STRING = {
     DEVICEMOTION: "devicemotion",
     REACHABILITY: "reachability",
     IOS_LOG_FILE: "ios/log",
-    IMAGE_FILE: "imageSurvey",
     AMBIENT_AUDIO: "ambientAudio",
 }
 

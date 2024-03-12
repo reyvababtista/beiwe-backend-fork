@@ -11,6 +11,13 @@ django-extensions==3.2.3
 
 python-dateutil==2.8.2  # this is currently locked due to our old celery requirement.
 
+# testing libraries
+# mock
+# coverage
+# tblib
+# redgreenunittest
+# time-machine
+
 pyqrcode
 pypng
 pyotp
@@ -40,7 +47,8 @@ boto3
 # this library. but we can't remove it because it is used in migrations. That was probably an old pytz bug.
 django-timezone-field==4.1.1
 
-pip-tools>=7.3.0
+# we actually had a requirements conflict _involving pip-tools_ so we are removing it from the requirements...
+# pip-tools>=7.3.0
 
 # this target points at what is currently the "beiwe-taskrunner" branch of the forest repo.
 git+https://git@github.com/onnela-lab/forest@1c0e7bcc9bed574b0392db7004921c51a440b4e0

@@ -29,7 +29,7 @@ All fields to list are in the form.fields list.
           <div class="checkbox">
             <label>
               <input type="checkbox" name="{{field.name}}" {% if form.instance[field.name] %} checked {% endif %}>
-              {{field.label}}
+              <b>{{field.label}}</b> - {{field.help_text}}
             </label>
           </div>
         {% endfor %}

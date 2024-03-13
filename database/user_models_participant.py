@@ -107,8 +107,9 @@ class Participant(AbstractPasswordUser):
     # of them are filler for future features that may or may not be implemented. Some are for
     # backend feature, some are for app features. (features under active development should be
     # annotated in some way but no promises.)
-    enable_heartbeat = models.BooleanField(default=False)  # backend, under active development
-    enable_aggressive_background_persistence = models.BooleanField(default=False)  # app, under active development
+    # Set help text over in /forms/django_forms.py
+    enable_heartbeat = models.BooleanField(default=False)
+    enable_aggressive_background_persistence = models.BooleanField(default=False)
     enable_binary_uploads = models.BooleanField(default=False)
     enable_new_authentication = models.BooleanField(default=False)
     enable_developer_datastream = models.BooleanField(default=False)

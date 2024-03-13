@@ -4,6 +4,8 @@
 #
 #    pip-compile requirements.in
 #
+amqp==5.2.0
+    # via kombu
 appnope==0.1.4
     # via ipython
 asgiref==3.7.2
@@ -14,10 +16,14 @@ audioread==3.0.1
     # via librosa
 backcall==0.2.0
     # via ipython
-backports-zoneinfo==0.2.1
+backports-zoneinfo[tzdata]==0.2.1
     # via
+    #   celery
     #   django
+    #   kombu
     #   psycopg
+billiard==4.2.0
+    # via celery
 bleach==6.1.0
     # via -r requirements.in
 boto3==1.34.60
@@ -30,6 +36,8 @@ cachecontrol==0.14.0
     # via firebase-admin
 cachetools==5.3.3
     # via google-auth
+celery==5.3.6
+    # via -r requirements.in
 certifi==2024.2.2
     # via
     #   pyproj
@@ -40,6 +48,18 @@ cffi==1.16.0
     #   timezonefinder
 charset-normalizer==3.3.2
     # via requests
+click==8.1.7
+    # via
+    #   celery
+    #   click-didyoumean
+    #   click-plugins
+    #   click-repl
+click-didyoumean==0.3.0
+    # via celery
+click-plugins==1.1.1
+    # via celery
+click-repl==0.3.0
+    # via celery
 cronutils==0.3.2
     # via -r requirements.in
 decorator==5.1.1
@@ -132,6 +152,8 @@ joblib==1.3.2
     # via
     #   librosa
     #   scikit-learn
+kombu==5.3.5
+    # via celery
 lazy-loader==0.3
     # via librosa
 librosa==0.10.1
@@ -181,7 +203,9 @@ platformdirs==4.2.0
 pooch==1.8.1
     # via librosa
 prompt-toolkit==3.0.43
-    # via ipython
+    # via
+    #   click-repl
+    #   ipython
 proto-plus==1.23.0
     # via google-cloud-firestore
 protobuf==4.25.3
@@ -223,6 +247,7 @@ python-dateutil==2.8.2
     # via
     #   -r requirements.in
     #   botocore
+    #   celery
     #   holidays
     #   pandas
 pytz==2024.1
@@ -286,10 +311,14 @@ typing-extensions==4.10.0
     # via
     #   asgiref
     #   ipython
+    #   kombu
     #   librosa
     #   psycopg
 tzdata==2024.1
-    # via pandas
+    # via
+    #   backports-zoneinfo
+    #   celery
+    #   pandas
 uritemplate==4.1.1
     # via google-api-python-client
 urllib3==1.26.18
@@ -298,6 +327,11 @@ urllib3==1.26.18
     #   requests
 uwsgi==2.0.24
     # via -r requirements.in
+vine==5.1.0
+    # via
+    #   amqp
+    #   celery
+    #   kombu
 wcwidth==0.2.13
     # via prompt-toolkit
 webencodings==0.5.1

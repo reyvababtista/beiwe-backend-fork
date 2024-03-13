@@ -2,7 +2,7 @@
 Django==4.2.11
 firebase-admin==5.4.0
 Jinja2 # used to require pinning, I guess review if there is a major version bump.
-zstd # used to require it be pinned to get 1.5.5.1
+zstd>=1.5.5.1 # can be stuck on older versions sometimes
 orjson==3.9.15
 
 # various extensions
@@ -52,3 +52,5 @@ django-timezone-field==4.1.1
 
 # this target points at what is currently the "beiwe-taskrunner" branch of the forest repo.
 git+https://git@github.com/onnela-lab/forest@1c0e7bcc9bed574b0392db7004921c51a440b4e0
+
+celery==5.3.6

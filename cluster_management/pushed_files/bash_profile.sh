@@ -24,7 +24,7 @@ alias apt="sudo apt"
 
 #update aliases
 alias update-commandline='cp ~/beiwe-backend/cluster_management/pushed_files/bash_profile.sh ~/.profile; cp ~/beiwe-backend/cluster_management/pushed_files/.inputrc ~/.inputrc'
-alias update-pip='pip uninstall forest -y; pip install --upgrade pip setuptools wheel; pip install -r requirements.txt; pip install -r requirements_data_processing.txt'
+alias update-pip='pip uninstall forest -y; pip install --upgrade pip setuptools wheel; pip install -r requirements.txt'
 
 #Alias aliases
 alias p="nano ~/.profile; source ~/.profile"

@@ -176,6 +176,7 @@ our_sentry_dsn = normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN)
 sentry_sdk.init(
     dsn=our_sentry_dsn,
     enable_tracing=True,
+    ignore_errors=["WorkerLostError", "DisallowedHost"],
     integrations=[
         DjangoIntegration(
             transaction_style='url',

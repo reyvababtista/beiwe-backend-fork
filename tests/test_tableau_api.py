@@ -331,7 +331,6 @@ class TestWebDataConnector(SmartRequestsTestCase):
         "beiwe_gps_bytes",
         "beiwe_gyro_bytes",
         "beiwe_identifiers_bytes",
-        "beiwe_image_survey_bytes",
         "beiwe_ios_log_bytes",
         "beiwe_magnetometer_bytes",
         "beiwe_power_state_bytes",

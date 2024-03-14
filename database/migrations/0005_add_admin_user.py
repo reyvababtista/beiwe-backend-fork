@@ -15,7 +15,7 @@ def add_admin_user_if_not_exists(apps: StateApps, schema_editor):
         access_key_secret, access_key_secret_salt = generate_hash_and_salt(
             "sha1", 1000, generate_random_bytestring(64)
         )
-        password, salt = generate_hash_and_salt("sha1", 1000, b"abc123")
+        password, salt = generate_hash_and_salt("sha1", 1000, b"abcABC123!@#")
         r = Researcher(
             username="default_admin",
             admin=True,

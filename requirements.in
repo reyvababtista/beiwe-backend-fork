@@ -1,15 +1,22 @@
 # core libraries
-Django==3.2.24
+Django==4.2.11
 firebase-admin==5.4.0
 Jinja2 # used to require pinning, I guess review if there is a major version bump.
-zstd # used to require it be pinned to get 1.5.5.1
-orjson==3.9.5
+zstd>=1.5.5.1 # can be stuck on older versions sometimes
+orjson==3.9.15
 
 # various extensions
 djangorestframework==3.14.0
-django-extensions==3.2.1
+django-extensions==3.2.3
 
 python-dateutil==2.8.2  # this is currently locked due to our old celery requirement.
+
+# testing libraries
+# mock
+# coverage
+# tblib
+# redgreenunittest
+# time-machine
 
 pyqrcode
 pypng
@@ -26,22 +33,24 @@ cronutils==0.3.2
 bleach>=4.1.0
 
 # server requirement
-# You have to upgrade django to greater than 2.2 (apparently) in order to upgrade psycopg2 to 2.9.x
-psycopg2>=2.9.7
+psycopg>=3.1.18
 
 # ipython can exhibit weird issues that make it look like the codebase is broken.  Most issues
 # are resolved by forcing this relatively new version of ipython.
 ipython>=8.12.2
-uwsgi>=2.0.22
+uwsgi>=2.0.24
 
 # Keep these dependencies up to date
 boto3
 
 # Ug due to pytz.timezone("America/New_York") being off by 4 minutes (aka ... wrong) we had to abandon
-# this library. but we can't remove it because it is used in migrations.
+# this library. but we can't remove it because it is used in migrations. That was probably an old pytz bug.
 django-timezone-field==4.1.1
 
-pip-tools>=7.3.0
+# we actually had a requirements conflict _involving pip-tools_ so we are removing it from the requirements...
+# pip-tools>=7.3.0
 
 # this target points at what is currently the "beiwe-taskrunner" branch of the forest repo.
-git+https://git@github.com/onnela-lab/forest@a1eb117263ba9e831426017e472ab5bbf9277888
+git+https://git@github.com/onnela-lab/forest@1c0e7bcc9bed574b0392db7004921c51a440b4e0
+
+celery==5.3.6

@@ -1,16 +1,20 @@
 from __future__ import annotations
-from django.db.models import Manager, QuerySet
+
 import json
+import os
 from datetime import datetime, timedelta, tzinfo
 from pprint import pprint
+import stat
 from typing import Dict, List, Optional, Tuple, Union
 
+import orjson
+import zstd
 from Cryptodome.PublicKey import RSA
 from dateutil.tz import gettz
 from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import MinLengthValidator
 from django.db import models
-from django.db.models import Manager
+from django.db.models import Manager, QuerySet
 from django.utils import timezone
 
 from config.settings import DOMAIN_NAME
@@ -103,12 +107,14 @@ class Participant(AbstractPasswordUser):
     # of them are filler for future features that may or may not be implemented. Some are for
     # backend feature, some are for app features. (features under active development should be
     # annotated in some way but no promises.)
-    enable_heartbeat = models.BooleanField(default=False)  # backend, under active development
-    enable_aggressive_background_persistence = models.BooleanField(default=False)  # app, under active development
+    # Set help text over in /forms/django_forms.py
+    enable_heartbeat = models.BooleanField(default=False)
+    enable_aggressive_background_persistence = models.BooleanField(default=False)
     enable_binary_uploads = models.BooleanField(default=False)
     enable_new_authentication = models.BooleanField(default=False)
     enable_developer_datastream = models.BooleanField(default=False)
     enable_beta_features = models.BooleanField(default=False)
+    enable_extensive_device_info_tracking = models.BooleanField(default=False)
     EXPERIMENT_FIELDS = (
         "enable_heartbeat",
         # "enable_aggressive_background_persistence",
@@ -116,12 +122,14 @@ class Participant(AbstractPasswordUser):
         # "enable_new_authentication",
         # "enable_developer_datastream",
         # "enable_beta_features",
+        "enable_extensive_device_info_tracking",
     )
     
     # related field typings (IDE halp)
     archived_events: Manager[ArchivedEvent]
     chunk_registries: Manager[ChunkRegistry]
     deletion_event: Manager[ParticipantDeletionEvent]
+    device_status_reports: Manager[DeviceStatusReportHistory]
     fcm_tokens: Manager[ParticipantFCMHistory]
     field_values: Manager[ParticipantFieldValue]
     files_to_process: Manager[FileToProcess]
@@ -290,6 +298,33 @@ class Participant(AbstractPasswordUser):
             print(identifier.s3_retrieve().decode())
     
     ################################################################################################
+    ######################################### LOGGING ##############################################
+    ################################################################################################
+    
+    def generate_device_status_report_history(self, url: str):
+        # this is just stupid but a mistake ages ago means we have to do this.
+        if self.last_os_version == IOS_API:
+            app_version = str(self.last_version_code) + " " + str(self.last_version_name)
+        else:
+            app_version = str(self.last_version_name) + " " + str(self.last_version_code)
+        
+        # testing on a (sloooowww) aws T3 server got about 20us on a 1.5k string of json data
+        # with a compression ratio of about 3x.  7 was slightly better than others on test data.
+        if self.device_status_report:
+            compressed_data = zstd.compress(self.device_status_report.encode(), 7, 1)
+        else:
+            compressed_data = b"empty"
+        
+        DeviceStatusReportHistory.objects.create(
+            participant=self,
+            app_os=self.os_type or "None",
+            os_version=self.last_os_version or "None",
+            app_version=app_version or "None", 
+            endpoint=url or "None",
+            compressed_report=compressed_data,
+        )
+    
+    ################################################################################################
     ############################### TERMINAL DEBUGGING FUNCTIONS ###################################
     ################################################################################################
     
@@ -351,15 +386,23 @@ class Participant(AbstractPasswordUser):
     @property
     def pprint(self):
         d = self._pprint()
+        d.pop("password") # not important or desired
+        d.pop("device_id") # not important or desired
         dsr = d.pop("device_status_report")
         pprint(d)
         # it can be None, and empty string
         if dsr:
             print("\nDevice Status Report:")
-            pprint(json.loads(dsr))
+            pprint(json.loads(dsr), width=os.get_terminal_size().columns)
         else:
             print("\n(No device status report.)")
-
+    
+    def get_status_report_datum(self, key: str):
+        """ For debugging, returns the value of a key in the device status report. """
+        if not self.device_status_report:
+            return "(no device status report)"
+        data: dict = json.loads(self.device_status_report)
+        return data.get(key, f"(no match for '{key}')")
 
 class PushNotificationDisabledEvent(UtilityModel):
     # There may be many events
@@ -454,6 +497,7 @@ class AppHeartbeats(UtilityModel):
         return cls.objects.create(participant=participant, timestamp=timestamp, message=message)
 
 
+# todo: add more ParticipantActionLog entries
 class ParticipantActionLog(UtilityModel):
     """ This is a log of actions taken by participants, for debugging purposes. """
     participant: Participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="action_logs")
@@ -467,3 +511,45 @@ class ParticipantActionLog(UtilityModel):
 #     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
 #     # handled means there was a notification sent to the user, or we got a heartbeat.
 #     handled = models.DateTimeField(null=False, blank=False, db_index=True)
+
+# device status report history 
+class DeviceStatusReportHistory(UtilityModel):
+    participant = models.ForeignKey(
+        Participant, null=False, on_delete=models.PROTECT, related_name="device_status_reports"
+    )
+    app_os = models.CharField(max_length=32, blank=False, null=False)
+    os_version = models.CharField(max_length=32, blank=False, null=False)
+    app_version = models.CharField(max_length=32, blank=False, null=False)
+    endpoint = models.TextField(null=False, blank=False)
+    # it's memoryview because that's how binary fields binary. Use .compressed_bytes to get bytes.
+    compressed_report: memoryview = models.BinaryField(null=False, blank=False)
+    
+    @property
+    def compressed_bytes(self) -> int:
+        return self.compressed_report.tobytes()
+    
+    @property
+    def decompress(self) -> Dict[str, Union[str, int]]:
+        return zstd.decompress(self.compressed_bytes).decode()
+    
+    @property
+    def load_json(self):
+        return orjson.loads(zstd.decompress(self.compressed_bytes))
+    
+    @classmethod
+    def bulk_decode(cls, list_of_compressed_reports: List[bytes]) -> List[str]:
+        return [
+            zstd.decompress(cls.memview_to_bytes(report)).decode() for report in list_of_compressed_reports
+        ]
+    
+    @classmethod
+    def bulk_load_json(cls, list_of_compressed_reports: List[bytes]) -> List[Dict[str, Union[str, int]]]:
+        return [
+            orjson.loads(zstd.decompress(cls.memview_to_bytes(report))) for report in list_of_compressed_reports
+        ]
+    
+    @staticmethod
+    def memview_to_bytes(memview: memoryview) -> bytes:
+        if isinstance(memview, bytes):
+            return memview
+        return memview.tobytes()

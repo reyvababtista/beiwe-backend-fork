@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pytz
 from django.utils import timezone
 
-from constants.data_stream_constants import AMBIENT_AUDIO, IMAGE_FILE, VOICE_RECORDING
+from constants.data_stream_constants import AMBIENT_AUDIO, VOICE_RECORDING
 from database.data_access_models import ChunkRegistry
 from database.forest_models import SummaryStatisticDaily
 
@@ -23,7 +23,7 @@ LATEST_POSSIBLE_DATA_DATE = LATEST_POSSIBLE_DATA.date()
 def review_data():
     """ This is complex to put together, sticking it in an (unused) function."""
     query = ChunkRegistry.objects.filter(time_bin__lt=EARLIST_POSSIBLE_DATA) \
-        .exclude(data_type__in=[IMAGE_FILE, AMBIENT_AUDIO, VOICE_RECORDING])
+        .exclude(data_type__in=[AMBIENT_AUDIO, VOICE_RECORDING])
     
     bad_chunks = []
     print("\nSearching for clearly corrupted ChunkRegistries...\n")

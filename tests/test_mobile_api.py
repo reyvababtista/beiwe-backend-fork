@@ -427,13 +427,14 @@ class TestGetLatestDeviceSettings(ParticipantSessionTest):
             'survey_submit_success_toast_text': SURVEY_SUBMIT_SUCCESS_TOAST_TEXT,
             'consent_sections': DEFAULT_CONSENT_SECTIONS,
             
-            # Experiment features, yep you gotta manually change it when you change them.
+            # Experiment features, yep you gotta manually change it when you change them too.
             'enable_heartbeat': False,
-            # 'enable_aggressive_background_persistence': False,
             # 'enable_binary_uploads': False,
             # 'enable_new_authentication': False,
             # 'enable_developer_datastream': False,
             # 'enable_beta_features': False
+            # 'enable_aggressive_background_persistence': False,
+            'enable_extensive_device_info_tracking': False,
         }
         
         self.assertIsNone(p.last_get_latest_device_settings)

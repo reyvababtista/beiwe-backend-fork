@@ -36,7 +36,7 @@ def intervention_survey_data(study: Study) -> Dict[str, Dict[str, DictOfStrStr]]
             intervention_date = intervention_date.isoformat()
         final_data[patient_id][survey_object_id][intervention_name] = intervention_date
     
-    # convert defaultdicts to regular dicts
+    # convert defaultdicts to regular dicts so the data can be jsonified.
     final_data = dict(final_data)
     for k1 in final_data:
         final_data[k1] = dict(final_data[k1])

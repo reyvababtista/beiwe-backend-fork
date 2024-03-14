@@ -1,8 +1,10 @@
 import json
 from datetime import timedelta
-from typing import List
+from pprint import pformat
+from typing import Union
 
 from celery import Celery
+from celery.events.snapshot import Polaroid
 from django.utils import timezone
 from kombu.exceptions import OperationalError
 
@@ -75,7 +77,7 @@ class FalseCeleryApp:
 FORCE_CELERY_OFF = False
 
 
-def instantiate_celery_app_connection(service_name: str) -> Celery or FalseCeleryApp:
+def instantiate_celery_app_connection(service_name: str) -> Union[Celery, FalseCeleryApp]:
     # this isn't viable because it breaks watch_processing (etc), because the celery.task.inspect
     # call will time out if no Celery object has been instantiated with credentials.
     # if RUNNING_TEST_OR_IN_A_SHELL:
@@ -112,7 +114,8 @@ scripts_celery_app = instantiate_celery_app_connection(SCRIPTS_SERVICE)
 # All return a list of ids (can be empty), or None if celery isn't currently running.
 #
 
-def inspect():
+# which celery app(?) used is completely arbitrary, they are all the same.
+def inspect(selery: Celery):
     """ Inspect is annoyingly unreliable and has a default 1 second timeout.
         Will error if executed while a FalseCeleryApp is in use. """
     
@@ -124,15 +127,12 @@ def inspect():
     ):
         raise CeleryNotRunningException("FalseCeleryApp is in use, this session is not connected to celery.")
     
-    # this import needs to come after the celery app is loaded, the class is dynamic
-    # and the inspect function is injected, it is not present in the source.
-    from celery.task.control import inspect as celery_inspect
     now = timezone.now()
     fail_time = now + timedelta(seconds=20)
     
     while now < fail_time:
         try:
-            return celery_inspect(timeout=0.1)
+            return selery.control.inspect(timeout=0.1)
         except CeleryNotRunningException:
             now = timezone.now()
             continue
@@ -140,79 +140,85 @@ def inspect():
     raise CeleryNotRunningException()
 
 
-# TODO: where are these string parameters from? Need to instantiate one for Forest. (Probably)
+# these strings are tags on the apps in cluster_management/pushed_files/install_celery_worker.sh
+# specific example: --hostname=%%h_processing
 
-def get_notification_scheduled_job_ids() -> List[int] or None:
+# Push Notifications
+def get_notification_scheduled_job_ids() -> Union[int, None]:
     if push_send_celery_app is FalseCeleryApp:
         print("call to get_notification_scheduled_job_ids in FalseCeleryApp, returning []")
         return []
-    return _get_job_ids(inspect().scheduled(), "notifications")
-def get_notification_reserved_job_ids() -> List[int] or None:
+    return _get_job_ids(inspect(push_send_celery_app).scheduled(), "notifications")
+
+
+def get_notification_reserved_job_ids() -> Union[int, None]:
     if push_send_celery_app is FalseCeleryApp:
         print("call to get_notification_reserved_job_ids in FalseCeleryApp, returning []")
         return []
-    return _get_job_ids(inspect().reserved(), "notifications")
-def get_notification_active_job_ids() -> List[int] or None:
+    return _get_job_ids(inspect(push_send_celery_app).reserved(), "notifications")
+
+
+def get_notification_active_job_ids() -> Union[int, None]:
     if push_send_celery_app is FalseCeleryApp:
         print("call to get_notification_active_job_ids in FalseCeleryApp, returning []")
         return []
-    return _get_job_ids(inspect().active(), "notifications")
+    return _get_job_ids(inspect(push_send_celery_app).active(), "notifications")
 
 # Processing
-def get_processing_scheduled_job_ids() -> List[int] or None:
+def get_processing_scheduled_job_ids() -> Union[int, None]:
     if processing_celery_app is FalseCeleryApp:
         print("call to get_processing_scheduled_job_ids in FalseCeleryApp, returning []")
         return []
-    return _get_job_ids(inspect().scheduled(), "processing")
-def get_processing_reserved_job_ids() -> List[int] or None:
+    return _get_job_ids(inspect(processing_celery_app).scheduled(), "processing")
+
+
+def get_processing_reserved_job_ids() -> Union[int, None]:
     if processing_celery_app is FalseCeleryApp:
         print("call to get_processing_reserved_job_ids in FalseCeleryApp, returning []")
         return []
-    return _get_job_ids(inspect().reserved(), "processing")
-def get_processing_active_job_ids() -> List[int] or None:
+    return _get_job_ids(inspect(processing_celery_app).reserved(), "processing")
+
+
+def get_processing_active_job_ids() -> Union[int, None]:
     if processing_celery_app is FalseCeleryApp:
         print("call to get_processing_active_job_ids in FalseCeleryApp, returning []")
         return []
-    return _get_job_ids(inspect().active(), "processing")
+    return _get_job_ids(inspect(processing_celery_app).active(), "processing")
 
 
-def get_revoked_job_ids():
-    """ Returns a list of a tuple of two lists of usually ints. """
-    return list(inspect().revoked().values())
-
-
+# logic for any of the above functions
 def _get_job_ids(celery_query_dict, celery_app_suffix):
     """ This is a utility function for poking live celery apps.
-
+    
     Data structure looks like this, we just want that args component.
     Returns list of ids (can be empty), or None if celery isn't currently running.
-
-    {'celery@ip-172-31-78-176': [{'id': '12e579ee-c603-4f06-b80c-dd78c330e539',
-       'name': 'services.celery_data_processing.queue_user',
-       'args': '[7235]',
-       'kwargs': '{}',
-       'type': 'services.celery_data_processing.queue_user',
-       'hostname': 'celery@ip-172-31-78-176',
-       'time_start': 2387953.778238536,
-       'acknowledged': True,
-       'delivery_info': {'exchange': '',
-        'routing_key': 'celery',
-        'priority': 0,
+    
+    {'celery@ip-172-31-75-163_processing': [{'id': 'a391eff1-05ae-4524-843e-f8bdc96d0468',
+    'name': 'services.celery_data_processing.celery_process_file_chunks',
+    'args': [1559],
+    'kwargs': {},
+    'type': 'services.celery_data_processing.celery_process_file_chunks',
+    'hostname': 'celery@ip-172-31-75-163_processing',
+    'time_start': 1710402847.7559981,
+    'acknowledged': True,
+    'delivery_info': {'exchange': '',
+        'routing_key': 'data_processing',
+        'priority': None,
         'redelivered': False},
-       'worker_pid': 27291},
-        {'id': 'd49aad01-2392-4607-91f7-5f9416a9941f',
-         'name': 'services.celery_data_processing.queue_user',
-         'args': '[7501]',
-         'kwargs': '{}',
-         'type': 'services.celery_data_processing.queue_user',
-         'hostname': 'celery@ip-172-31-78-176',
-         'time_start': 2387939.015288787,
-         'acknowledged': True,
-         'delivery_info': {'exchange': '',
-          'routing_key': 'celery',
-          'priority': 0,
-          'redelivered': False},
-         'worker_pid': 27292}]}
+    'worker_pid': 4433},
+    {'id': '0a4a3fad-ce10-4265-ae14-a2004f0bbedc',
+    'name': 'services.celery_data_processing.celery_process_file_chunks',
+    'args': [1557],
+    'kwargs': {},
+    'type': 'services.celery_data_processing.celery_process_file_chunks',
+    'hostname': 'celery@ip-172-31-75-163_processing',
+    'time_start': 1710402847.7390666,
+    'acknowledged': True,
+    'delivery_info': {'exchange': '',
+        'routing_key': 'data_processing',
+        'priority': None,
+        'redelivered': False},
+    'worker_pid': 4432}]}
     """
     
     # for when celery isn't running
@@ -237,3 +243,83 @@ def _get_job_ids(celery_query_dict, celery_app_suffix):
         all_args.append(args[0])
     
     return all_args
+
+"""
+Documenting the inspect functionality because it is quite obscure.
+
+active - a list of the following form, should be lists of tasks.
+    {'celery@ip-172-31-75-163_notifications': [],
+     'celery@ip-172-31-75-163_processing': [],
+     'celery@ip-172-31-75-163_forest': [],
+     'celery@ip-172-31-75-163_scripts': []}
+
+revoked - same format
+scheduled - same format
+
+active_queues - more detail than you could ever want about the queues (dict of list of dict).
+{'celery@ip-172-31-75-163_processing': [{'name': 'data_processing',
+   'exchange': {'name': 'data_processing',
+    'type': 'direct',
+    'arguments': None,
+    'durable': True,
+    'passive': False,
+    'auto_delete': False,
+    'delivery_mode': None,
+    'no_declare': False},
+   'routing_key': 'data_processing',
+   'queue_arguments': None,
+   'binding_arguments': None,
+   'consumer_arguments': None,
+   'durable': True,
+   'exclusive': False,
+   'auto_delete': False,
+   'no_ack': False,
+   'alias': None,
+   'bindings': [],
+   'no_declare': None,
+   'expires': None,
+   'message_ttl': None,
+   'max_length': None,
+   'max_length_bytes': None,
+   'max_priority': None}], ...
+
+registered
+    {'celery@ip-172-31-75-163_processing': ['services.celery_data_processing.celery_process_file_chunks'],
+    'celery@ip-172-31-75-163_forest': ['services.celery_forest.celery_run_forest'],
+    'celery@ip-172-31-75-163_notifications': ['services.celery_push_notifications.celery_heartbeat_send_push_notification',
+     'services.celery_push_notifications.celery_send_survey_push_notification'],
+    'celery@ip-172-31-75-163_scripts': ['services.scripts_runner.celery_participant_data_deletion',
+     'services.scripts_runner.celery_process_ios_no_decryption_key',
+     'services.scripts_runner.celery_purge_invalid_time_data',
+     'services.scripts_runner.celery_update_forest_version',
+     'services.scripts_runner.celery_upload_logs']}
+
+registered_tasks - looks identical to registered...
+reserved - looks identical to registered...
+
+stats - it's own thing.
+"""
+
+
+# class off of documentation to watch celery events. Not super useful right now but could be.
+class DumpCam(Polaroid):
+    clear_after = True  # clear after flush (incl, state.event_count).
+    
+    def on_shutter(self, state):
+        if not state.event_count:
+            # No new events since last snapshot.
+            print('No new events...\n')
+        print('Workers: {0}'.format(pformat(state.workers, indent=4)))
+        print('Tasks: {0}'.format(pformat(state.tasks, indent=4)))
+        print('Total: {0.event_count} events, {0.task_count} tasks'.format(state))
+        print()
+
+
+def watch_celery():
+    """ it doesn't matter which processing_celery_app we use, they are all the same.  """
+    state = processing_celery_app.events.State()
+    freq = 1.0  # seconds
+    with processing_celery_app.connection() as connection:
+        recv = processing_celery_app.events.Receiver(connection, handlers={'*': state.event})
+        with DumpCam(state, freq=freq):
+            recv.capture(limit=None, timeout=None)

@@ -141,13 +141,15 @@ def celery_run_forest(forest_task_id):
             forest_commit=ForestVersion.get_singleton_instance().git_commit,
         )
     
-    # ChunkRegistry time_bin hourly chunks are in UTC, and only have hourly datapoints for all
-    # automated data, but manually entered data is more specific with minutes, seconds, etc.  We
-    # want our query for source data to use the study's timezone such that starts of days align to
-    # local midnight and end-of-day to 11:59.59pm. Weird fractional timezones will be noninclusive
-    # of their first hour of data between midnight and midnight + 1 hour, except for manually
-    # entered data streams which will instead align to the calendar date in the study timezone. Any
-    # such "missing" fraction of an hour is instead included at the end of the previous day.
+    # ChunkRegistry "time_bin" hourly chunks are in UTC, with each file containing a discrete hour
+    # of data. Manually entered data streams (like survey answers or media files) have a more
+    # specific "time_bin" that is just the original file timestamp.
+    # Our query for source data to uses the study's timezone such that starts of days align to local
+    # midnight and local end-of-day to 11:59.59pm. (Those weird fractional timezones will be
+    # noninclusive of the hour containing their first fractional offset, but inclusive of data in
+    # the hour containing their last fractional offset. Manually entered data streams don't have
+    # this issue.)
+    # Code: construct two datetimes for the start and end of day in the study's timezone.
     starttime_midnight = datetime.combine(task.data_date_start, MIN_TIME, task.participant.study.timezone)
     endtime_11_59pm = datetime.combine(task.data_date_end, MAX_TIME, task.participant.study.timezone)
     log("starttime_midnight: ", starttime_midnight.isoformat())

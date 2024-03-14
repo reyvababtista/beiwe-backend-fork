@@ -265,7 +265,6 @@ class SummaryStatisticDaily(TimestampedModel):
     beiwe_gps_bytes = models.PositiveBigIntegerField(null=True, blank=True)
     beiwe_gyro_bytes = models.PositiveBigIntegerField(null=True, blank=True)
     beiwe_identifiers_bytes = models.PositiveBigIntegerField(null=True, blank=True)
-    beiwe_image_survey_bytes = models.PositiveBigIntegerField(null=True, blank=True)
     beiwe_ios_log_bytes = models.PositiveBigIntegerField(null=True, blank=True)
     beiwe_magnetometer_bytes = models.PositiveBigIntegerField(null=True, blank=True)
     beiwe_power_state_bytes = models.PositiveBigIntegerField(null=True, blank=True)

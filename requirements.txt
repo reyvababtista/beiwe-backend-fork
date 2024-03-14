@@ -4,6 +4,8 @@
 #
 #    pip-compile requirements.in
 #
+amqp==5.2.0
+    # via kombu
 appnope==0.1.4
     # via ipython
 asgiref==3.7.2
@@ -14,20 +16,28 @@ audioread==3.0.1
     # via librosa
 backcall==0.2.0
     # via ipython
+backports-zoneinfo[tzdata]==0.2.1
+    # via
+    #   celery
+    #   django
+    #   kombu
+    #   psycopg
+billiard==4.2.0
+    # via celery
 bleach==6.1.0
     # via -r requirements.in
-boto3==1.34.39
+boto3==1.34.60
     # via -r requirements.in
-botocore==1.34.39
+botocore==1.34.60
     # via
     #   boto3
     #   s3transfer
-build==1.0.3
-    # via pip-tools
 cachecontrol==0.14.0
     # via firebase-admin
-cachetools==5.3.2
+cachetools==5.3.3
     # via google-auth
+celery==5.3.6
+    # via -r requirements.in
 certifi==2024.2.2
     # via
     #   pyproj
@@ -39,20 +49,30 @@ cffi==1.16.0
 charset-normalizer==3.3.2
     # via requests
 click==8.1.7
-    # via pip-tools
+    # via
+    #   celery
+    #   click-didyoumean
+    #   click-plugins
+    #   click-repl
+click-didyoumean==0.3.0
+    # via celery
+click-plugins==1.1.1
+    # via celery
+click-repl==0.3.0
+    # via celery
 cronutils==0.3.2
     # via -r requirements.in
 decorator==5.1.1
     # via
     #   ipython
     #   librosa
-django==3.2.24
+django==4.2.11
     # via
     #   -r requirements.in
     #   django-extensions
     #   django-timezone-field
     #   djangorestframework
-django-extensions==3.2.1
+django-extensions==3.2.3
     # via -r requirements.in
 django-timezone-field==4.1.1
     # via -r requirements.in
@@ -62,19 +82,18 @@ executing==2.0.1
     # via stack-data
 firebase-admin==5.4.0
     # via -r requirements.in
-forest @ git+https://git@github.com/onnela-lab/forest@a1eb117263ba9e831426017e472ab5bbf9277888
+forest @ git+https://git@github.com/onnela-lab/forest@1c0e7bcc9bed574b0392db7004921c51a440b4e0
     # via -r requirements.in
-google-api-core[grpc]==2.17.0
+google-api-core[grpc]==2.17.1
     # via
     #   firebase-admin
-    #   google-api-core
     #   google-api-python-client
     #   google-cloud-core
     #   google-cloud-firestore
     #   google-cloud-storage
-google-api-python-client==2.117.0
+google-api-python-client==2.122.0
     # via firebase-admin
-google-auth==2.27.0
+google-auth==2.28.2
     # via
     #   google-api-core
     #   google-api-python-client
@@ -87,9 +106,9 @@ google-cloud-core==2.4.1
     # via
     #   google-cloud-firestore
     #   google-cloud-storage
-google-cloud-firestore==2.14.0
+google-cloud-firestore==2.15.0
     # via firebase-admin
-google-cloud-storage==2.14.0
+google-cloud-storage==2.15.0
     # via firebase-admin
 google-crc32c==1.5.0
     # via
@@ -97,19 +116,19 @@ google-crc32c==1.5.0
     #   google-resumable-media
 google-resumable-media==2.7.0
     # via google-cloud-storage
-googleapis-common-protos==1.62.0
+googleapis-common-protos==1.63.0
     # via
     #   google-api-core
     #   grpcio-status
-grpcio==1.60.1
+grpcio==1.62.1
     # via
     #   google-api-core
     #   grpcio-status
-grpcio-status==1.60.1
+grpcio-status==1.62.1
     # via google-api-core
-h3==3.7.6
+h3==3.7.7
     # via timezonefinder
-holidays==0.42
+holidays==0.44
     # via forest
 httplib2==0.22.0
     # via
@@ -117,10 +136,8 @@ httplib2==0.22.0
     #   google-auth-httplib2
 idna==3.6
     # via requests
-importlib-metadata==7.0.1
-    # via
-    #   build
-    #   numba
+importlib-metadata==7.0.2
+    # via numba
 ipython==8.12.3
     # via -r requirements.in
 jedi==0.19.1
@@ -135,6 +152,8 @@ joblib==1.3.2
     # via
     #   librosa
     #   scikit-learn
+kombu==5.3.5
+    # via celery
 lazy-loader==0.3
     # via librosa
 librosa==0.10.1
@@ -145,7 +164,7 @@ markupsafe==2.1.5
     # via jinja2
 matplotlib-inline==0.1.6
     # via ipython
-msgpack==1.0.7
+msgpack==1.0.8
     # via
     #   cachecontrol
     #   librosa
@@ -167,12 +186,10 @@ numpy==1.24.4
     #   timezonefinder
 openrouteservice==2.3.3
     # via forest
-orjson==3.9.5
+orjson==3.9.15
     # via -r requirements.in
-packaging==23.2
-    # via
-    #   build
-    #   pooch
+packaging==24.0
+    # via pooch
 pandas==2.0.3
     # via forest
 parso==0.8.3
@@ -181,24 +198,24 @@ pexpect==4.9.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-pip-tools==7.3.0
-    # via -r requirements.in
 platformdirs==4.2.0
     # via pooch
-pooch==1.8.0
+pooch==1.8.1
     # via librosa
 prompt-toolkit==3.0.43
-    # via ipython
+    # via
+    #   click-repl
+    #   ipython
 proto-plus==1.23.0
     # via google-cloud-firestore
-protobuf==4.25.2
+protobuf==4.25.3
     # via
     #   google-api-core
     #   google-cloud-firestore
     #   googleapis-common-protos
     #   grpcio-status
     #   proto-plus
-psycopg2==2.9.9
+psycopg==3.1.18
     # via -r requirements.in
 ptyprocess==0.7.0
     # via pexpect
@@ -218,25 +235,23 @@ pygments==2.17.2
     # via ipython
 pyotp==2.9.0
     # via -r requirements.in
-pyparsing==3.1.1
+pyparsing==3.1.2
     # via httplib2
 pypng==0.20220715.0
     # via -r requirements.in
 pyproj==3.5.0
     # via forest
-pyproject-hooks==1.0.0
-    # via build
 pyqrcode==1.2.1
     # via -r requirements.in
 python-dateutil==2.8.2
     # via
     #   -r requirements.in
     #   botocore
+    #   celery
     #   holidays
     #   pandas
 pytz==2024.1
     # via
-    #   django
     #   django-timezone-field
     #   djangorestframework
     #   forest
@@ -267,7 +282,7 @@ scipy==1.10.1
     #   librosa
     #   scikit-learn
     #   ssqueezepy
-shapely==2.0.2
+shapely==2.0.3
     # via forest
 six==1.16.0
     # via
@@ -284,26 +299,26 @@ ssqueezepy==0.6.4
     # via forest
 stack-data==0.6.3
     # via ipython
-threadpoolctl==3.2.0
+threadpoolctl==3.3.0
     # via scikit-learn
 timezonefinder==6.4.1
     # via forest
-tomli==2.0.1
-    # via
-    #   build
-    #   pip-tools
-    #   pyproject-hooks
-traitlets==5.14.1
+traitlets==5.14.2
     # via
     #   ipython
     #   matplotlib-inline
-typing-extensions==4.9.0
+typing-extensions==4.10.0
     # via
     #   asgiref
     #   ipython
+    #   kombu
     #   librosa
+    #   psycopg
 tzdata==2024.1
-    # via pandas
+    # via
+    #   backports-zoneinfo
+    #   celery
+    #   pandas
 uritemplate==4.1.1
     # via google-api-python-client
 urllib3==1.26.18
@@ -312,19 +327,21 @@ urllib3==1.26.18
     #   requests
 uwsgi==2.0.24
     # via -r requirements.in
+vine==5.1.0
+    # via
+    #   amqp
+    #   celery
+    #   kombu
 wcwidth==0.2.13
     # via prompt-toolkit
 webencodings==0.5.1
     # via bleach
-wheel==0.42.0
-    # via
-    #   forest
-    #   pip-tools
+wheel==0.43.0
+    # via forest
 zipp==3.17.0
     # via importlib-metadata
 zstd==1.5.5.1
     # via -r requirements.in
 
 # The following packages are considered to be unsafe in a requirements file:
-# pip
 # setuptools

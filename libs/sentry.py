@@ -68,6 +68,6 @@ def make_error_sentry(sentry_type: str, tags: dict = None, force_null_error_hand
     # it harder to debug invalid DSNs.
     return ErrorSentry(
         get_dsn_from_string(sentry_type),
-        sentry_client_kwargs={'tags': tags, 'transport': HttpTransport},
+        sentry_client_kwargs={'transport': HttpTransport},
         sentry_report_limit=10
     )

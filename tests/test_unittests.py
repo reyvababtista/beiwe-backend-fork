@@ -19,6 +19,7 @@ from database.user_models_participant import (AppHeartbeats, DeviceStatusReportH
     ParticipantActionLog, ParticipantDeletionEvent, PushNotificationDisabledEvent)
 from libs.file_processing.exceptions import BadTimecodeError
 from libs.file_processing.utility_functions_simple import binify_from_timecode
+from libs.forest_utils import get_forest_git_hash
 from libs.participant_purge import (confirm_deleted, get_all_file_path_prefixes,
     run_next_queued_participant_data_deletion)
 from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_and_schedule,
@@ -572,3 +573,9 @@ class TestParticipantActive(CommonTestCase):
                 else:
                     setattr(p, field_inner, less_than_a_week_ago)
             self.assertTrue(p.is_active_one_week)
+
+
+class TestForestHash(unittest.TestCase):
+    def test_get_forest_git_hash(self):
+        hash = get_forest_git_hash()
+        self.assertNotEqual(hash, "")

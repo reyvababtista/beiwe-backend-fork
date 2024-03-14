@@ -138,7 +138,6 @@ def setup_python():
     run(f"{pyenv} virtualenv 3.8.13 beiwe >> {LOG_FILE}")
     run(f"{python} -m pip install --upgrade pip setuptools wheel >> {LOG_FILE}")
     run(f'{python} -m pip install -r {REMOTE_HOME_DIR}/beiwe-backend/requirements.txt >> {LOG_FILE}')
-    run(f'{python} -m pip install -r {REMOTE_HOME_DIR}/beiwe-backend/requirements_data_processing.txt >> {LOG_FILE}')
 
 
 def run_custom_ondeploy_script():

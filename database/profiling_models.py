@@ -68,6 +68,10 @@ class UploadTracking(UtilityModel):
     timestamp = models.DateTimeField()
     participant: Participant = models.ForeignKey(Participant, on_delete=models.PROTECT, related_name='upload_trackers')
     
+    def s3_retrieve(self):
+        from libs.s3 import s3_retrieve
+        return s3_retrieve(self.file_path, self.participant)
+    
     @classmethod
     def re_add_files_to_process(cls, number=100):
         """ Re-adds the most recent [number] files that have been uploaded recently to FiletToProcess.

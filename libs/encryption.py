@@ -1,7 +1,9 @@
+# trunk-ignore-all(ruff/B904)
 import json
 from typing import List
 
 from Cryptodome.Cipher import AES
+from Cryptodome.PublicKey import RSA
 from django.forms import ValidationError
 
 from config.settings import STORE_DECRYPTION_LINE_ERRORS
@@ -21,7 +23,7 @@ class UnHandledError(Exception): pass  # for debugging
 class InvalidIV(Exception): pass
 class InvalidData(Exception): pass
 class DefinitelyInvalidFile(Exception): pass
-class UncatchableError(Exception): pass
+class UncatchableError(BaseException): pass
 
 # TODO: there is a circular import due to the database imports in this file and this file being
 # imported in s3, forcing local s3 imports in various files.  Refactor and fix.
@@ -38,7 +40,15 @@ def log(*args, **kwargs):
 
 class DeviceDataDecryptor():
     
-    def __init__(self, file_name: str, original_data: bytes, participant: Participant) -> None:
+    def __init__(
+            self,
+            file_name: str,
+            original_data: bytes,
+            participant: Participant,
+            ignore_existing_keys: bool = False,
+            rsa_key: RSA.RsaKey = None
+        ) -> None:
+        
         # basic info
         self.file_name: str = file_name
         self.original_data: bytes = original_data
@@ -53,35 +63,43 @@ class DeviceDataDecryptor():
         self.line_index = None  # line index is index to files_list variable of the current line
         
         # decryption key extraction
-        self.private_key_cipher = self.participant.get_private_key()
+        if rsa_key:
+            self.private_key_cipher = rsa_key
+        else:
+            self.private_key_cipher = self.participant.get_private_key()
+            
         self.file_lines = self.split_file()
         
         # error management includes external assets, attribute needs to be populated.
         # DON'T pre-populate self.decrypted_file
         self.used_ios_decryption_key_cache = False
         
+        self.ignore_existing_keys = ignore_existing_keys
+        
         # os determination and go
-        if participant.os_type == ANDROID_API:
-            self.do_android_decryption()
+        if participant.os_type == ANDROID_API or ignore_existing_keys:
+            self.do_normal_decryption()
         elif participant.os_type == IOS_API:
-            self.do_ios_decryption()
+            self.do_decryption_with_key_checking()
         else:
             raise Exception(f"Unknown operating system: {participant.os_type}")
     
-    def do_android_decryption(self):
+    def do_normal_decryption(self):
         """ Android has no exciting features, errors are raised as normal. """
         self.aes_decryption_key = self.extract_aes_key()
         self.decrypt_device_file()
         # join is optimized and does not cause O(n^2) total memory copies.
         self.decrypted_file = b"\n".join(self.good_lines)
     
-    def do_ios_decryption(self):
+    def do_decryption_with_key_checking(self):
         """ iOS can upload identically named files that were split in half (or more)? due to a bug
         (the iOS app is bad.) We stash keys of all uploaded ios data, and use them to decrypt these
         "duplicate" files. """
         try:
             self.aes_decryption_key = self.extract_aes_key()
         except DecryptionKeyInvalidError:
+            if self.ignore_existing_keys:
+                raise
             self.aes_decryption_key = self.get_backup_encryption_key()
             self.used_ios_decryption_key_cache = True
         
@@ -90,6 +108,8 @@ class DeviceDataDecryptor():
         self.decrypted_file = b"\n".join(self.good_lines)
     
     def get_backup_encryption_key(self):
+        if self.ignore_existing_keys:
+            raise UncatchableError(" get_backup_encryption_key should not have been called with ignore_existing_keys==True")
         try:
             decryption_key = IOSDecryptionKey.objects.get(file_name=self.file_name)
         except IOSDecryptionKey.DoesNotExist:
@@ -168,6 +188,7 @@ class DeviceDataDecryptor():
         # the RSA encryption failed - this occurs when the first byte of the encrypted blob is all
         # zeros.  Apps require an update to solve this (in a future rewrite we should use a correct
         # padding algorithm).
+        # March 2024: this can happen when you have the wrong RSA key.
         if len(decrypted_key) != 16:
             log("extract_aes_key 6")
             raise DecryptionKeyInvalidError(f"Decryption key not 128 bits: {decrypted_key}")
@@ -217,7 +238,7 @@ class DeviceDataDecryptor():
             )
             return
         except ValidationError as e:
-            print(f"ios key creation FAILED for '{self.file_name}'")
+            log(f"ios key creation FAILED for '{self.file_name}'")  # 
             # don't fail on other validation errors
             if "already exists" not in str(e):
                 raise
@@ -265,14 +286,17 @@ class DeviceDataDecryptor():
             if iv is None:
                 len_iv = "None"
             else:
+                # trunk-ignore(ruff/F841)
                 len_iv = len(iv)
             if raw_data is None:
                 len_data = "None"
             else:
+                # trunk-ignore(ruff/F841)
                 len_data = len(raw_data)
             if self.aes_decryption_key is None:
                 len_key = "None"
             else:
+                # trunk-ignore(ruff/F841)
                 len_key = len(self.aes_decryption_key)
             # these print statements cause problems in getting encryption errors because the print
             # statement will print to an ascii formatted log file on the server, which causes

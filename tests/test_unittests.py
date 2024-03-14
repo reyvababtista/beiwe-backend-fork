@@ -15,10 +15,11 @@ from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS
 from database.data_access_models import IOSDecryptionKey
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
 from database.schedule_models import BadWeeklyCount, WeeklySchedule
-from database.user_models_participant import (AppHeartbeats, Participant, ParticipantActionLog,
-    ParticipantDeletionEvent, PushNotificationDisabledEvent)
+from database.user_models_participant import (AppHeartbeats, DeviceStatusReportHistory, Participant,
+    ParticipantActionLog, ParticipantDeletionEvent, PushNotificationDisabledEvent)
 from libs.file_processing.exceptions import BadTimecodeError
 from libs.file_processing.utility_functions_simple import binify_from_timecode
+from libs.forest_utils import get_forest_git_hash
 from libs.participant_purge import (confirm_deleted, get_all_file_path_prefixes,
     run_next_queued_participant_data_deletion)
 from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_and_schedule,
@@ -419,16 +420,21 @@ class TestParticipantDataDeletion(CommonTestCase):
         
     @data_purge_mock_s3_calls
     def test_confirm_ParticipantActionLog(self):
-        # this test is weird, we create an action log
-        # ParticipantActionLog.objects.create(
-        #     participant=self.default_participant, timestamp=timezone.now(), action="junk action"
-        # )
+        # this test is weird, we create an action log inside the deletion event.
         
         self.default_participant_deletion_event
         self.assertEqual(ParticipantActionLog.objects.count(), 0)
         run_next_queued_participant_data_deletion()
         self.assertEqual(ParticipantActionLog.objects.count(), 2)
-        
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_DeviceStatusReportHistory(self):
+        self.default_participant.generate_device_status_report_history("some_endpoint_path")
+        self.default_participant_deletion_event
+        self.assertEqual(DeviceStatusReportHistory.objects.count(), 1)
+        run_next_queued_participant_data_deletion()
+        self.assertEqual(DeviceStatusReportHistory.objects.count(), 0)
+    
     def test_for_all_related_fields(self):
         # This test will fail whenever there is a new related model added to the codebase.
         for model in Participant._meta.related_objects:
@@ -567,3 +573,9 @@ class TestParticipantActive(CommonTestCase):
                 else:
                     setattr(p, field_inner, less_than_a_week_ago)
             self.assertTrue(p.is_active_one_week)
+
+
+class TestForestHash(unittest.TestCase):
+    def test_get_forest_git_hash(self):
+        hash = get_forest_git_hash()
+        self.assertNotEqual(hash, "")

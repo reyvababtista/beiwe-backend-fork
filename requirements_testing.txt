@@ -2,4 +2,4 @@ mock
 coverage
 tblib
 redgreenunittest
-time-machine==2.8.2
+time-machine

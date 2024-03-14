@@ -92,20 +92,19 @@ For those souls brave enough to run the entire broker queue and Celery task disp
 1. Install RabbitMQ (https://docs.celeryproject.org/en/latest/getting-started/backends-and-brokers/rabbitmq.html#broker-rabbitmq)
     1. Edit `/etc/rabbitmq/rabbitmq-env.conf` and add the line `NODE_PORT=50000`
     2. Restart RabbitMQ like this in the Bash shell: `time sudo service rabbitmq-server restart` (`time` isn't necessary, but it tells you that the command has finished, and how long the command took to execute... which can be... random and excessive?)
-2. `pip install -r requirements_data_processing.txt` (this will install Celery using pip)
-3. Create a file called `manager_ip` in the top level of your `beiwe-backend` repo, and enter these two lines in it.  Do not provide a trailing new-line character.
+2. Create a file called `manager_ip` in the top level of your `beiwe-backend` repo, and enter these two lines in it.  Do not provide a trailing new-line character.
     ```
     127.0.0.1:50000
     [YOUR DESIRED PASSWORD]
     ```
     Where the password is the one you set when setting up RabbitMQ
-4. run this command to create a user for rabbitmq: `rabbitmqctl add_user beiwe [INSERT THAT PASSWORD HERE]`
-5. run this command to allow the beiwe user access to the appropriate queues: `sudo rabbitmqctl set_permissions -p / beiwe ".*" ".*" ".*"`
-6. If you intend to test Firbase push notifications you will need to upload functional firebase credentials on the local website interface.
-7. To execute push notification tasks run this command _while inside the root of the repo_: `celery -A services.celery_push_notifications worker -Q push_notifications --loglevel=info -Ofair --hostname=%%h_notifications --concurrency=20 --pool=threads`
-8. To run data processing tasks run this command _while inside the root of the repo_: `celery -A services.celery_data_processing worker -Q data_processing --loglevel=info -Ofair --hostname=%%h_processing`
-9. To run forest tasks run this comand _while inside the root of the repo_: `celery -A services.celery_forest worker -Q forest_queue --loglevel=info -Ofair --hostname=%%h_forest` (Forest is still in beta.)
-10. Run this command to dispatch new tasks, which will then be consumed by the Celery processes, _while inside the root of the repo_. `python services/cron.py five_minutes`
+3. run this command to create a user for rabbitmq: `rabbitmqctl add_user beiwe [INSERT THAT PASSWORD HERE]`
+4. run this command to allow the beiwe user access to the appropriate queues: `sudo rabbitmqctl set_permissions -p / beiwe ".*" ".*" ".*"`
+5. If you intend to test Firbase push notifications you will need to upload functional firebase credentials on the local website interface.
+6. To execute push notification tasks run this command _while inside the root of the repo_: `celery -A services.celery_push_notifications worker -Q push_notifications --loglevel=info -Ofair --hostname=%%h_notifications --concurrency=20 --pool=threads`
+7. To run data processing tasks run this command _while inside the root of the repo_: `celery -A services.celery_data_processing worker -Q data_processing --loglevel=info -Ofair --hostname=%%h_processing`
+8. To run forest tasks run this comand _while inside the root of the repo_: `celery -A services.celery_forest worker -Q forest_queue --loglevel=info -Ofair --hostname=%%h_forest` (Forest is still in beta.)
+9. Run this command to dispatch new tasks, which will then be consumed by the Celery processes, _while inside the root of the repo_. `python services/cron.py five_minutes`
 
 
 

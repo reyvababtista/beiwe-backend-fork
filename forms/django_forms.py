@@ -171,6 +171,11 @@ class StudySecuritySettingsForm(forms.ModelForm):
 
 
 class ParticipantExperimentForm(forms.ModelForm):
+    EXPERIMENT_DESCRIPTIONS = {
+        "enable_heartbeat": "The server will send a notification to the participant asking them to open the app if the device has not checked in for over an hour.",
+        "enable_extensive_device_info_tracking": "Store device info every time the device makes an API call to the server. (This can generate a lot of data, it is for development and debugging purposes only.)",
+    }
+    
     class Meta:
         fields = Participant.EXPERIMENT_FIELDS
         model = Participant
@@ -178,3 +183,8 @@ class ParticipantExperimentForm(forms.ModelForm):
     # (hackily) iterate over EXPERIMENT_FIELDS and set its widget to CheckboxInput
     for field in Participant.EXPERIMENT_FIELDS:
         locals()[field] = forms.CheckboxInput()
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, description in self.EXPERIMENT_DESCRIPTIONS.items():
+            self.fields[field_name].help_text = description

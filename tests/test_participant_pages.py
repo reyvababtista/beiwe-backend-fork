@@ -1,3 +1,4 @@
+# trunk-ignore-all(bandit/B101)
 from datetime import date
 
 from constants.user_constants import ResearcherRole
@@ -101,3 +102,18 @@ class TestParticipantPage(ResearcherSessionTest):
         self.assert_present(
             'Invalid date format, please use the date selector or YYYY-MM-DD.', page
         )
+
+
+class TestParticipantExperimentsPage(ResearcherSessionTest):
+    ENDPOINT_NAME = "participant_pages.experiments_page"
+    
+    # this tests that the ParticipantExperimentForm doesn't crash, that's it.
+    def test_get(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        x = self.easy_get(
+            self.ENDPOINT_NAME,
+            status_code=200,
+            study_id=self.session_study.id,
+            patient_id=self.default_participant.patient_id
+        )
+        assert x  # assert its not empty

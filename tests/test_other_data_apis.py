@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 
 from constants.user_constants import ResearcherRole
 from database.study_models import Study
+from database.survey_models import Survey, SurveyArchive
 from database.user_models_researcher import Researcher
 from tests.common import DataApiTest
 
@@ -286,3 +287,49 @@ class TestDownloadStudyInterventions(DataApiTest):
                 }
         }
         self.assertDictEqual(json_unpacked, correct_output)
+
+
+class TestStudySurveyHistory(DataApiTest):
+    ENDPOINT_NAME = "other_data_apis.download_study_survey_history"
+    
+    def test_no_surveys(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
+        ret = b"".join(resp.streaming_content)
+        # the output is a dictionary with survey ids as keys
+        self.assertEqual(ret, b"{}")
+    
+    def test_one_survey_two_archives(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_survey
+        
+        self.assertEqual(Survey.objects.count(), 1)
+        self.assertEqual(SurveyArchive.objects.count(), 1)
+        self.default_survey.content = '["a_string"]'
+        self.default_survey.archive()
+        self.assertEqual(SurveyArchive.objects.count(), 2)
+        
+        # for archive in SurveyArchive.objects.all():
+            
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
+        should_be = '{"u1Z3SH7l2xNsw72hN3LnYi96":[{"archive_start":'\
+                    '"replace1","survey_json":[]},{"archive_start":'\
+                    '"replace2","survey_json":["a_string"]}]}'
+        archive1, archive2 = SurveyArchive.objects.all()
+        should_be = should_be.replace("replace1", archive1.archive_start.isoformat())
+        should_be = should_be.replace("replace2", archive2.archive_start.isoformat())
+        ret = b"".join(resp.streaming_content)
+        self.assertEqual(ret, should_be.encode())
+    
+    def test_one_survey_one_archive(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_survey
+        self.assertEqual(Survey.objects.count(), 1)
+        self.assertEqual(SurveyArchive.objects.count(), 1)
+        archive = self.default_survey.most_recent_archive()
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
+        should_be = b'{"u1Z3SH7l2xNsw72hN3LnYi96":[{"archive_start":"replace","survey_json":[]}]}'
+        should_be = should_be.replace(b"replace", archive.archive_start.isoformat().encode())
+        ret = b"".join(resp.streaming_content)
+        self.assertEqual(ret, should_be)
+        

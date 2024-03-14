@@ -11,12 +11,12 @@ from tests.common import DataApiTest
 # trunk-ignore-all(ruff/B018)
 
 #
-## other_researcher_apis
+## other_data_apis
 #
 
 
 class TestAPIGetStudies(DataApiTest):
-    ENDPOINT_NAME = "other_researcher_apis.get_studies"
+    ENDPOINT_NAME = "other_data_apis.get_studies"
     
     def test_data_access_credential_upgrade(self):
         # check our assumptions make sense, set algorithm to sha1 and generate old-style credentials
@@ -81,7 +81,7 @@ class TestAPIGetStudies(DataApiTest):
 
 
 class TestApiCredentialCheck(DataApiTest):
-    ENDPOINT_NAME = "other_researcher_apis.get_studies"
+    ENDPOINT_NAME = "other_data_apis.get_studies"
     
     def test_missing_all_parameters(self):
         # use _smart_post
@@ -153,7 +153,7 @@ class TestApiCredentialCheck(DataApiTest):
 
 
 class TestAPIStudyUserAccess(DataApiTest):
-    ENDPOINT_NAME = "other_researcher_apis.get_users_in_study"
+    ENDPOINT_NAME = "other_data_apis.get_users_in_study"
     
     def test_missing_all_parameters(self):
         # self.set_session_study_relation(ResearcherRole)
@@ -235,7 +235,7 @@ class TestAPIStudyUserAccess(DataApiTest):
 
 
 class TestGetUsersInStudy(DataApiTest):
-    ENDPOINT_NAME = "other_researcher_apis.get_users_in_study"
+    ENDPOINT_NAME = "other_data_apis.get_users_in_study"
     
     def test_no_participants(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -263,7 +263,7 @@ class TestGetUsersInStudy(DataApiTest):
 
 
 class TestDownloadStudyInterventions(DataApiTest):
-    ENDPOINT_NAME = "other_researcher_apis.download_study_interventions"
+    ENDPOINT_NAME = "other_data_apis.download_study_interventions"
     
     def test_no_interventions(self):
         self.set_session_study_relation(ResearcherRole.researcher)

@@ -10,6 +10,7 @@
 # for ssh logins, install and configure the libpam-umask package.
 #umask 022
 
+# enable pyenv cleanly
 if test -f "/home/ubuntu/.pyenv/versions/beiwe/bin/python"; then
     export PATH="$HOME/.pyenv/bin:$PATH"
     eval "$(pyenv init --path)"
@@ -26,38 +27,32 @@ alias apt="sudo apt"
 alias update-commandline='cp ~/beiwe-backend/cluster_management/pushed_files/bash_profile.sh ~/.profile; cp ~/beiwe-backend/cluster_management/pushed_files/.inputrc ~/.inputrc'
 alias update-pip='pip uninstall forest -y; pip install --upgrade pip setuptools wheel; pip install -r requirements.txt'
 
-#Alias aliases
-alias p="nano ~/.profile; source ~/.profile"
-alias up="source ~/.profile"
-
-#File Sizes
+#Get file sizes of current folder
 alias duu="sudo du -d 1 -h | sort -h"
 
-#Swap
+#Swap managment
 alias createswap="sudo fallocate -l 4G /swapfile; sudo chmod 600 /swapfile; sudo mkswap /swapfile; sudo swapon /swapfile; swapon -s"
 alias deleteswap="sudo swapoff /swapfile; sudo rm /swapfile"
 
 #Bash Utility
 alias sudo="sudo " # allows the use of all our aliases with the sudo command
-alias n='nano -c'
-alias no="nano -Iwn"
+alias n='nano -c' # nano with syntax highlighting
+alias no="nano -Iwn" # nano in overwrite mode to allow for quick pasted overwrites
 alias sn='sudo nano -c'
 alias sno="sudo nano -Iwn"
-alias ls='ls --color=auto'
+alias ls='ls --color=auto' # make ls not suck
 alias la='ls -A'
 alias ll='ls -lh'
 alias lh='ls -lhX --color=auto'
 alias lll="du -ah --max-depth=0 --block-size=MB --time * | sort -nr"
 alias slll="sudo du -ah --max-depth=0 --block-size=MB --time * | sort -nr"
-alias h="cd ~; clear; ls -X; echo"
-alias grep='grep --color=auto'
-alias g='grep -i'
-alias u="cd .."
+alias grep='grep --color=auto' # make grep not suck
+alias g='grep -i' # single letter for case insensitive grep
+alias u="cd .." # navigate directories.
 alias uu="cd ../.."
 alias uuu="cd ../../.."
-alias ri="rm -i"
 
-#Tools with CL config
+#Tools with command line config
 alias htop="htop -d 5"
 alias nload="nload -a 5 -i 80000 -o 80000"
 alias df="df -h"
@@ -69,31 +64,21 @@ alias gd='git diff'
 alias dw='git diff -w'
 alias gs='git diff --stat'
 alias pull="git pull --ff-only"
-alias main="git checkout main"
+
 
 #File locations
 alias b='cd ~/beiwe-backend/'
 alias beiwe='cd ~/beiwe-backend/'
-alias apache="cd /etc/apache2"
 
-#Apache restart functionality - keep in case we ever resurrect the apache single server mode.
-# alias apacherestart='sudo /etc/init.d/apache2 restart'
-# alias are='apacherestart'
-# alias restart='sudo service apache2 restart'
-# alias up='update'
-# alias apache-update='cd $HOME/beiwe-backend; pyc; git pull; touch $HOME/beiwe-backend/wsgi.py'
-
-#supervisord (data processing)
+#Supervisord (data processing)
 alias processing-start="supervisord"
 alias processing-stop="killall supervisord > /dev/null 2>&1"
 alias processing-restart="pkill -HUP supervisord 2> /dev/null"
 
-#Logs
+#Watch Logs Live
 alias log='tail -f /home/ubuntu/celery*.log'
 alias logs='tail -f /home/ubuntu/celery*.log'
 alias logd='tail -f /home/ubuntu/supervisor.log'
-# keep in case we ever resurrect the apache single server mode.
-# alias logapache='tail -f /var/log/apache2/error.log | cut -d " " -f 4,10-' #tail follow apache log
 
 #Configuration files
 alias conf='sudo nano ~/beiwe-backend/config/settings.py'
@@ -102,7 +87,6 @@ alias superconf='sudo nano /etc/supervisord.conf'
 
 #Developer tools
 alias db="cd ~/beiwe-backend/; python manage.py shell_plus"
-alias py="python"
 alias ipy="ipython"
 alias manage="python manage.py"
 alias shell="python manage.py shell_plus"
@@ -110,18 +94,20 @@ alias showmigrations='manage showmigrations'
 alias ag="clear; printf '_%.0s' {1..100}; echo ''; echo 'Silver results begin here:'; ag --column"
 alias pyc='find . -type f -name "*.pyc" -delete -print'
 
+# function that makes running a python script in the background really easy
 function run {
     nohup python -u $1 > ~/$1_log.out &
 }
 
-function runloop ()
-{
+# need to run something every second? This is your friend.
+function runloop () {
     while true; do
         $*;
         sleep 1;
     done
 }
 
+# function to backup a postgres database, prints directions if .pgpass is not found.
 function backup () {
     # parameter order: username, host, then it will prompt for password
     if [ -f ~/.pgpass ]
@@ -167,7 +153,7 @@ if [ -d "$HOME/bin" ] ; then
     PATH="$HOME/bin:$PATH"
 fi
 
-#makes the current git branch visible
+#makes the current git branch visible (on the command line)
 function parse_git_branch () {
        git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'
 }
@@ -177,3 +163,10 @@ YELLOW="\[\033[0;33m\]"
 GREEN="\[\033[0;32m\]"
 NO_COLOUR="\[\033[0m\]"
 PS1="$GREEN\u$NO_COLOUR:\w$YELLOW\$(parse_git_branch)$NO_COLOUR\$ "
+
+echo
+echo "There are a number of bash aliases and functions to assist you in your work, type 'cat ~/.profile' to see them all."
+echo
+
+# update the bash profile every time the user logs in from the version in the repository.
+update-commandline

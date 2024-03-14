@@ -8,6 +8,7 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
 from django.http.response import HttpResponse
 from django.utils import timezone
+from sentry_sdk import set_tag
 
 from authentication.participant_authentication import (authenticate_participant,
     authenticate_participant_registration, minimal_validation)
@@ -29,7 +30,7 @@ from libs.participant_file_uploads import (upload_and_create_file_to_process_and
 from libs.s3 import get_client_public_key_string, s3_upload
 from libs.schedules import (decompose_datetime_to_timings, export_weekly_survey_timings,
     repopulate_all_survey_scheduled_events)
-from libs.sentry import make_sentry_client, SentryTypes
+from libs.sentry import get_sentry_client, SentryTypes
 from middleware.abort_middleware import abort
 
 
@@ -151,8 +152,9 @@ def make_upload_error_report(patient_id: str, file_name: str):
     else:
         error_message += UNKNOWN_ERROR
     
-    tags = {"upload_error": "upload error", "user_id": patient_id}
-    sentry_client = make_sentry_client(SentryTypes.elastic_beanstalk, tags)
+    sentry_client = get_sentry_client(SentryTypes.elastic_beanstalk)
+    set_tag("upload_error", "upload error")
+    set_tag("user_id", patient_id)
     sentry_client.captureMessage(error_message)
     log(400, error_message, "(upload error report)")
     # error message needs to be a byte string

@@ -1,10 +1,8 @@
 # NOTE: THIS FILE IS IMPORTED IN THE DJANGO CONF FILE.
 
-
 from cronutils.error_handler import ErrorSentry, null_error_handler
-from raven import Client as SentryClient
-from raven.exceptions import InvalidDsn
-from raven.transport import HTTPTransport
+from sentry_sdk import Client as SentryClient, set_tag
+from sentry_sdk.transport import HttpTransport
 
 from config.settings import (SENTRY_DATA_PROCESSING_DSN, SENTRY_ELASTIC_BEANSTALK_DSN,
     SENTRY_JAVASCRIPT_DSN)
@@ -46,11 +44,9 @@ def get_dsn_from_string(sentry_type: str):
         raise Exception(f'Invalid sentry type, use {SentryTypes.__module__}.SentryTypes')
 
 
-def make_sentry_client(sentry_type: str, tags=None):
+def get_sentry_client(sentry_type: str):
     dsn = get_dsn_from_string(sentry_type)
-    tags = tags or {}
-    tags["sentry_type"] = sentry_type
-    return SentryClient(dsn=dsn, tags=tags, transport=HTTPTransport)
+    return SentryClient(dsn=dsn, transport=HttpTransport)
 
 
 def make_error_sentry(sentry_type: str, tags: dict = None, force_null_error_handler=False):
@@ -64,11 +60,14 @@ def make_error_sentry(sentry_type: str, tags: dict = None, force_null_error_hand
     tags = tags or {}
     tags["sentry_type"] = sentry_type
     
-    try:
-        return ErrorSentry(
-            get_dsn_from_string(sentry_type),
-            sentry_client_kwargs={'tags': tags, 'transport': HTTPTransport},
-            sentry_report_limit=10
-        )
-    except InvalidDsn:
-        return null_error_handler
+    # set tags? we don't know if this works
+    for tagk, tagv in tags.items():
+        set_tag(tagk, str(tagv))
+    
+    # this used to error on invalid DSNs, but now it doesn't and that is a problem because it makes
+    # it harder to debug invalid DSNs.
+    return ErrorSentry(
+        get_dsn_from_string(sentry_type),
+        sentry_client_kwargs={'tags': tags, 'transport': HttpTransport},
+        sentry_report_limit=10
+    )

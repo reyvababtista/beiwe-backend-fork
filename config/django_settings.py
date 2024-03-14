@@ -1,8 +1,10 @@
 import os
-from os.path import join
 import platform
+from os.path import join
 
+import sentry_sdk
 from django.core.exceptions import ImproperlyConfigured
+from sentry_sdk.integrations.django import DjangoIntegration
 
 from config import DB_MODE, DB_MODE_POSTGRES, DB_MODE_SQLITE
 from config.settings import DOMAIN_NAME, FLASK_SECRET_KEY, SENTRY_ELASTIC_BEANSTALK_DSN
@@ -169,13 +171,23 @@ APPEND_SLASH = False
 # We need this to be fairly large, if users ever encounter a problem with this please report it
 DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100 MB
 
-
 # enable Sentry error reporting
+our_sentry_dsn = normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN)
+sentry_sdk.init(
+    dsn=our_sentry_dsn,
+    enable_tracing=True,
+    integrations=[
+        DjangoIntegration(
+            transaction_style='url',
+            middleware_spans=True,
+            signals_spans=False,
+            cache_spans=False,
+        ),
+    ],
+)
+
+# I don't know what this does after replacing raven with sentry_sdk...
 if not DEBUG and SENTRY_ELASTIC_BEANSTALK_DSN:
-    INSTALLED_APPS.append('raven.contrib.django.raven_compat')
-    RAVEN_CONFIG = {'dsn': normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN)}
-    
-    # sourced directly from https://raven.readthedocs.io/en/stable/integrations/django.html,
     # custom tags have been disabled
     LOGGING = {
         'version': 1,
@@ -191,15 +203,6 @@ if not DEBUG and SENTRY_ELASTIC_BEANSTALK_DSN:
             },
         'handlers':
             {
-                'sentry':
-                    {
-                        'level':
-                            'WARNING',  # To capture more than ERROR, change to WARNING, INFO, etc.
-                        'class': 'raven.contrib.django.raven_compat.handlers.SentryHandler',
-                        # 'tags': {
-                        #     'custom-tag': 'x'
-                        # },
-                    },
                 'console':
                     {
                         'level': 'DEBUG',
@@ -211,7 +214,7 @@ if not DEBUG and SENTRY_ELASTIC_BEANSTALK_DSN:
             {
                 'root': {
                     'level': 'WARNING',
-                    'handlers': ['sentry'],
+                    'handlers': ['console'],
                 },
                 'django.db.backends':
                     {
@@ -219,11 +222,6 @@ if not DEBUG and SENTRY_ELASTIC_BEANSTALK_DSN:
                         'handlers': ['console'],
                         'propagate': True,
                     },
-                'raven': {
-                    'level': 'WARNING',
-                    'handlers': ['console'],
-                    'propagate': True,
-                },
                 'sentry.errors': {
                     'level': 'WARNING',
                     'handlers': ['console'],

@@ -153,6 +153,11 @@ def watch_uploads():
         sleep(wait)
 
 
+def watch_celery():
+    from libs.celery_control import (watch_celery as watch_celery2)
+    watch_celery2()
+
+
 def get_and_summarize(patient_id: str):
     p = Participant.objects.get(patient_id=patient_id)
     byte_sum = sum(UploadTracking.objects.filter(participant=p).values_list("file_size", flat=True))

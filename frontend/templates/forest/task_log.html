@@ -46,9 +46,7 @@
             <th scope="col">Tree</th>
             <th scope="col">Data Start and End Date</th>
             <th scope="col">Status</th>
-            {% if site_admin %}
-              <th scope="col">Actions</th>
-            {% endif %}
+            <th scope="col">Actions</th>
           </tr>
         </thead>
         
@@ -68,36 +66,36 @@
                             {{ status_choices.cancelled }}: 'list-group-item-warning'}[log.status]">
               {% raw %}{{ log.status }}{% endraw %}
             </td>
-            {% if site_admin %}
-              <td>
-                <div>
-                  <button class="btn-link" ng-click="showErrorModal(log)" style="padding: 0;">
-                    View details
-                  </button>
-                </div>
-                <div>
-                  <a class="btn btn-link" ng-href="{% raw %}{{ log.download_url|trustAsResourceUrl }}{% endraw %}"
-                     style="padding: 0;">
-                    Download Source Data
-                  </a>
-                </div>
-                
-                <div ng-if="log.has_output_downloadable_data">
-                  <a class="btn btn-link" ng-href="{% raw %}{{ log.download_output_url|trustAsResourceUrl }}{% endraw %}" style="padding: 0;">
-                    Download Output Data
-                  </a>
-                </div>
-                
-                <div ng-if="log.status === '{{ status_choices.queued }}'">
-                  <form action="{% raw %}{{ log.cancel_url|trustAsResourceUrl }}{% endraw %}" method="post">
-                    <button class="btn btn-link"
-                            onclick="return confirm('This will stop this Forest task from running, are you sure you want to do this?')"
-                            style="padding: 0;" type="submit">
-                      Cancel Task
-                    </button>
-                  </form>
-                </div>
+            
+            <td>
+              <div>
+                <button class="btn-link" ng-click="showErrorModal(log)" style="padding: 0;">
+                  View details
+                </button>
+              </div>
+              <div>
+                <a class="btn btn-link" ng-href="{% raw %}{{ log.download_url|trustAsResourceUrl }}{% endraw %}"
+                   style="padding: 0;">
+                  Download Source Data
+                </a>
+              </div>
               
+              <div ng-if="log.has_output_downloadable_data">
+                <a class="btn btn-link" ng-href="{% raw %}{{ log.download_output_url|trustAsResourceUrl }}{% endraw %}" style="padding: 0;">
+                  Download Output Data
+                </a>
+              </div>
+              
+              <div ng-if="log.status === '{{ status_choices.queued }}'">
+                <form action="{% raw %}{{ log.cancel_url|trustAsResourceUrl }}{% endraw %}" method="post">
+                  <button class="btn btn-link"
+                          onclick="return confirm('This will stop this Forest task from running, are you sure you want to do this?')"
+                          style="padding: 0;" type="submit">
+                    Cancel Task
+                  </button>
+                </form>
+              </div>
+              {% if site_admin %}
                 <div ng-if="log.status !== '{{ status_choices.queued }}'">
                   <form action="{% raw %}{{ log.copy_url|trustAsResourceUrl }}{% endraw %}" method="post">
                     <button class="btn btn-link"
@@ -108,8 +106,8 @@
                     <input type="hidden" id="external_id" name="external_id" value="{% raw %}{{ log.external_id }}{% endraw %}" />
                   </form>
                 </div>
-              </td>
-            {% endif %}
+              {% endif %}
+            </td>
           </tr>
         </tbody>
       </table>

@@ -230,8 +230,8 @@ def task_log(request: ResearcherRequest, study_id=None):
         dict_datetime_to_display(task_dict, "process_end_time", None)
         dict_datetime_to_display(task_dict, "process_start_time", None)
         dict_datetime_to_display(task_dict, "process_download_end_time", None)
-        task_dict["data_date_end"] = task_dict["data_date_end"].isoformat()if task_dict["data_date_end"] else None
-        task_dict["data_date_start"] = task_dict["data_date_start"].isoformat()if task_dict["data_date_start"] else None
+        task_dict["data_date_end"] = task_dict["data_date_end"].isoformat() if task_dict["data_date_end"] else None
+        task_dict["data_date_start"] = task_dict["data_date_start"].isoformat() if task_dict["data_date_start"] else None
         
         # urls
         task_dict["cancel_url"] = easy_url(

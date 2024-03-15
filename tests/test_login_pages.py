@@ -53,9 +53,13 @@ class TestLoginPages(BasicSessionTestCase):
     
     def test_logging_in_success(self):
         self.session_researcher  # create the default researcher
+        # test last login time is recorded
+        self.assertIsNone(self.session_researcher.last_login_time)
         r = self.do_default_login()
         self.assertEqual(r.status_code, 302)
         self.assert_response_url_equal(r.url, reverse("admin_pages.choose_study"))
+        self.session_researcher.refresh_from_db()
+        self.assertIsNotNone(self.session_researcher.last_login_time)
     
     def test_logging_in_fail(self):
         r = self.do_default_login()

@@ -54,6 +54,8 @@ class Researcher(AbstractPasswordUser):
     mfa_token = models.CharField(max_length=52, validators=[B32_VALIDATOR, MinLengthValidator(52)], null=True, blank=True)
     most_recent_page = models.TextField(null=True, blank=True)
     
+    last_login_time = models.DateTimeField(null=True, blank=True)
+    
     # related field typings (IDE halp)
     api_keys: Manager[ApiKey]
     study_relations: Manager[StudyRelation]

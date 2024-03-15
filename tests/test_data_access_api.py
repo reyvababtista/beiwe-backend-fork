@@ -61,9 +61,6 @@ class TestGetData(DataApiTest):
                          f"{PATIENT_NAME}/gyro/2020-10-05 02_00_00+00_00.csv"),
         "identifiers": ("identifiers.csv", "2020-10-05 02:00Z",
                          f"{PATIENT_NAME}/identifiers/2020-10-05 02_00_00+00_00.csv"),
-        "image_survey": ("image_survey/survey_obj_id/something/something2.csv", "2020-10-05 02:00Z",
-                         # patient_id/data_type/survey_id/survey_instance/name.csv
-                         f"{PATIENT_NAME}/image_survey/survey_obj_id/something/something2.csv"),
         "ios_log": ("ios_log.csv", "2020-10-05 02:00Z",
                          f"{PATIENT_NAME}/ios_log/2020-10-05 02_00_00+00_00.csv"),
         "magnetometer": ("magnetometer.csv", "2020-10-05 02:00Z",

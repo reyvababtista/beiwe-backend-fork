@@ -358,9 +358,10 @@ def get_latest_surveys(request: ParticipantRequest, OS_API=""):
     survey_json_list = []
     survey: Survey
     for survey in request.session_participant.study.surveys.filter(deleted=False):
-        # Exclude image surveys for the Android app to avoid crashing it
-        if not (OS_API == "ANDROID" and survey.survey_type == "image_survey"):
-            survey_json_list.append(format_survey_for_device(survey, request.session_participant))
+        # block the deprecated image surveys type.
+        if survey.survey_type == "image_survey":
+            continue
+        survey_json_list.append(format_survey_for_device(survey, request.session_participant))
     
     return HttpResponse(json.dumps(survey_json_list))
 

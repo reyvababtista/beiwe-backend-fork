@@ -59,7 +59,6 @@ def import_study_settings_file(request: ResearcherRequest, study_id: int):
     
     initial_tracking_surveys = study.surveys.filter(survey_type=Survey.TRACKING_SURVEY).count()
     initial_audio_surveys = study.surveys.filter(survey_type=Survey.AUDIO_SURVEY).count()
-    # initial_image_surveys = study.objects.filter(survey_type=Survey.IMAGE_SURVEY).count()
     copy_study_from_json(
         study,
         device_settings if copy_device_settings else {},
@@ -68,7 +67,6 @@ def import_study_settings_file(request: ResearcherRequest, study_id: int):
     )
     end_tracking_surveys = study.surveys.filter(survey_type=Survey.TRACKING_SURVEY).count()
     end_audio_surveys = study.surveys.filter(survey_type=Survey.AUDIO_SURVEY).count()
-    # end_image_surveys = study.objects.filter(survey_type=Survey.IMAGE_SURVEY).count()
     messages.success(
         request,
         f"Copied {end_tracking_surveys-initial_tracking_surveys} " +

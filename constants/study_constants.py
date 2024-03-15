@@ -51,7 +51,3 @@ AUDIO_SURVEY_SETTINGS = {
     'bit_rate': 64000,
     'sample_rate': 44100,
 }
-
-IMAGE_SURVEY_SETTINGS = {
-    'always_available': False,
-}

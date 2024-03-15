@@ -386,7 +386,6 @@ def do_duplicate_step(request: ResearcherRequest, new_study: Study):
     )
     tracking_surveys_added = new_study.surveys.filter(survey_type=Survey.TRACKING_SURVEY).count()
     audio_surveys_added = new_study.surveys.filter(survey_type=Survey.AUDIO_SURVEY).count()
-    # image_surveys_added = new_study.objects.filter(survey_type=Survey.IMAGE_SURVEY).count()
     messages.success(
         request,
         f"Copied {tracking_surveys_added} Surveys and {audio_surveys_added} "

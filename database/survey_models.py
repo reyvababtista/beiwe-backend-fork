@@ -6,7 +6,7 @@ from typing import List, Tuple
 from django.db import models
 from django.db.models import Manager, QuerySet
 
-from constants.study_constants import AUDIO_SURVEY_SETTINGS, IMAGE_SURVEY_SETTINGS
+from constants.study_constants import AUDIO_SURVEY_SETTINGS
 from database.common_models import JSONTextField, ObjectIDModel, TimestampedModel
 from database.validators import LengthValidator
 
@@ -25,11 +25,9 @@ class SurveyBase(TimestampedModel, ObjectIDModel):
     
     AUDIO_SURVEY = 'audio_survey'
     TRACKING_SURVEY = 'tracking_survey'
-    IMAGE_SURVEY = 'image_survey'
     SURVEY_TYPE_CHOICES = (
         (AUDIO_SURVEY, AUDIO_SURVEY),
         (TRACKING_SURVEY, TRACKING_SURVEY),
-        (IMAGE_SURVEY, IMAGE_SURVEY)
     )
     
     # for some reasons these nee to have diverged
@@ -87,12 +85,10 @@ class Survey(SurveyBase):
     @classmethod
     def create_with_settings(cls, survey_type: str, **kwargs) -> Survey:
         """ Create a new Survey with the provided survey type and attached to the given Study, as
-        well as any other given keyword arguments. If the Survey is audio/image and no other
-        settings are given, give it the default audio/image survey settings. """
+        well as any other given keyword arguments. If the Survey is audio and no other
+        settings are given, give it the default audio survey settings. """
         if survey_type == cls.AUDIO_SURVEY and 'settings' not in kwargs:
             kwargs['settings'] = json.dumps(AUDIO_SURVEY_SETTINGS)
-        elif survey_type == cls.IMAGE_SURVEY and 'settings' not in kwargs:
-            kwargs['settings'] = json.dumps(IMAGE_SURVEY_SETTINGS)
         
         survey = cls.create_with_object_id(survey_type=survey_type, **kwargs)
         return survey

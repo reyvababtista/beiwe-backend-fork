@@ -68,7 +68,6 @@ def update_survey(request: ResearcherRequest, study_id: int, survey_id: int):
     json_content = request.POST.get('content')
     content = None
     
-    # Image survey does not have any content associated with it.  request.values.get('content')
     # returns a json string containing two double quotes, not the empty string.
     # recursive_survey_content_json_decode function is not able to decode this.
     if json_content != '""':

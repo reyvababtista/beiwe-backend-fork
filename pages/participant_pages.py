@@ -11,7 +11,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from api.participant_administration import add_fields_and_interventions
 from authentication.admin_authentication import authenticate_researcher_study_access
 from config.settings import ENABLE_EXPERIMENTS
-from constants.common_constants import API_DATE_FORMAT
+from constants.common_constants import API_DATE_FORMAT, RUNNING_TEST_OR_IN_A_SHELL
 from constants.message_strings import PARTICIPANT_LOCKED
 from constants.user_constants import DATA_DELETION_ALLOWED_RELATIONS
 from database.schedule_models import ArchivedEvent
@@ -107,7 +107,7 @@ def participant_page(request: ResearcherRequest, study_id: int, patient_id: str)
 
 @authenticate_researcher_study_access
 def experiments_page(request: ResearcherRequest, study_id: int, patient_id: str):
-    if not ENABLE_EXPERIMENTS:
+    if not ENABLE_EXPERIMENTS and not RUNNING_TEST_OR_IN_A_SHELL:
         raise Exception("YO EXPERIMENTS ARE DISABLED HOW IS THIS RUNNING 1")
     participant = get_object_or_404(Participant, patient_id=patient_id)
     # just render the page with the current state of the ParticipantExperimentForm.
@@ -123,7 +123,7 @@ def experiments_page(request: ResearcherRequest, study_id: int, patient_id: str)
     
 @authenticate_researcher_study_access
 def update_experiments(request: ResearcherRequest, study_id: int, patient_id: str):
-    if not ENABLE_EXPERIMENTS:
+    if not ENABLE_EXPERIMENTS and not RUNNING_TEST_OR_IN_A_SHELL:
         raise Exception("YO EXPERIMENTS ARE DISABLED HOW IS THIS RUNNING 2")
     # use the ParticipantExperimentForm to validate the input, update the participant
     # and then redirect back to the participant page.

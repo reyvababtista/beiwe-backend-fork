@@ -175,12 +175,12 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100 MB
 our_sentry_dsn = normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN)
 sentry_sdk.init(
     dsn=our_sentry_dsn,
-    enable_tracing=True,
+    enable_tracing=False,
     ignore_errors=["WorkerLostError", "DisallowedHost"],
     integrations=[
         DjangoIntegration(
             transaction_style='url',
-            middleware_spans=True,
+            middleware_spans=False,
             signals_spans=False,
             cache_spans=False,
         ),

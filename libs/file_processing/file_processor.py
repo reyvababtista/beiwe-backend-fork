@@ -5,6 +5,9 @@ from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
 from database.user_models_participant import Participant
 
 
+# This file is not used, it was an aborted attempt to refactor the file processing code.
+
+
 class FileProcessor():
 
     skip_count = FILE_PROCESS_PAGE_SIZE

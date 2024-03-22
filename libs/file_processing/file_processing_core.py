@@ -311,12 +311,11 @@ class FileProcessingTracker():
                 ].append(row)
         return ret
     
-    
     #
     ## Unchunkable File Processing
     #
     
-    def process_unchunkable_file(file_for_processing: FileForProcessing, ftps_to_remove: set):
+    def process_unchunkable_file(self, file_for_processing: FileForProcessing):
         """ Processes a file that is not chunkable. Registers it in the ChunkRegistry directly."""
         try:
             # if the timecode is bad, we scrap this file. We just don't care.
@@ -324,7 +323,7 @@ class FileProcessingTracker():
                 file_for_processing.file_to_process.s3_file_path.rsplit("/", 1)[-1][:-4]
             )
         except BadTimecodeError:
-            ftps_to_remove.add(file_for_processing.file_to_process.id)
+            file_for_processing.file_to_process.delete()
             return
         
         # Since we aren't binning the data by hour, just create a ChunkRegistry that
@@ -338,7 +337,7 @@ class FileProcessingTracker():
                 file_for_processing.file_to_process.participant.pk,
                 file_for_processing.file_contents,
             )
-            ftps_to_remove.add(file_for_processing.file_to_process.id)
+            file_for_processing.file_to_process.delete()
         except ValidationError as ve:
             if len(ve.messages) != 1:
                 # case: the error case (below) is very specific, we only want that singular error.
@@ -353,7 +352,7 @@ class FileProcessingTracker():
                     file_for_processing.file_to_process.s3_file_path,
                     file_for_processing.file_contents,
                 )
-                ftps_to_remove.add(file_for_processing.file_to_process.id)
+                file_for_processing.file_to_process.delete()
             else:
                 # any other errors, add
                 raise

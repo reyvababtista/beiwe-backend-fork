@@ -20,7 +20,9 @@ from libs.s3 import s3_retrieve
 
 
 class CsvMerger:
-    """ This class is consumes binified data and  """
+    """ This class is consumes binified data, pulls in already-present data from S3, and merges the
+    the data sets into their respective chunks (time bins), updates the relevant ChunkRegistry with
+    the new size and checksum, and uploads the new data to S3, overwritinge existing chunk data. """
     
     def __init__(
         self, binified_data: Dict, error_handler: ErrorHandler, survey_id_dict: Dict,
@@ -43,11 +45,11 @@ class CsvMerger:
         self.survey_id_dict = survey_id_dict
         self.iterate()
     
-    def get_retirees(self) -> Tuple[Set[int], int, int, int]:
-        """ returns the ftp pks that have succeeded, the number of ftps that have failed, 
+    def get_retirees(self) -> Tuple[Set[int], List[int], int, int]:
+        """ returns the ftp pks that have succeeded, the of ftps that have failed, 
         and the earliest and the latest time bins """
         return self.ftps_to_retire.difference(self. failed_ftps), \
-            len(self.failed_ftps), self.earliest_time_bin, self.latest_time_bin
+            self.failed_ftps, self.earliest_time_bin, self.latest_time_bin
     
     def iterate(self):
         # this function is the core loop. we iterate over all binified data and merge data into new

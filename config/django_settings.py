@@ -5,6 +5,7 @@ from os.path import join
 import sentry_sdk
 from django.core.exceptions import ImproperlyConfigured
 from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
 
 from config import DB_MODE, DB_MODE_POSTGRES, DB_MODE_SQLITE
 from config.settings import DOMAIN_NAME, FLASK_SECRET_KEY, SENTRY_ELASTIC_BEANSTALK_DSN
@@ -155,7 +156,6 @@ TEMPLATES = [
     },
 ]
 
-
 # json serializer crashes with module object does not have attribute .dumps
 # or it cannot serialize a datetime object.
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
@@ -173,10 +173,28 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100 MB
 
 # enable Sentry error reporting
 our_sentry_dsn = normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN)
+
+# We encounter the starlette integration bug _at least_ when running tasks in celery.
+# https://github.com/getsentry/sentry-python/issues/1603
+# None of the fixes work, so we are going with the nuclear option of purging the integration from
+# _AUTO_ENABLING_INTEGRATIONS inside the integrations code. This is very bad form, but without it
+# file processing errors in a weird/unpredictable way. (Possibly after the first page of data? it's
+# not clear.)
+from sentry_sdk.integrations import _AUTO_ENABLING_INTEGRATIONS
+if "sentry_sdk.integrations.starlette.StarletteIntegration" not in _AUTO_ENABLING_INTEGRATIONS:
+    raise ImproperlyConfigured(
+        "We have a bug where the starlette integration is getting auto enabling and then raising "
+        "an error. There is no good option here, but this message is better than the next line"
+        "failing. Sorry future person!"
+    )
+_AUTO_ENABLING_INTEGRATIONS.remove("sentry_sdk.integrations.starlette.StarletteIntegration")
+
+# Ok now we can
 sentry_sdk.init(
     dsn=our_sentry_dsn,
     enable_tracing=False,
     ignore_errors=["WorkerLostError", "DisallowedHost"],
+    # auto_enabling_integrations=False,  # this was one of the fixes for the starlette bug that didn't work.
     integrations=[
         DjangoIntegration(
             transaction_style='url',
@@ -184,6 +202,11 @@ sentry_sdk.init(
             signals_spans=False,
             cache_spans=False,
         ),
+        CeleryIntegration( 
+            propagate_traces=False,
+            monitor_beat_tasks=False,
+            exclude_beat_tasks=True
+        )
     ],
 )
 

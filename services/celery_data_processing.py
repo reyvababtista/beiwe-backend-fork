@@ -5,7 +5,7 @@ from constants.celery_constants import DATA_PROCESSING_CELERY_QUEUE
 from database.user_models_participant import Participant
 from libs.celery_control import (FalseCeleryApp, get_processing_active_job_ids,
     processing_celery_app, safe_apply_async)
-from libs.file_processing.file_processing_core import do_process_user_file_chunks
+from libs.file_processing.file_processing_core import do_process_user_file_chunks, easy_run
 from libs.sentry import make_error_sentry, SentryTypes
 
 
@@ -19,7 +19,7 @@ def create_file_processing_tasks():
     of 6 minutes.  Note that tasks are not removed from the queue by RabbitMQ, but by Celery.
     inspecting the queue will continue to display the tasks that have not been sent to Celery
     until the most recent job is finished.
-
+    
     Also, for some reason 5 minutes is the smallest value that .... works.  At all.
     No clue why. """
     
@@ -62,43 +62,54 @@ def celery_process_file_chunks(participant_id):
     """ This is the function is queued up, it runs through all new uploads from a specific user and
     'chunks' them. Handles logic for skipping bad files, raising errors. """
     
-    # celery doesn't clean up after itself very well, either memory or open network connections.
-    # this probably has something to do with the fact that celery forks, so possibly picking
-    # a different mode would impact this.  Or we can just exit the python process.
+    # There is a memory leak of some kind in file processing, possibly becausecelery doesn't clean
+    # up after itself very well. The working assumption is that this probably has something to do
+    # with the fact that celery forks, so possibly picking a different mode would impact this.  But
+    # we can just exit the python process (reporting that error is squashed in Django settings).
+    
     try:
-        time_start = datetime.now()
+        # time_start = datetime.now()
         participant = Participant.objects.get(id=participant_id)
         
-        number_bad_files = 0
-        error_sentry = make_error_sentry(
-            sentry_type=SentryTypes.data_processing, tags={'user_id': participant.patient_id}
-        )
-        print(f"processing files for {participant.patient_id}")
+        # number_bad_files = 0
+        # error_sentry = make_error_sentry(
+        #     sentry_type=SentryTypes.data_processing, tags={'user_id': participant.patient_id}
+        # )
+        # print(f"processing files for {participant.patient_id}")
         
-        while True:
-            previous_number_bad_files = number_bad_files
-            starting_length = participant.files_to_process.exclude(deleted=True).count()
+        # # to avoid a situation where the participant uploads files while we are processing them we
+        # # grab the database ids of the files to process and always pass that in.  In the very
+        # # unlikely situation that the database reuses ids (never seen on any database ever), this
+        # # will cause the infinite loop.
+        # valid_pks = list(participant.files_to_process.values_list("pk"))
+        # while True:
+        #     previous_number_bad_files = number_bad_files
             
-            print(f"{datetime.now()} processing {participant.patient_id}, {starting_length} files remaining")
-            number_bad_files += do_process_user_file_chunks(
-                page_size=FILE_PROCESS_PAGE_SIZE,
-                error_handler=error_sentry,
-                position=number_bad_files,
-                participant=participant,
-            )
-            # If no files were processed, quit processing
-            if participant.files_to_process.exclude(deleted=True).count() == starting_length:
-                if previous_number_bad_files == number_bad_files:
-                    # 2 Cases:
-                    #   1) every file broke, blow up. (would cause infinite loop otherwise).
-                    #   2) no new files.
-                    break
-                else:
-                    continue
+        #     starting_length = participant.files_to_process.exclude(deleted=True).filter(valid_pks).count()
             
-            # put maximum time limit per user
-            if (time_start - datetime.now()).total_seconds() > 60*60*3:
-                break
+        #     print(f"{datetime.now()} processing {participant.patient_id}, {starting_length} files remaining")
+        #     number_bad_files += do_process_user_file_chunks(
+        #         page_size=FILE_PROCESS_PAGE_SIZE,
+        #         error_handler=error_sentry,
+        #         position=number_bad_files,
+        #         participant=participant,
+        #         pks_to_process=valid_pks
+        #     )
+        #     # If no files were processed, quit processing
+        #     if participant.files_to_process.exclude(deleted=True).count() == starting_length:
+        #         if previous_number_bad_files == number_bad_files:
+        #             # 2 Cases:
+        #             #   1) every file broke, blow up. (would cause infinite loop otherwise).
+        #             #   2) no new files.
+        #             break
+        #         else:
+        #             continue
+            
+        #     # put maximum time limit per user
+        #     if (time_start - datetime.now()).total_seconds() > 60*60*3:
+        #         break
+        easy_run(participant)
+        
     except Exception as e:
         # raise the exception if not running in celery.
         if processing_celery_app is FalseCeleryApp:

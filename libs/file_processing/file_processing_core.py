@@ -62,12 +62,6 @@ class FileProcessingTracker():
         # we operate on a page of files at a time, this is the size of the page.
         self.page_size = page_size
         
-        # we need to keep track of the bad files so we can skip them in the next iteration.
-        # this is a viable strategy because some bugs can be resolved by just waiting for the next
-        # processing run for the participant. The ovehead of tracking these compared to removing
-        # pks from pks_to_process is minimal and it helps with debugging.
-        self.bad_pks = []
-        
         # It is possible for devices to record data from unreasonable times, like the unix epoch
         # start. This huristic is a safety measure to clear out bad data.
         common_constants.LATEST_POSSIBLE_DATA_TIMESTAMP = \
@@ -92,9 +86,11 @@ class FileProcessingTracker():
     
     def process_user_file_chunks(self):
         """ Call this function to process data for a participant. """
-        for page_of_fhps in self.get_paginated_files_to_process():
-            print(f"will process {len(page_of_fhps)} files.")
-            self.do_process_user_file_chunks(page_of_fhps)
+        for page_of_ftps in self.get_paginated_files_to_process():
+            print(f"will process {len(page_of_ftps)} files.")
+            self.do_process_user_file_chunks(page_of_ftps)
+            self.survey_id_dict = {}
+            self.buggy_files = set()
     
     def get_paginated_files_to_process(self) -> Generator[List[FileToProcess], None, None]:
         # we want to be able to delete database objects at any time so we get the whole contents of
@@ -279,6 +275,10 @@ class FileProcessingTracker():
             # no fixes for iOS... (aren't any, see apply_fixes_2)
             header, csv_rows_list = csv_to_list(file_for_processing.file_contents)
         
+        # This one needs to be a list because we need to insert a single data point... yuck.
+        if file_for_processing.data_type == IDENTIFIERS:
+            csv_rows_list = list(csv_rows_list)
+            
         return header, csv_rows_list
     
     def apply_fixes_2(self, header: bytes, csv_rows_list: List[List[bytes]], file_for_processing: FileForProcessing) -> bytes:

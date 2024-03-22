@@ -1,11 +1,10 @@
 from datetime import datetime, timedelta
 
-from config.settings import FILE_PROCESS_PAGE_SIZE
 from constants.celery_constants import DATA_PROCESSING_CELERY_QUEUE
 from database.user_models_participant import Participant
 from libs.celery_control import (FalseCeleryApp, get_processing_active_job_ids,
     processing_celery_app, safe_apply_async)
-from libs.file_processing.file_processing_core import do_process_user_file_chunks, easy_run
+from libs.file_processing.file_processing_core import easy_run
 from libs.sentry import make_error_sentry, SentryTypes
 
 
@@ -68,48 +67,9 @@ def celery_process_file_chunks(participant_id):
     # we can just exit the python process (reporting that error is squashed in Django settings).
     
     try:
-        # time_start = datetime.now()
+        # All iteration logic has been moved into celery_processing_core
         participant = Participant.objects.get(id=participant_id)
-        
-        # number_bad_files = 0
-        # error_sentry = make_error_sentry(
-        #     sentry_type=SentryTypes.data_processing, tags={'user_id': participant.patient_id}
-        # )
-        # print(f"processing files for {participant.patient_id}")
-        
-        # # to avoid a situation where the participant uploads files while we are processing them we
-        # # grab the database ids of the files to process and always pass that in.  In the very
-        # # unlikely situation that the database reuses ids (never seen on any database ever), this
-        # # will cause the infinite loop.
-        # valid_pks = list(participant.files_to_process.values_list("pk"))
-        # while True:
-        #     previous_number_bad_files = number_bad_files
-            
-        #     starting_length = participant.files_to_process.exclude(deleted=True).filter(valid_pks).count()
-            
-        #     print(f"{datetime.now()} processing {participant.patient_id}, {starting_length} files remaining")
-        #     number_bad_files += do_process_user_file_chunks(
-        #         page_size=FILE_PROCESS_PAGE_SIZE,
-        #         error_handler=error_sentry,
-        #         position=number_bad_files,
-        #         participant=participant,
-        #         pks_to_process=valid_pks
-        #     )
-        #     # If no files were processed, quit processing
-        #     if participant.files_to_process.exclude(deleted=True).count() == starting_length:
-        #         if previous_number_bad_files == number_bad_files:
-        #             # 2 Cases:
-        #             #   1) every file broke, blow up. (would cause infinite loop otherwise).
-        #             #   2) no new files.
-        #             break
-        #         else:
-        #             continue
-            
-        #     # put maximum time limit per user
-        #     if (time_start - datetime.now()).total_seconds() > 60*60*3:
-        #         break
         easy_run(participant)
-        
     except Exception as e:
         # raise the exception if not running in celery.
         if processing_celery_app is FalseCeleryApp:

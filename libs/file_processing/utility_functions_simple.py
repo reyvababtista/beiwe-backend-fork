@@ -6,8 +6,10 @@ from constants import common_constants
 from constants.common_constants import EARLIEST_POSSIBLE_DATA_TIMESTAMP
 from constants.data_processing_constants import CHUNK_TIMESLICE_QUANTUM
 from constants.data_stream_constants import IDENTIFIERS, IOS_LOG_FILE, UPLOAD_FILE_TYPE_MAPPING
-from libs.file_processing.exceptions import BadTimecodeError
 from libs.file_processing.utility_functions_csvs import unix_time_to_string
+
+
+class BadTimecodeError(Exception): pass
 
 
 def normalize_s3_file_path(s3_file_path: str) -> str:

@@ -17,8 +17,7 @@ from database.profiling_models import EncryptionErrorMetadata, LineEncryptionErr
 from database.schedule_models import BadWeeklyCount, WeeklySchedule
 from database.user_models_participant import (AppHeartbeats, DeviceStatusReportHistory, Participant,
     ParticipantActionLog, ParticipantDeletionEvent, PushNotificationDisabledEvent)
-from libs.file_processing.exceptions import BadTimecodeError
-from libs.file_processing.utility_functions_simple import binify_from_timecode
+from libs.file_processing.utility_functions_simple import BadTimecodeError, binify_from_timecode
 from libs.forest_utils import get_forest_git_hash
 from libs.participant_purge import (confirm_deleted, get_all_file_path_prefixes,
     run_next_queued_participant_data_deletion)

@@ -11,12 +11,15 @@ from database.data_access_models import ChunkRegistry
 from database.survey_models import Survey
 from database.system_models import GenericEvent
 from database.user_models_participant import Participant
-from libs.file_processing.exceptions import ChunkFailedToExist
+
 from libs.file_processing.utility_functions_csvs import (construct_csv_string, csv_to_list,
     unix_time_to_string)
 from libs.file_processing.utility_functions_simple import (compress,
     convert_unix_to_human_readable_timestamps, ensure_sorted_by_timestamp)
 from libs.s3 import s3_retrieve
+
+
+class ChunkFailedToExist(Exception): pass
 
 
 class CsvMerger:

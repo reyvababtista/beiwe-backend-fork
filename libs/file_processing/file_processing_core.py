@@ -250,7 +250,6 @@ class FileProcessingTracker():
         ## FIXES.
         # Android
         if file_for_processing.file_to_process.os_type == ANDROID_API:
-            
             # the log file is weird, it is almost not a csv, it is more of a time enumerated list of
             # events. we need to fix it to be a csv.
             if file_for_processing.data_type == ANDROID_LOG_FILE:
@@ -262,22 +261,16 @@ class FileProcessingTracker():
             
             # two android fixes require the data immediately, so we convert the generator to a list.
             if file_for_processing.data_type == CALL_LOG:
-                csv_rows_list = list(csv_rows_list)
                 header = fix_call_log_csv(header, csv_rows_list)
             elif file_for_processing.data_type == WIFI:
-                csv_rows_list = list(csv_rows_list)
                 header = fix_wifi_csv(
                     header, csv_rows_list, file_for_processing.file_to_process.s3_file_path
                 )
         
         else:
-            # no fixes for iOS... (aren't any, see apply_fixes_2)
+            # no fixes for iOS... (but see apply_fixes_2)
             header, csv_rows_list = csv_to_list(file_for_processing.file_contents)
         
-        # This one needs to be a list because we need to insert a single data point... yuck.
-        if file_for_processing.data_type == IDENTIFIERS:
-            csv_rows_list = list(csv_rows_list)
-            
         return header, csv_rows_list
     
     def apply_fixes_2(self, header: bytes, csv_rows_list: List[List[bytes]], file_for_processing: FileForProcessing) -> bytes:

@@ -57,7 +57,14 @@ class CsvMerger:
         # this function is the core loop. we iterate over all binified data and merge data into new
         # chunks, then handle ChunkRegistry parameter setup for the next stage of processing.
         ftp_list: List[int]
-        for data_bin, (data_rows_list, ftp_list) in self.binified_data.items():
+        while True:
+            # this construction removes elements from the dictionary as we iterate over them,
+            # which should save memory because we are building up large byte arrays as we go from
+            # the data we are pulling out of the dictionary.
+            try:
+                data_bin, (data_rows_list, ftp_list) = self.binified_data.popitem()
+            except KeyError:
+                break
             with self.error_handler:
                 self.inner_iterate(data_bin, data_rows_list, ftp_list)
     
@@ -166,16 +173,21 @@ class CsvMerger:
                 )
             raise  # Raise original error
         
+        # get the existing data from the s3 file, merge it with the new data from the binified data
         old_header, old_rows = csv_to_list_of_list_of_bytes(s3_file_data)
         final_header = self.validate_two_headers(old_header, updated_header, data_stream)
         
         old_rows = list(old_rows)
         old_rows.extend(rows)
         ensure_sorted_by_timestamp(old_rows)
-        new_contents = construct_csv_string(final_header, old_rows)
+        
+        # this construction ensures there is no reference to the output of construct_csv_string
+        # in memory after this line.  Hopefully the gc is deterministic enough to benefit from that.
+        # Construct csv string also deduplicates rows.
+        new_contents = compress(construct_csv_string(final_header, old_rows))
         
         self.upload_these.append(
-            (CHUNK_EXISTS_CASE, chunk_path, compress(new_contents), study_object_id, )
+            (CHUNK_EXISTS_CASE, chunk_path, new_contents, study_object_id, )
         )
     
     def validate_one_header(self, header: bytes, data_stream: str) -> bytes:

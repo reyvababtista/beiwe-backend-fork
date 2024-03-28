@@ -64,7 +64,6 @@ for mandatory_var in MANDATORY_VARS:
         ERRORS.append(f"The setting '{mandatory_var}' was not provided with a value.")
 
 # Environment variable type can be unpredictable, sanitize the numerical ones.
-settings.CONCURRENT_NETWORK_OPS = int(settings.CONCURRENT_NETWORK_OPS)
 settings.FILE_PROCESS_PAGE_SIZE = int(settings.FILE_PROCESS_PAGE_SIZE)
 
 # email addresses are parsed from a comma separated list, strip whitespace.

@@ -59,17 +59,6 @@ DOWNLOADABLE_APK_URL = getenv("DOWNLOADABLE_APK_URL", "https://beiwe-app-backups
 # File processing and Data Access API options
 #
 
-# File processing is a task that runs on data processing servers.  It is responsible for splitting
-#  up data into clean and regular files that are then made availabel by the Data Access API.
-
-# Modifies the number of concurrent network operations that the server will use with respect to
-#  accessing data on S3 via the Data Access API. This value sets the number of threads that will be
-#  used to download data from S3 during file processing. Increasing this value may have a
-#  substantial effect on situations where there are many small files.
-# (Note also that frontend servers can have different values than data processing servers.)
-#   Expects an integer number.
-CONCURRENT_NETWORK_OPS = getenv("CONCURRENT_NETWORK_OPS") or cpu_count() * 2
-
 # This is number of files to be pulled in and processed simultaneously on data processing servers,
 # it has no effect on frontend servers. Mostly this affects the ram utilization of file processing.
 # A larger "page" of files to process is more efficient with respect to network bandwidth (and

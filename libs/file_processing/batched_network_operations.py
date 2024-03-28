@@ -2,6 +2,7 @@ import sys
 import traceback
 from typing import Tuple
 
+from cronutils import ErrorHandler
 from django.utils import timezone
 
 from constants.data_processing_constants import CHUNK_EXISTS_CASE
@@ -9,18 +10,17 @@ from database.data_access_models import ChunkRegistry
 from libs.file_processing.utility_functions_simple import decompress
 from libs.s3 import s3_upload
 from libs.security import chunk_hash
-from libs.sentry import make_error_sentry, SentryTypes
 
 
 # from datetime import datetime
 # GLOBAL_TIMESTAMP = datetime.now().isoformat()
 
 
-def batch_upload(upload: Tuple[ChunkRegistry or dict, str, bytes, str]):
+def batch_upload(upload: Tuple[ChunkRegistry or dict, str, bytes, str], error_handler: ErrorHandler):
     """ Used for mapping an s3_upload function.  the tuple is unpacked, can only have one parameter. """
     
     ret = {'exception': None, 'traceback': None}
-    with make_error_sentry(sentry_type=SentryTypes.data_processing):
+    with error_handler:
         try:
             chunk, chunk_path, new_contents, study_object_id = upload
             del upload

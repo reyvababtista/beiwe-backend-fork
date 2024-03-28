@@ -1,14 +1,13 @@
 import time
 from collections import defaultdict
 from datetime import timedelta
-from multiprocessing.pool import ThreadPool
 from typing import DefaultDict, Dict, Generator, List, Set, Tuple
 
 from cronutils.error_handler import ErrorHandler
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
+from config.settings import FILE_PROCESS_PAGE_SIZE
 from constants import common_constants
 from constants.data_stream_constants import SURVEY_DATA_FILES
 from database.data_access_models import ChunkRegistry, FileToProcess
@@ -32,19 +31,8 @@ def easy_run(participant: Participant):
 
 """########################## Hourly Update Tasks ###########################"""
 
-# This is useful for testing and profiling behavior. Replaces the imported threadpool with this
-# dummy class and poof! Single-threaded so the "threaded" network operations have real stack traces!
-
-# The memory leak is NOT caused by the ThreadPool, but single-threading the network operations
+# The memory leak was NOT caused by using a ThreadPool, but single-threading the network operations
 # mean that there are no overlapping network operations, so our _peak_ memory usage is lower.
-class ThreadPool():
-    def map(self, *args, **kwargs):
-        # cut off any threadpool kwargs, which is conveniently easy because map does not use kwargs!
-        return map(*args)
-    def terminate(self): pass
-    def close(self): pass
-    def __init__(self, *args,**kwargs): pass
-
 
 class FileProcessingTracker():
     def __init__(
@@ -99,7 +87,7 @@ class FileProcessingTracker():
         # sorting by s3_file_path clumps together the data streams, which is good for efficiency.
         pks = list(
             self.participant.files_to_process.exclude(deleted=True).order_by("s3_file_path")
-        )[:1000]
+        )[:500]
         print("Number Files To Process:", len(pks))
         
         # yield 100 files at a time
@@ -115,20 +103,13 @@ class FileProcessingTracker():
         """ Run through the files to process, pull their data, sort data into time bins. Run the
         file through the appropriate logic path based on file type. """
         
-        # we use a ThreadPool to downloading multiple files simultaneously.
-        pool = ThreadPool(CONCURRENT_NETWORK_OPS)
-        
-        # This pool pulls in data for each FileForProcessing on a background thread and instantiates it.
+        # we have dropped multithreading to reduce memory load.
         # Instantiating a FileForProcessing object queries S3 for the File's data. (network request)
-        files_for_processing: List[FileForProcessing] = pool.map(
-            FileForProcessing, files_to_process, chunksize=1
-        )
+        files_for_processing: List[FileForProcessing] = map(FileForProcessing, files_to_process)
         
         for file_for_processing in files_for_processing:
             with self.error_handler:
                 self.process_one_file(file_for_processing)
-        pool.close()
-        pool.terminate()
         
         # there are several failure modes and success modes, information for what to do with different
         # files percolates back to here.  Delete various database objects accordingly.
@@ -163,12 +144,12 @@ class FileProcessingTracker():
             Returns a list of FTPs that failed.
             Returns the earliest and latest time bins handled. """
         # Track the earliest and latest time bins, to return them at the end of the function
-        uploads = CsvMerger(
+        merged_data = CsvMerger(
             self.all_binified_data, self.error_handler, self.survey_id_dict, self.participant
         )
         
-        pool = ThreadPool(CONCURRENT_NETWORK_OPS)
-        errors = pool.map(batch_upload, uploads.upload_these, chunksize=1)
+        # upload handler - used to be multithreaded, not doing that anymore for memory reasons.
+        errors = map(batch_upload, merged_data.upload_these, self.error_handler)
         
         # this code predates the refactor into a class... it seems real bad. Maybe it is supposed to
         # be within the error handler but that caused error spam/sentry quota depletion?
@@ -177,9 +158,7 @@ class FileProcessingTracker():
                 print(err_ret['traceback'])
                 raise err_ret['exception']
         
-        pool.close()
-        pool.terminate()
-        return uploads.get_retirees()
+        return merged_data.get_retirees()
     
     #
     ## Chunkable File Processing

@@ -10,18 +10,13 @@ from django.utils import timezone
 
 from config.settings import CONCURRENT_NETWORK_OPS, FILE_PROCESS_PAGE_SIZE
 from constants import common_constants
-from constants.data_stream_constants import (ANDROID_LOG_FILE, CALL_LOG, IDENTIFIERS,
-    SURVEY_DATA_FILES, SURVEY_TIMINGS, WIFI)
-from constants.user_constants import ANDROID_API
+from constants.data_stream_constants import SURVEY_DATA_FILES
 from database.data_access_models import ChunkRegistry, FileToProcess
 from database.user_models_participant import Participant
 from libs.file_processing.batched_network_operations import batch_upload
 from libs.file_processing.csv_merger import CsvMerger
-from libs.file_processing.data_fixes import (fix_app_log_file, fix_call_log_csv, fix_identifier_csv,
-    fix_survey_timings, fix_wifi_csv)
 from libs.file_processing.data_qty_stats import calculate_data_quantity_stats
 from libs.file_processing.file_for_processing import FileForProcessing
-from libs.file_processing.utility_functions_csvs import csv_to_list
 from libs.file_processing.utility_functions_simple import (BadTimecodeError, binify_from_timecode,
     clean_java_timecode, resolve_survey_id_from_file_name)
 from libs.sentry import make_error_sentry, SentryTypes

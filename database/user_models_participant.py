@@ -4,7 +4,6 @@ import json
 import os
 from datetime import datetime, timedelta, tzinfo
 from pprint import pprint
-import stat
 from typing import Dict, List, Optional, Tuple, Union
 
 import orjson
@@ -92,6 +91,10 @@ class Participant(AbstractPasswordUser):
     last_get_latest_device_settings = models.DateTimeField(null=True, blank=True)
     
     # participant device tracking
+    # the version code and name are slightly different between android and ios. (android HAS a 
+    # monotonic version code, so we use it. ios has semantic versioning as the best code.
+    # android: last_version_code': '68', 'last_version_name': '3.4.2'
+    # ios:  'last_version_code': '2.5.1', 'last_version_name': '2024.21',
     last_version_code = models.CharField(max_length=32, blank=True, null=True)
     last_version_name = models.CharField(max_length=32, blank=True, null=True)
     last_os_version = models.CharField(max_length=32, blank=True, null=True)
@@ -138,6 +141,7 @@ class Participant(AbstractPasswordUser):
     scheduled_events: Manager[ScheduledEvent]
     upload_trackers: Manager[UploadTracking]
     action_logs: Manager[ParticipantActionLog]
+    app_version_history: Manager[AppVersionHistory]
     # undeclared:
     encryptionerrormetadata_set: Manager[EncryptionErrorMetadata]  # TODO: remove when ios stops erroring
     foresttask_set: Manager[ForestTask]
@@ -300,6 +304,10 @@ class Participant(AbstractPasswordUser):
     ################################################################################################
     ######################################### LOGGING ##############################################
     ################################################################################################
+    
+    def generate_app_version_history(self, last_version_code: str):
+        """ Creates an AppVersionHistory object. """
+        AppVersionHistory.objects.create(participant=self, app_version=self.last_version_code)
     
     def generate_device_status_report_history(self, url: str):
         # this is just stupid but a mistake ages ago means we have to do this.
@@ -511,6 +519,12 @@ class ParticipantActionLog(UtilityModel):
 #     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
 #     # handled means there was a notification sent to the user, or we got a heartbeat.
 #     handled = models.DateTimeField(null=False, blank=False, db_index=True)
+
+
+class AppVersionHistory(TimestampedModel):
+    participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="app_version_history")
+    app_version = models.CharField(max_length=16, blank=False, null=False)
+
 
 # device status report history 
 class DeviceStatusReportHistory(UtilityModel):

@@ -45,6 +45,7 @@ def populate_data_quantity(
     chunk_data_type: str
     file_size: int
     fields = ('time_bin', 'data_type', 'file_size')
+    # get the date in the study's timezone, identify the size of that chunk, add based on data type
     for time_bin, chunk_data_type, file_size in chunkregistry_query.values_list(*fields):
         day = time_bin.astimezone(study_timezone).date()
         file_size = 0 if file_size is None else file_size

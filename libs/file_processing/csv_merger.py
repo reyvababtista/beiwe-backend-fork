@@ -11,9 +11,8 @@ from database.data_access_models import ChunkRegistry
 from database.survey_models import Survey
 from database.system_models import GenericEvent
 from database.user_models_participant import Participant
-
-from libs.file_processing.utility_functions_csvs import (construct_csv_string, csv_to_list,
-    unix_time_to_string)
+from libs.file_processing.utility_functions_csvs import (construct_csv_string,
+    csv_to_list_of_list_of_bytes, unix_time_to_string)
 from libs.file_processing.utility_functions_simple import (compress,
     convert_unix_to_human_readable_timestamps, ensure_sorted_by_timestamp)
 from libs.s3 import s3_retrieve
@@ -77,7 +76,8 @@ class CsvMerger:
             if self.latest_time_bin is None or time_bin > self.latest_time_bin:
                 self.latest_time_bin = time_bin
             
-            # data_rows_list may be a generator; here it is evaluated
+            # data_rows_list is a list of lists of bytes, each list of bytes is a row of data
+            # these are from new files, they do not have the human readable timestamp column yet.
             updated_header = convert_unix_to_human_readable_timestamps(original_header, data_rows_list)
             chunk_path = construct_s3_chunk_path(study_object_id, patient_id, data_stream, time_bin)
             
@@ -166,7 +166,7 @@ class CsvMerger:
                 )
             raise  # Raise original error
         
-        old_header, old_rows = csv_to_list(s3_file_data)
+        old_header, old_rows = csv_to_list_of_list_of_bytes(s3_file_data)
         final_header = self.validate_two_headers(old_header, updated_header, data_stream)
         
         old_rows = list(old_rows)

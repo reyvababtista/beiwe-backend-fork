@@ -44,7 +44,7 @@ class ChunkRegistry(TimestampedModel):
     # TODO: the above comment is incorrect, we have on-database-save validation, revert to include choices
     data_type = models.CharField(max_length=32, db_index=True)
     time_bin = models.DateTimeField(db_index=True)
-    file_size = models.IntegerField(null=True, default=None)  # Size (in bytes) of the uncompressed file
+    file_size = models.IntegerField(null=True, default=None)  # Size (in bytes) of the (uncompressed) file, off by 16 bytes because of encryption iv
     study: Study = models.ForeignKey(
         'Study', on_delete=models.PROTECT, related_name='chunk_registries', db_index=True
     )
@@ -151,6 +151,7 @@ class FileToProcess(TimestampedModel):
     study: Study = models.ForeignKey('Study', on_delete=models.PROTECT, related_name='files_to_process')
     participant: Participant = models.ForeignKey('Participant', on_delete=models.PROTECT, related_name='files_to_process')
     os_type = models.CharField(max_length=16, choices=OS_TYPE_CHOICES, blank=True, null=False, default="")
+    app_version = models.CharField(max_length=16, blank=True, null=False, default="")
     deleted = models.BooleanField(default=False)
     
     def s3_retrieve(self) -> bytes:
@@ -182,6 +183,7 @@ class FileToProcess(TimestampedModel):
             participant=participant,
             study=participant.study,
             os_type=participant.os_type,
+            app_version=participant.last_version_code,
         )
     
     @classmethod

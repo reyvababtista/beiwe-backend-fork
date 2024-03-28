@@ -90,6 +90,10 @@ def s3_upload_plaintext(upload_path: str, data_string: bytes) -> None:
     conn.put_object(Body=data_string, Bucket=S3_BUCKET, Key=upload_path)
 
 
+def s3_get_size(key_path: str):
+    conn.head_object(Bucket=S3_BUCKET, Key=key_path)["ContentLength"]
+
+
 def s3_retrieve(key_path: str, obj: str, raw_path: bool = False, number_retries=3) -> bytes:
     """ Takes an S3 file path (key_path), and a study ID.  Takes an optional argument, raw_path,
     which defaults to false.  When set to false the path is prepended to place the file in the

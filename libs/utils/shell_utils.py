@@ -23,9 +23,10 @@ from libs.utils.dev_utils import disambiguate_participant_survey, TxtClr
 
 
 # Some utility functions for a quality of life.
+THE_ONE_TRUE_TIMEZONE = gettz("America/New_York")
 
 
-def as_local(dt: datetime, tz=gettz("America/New_York")):
+def as_local(dt: datetime, tz=THE_ONE_TRUE_TIMEZONE):
     return localtime(dt, tz)
 
 

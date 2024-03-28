@@ -216,19 +216,16 @@ class FileProcessingTracker():
     def process_csv_data(self, file_for_processing: FileForProcessing) -> Tuple[DefaultDict[tuple, list], Tuple[str, str, str, bytes]]:
         """ Constructs a binified dict of a given list of a csv rows, catches csv files with known
             problems and runs the correct logic. Returns None If the csv has no data in it. """
-        
-        header, csv_rows_list = self.apply_fixes_and_extract_data(file_for_processing)
-        
-        # Memory saving measure: this data is now stored in its entirety in csv_rows_list
-        file_for_processing.clear_file_content()
-        
-        if file_for_processing.data_type in (IDENTIFIERS, SURVEY_TIMINGS):
-            header = self.apply_fixes_2(header, csv_rows_list, file_for_processing)
-        
-        # sometimes there is whitespace in the header? clean it.
-        header = b",".join(tuple(column_name.strip() for column_name in header.split(b",")))
+        # long running function. decomposes the file into a list of rows and a header, applies data
+        # stream fixes.
+        file_for_processing.prepare_data()
+        # get the header and rows from the file, tell it to clear references to the file contents
+        csv_rows_list = file_for_processing.file_lines
+        header = file_for_processing.header
+        file_for_processing.clear_file_lines()
         
         # shove csv rows into their respective time bins
+        # upon returning from this function there should only be the binified data representation in memory
         if csv_rows_list:
             return (
                 # return item 1: the data as a defaultdict
@@ -239,52 +236,8 @@ class FileProcessingTracker():
         else:
             return None, None
     
-    def apply_fixes_and_extract_data(self, file_for_processing: FileForProcessing) -> Tuple[bytes, List[List[bytes]]]:
-        """ Gross code that downloads the file and applies (some of the) fixes, returns a header and
-            a list-or-generator of csv rows. """
-        
-        # Accelerometer, Gyro, and Device Motion data an be massive, so csv_rows_list is a generator.
-        # this reduces memory usage by not loading every line of the entire file into memory as we
-        # go through the rows.  Only memory usage matters because thats what breaks the server.
-        
-        ## FIXES.
-        # Android
-        if file_for_processing.file_to_process.os_type == ANDROID_API:
-            # the log file is weird, it is almost not a csv, it is more of a time enumerated list of
-            # events. we need to fix it to be a csv.
-            if file_for_processing.data_type == ANDROID_LOG_FILE:
-                file_for_processing.file_contents = fix_app_log_file(
-                    file_for_processing.file_contents, file_for_processing.file_to_process.s3_file_path
-                )
-            
-            header, csv_rows_list = csv_to_list(file_for_processing.file_contents)
-            
-            # two android fixes require the data immediately, so we convert the generator to a list.
-            if file_for_processing.data_type == CALL_LOG:
-                header = fix_call_log_csv(header, csv_rows_list)
-            elif file_for_processing.data_type == WIFI:
-                header = fix_wifi_csv(
-                    header, csv_rows_list, file_for_processing.file_to_process.s3_file_path
-                )
-        
-        else:
-            # no fixes for iOS... (but see apply_fixes_2)
-            header, csv_rows_list = csv_to_list(file_for_processing.file_contents)
-        
-        return header, csv_rows_list
-    
-    def apply_fixes_2(self, header: bytes, csv_rows_list: List[List[bytes]], file_for_processing: FileForProcessing) -> bytes:
-        # these fixes are for Android and iOS
-        if file_for_processing.data_type == IDENTIFIERS:
-            header = fix_identifier_csv(header, csv_rows_list, file_for_processing.file_to_process.s3_file_path)
-        elif file_for_processing.data_type == SURVEY_TIMINGS:
-            header = fix_survey_timings(header, csv_rows_list, file_for_processing.file_to_process.s3_file_path)
-        else:
-            raise Exception(f"bad data stream in fixes 2: {file_for_processing.data_type}")
-        return header
-    
     def binify_csv_rows(self, rows_list: list, data_type: str, header: bytes) -> DefaultDict[tuple, list]:
-        """ Assumes a clean csv with element 0 in the rows column as a unix(ish) timestamp.
+        """ Assumes a clean csv with element 0 in the row's column as a unix(ish) timestamp.
             Sorts data points into the appropriate bin based on the rounded down hour
             value of the entry's unix(ish) timestamp. (based CHUNK_TIMESLICE_QUANTUM)
             Returns a dict of form {(study_id, patient_id, data_type, time_bin, header):rows_lists}. """
@@ -298,9 +251,7 @@ class FileProcessingTracker():
                     timecode = binify_from_timecode(row[0])
                 except BadTimecodeError:
                     continue
-                ret[
-                    (self.study_id, self.patient_id, data_type, timecode, header)
-                ].append(row)
+                ret[(self.study_id, self.patient_id, data_type, timecode, header)].append(row)
         return ret
     
     #

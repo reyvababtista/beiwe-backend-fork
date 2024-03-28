@@ -75,6 +75,8 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
     except UnreadablePostError:
         return abort(500)
     
+    last_version_code = session_participant.last_version_code
+    
     # device tracking/info database updates
     tracking_updates = {}
     if "version_code" in request.POST:
@@ -86,7 +88,13 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
     if "device_status_report" in request.POST:
         tracking_updates['device_status_report'] = request.POST["device_status_report"]
     if tracking_updates:
+        # don't track if these are missing
         session_participant.update_only(**tracking_updates)
+    
+    # attrubute is udptaded in update_only
+    if last_version_code != session_participant.last_version_code:
+        log(f"os version changed: {last_version_code}")
+        session_participant.generate_device_status_report_history(last_version_code)
     
     # we generate a log of the device status report, we do compress the data tho.
     if session_participant.enable_extensive_device_info_tracking:

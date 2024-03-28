@@ -13,21 +13,26 @@ def insert_timestamp_single_row_csv(header: bytes, rows_list: List[list], time_s
     return b",".join(header_list)
 
 
-def csv_to_list(file_contents: bytes) -> Tuple[bytes, List[bytes]]:
-    """ Grab a list elements from of every line in the csv, strips off trailing whitespace. dumps
-    them into a new list (of lists), and returns the header line along with the list of rows. """
+def csv_to_list_of_list_of_bytes(file_bytes: bytes) -> Tuple[bytes, List[List[bytes]]]:
+    lines = file_bytes.splitlines()
+    return lines.pop(0), [l.split() for l in lines]
+
+
+# def csv_to_list(file_contents: bytes) -> Tuple[bytes, List[bytes]]:
+#     """ Grab a list elements from of every line in the csv, strips off trailing whitespace. dumps
+#     them into a new list (of lists), and returns the header line along with the list of rows. """
     
-    # This code is more memory efficient than fast by using a generator
-    # Note that almost all of the time is spent in the per-row for-loop
+#     # This code is more memory efficient than fast by using a generator
+#     # Note that almost all of the time is spent in the per-row for-loop
     
-    # case: the file coming in is just a single line, e.g. the header.
-    # Need to provide the header and an empty iterator.
-    if b"\n" not in file_contents:
-        return file_contents, []
+#     # case: the file coming in is just a single line, e.g. the header.
+#     # Need to provide the header and an empty iterator.
+#     if b"\n" not in file_contents:
+#         return file_contents, []
     
-    lines = file_contents.splitlines()
-    return lines.pop(0), list(line.split(b",") for line in lines)
-    
+#     lines = file_contents.splitlines()
+#     return lines.pop(0), list(line.split(b",") for line in lines)
+
 # We used to have a generator version of this function that nominally has better memory usage, but
 # it was slower than just doing the splitlines, and caused problems with fixes after the last
 # section of the file processing refactor.
@@ -60,6 +65,7 @@ def construct_csv_string(header: bytes, rows_list: List[bytes]) -> bytes:
     """ Takes a header list and a bytes-list and returns a single string of a csv. Very performant."""
     
     def deduplicate(seq: List[bytes]):
+        # todo on python 3.11 - this pattern with the cached variable name is probably slower
         # highly optimized order preserving deduplication function.
         seen = set()
         seen_add = seen.add
@@ -72,8 +78,7 @@ def construct_csv_string(header: bytes, rows_list: List[bytes]) -> bytes:
     # we need to ensure no duplicates
     rows = deduplicate(rows)
     
-    # the .join is at least 100x faster than a +=ing a ret string - I don't know how it made it
-    # as long as it did as a += operation, I knew that was slow because of repeated calls to alloc.
+    # doing this as a repeated += add is better memory use, but at least 100x slower.
     return header + b"\n" + b"\n".join(rows)
 
 

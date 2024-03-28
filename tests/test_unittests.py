@@ -15,8 +15,9 @@ from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS
 from database.data_access_models import IOSDecryptionKey
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
 from database.schedule_models import BadWeeklyCount, WeeklySchedule
-from database.user_models_participant import (AppHeartbeats, DeviceStatusReportHistory, Participant,
-    ParticipantActionLog, ParticipantDeletionEvent, PushNotificationDisabledEvent)
+from database.user_models_participant import (AppHeartbeats, AppVersionHistory,
+    DeviceStatusReportHistory, Participant, ParticipantActionLog, ParticipantDeletionEvent,
+    PushNotificationDisabledEvent)
 from libs.file_processing.utility_functions_simple import BadTimecodeError, binify_from_timecode
 from libs.forest_utils import get_forest_git_hash
 from libs.participant_purge import (confirm_deleted, get_all_file_path_prefixes,
@@ -433,6 +434,15 @@ class TestParticipantDataDeletion(CommonTestCase):
         self.assertEqual(DeviceStatusReportHistory.objects.count(), 1)
         run_next_queued_participant_data_deletion()
         self.assertEqual(DeviceStatusReportHistory.objects.count(), 0)
+    
+    @data_purge_mock_s3_calls
+    def test_confirm_AppVersionHistory(self):
+        self.default_participant.update_only(last_version_code="10")
+        self.default_participant.generate_app_version_history("11")
+        self.default_participant_deletion_event
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+        run_next_queued_participant_data_deletion()
+        self.assertEqual(AppVersionHistory.objects.count(), 0)
     
     def test_for_all_related_fields(self):
         # This test will fail whenever there is a new related model added to the codebase.

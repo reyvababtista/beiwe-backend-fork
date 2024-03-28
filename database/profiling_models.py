@@ -104,6 +104,7 @@ class UploadTracking(UtilityModel):
                     study_id=study_id,
                     participant=participant,
                     os_type=participant.os_type,
+                    os_version=participant.last_version_code,  # TODO: implement historical version search
                 )
             )
         FileToProcess.objects.bulk_create(new_ftps)
@@ -146,7 +147,8 @@ class UploadTracking(UtilityModel):
                 new_ftps.append(FileToProcess(
                     s3_file_path=object_id + "/" + file_path,
                     study_id=study_id,
-                    participant_id=participant_id
+                    participant_id=participant_id,
+                    # TODO: implement app version here
                 ))
         FileToProcess.objects.bulk_create(new_ftps)
     
@@ -187,7 +189,8 @@ class UploadTracking(UtilityModel):
             new_ftps.append(FileToProcess(
                 s3_file_path=s3_file_path,
                 study_id=study_id,
-                participant_id=participant_id
+                participant_id=participant_id,
+                # TODO: implement app version here
             ))
         
         # bulk save the overflow

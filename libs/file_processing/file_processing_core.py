@@ -38,9 +38,12 @@ class FileProcessingTracker():
     def __init__(
         self, participant: Participant, page_size: int = FILE_PROCESS_PAGE_SIZE,
     ) -> None:
+        # swap comments to debug without sentry
         self.error_handler: ErrorHandler = make_error_sentry(
             sentry_type=SentryTypes.data_processing, tags={'patient_id': participant.patient_id}
         )
+        # self.error_handler = null_error_handler
+        
         self.participant = participant
         self.study_id = participant.study.object_id
         self.patient_id = participant.patient_id
@@ -80,14 +83,14 @@ class FileProcessingTracker():
         # the query. The memory overhead is not very high, if it ever is change this to a query for
         # pks and then each pagination is a separate query. (only memory overhead matters.)
         
-        # Extremely aggressive data recording sessions can cause the memory leak to use of 1500 MB
+        # Extremely aggressive data recording sessions can cause the memory leak to use of 1`500` MB
         # by the time it hits 1000 files, so we can at least limit that. if 1000 files per run
         # isn't enough to keep up with uploads, that's the study's problem.
         
         # sorting by s3_file_path clumps together the data streams, which is good for efficiency.
         pks = list(
             self.participant.files_to_process.exclude(deleted=True).order_by("s3_file_path")
-        )[:500]
+        )
         print("Number Files To Process:", len(pks))
         
         # yield 100 files at a time
@@ -148,17 +151,20 @@ class FileProcessingTracker():
             self.all_binified_data, self.error_handler, self.survey_id_dict, self.participant
         )
         
-        # upload handler - used to be multithreaded, not doing that anymore for memory reasons.
-        errors = map(batch_upload, merged_data.upload_these, self.error_handler)
-        
-        # this code predates the refactor into a class... it seems real bad. Maybe it is supposed to
-        # be within the error handler but that caused error spam/sentry quota depletion?
-        for err_ret in errors:
-            if err_ret['exception']:
-                print(err_ret['traceback'])
-                raise err_ret['exception']
-        
+        # todo: get the files that are failing to upload and remove them from retired files?
+        #       That seems super hard.
+        self.do_uploads(merged_data)
         return merged_data.get_retirees()
+    
+    def do_uploads(self, merged_data: CsvMerger):
+        # upload handler - used to be multithreaded, not doing that anymore for memory reasons.
+        while True:
+            try:
+                upload_params_tuple = merged_data.upload_these.pop(-1)
+            except IndexError:
+                break
+            # if the upload fails we simply error out and try again later. Failure is an option.
+            batch_upload(upload_params_tuple)
     
     #
     ## Chunkable File Processing

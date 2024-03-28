@@ -19,6 +19,7 @@ class SomeException2(Exception): pass
 # This file contains the class and necessary functions for the general data container
 # class that we use.
 
+HEADER_DEDUPLICATOR = {}
 
 class FileForProcessing():
     def __init__(self, file_to_process: FileToProcess):
@@ -88,6 +89,13 @@ class FileForProcessing():
         self.clear_file_content()
         self.header = lines.pop(0)  # annoyingly slow, but after a lot of tests, this is the best/fastest way.
         self.file_lines = list(line.split(b",") for line in lines)
+        
+        # this is a dumb hack that turns all identical headers into references to the same, unique,
+        # header string.  This is a stupid memory optimization.
+        if self.header in HEADER_DEDUPLICATOR:
+            self.header = HEADER_DEDUPLICATOR[self.header]
+        else:
+            HEADER_DEDUPLICATOR[self.header] = self.header
     
     def prepare_data(self) -> Tuple[bytes, List[List[bytes]]]:
         """ We need to apply fixes (in the correct order), and get the list of csv lines."""

@@ -34,13 +34,17 @@ def easy_run(participant: Participant):
 
 # This is useful for testing and profiling behavior. Replaces the imported threadpool with this
 # dummy class and poof! Single-threaded so the "threaded" network operations have real stack traces!
-# class ThreadPool():
-#     def map(self, *args, **kwargs):
-#         # cut off any threadpool kwargs, which is conveniently easy because map does not use kwargs!
-#         return map(*args)
-#     def terminate(self): pass
-#     def close(self): pass
-#     def __init__(self, *args,**kwargs): pass
+
+# The memory leak is NOT caused by the ThreadPool, but single-threading the network operations
+# mean that there are no overlapping network operations, so our _peak_ memory usage is lower.
+class ThreadPool():
+    def map(self, *args, **kwargs):
+        # cut off any threadpool kwargs, which is conveniently easy because map does not use kwargs!
+        return map(*args)
+    def terminate(self): pass
+    def close(self): pass
+    def __init__(self, *args,**kwargs): pass
+
 
 class FileProcessingTracker():
     def __init__(
@@ -70,9 +74,6 @@ class FileProcessingTracker():
         
         # we don't actually use this...
         self.buggy_files = set()
-        
-        # old shit
-        # self.position = 0
     
     #
     ## Outer Loop
@@ -91,10 +92,14 @@ class FileProcessingTracker():
         # the query. The memory overhead is not very high, if it ever is change this to a query for
         # pks and then each pagination is a separate query. (only memory overhead matters.)
         
+        # Extremely aggressive data recording sessions can cause the memory leak to use of 1500 MB
+        # by the time it hits 1000 files, so we can at least limit that. if 1000 files per run
+        # isn't enough to keep up with uploads, that's the study's problem.
+        
         # sorting by s3_file_path clumps together the data streams, which is good for efficiency.
         pks = list(
             self.participant.files_to_process.exclude(deleted=True).order_by("s3_file_path")
-        )
+        )[:1000]
         print("Number Files To Process:", len(pks))
         
         # yield 100 files at a time

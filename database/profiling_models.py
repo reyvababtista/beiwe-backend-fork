@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 from django.db import models
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from constants.data_stream_constants import (DATA_STREAM_TO_S3_FILE_NAME_STRING,
@@ -76,14 +77,26 @@ class UploadTracking(UtilityModel):
     def re_add_files_to_process(cls, number=100):
         """ Re-adds the most recent [number] files that have been uploaded recently to FiletToProcess.
             (this is fairly optimized because it is part of debugging file processing) """
+        uploads = cls.objects.order_by("-timestamp")[:number]
+        cls._add_files_to_process(uploads)
         
+    @classmethod
+    def re_add_files_to_process_time(cls, time: datetime):
+        """ re-adds files going back to a specific time. """
+        uploads = cls.objects.filter(timestamp__gte=time).order_by("-timestamp")
+        cls._add_files_to_process(uploads)
+    
+    @classmethod
+    def _add_files_to_process(cls, uploads: QuerySet):
         from database.data_access_models import FileToProcess
-        uploads = cls.objects.order_by("-timestamp").values_list(
+        uploads = uploads.values_list(
             "file_path", "participant__study__object_id", "participant__study_id", "participant_id"
-        )[:number]
-        new_ftps: List[FileToProcess] = []
+        )
         participant: Participant
-        participant_cache: Dict[Participant] = {}  # uhg need to cache participants...
+        participant_cache: Dict[Participant] = {}  # cache participants
+        file_paths = set(FileToProcess.objects.values_list("s3_file_path", flat=True)) # cache file paths
+        
+        new_ftps: List[FileToProcess] = []
         for i, (file_path, object_id, study_id, participant_id) in enumerate(uploads):
             if participant_id in participant_cache:
                 participant = participant_cache[participant_id]
@@ -91,22 +104,33 @@ class UploadTracking(UtilityModel):
                 participant = Participant.objects.get(id=participant_id)
                 participant_cache[participant_id] = participant
             
-            if i % 10 == 0:
+            if i % 100 == 0:
                 print(i, sep="... ")
             
-            if FileToProcess.objects.filter(s3_file_path__icontains=file_path).exists():
+            actual_file_path = object_id + "/" + file_path
+            
+            if actual_file_path in file_paths:
                 print(f"skipping {file_path}, appears to already be present")
                 continue
+            else:
+                file_paths.add(file_path)
             
             new_ftps.append(
                 FileToProcess(
-                    s3_file_path=object_id + "/" + file_path,
+                    s3_file_path=actual_file_path,
                     study_id=study_id,
                     participant=participant,
                     os_type=participant.os_type,
-                    os_version=participant.last_version_code,  # TODO: implement historical version search
+                    app_version=participant.last_version_code,  # TODO: implement historical version search
                 )
             )
+            
+            if len(new_ftps) > 500:
+                print("creating 500 new ftps")
+                FileToProcess.objects.bulk_create(new_ftps)
+                new_ftps = []
+        
+        print(f"creating {len(new_ftps)} new ftps")
         FileToProcess.objects.bulk_create(new_ftps)
     
     @classmethod

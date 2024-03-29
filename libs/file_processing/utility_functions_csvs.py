@@ -20,45 +20,47 @@ is_it_a_date_string = re.compile(r"^\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d\.\d\d\d$")
 
 
 # this is the normal version of the function to revert to after the run to fix existing data finishes.
-# def csv_to_list_of_list_of_bytes(file_bytes: bytes) -> Tuple[bytes, List[List[bytes]]]:
-#     lines = file_bytes.splitlines()
-#     return lines.pop(0), [l.split() for l in lines]
-
-
 def csv_to_list_of_list_of_bytes(file_bytes: bytes) -> Tuple[bytes, List[List[bytes]]]:
-    # due to a bug on servers roughly 4 days in march 2024, we have to apply some fix to data
-    # that has already been processed.  This only needs to happen once per affected file.
     lines = file_bytes.splitlines()
-    header = lines.pop(0)
+    return lines.pop(0), [l.split() for l in lines]
+
+
+# keeping this around in case anyone encounters the bug in issue
+# https://github.com/onnela-lab/beiwe-backend/issues/373
+# def csv_to_list_of_list_of_bytes(file_bytes: bytes) -> Tuple[bytes, List[List[bytes]]]:
+#     # due to a bug on servers roughly 4 days in march 2024, we have to apply some fix to data
+#     # that has already been processed.  This only needs to happen once per affected file.
+#     lines = file_bytes.splitlines()
+#     header = lines.pop(0)
     
-    ret_lines = []
-    for line in lines:
-        good_components = []
-        line_components = line.split(b",")
-        # line[0] is a unix milliseconds timestamp
-        # line[1] is a human readable timestamp in the format of API_TIME_FORMAT
-        good_components.append(line_components.pop(0))
+#     ret_lines = []
+#     for line in lines:
+#         good_components = []
+#         line_components = line.split(b",")
+#         # line[0] is a unix milliseconds timestamp
+#         # line[1] is a human readable timestamp in the format of API_TIME_FORMAT
+#         good_components.append(line_components.pop(0))
         
-        should_be_human_timestamp = line_components.pop(0)
-        if not is_it_a_date_string.match(should_be_human_timestamp.decode()):
-            error = line + b" - " + should_be_human_timestamp
-            raise Exception(f"encountered a non-timestamp value: {error.decode()}")
+#         should_be_human_timestamp = line_components.pop(0)
+#         if not is_it_a_date_string.match(should_be_human_timestamp.decode()):
+#             error = line + b" - " + should_be_human_timestamp
+#             raise Exception(f"encountered a non-timestamp value: {error.decode()}")
         
-        good_components.append(should_be_human_timestamp)
+#         good_components.append(should_be_human_timestamp)
         
-        # the rest should be columns of data, but with duplicates of the human readable timestamps.
-        # for each value, if it isn't such a timestamp, add it to the list of good components.
-        # there is no situation where there should be a perfectly formatted timestamp with two commas
-        # on either side, so we can always remove it.
-        # we are only running this on ACCELEROMETER, BLUETOOTH, CALL_LOG, DEVICEMOTION, GPS, GYRO,
-        # MAGNETOMETER, POWER_STATE, PROXIMITY, REACHABILITY, TEXTS_LOG, and WIFI
-        for value in line_components:
-            if not is_it_a_date_string.match(value.decode()):
-                good_components.append(value)
+#         # the rest should be columns of data, but with duplicates of the human readable timestamps.
+#         # for each value, if it isn't such a timestamp, add it to the list of good components.
+#         # there is no situation where there should be a perfectly formatted timestamp with two commas
+#         # on either side, so we can always remove it.
+#         # we are only running this on ACCELEROMETER, BLUETOOTH, CALL_LOG, DEVICEMOTION, GPS, GYRO,
+#         # MAGNETOMETER, POWER_STATE, PROXIMITY, REACHABILITY, TEXTS_LOG, and WIFI
+#         for value in line_components:
+#             if not is_it_a_date_string.match(value.decode()):
+#                 good_components.append(value)
         
-        ret_lines.append(good_components)
+#         ret_lines.append(good_components)
     
-    return header, ret_lines
+#     return header, ret_lines
 
 
 # def csv_to_list(file_contents: bytes) -> Tuple[bytes, List[bytes]]:

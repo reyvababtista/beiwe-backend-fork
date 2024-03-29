@@ -110,10 +110,10 @@ class UploadTracking(UtilityModel):
             actual_file_path = object_id + "/" + file_path
             
             if actual_file_path in file_paths:
-                print(f"skipping {file_path}, appears to already be present")
+                print(f"skipping {actual_file_path}, appears to already be present")
                 continue
             else:
-                file_paths.add(file_path)
+                file_paths.add(actual_file_path)
             
             new_ftps.append(
                 FileToProcess(

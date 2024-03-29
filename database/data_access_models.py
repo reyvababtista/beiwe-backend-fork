@@ -183,7 +183,7 @@ class FileToProcess(TimestampedModel):
             participant=participant,
             study=participant.study,
             os_type=participant.os_type,
-            app_version=participant.last_version_code,
+            app_version=participant.last_version_code or "",
         )
     
     @classmethod

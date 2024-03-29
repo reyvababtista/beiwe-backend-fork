@@ -121,7 +121,7 @@ class UploadTracking(UtilityModel):
                     study_id=study_id,
                     participant=participant,
                     os_type=participant.os_type,
-                    app_version=participant.last_version_code,  # TODO: implement historical version search
+                    app_version=participant.last_version_code or "1",  # TODO: implement historical version search
                 )
             )
             

@@ -16,14 +16,13 @@ from libs.sentry import make_error_sentry, SentryTypes
 def create_file_processing_tasks():
     """ Generates tasks to enqueue.  This is called every 6 minutes, and tasks have a lifetime
     of 6 minutes.  Note that tasks are not removed from the queue by RabbitMQ, but by Celery.
-    inspecting the queue will continue to display the tasks that have not been sent to Celery
-    until the most recent job is finished.
+    inspecting the queue will continue to display the tasks that have not been sent to Celery until
+    the most recent job is finished.
     
-    Also, for some reason 5 minutes is the smallest value that .... works.  At all.
-    No clue why. """
+    Also, for some reason 5 minutes is the smallest value that .... works.  At all. No clue why. """
     
-    # set the tasks to expire at the 5 minutes and thirty seconds mark after the most recent
-    # 6 minutely cron task. This way all tasks will be revoked at the same, and well-known, instant.
+    # set the tasks to expire at the 5 minutes and thirty seconds mark after the most recent 6
+    # minutely cron task. This way all tasks will be revoked at the same, and well-known, instant.
     expiry = (datetime.utcnow() + timedelta(minutes=5)).replace(second=30, microsecond=0)
     
     with make_error_sentry(sentry_type=SentryTypes.data_processing):
@@ -42,8 +41,8 @@ def create_file_processing_tasks():
         print("Queueing these participants:", ",".join(str(p) for p in participants_to_process))
         
         for participant_id in participants_to_process:
-            # Queue all users' file processing, and generate a list of currently running jobs
-            # to use to detect when all jobs are finished running.
+            # Queue all users' file processing, and generate a list of currently running jobs to use
+            # to detect when all jobs are finished running.
             safe_apply_async(
                 celery_process_file_chunks,
                 args=[participant_id],

@@ -169,7 +169,7 @@ SESSION_ENGINE = "database.user_models_researcher"
 APPEND_SLASH = False
 
 # We need this to be fairly large, if users ever encounter a problem with this please report it
-DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 128 * 1024 * 1024  # 128 MB
 
 # enable Sentry error reporting
 our_sentry_dsn = normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN)

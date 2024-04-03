@@ -187,8 +187,8 @@ def manager_fix():
     log.info(
         "ignore the scary red stack trace that about 'Error reading SSH protocol banner' and "
         "the message about 'Low level socket error'...\n\n"
-        "If you get asked for the Login password for ubuntu... um... it connected before SSH"
-        "finished loading and... you will have to terminate the server and then rerun this... sorry"
+        "If you get asked for the Login password for ubuntu... um... it connected before SSH "
+        "finished loading and... you will have to terminate the server and then rerun this... sorry..."
     )
     sleep(10)
     retry(run, "# waiting for server to reboot, this might take a while... ")
@@ -238,8 +238,9 @@ def apt_installs(manager=False, single_server_ami=False):
     installs_failed = True
     for i in range(10):
         try:
-            sudo(f'apt-get -yq update >> {LOG_FILE}')
-            sudo(f'apt-get -yq install {installs_string} >> {LOG_FILE}')
+            # export DEBIAN_FRONTEND=noninteractive disables interactive prompts in apt
+            sudo(f'export DEBIAN_FRONTEND=noninteractive; apt-get -yq update >> {LOG_FILE}')
+            sudo(f'export DEBIAN_FRONTEND=noninteractive; apt-get -yq install {installs_string} >> {LOG_FILE}')
             installs_failed = False
             break
         except FabricExecutionError:

@@ -17,9 +17,9 @@ def create_initial_appversion_history(apps, schema_editor):
     for pk, last_version_code, last_version_name, last_os_version in query:
         bulk_creations.append(AppVersionHistory(
             participant_id=pk,
-            app_version_code=last_version_code or "missing",
-            app_version_name=last_version_name or "missing",
-            os_version=last_os_version or "missing",
+            app_version_code=(last_version_code or "missing")[:16],
+            app_version_name=(last_version_name or "missing")[:16],
+            os_version=(last_os_version or "missing")[:16],
         ))
     AppVersionHistory.objects.bulk_create(bulk_creations)
 

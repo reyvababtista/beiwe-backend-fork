@@ -508,6 +508,7 @@ def device_settings(request: ResearcherRequest, study_id=None):
         k: v for k, v in request.POST.items()
         if not k.startswith("consent_section") and hasattr(study.device_settings, k)
     }
+    
     # numerous data fixes
     checkbox_to_boolean(CHECKBOX_TOGGLES, params)
     string_to_int(TIMER_VALUES, params)

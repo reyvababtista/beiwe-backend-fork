@@ -7,6 +7,7 @@ from django.utils import timezone
 from firebase_admin.messaging import (QuotaExceededError, SenderIdMismatchError,
     ThirdPartyAuthError, UnregisteredError)
 
+from constants.message_strings import DEFAULT_HEARTBEAT_MESSAGE
 from constants.testing_constants import (THURS_OCT_6_NOON_2022_NY, THURS_OCT_13_NOON_2022_NY,
     THURS_OCT_20_NOON_2022_NY)
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS, ANDROID_API
@@ -156,7 +157,8 @@ class TestHeartbeatQuery(TestCelery):
             (
                 self.default_participant.id,
                 self.default_participant.fcm_tokens.first().token,
-                ANDROID_API
+                ANDROID_API,
+                DEFAULT_HEARTBEAT_MESSAGE,
             )
         ]
     
@@ -245,7 +247,7 @@ class TestHeartbeatQuery(TestCelery):
         self.generate_fcm_token(self.default_participant, None)
         self.generate_fcm_token(self.default_participant, None)
         correct = [
-            (self.default_participant.id, fcm_token.token, ANDROID_API)
+            (self.default_participant.id, fcm_token.token, ANDROID_API, DEFAULT_HEARTBEAT_MESSAGE)
             for fcm_token in self.default_participant.fcm_tokens.all()
         ]
         thing_to_test = list(heartbeat_query())
@@ -273,7 +275,7 @@ class TestHeartbeatQuery(TestCelery):
         self.assertEqual(Participant.objects.all().count(), 2)
         self.assertEqual(len(heartbeat_query()), 2)
         correct = self.default_participant_response
-        correct.append((p2.id, p2.fcm_tokens.first().token, ANDROID_API))
+        correct.append((p2.id, p2.fcm_tokens.first().token, ANDROID_API, DEFAULT_HEARTBEAT_MESSAGE))
         thing_to_test = list(heartbeat_query())
         # have to sort by the token value, order is intentionally randomized.
         correct.sort(key=lambda x: x[1])

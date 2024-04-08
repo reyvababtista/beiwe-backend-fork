@@ -13,7 +13,7 @@ from libs.security import generate_easy_alphanumeric_string
 DELETION_PAGE_SIZE = 250
 
 
-def add_particpiant_for_deletion(participant: Participant):
+def add_participant_for_deletion(participant: Participant):
     """ Adds a participant to the deletion queue. """
     try:
         ParticipantDeletionEvent.objects.get(participant=participant)

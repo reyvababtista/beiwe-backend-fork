@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 
 from constants.data_stream_constants import ALL_DATA_STREAMS
+from constants.message_strings import DEFAULT_HEARTBEAT_MESSAGE
 from constants.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT,
     DEFAULT_CONSENT_SECTIONS_JSON, SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
 from constants.user_constants import ResearcherRole
@@ -53,6 +54,8 @@ class Study(TimestampedModel, ObjectIDModel):
     deleted = models.BooleanField(default=False)
     forest_enabled = models.BooleanField(default=False)
     
+    # easy enrollment disables the password (skips the check) at participant registration
+    # for all participants in the study.
     easy_enrollment = models.BooleanField(default=False)
     
     # Researcher security settings
@@ -282,5 +285,12 @@ class DeviceSettings(TimestampedModel):
     
     # Consent sections
     consent_sections = JSONTextField(default=DEFAULT_CONSENT_SECTIONS_JSON)
+    
+    # Slightly diverging from study _device_ settings to just a study setting because our logic
+    # for checking and saving these is all connected to this device settings model, and
+    # it doesn't matter if the device receives some extra settings that it doesn't use.
+    # heartbeat settings
+    heartbeat_message = models.TextField(default=DEFAULT_HEARTBEAT_MESSAGE)
+    heartbeat_timer_minutes = models.PositiveIntegerField(default=90, validators=[MinValueValidator(1)])
     
     study: Study = models.OneToOneField(Study, on_delete=models.PROTECT, related_name='device_settings')

@@ -39,5 +39,6 @@ TIMER_VALUES = [
     "magnetometer_off_duration_seconds",
     "magnetometer_on_duration_seconds",
     "devicemotion_off_duration_seconds",
-    "devicemotion_on_duration_seconds"
+    "devicemotion_on_duration_seconds",
+    "heartbeat_timer_minutes",
 ]

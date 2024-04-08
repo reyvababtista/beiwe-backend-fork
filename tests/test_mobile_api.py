@@ -6,6 +6,7 @@ import time_machine
 from django.utils import timezone
 
 from constants.common_constants import BEIWE_PROJECT_ROOT
+from constants.message_strings import DEFAULT_HEARTBEAT_MESSAGE
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT, DEFAULT_CONSENT_SECTIONS,
     SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
@@ -449,6 +450,9 @@ class TestGetLatestDeviceSettings(ParticipantSessionTest):
             'call_clinician_button_text': 'Call My Clinician',
             'consent_form_text': CONSENT_FORM_TEXT,
             'survey_submit_success_toast_text': SURVEY_SUBMIT_SUCCESS_TOAST_TEXT,
+            'heartbeat_message': DEFAULT_HEARTBEAT_MESSAGE,
+            'heartbeat_timer_minutes': 90,
+            
             'consent_sections': DEFAULT_CONSENT_SECTIONS,
             
             # Experiment features, yep you gotta manually change it when you change them too.

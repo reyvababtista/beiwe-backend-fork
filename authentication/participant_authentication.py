@@ -94,7 +94,6 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
         session_participant.update_only(**tracking_updates)
     
     # attrubute is udptaded in update_only
-        session_participant.refresh_from_db()
     if (prior_version_code != session_participant.last_version_code or
         prior_version_name != session_participant.last_version_name or
         prior_os_version != session_participant.last_os_version):

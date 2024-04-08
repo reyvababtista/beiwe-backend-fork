@@ -75,6 +75,7 @@ class Participant(AbstractPasswordUser):
     
     push_notification_unreachable_count = models.SmallIntegerField(default=0, null=False, blank=False)
     last_heartbeat_notification = models.DateTimeField(null=True, blank=True)
+    last_heartbeat_checkin = models.DateTimeField(null=True, blank=True)
     
     # TODO: clean out or maybe rename these fields to distinguish from last_updated? also wehave two survey checkin timestamps
     # new checkin logic

@@ -283,9 +283,12 @@ def mobile_heartbeat(request: ParticipantRequest, OS_API=""):
     """ This endpoint is hit by the app to indicate that the app is still running.
     More specifically this is a test that internal timer logic is still working.
     This endpoint is hit every 5 minutes by the app, at time of writing it is ios-only.  """
-    AppHeartbeats.create(participant=request.session_participant, timestamp=timezone.now(),
+    # a field on the participant model is WAY easier to deal with when querying data for push notifications
+    now = timezone.now()
+    request.session_participant.update_only(last_heartbeat_checkin=now)
+    # AppHeartbeats is the historical record of app checkins.
+    AppHeartbeats.create(participant=request.session_participant, timestamp=now,
                          message = request.POST.get("message", None))
-    
     return HttpResponse(status=200)
 
 

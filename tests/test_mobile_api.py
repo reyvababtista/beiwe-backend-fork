@@ -451,7 +451,7 @@ class TestGetLatestDeviceSettings(ParticipantSessionTest):
             'consent_form_text': CONSENT_FORM_TEXT,
             'survey_submit_success_toast_text': SURVEY_SUBMIT_SUCCESS_TOAST_TEXT,
             'heartbeat_message': DEFAULT_HEARTBEAT_MESSAGE,
-            'heartbeat_timer_minutes': 90,
+            'heartbeat_timer_minutes': 60,
             
             'consent_sections': DEFAULT_CONSENT_SECTIONS,
             

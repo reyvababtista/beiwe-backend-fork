@@ -437,8 +437,7 @@ class TestParticipantDataDeletion(CommonTestCase):
     
     @data_purge_mock_s3_calls
     def test_confirm_AppVersionHistory(self):
-        self.default_participant.update_only(last_version_code="10")
-        self.default_participant.generate_app_version_history("11")
+        self.default_participant.generate_app_version_history("11", "11", "11")
         self.default_participant_deletion_event
         self.assertEqual(AppVersionHistory.objects.count(), 1)
         run_next_queued_participant_data_deletion()

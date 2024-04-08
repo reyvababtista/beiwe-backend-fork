@@ -13,7 +13,7 @@ from constants.testing_constants import MIDNIGHT_EVERY_DAY, THURS_OCT_6_NOON_202
 from database.data_access_models import FileToProcess
 from database.schedule_models import AbsoluteSchedule, ScheduledEvent, WeeklySchedule
 from database.system_models import GenericEvent
-from database.user_models_participant import AppHeartbeats
+from database.user_models_participant import AppHeartbeats, AppVersionHistory
 from libs.rsa import get_RSA_cipher
 from libs.schedules import (get_start_and_end_of_java_timings_week,
     repopulate_absolute_survey_schedule_events, repopulate_relative_survey_schedule_events)
@@ -78,6 +78,30 @@ class TestGetLatestSurveys(ParticipantSessionTest):
     def test_no_surveys(self):
         resp = self.smart_post_status_code(200)
         self.assertEqual(resp.content, b"[]")
+    
+    def test_version_code_update_triggers_app_version_code_history(self):
+        self.default_participant.update_only(last_version_code="1.0.0")
+        self.assertFalse(AppVersionHistory.objects.exists())
+        self.smart_post_status_code(200, version_code="1.0.1")
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.last_version_code, "1.0.1")
+        self.assertTrue(AppVersionHistory.objects.exists())
+    
+    def test_version_code_update_triggers_app_version_name_history(self):
+        self.default_participant.update_only(last_version_name="1.0.0")
+        self.assertFalse(AppVersionHistory.objects.exists())
+        self.smart_post_status_code(200, version_name="1.0.1")
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.last_version_name, "1.0.1")
+        self.assertTrue(AppVersionHistory.objects.exists())
+    
+    def test_version_code_update_triggers_os_version_history(self):
+        self.default_participant.update_only(last_os_version="1.0.0")
+        self.assertFalse(AppVersionHistory.objects.exists())
+        self.smart_post_status_code(200, os_version="1.0.1")
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.last_os_version, "1.0.1")
+        self.assertTrue(AppVersionHistory.objects.exists())
     
     def test_basic_survey(self):
         self.assertIsNone(self.default_participant.last_get_latest_surveys)

@@ -104,6 +104,7 @@ class Participant(AbstractPasswordUser):
     
     # retired participants are blocked from uploading further data.
     permanently_retired = models.BooleanField(default=False)
+    # easy enrolement disables the need for a password at registration (ignores the password)
     easy_enrollment = models.BooleanField(default=False)
     
     # Participant experiments, beta features - these fields literally may not be used Anywhere, some
@@ -118,6 +119,7 @@ class Participant(AbstractPasswordUser):
     enable_developer_datastream = models.BooleanField(default=False)
     enable_beta_features = models.BooleanField(default=False)
     enable_extensive_device_info_tracking = models.BooleanField(default=False)
+    
     EXPERIMENT_FIELDS = (
         "enable_heartbeat",
         # "enable_aggressive_background_persistence",
@@ -305,9 +307,14 @@ class Participant(AbstractPasswordUser):
     ######################################### LOGGING ##############################################
     ################################################################################################
     
-    def generate_app_version_history(self, last_version_code: str):
+    def generate_app_version_history(self, version_code: str, version_name: str, os_version: str):
         """ Creates an AppVersionHistory object. """
-        AppVersionHistory.objects.create(participant=self, app_version=self.last_version_code)
+        AppVersionHistory.objects.create(
+            participant=self,
+            app_version_code=version_code or "missing",
+            app_version_name=version_name or "missing",
+            os_version=os_version or "missing",
+        )
     
     def generate_device_status_report_history(self, url: str):
         # this is just stupid but a mistake ages ago means we have to do this.
@@ -523,8 +530,9 @@ class ParticipantActionLog(UtilityModel):
 
 class AppVersionHistory(TimestampedModel):
     participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="app_version_history")
-    app_version = models.CharField(max_length=16, blank=False, null=False)
-
+    app_version_code = models.CharField(max_length=16, blank=False, null=False)
+    app_version_name = models.CharField(max_length=16, blank=False, null=False)
+    os_version = models.CharField(max_length=16, blank=False, null=False)
 
 # device status report history 
 class DeviceStatusReportHistory(UtilityModel):

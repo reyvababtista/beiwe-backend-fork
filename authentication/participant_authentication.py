@@ -75,7 +75,9 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
     except UnreadablePostError:
         return abort(500)
     
-    last_version_code = session_participant.last_version_code
+    prior_version_code = session_participant.last_version_code
+    prior_version_name = session_participant.last_version_name
+    prior_os_version = session_participant.last_os_version
     
     # device tracking/info database updates
     tracking_updates = {}
@@ -92,9 +94,14 @@ def validate_post(request: HttpRequest, require_password: bool, registration: bo
         session_participant.update_only(**tracking_updates)
     
     # attrubute is udptaded in update_only
-    if last_version_code != session_participant.last_version_code:
-        log(f"os version changed: {last_version_code}")
-        session_participant.generate_device_status_report_history(last_version_code)
+        session_participant.refresh_from_db()
+    if (prior_version_code != session_participant.last_version_code or
+        prior_version_name != session_participant.last_version_name or
+        prior_os_version != session_participant.last_os_version):
+        # log(f"os version changed: {last_version_code} to {session_participant.last_version_code}")
+        session_participant.generate_app_version_history(
+            prior_version_code, prior_version_name, prior_os_version
+        )
     
     # we generate a log of the device status report, we do compress the data tho.
     if session_participant.enable_extensive_device_info_tracking:

@@ -185,7 +185,7 @@ def _send_notification(fcm_token: str, os_type: str, message: str):
 # the periodic checkin that the app makes to the backend.  The periodic checkin is app-code, it hits
 # the moblile_api.mobile_heartbeat endpoint.
 
-def heartbeat_query() -> List[Tuple[int, str]]:
+def heartbeat_query() -> List[Tuple[int, str, str, str]]:
     """ Handles logic of finding all active participants and providing the information required to
     send them all the "heartbeat" push notification to keep them up and running. """
     # active is premised on all of the active participant fields being within the last week
@@ -234,8 +234,13 @@ def heartbeat_query() -> List[Tuple[int, str]]:
             participant__os_type__in=[ANDROID_API, IOS_API],  # just a safety check.
         )
         .exclude(participant__id__in=participant_ids_with_recent_heartbeats)
-        .values_list("participant_id", "token", "participant__os_type")
-        .order_by("?")  # randomize the order in case celery is slow?
+        .values_list(
+            "participant_id",
+            "token",
+            "participant__os_type",
+            "participant__study__device_settings__heartbeat_message",  # wow that's long...
+        )
+        .order_by("?")  # cover for some slowness by at least not making it predictable... (dumb)
     )
 
 
@@ -248,15 +253,16 @@ def create_heartbeat_tasks():
     expiry = (timezone.now() + timedelta(minutes=5)).replace(second=30, microsecond=0)
     # to reduce database operations in celery_heartbeat_send_push_notification, which may have
     # A LOT of participants that it hits, we run the complex query here and do a single database
-    # update query in celery_heartbeat_send_push_notification.
+    # query in celery_heartbeat_send_push_notification.
     push_notification_data = heartbeat_query()
     log(f"Sending heartbeats to {len(push_notification_data)} "
         "participants considered active in the past week.")
     
-    for participant_id, fcm_token, os_type in heartbeat_query():
+    # dispatch the push notifications celery tasks 
+    for participant_id, fcm_token, os_type, message in heartbeat_query():
         safe_apply_async(
             celery_heartbeat_send_push_notification,
-            args=[participant_id, fcm_token, os_type],
+            args=[participant_id, fcm_token, os_type, message],
             max_retries=0,
             expires=expiry,
             task_track_started=True,
@@ -267,18 +273,14 @@ def create_heartbeat_tasks():
 
 # fixme: override the nonce value so it doesn't back up many notifications? need to test behavior if the participant has dismissed the notification before implementing.
 @push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
-def celery_heartbeat_send_push_notification(participant_id: int, fcm_token: str, os_type):
+def celery_heartbeat_send_push_notification(participant_id: int, fcm_token: str, os_type, message: str):
     with make_error_sentry(sentry_type=SentryTypes.data_processing):
         now = timezone.now()
         if not check_firebase_instance():
             loge("Heartbeat - Firebase credentials are not configured.")
             return
-        if send_notification_safely(
-            fcm_token, 
-            os_type, 
-            "Heartbeat", 
-            "Beiwe may not be running correctly, please open the Beiwe app."
-        ):
+        
+        if send_notification_safely(fcm_token, os_type, "Heartbeat", message):
             # update the last heartbeat time using minimal database operations, create log entry.
             Participant.objects.filter(pk=participant_id).update(last_heartbeat_notification=now)
             ParticipantActionLog.objects.create(

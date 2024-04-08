@@ -16,7 +16,7 @@ from database.user_models_participant import Participant
 from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
 from libs.intervention_utils import add_fields_and_interventions
-from libs.participant_purge import add_particpiant_for_deletion
+from libs.participant_purge import add_participant_for_deletion
 from libs.s3 import create_client_key_pair, s3_upload
 from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.streaming_bytes_io import StreamingStringsIO
@@ -172,7 +172,7 @@ def delete_participant(request: ResearcherRequest):
     
     relation = request.session_researcher.get_study_relation(study_id)
     if request.session_researcher.site_admin or relation in DATA_DELETION_ALLOWED_RELATIONS:
-        add_particpiant_for_deletion(participant)
+        add_participant_for_deletion(participant)
     else:
         messages.error(request, NO_DELETION_PERMISSION.format(patient_id=patient_id))
     return participant_page

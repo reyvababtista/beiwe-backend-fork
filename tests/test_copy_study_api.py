@@ -1,4 +1,4 @@
-import json
+import orjson
 from io import BytesIO
 
 from django.http.response import FileResponse
@@ -21,12 +21,10 @@ class TestExportStudySettingsFile(ResearcherSessionTest):
         # FileResponse objects stream, which means you need to iterate over `resp.streaming_content``
         resp: FileResponse = self.smart_get(self.session_study.id)
         # sanity check...
-        items_to_iterate = 0
-        for file_bytes in resp.streaming_content:
-            items_to_iterate += 1
-        self.assertEqual(items_to_iterate, 1)
+        resp_string = b"".join(resp.streaming_content)
+        self.assertNotEqual(len(resp_string), 0)
         # get survey, check device_settings, surveys, interventions are all present
-        output_survey: dict = json.loads(file_bytes.decode())  # make sure it is a json file
+        output_survey: dict = orjson.loads(resp_string)
         self.assertIn("device_settings", output_survey)
         self.assertIn("surveys", output_survey)
         self.assertIn("interventions", output_survey)

@@ -42,12 +42,12 @@ class TestDashboard(ResearcherSessionTest):
         self.assert_data_streams_present(resp)
     
     def test_dashboard_many_participant(self):
-        particpiants = self.generate_10_default_participants
+        participants = self.generate_10_default_participants
         # default user and default study already instantiated
         self.set_session_study_relation(ResearcherRole.researcher)
         resp = self.smart_get_status_code(200, str(self.session_study.id))
         self.assert_present("Choose a participant or data stream to view", resp.content)
-        for p in particpiants:
+        for p in participants:
             self.assert_present(p.patient_id, resp.content)
         self.assert_data_streams_present(resp)
 

@@ -425,6 +425,10 @@
       </div>
     </div>
     
+    {% if not readonly %}
+      <button class="btn btn-primary btn-block h3-margins" type="submit"><b>Save All App Settings</b></button>
+    {% endif %}
+
     
     <div class="col-xs-12 col-md-12 row text-center">
       <h3>Feature Settings</h3>
@@ -476,11 +480,20 @@
       {# Fuzz GPS #}
       <div class="col-xs-12 col-md-8">
         <div class="form-group">
-        <label for="use_gps_fuzzing" class="control-label">Fuzz/Anonymize GPS data: (devices generate a random latitude and longitude offset)</label>
+        <label for="use_gps_fuzzing" class="control-label">Fuzz/Anonymize GPS data (devices generate a random latitude and longitude offset): </label>
           <input name="use_gps_fuzzing" id="use_gps_fuzzing" type="checkbox" {{ "checked" if settings["use_gps_fuzzing"] }} {{ "disabled" if readonly }}/>
         </div>
       </div>
 
+      {# Heartbeat Timer #}
+      <div class="col-xs-12">
+        <div class="form-group">
+          <label for="heartbeat_timer_minutes" class="control-label">Heartbeat Timer (time, in minutes, to wait before and between sending the heartbeat reminder notification message to the device):</label>
+          <input id="heartbeat_timer_minutes" name="heartbeat_timer_minutes" class="form-control" type="number"
+          value="{{ settings['heartbeat_timer_minutes'] }}" {{ "disabled" if readonly }}>
+        </div>
+      </div>
+      
     </div>
 
     {% if not readonly %}
@@ -495,6 +508,17 @@
 
   <div class="form-horizontal app-settings">
     <div class="well container-fluid">   
+    
+      <div class="col-xs-12 col-md-12">
+        <div class="form-group">
+          <label class="control-label app-settings-align-force" for="heartbeat_message">
+            Text that appears in the push notification that is sent when the Participant's device has not checked in for a while:
+          </label>
+          <input type="text" name="heartbeat_message" id="heartbeat_message" class="form-control"
+          value="{{settings['heartbeat_message']}}" {{ "disabled" if readonly }}>
+        </div>
+      </div>
+      
       <div class="col-xs-12 col-md-12">
         <div class="form-group">
           <label class="control-label app-settings-align-force" for="call_clinician_button_text">

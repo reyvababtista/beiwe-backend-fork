@@ -154,3 +154,5 @@ NOT_IN_STUDY = "Participant {patient_id} is not in study {study_name}"
 NO_DELETION_PERMISSION = 'You do not have permission to delete participant {patient_id}.'
 
 PARTICIPANT_RETIRED_SUCCESS = "{patient_id} was successfully retired from the study. They will not be able to upload further data."
+
+DEFAULT_HEARTBEAT_MESSAGE = "Beiwe may not be running correctly, please open the Beiwe app."

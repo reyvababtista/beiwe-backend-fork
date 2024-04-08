@@ -22,7 +22,7 @@ from constants.schedule_constants import ScheduleTypes
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API
 from database.schedule_models import ScheduledEvent
-from database.user_models_participant import (AppHeartbeats, Participant, ParticipantActionLog,
+from database.user_models_participant import (Participant, ParticipantActionLog,
     ParticipantFCMHistory, PushNotificationDisabledEvent)
 from libs.celery_control import push_send_celery_app, safe_apply_async
 from libs.firebase_config import check_firebase_instance
@@ -191,57 +191,87 @@ def heartbeat_query() -> List[Tuple[int, str, str, str]]:
     # active is premised on all of the active participant fields being within the last week
     now = timezone.now()
     one_week_ago = now - timedelta(days=7)
-    one_hour_ago = now - timedelta(hours=1)
     
+    # get all participants that have an activity field more recent that the past week.
+    # (e.g. filter out participants that have not been active in the past week.)
     activity_qs = [
         # Need to do string interpolation to get the field name, using a **{} inline dict unpacking.
         # Creates a Q object like: Q(participant__last_upload__gte=one_week_ago)
         Q(**{f"participant__{field_name}__gte": one_week_ago}) for field_name in ACTIVE_PARTICIPANT_FIELDS
     ]
     
-    # uses operator.or_ (note the underscore) to combine the Q objects as an any match query.
+    # uses operator.or_ (note the underscore) to combine all those Q objects as an any match query.
     # (operator.or_ is the same as |, it is the bitwise or operator) (reduce just applies it)
     any_activity_field_gt_one_week_ago = reduce(operator.or_, activity_qs)
     
-    last_heartbeat_notification_details = (
-        Q(participant__last_heartbeat_notification__lte=one_hour_ago)  # older than an hour ago
-        | Q(participant__last_heartbeat_notification__isnull=True)
-    )
-    
-    # Get all participant ids that have done a heartbeat in the last week - this is difficult to
-    # shove into the other query without blowing everything up due to joining against thousands of
-    # heartbeats. Instead we get the ids with a .distinct and EXCLUDE them from the other query.
-    # (This query should almost never matter because a functional device should be checking in AND
-    # hitting the other endpoints about once an hour.)
-    participant_ids_with_recent_heartbeats = AppHeartbeats.objects.filter(
-        timestamp__gte=one_hour_ago).values_list("participant_id", flat=True).distinct()
-    
-    # Get fcm tokens and participant id for all participants activity field that was updated in the
-    # last week, that are not deleted, that are not permanently retired, that have not heartbeat
-    # enabled, where there is a valid fcm token.
-    # This query may return multiple fcm tokens per participant, not ideal, but we haven't had
-    # obvious problems in the normal push notification logic and ... its just a push notification.
-    return list(
-        ParticipantFCMHistory.objects.filter(
+    # Get fcm tokens and participant pk for all participants, filter for only participants with
+    # ACTIVE_PARTICIPANT_FIELDS that were updated in the last week, exclude deleted and
+    # permanently_retired participants, exclude partipcants that do not have heartbeat enabled,
+    # and only where there is a valid FCM token (unregistered=None).
+    # This query could theoretically return multiple fcm tokens per participant, which is not ideal,
+    # but we haven't had obvious problems in the normal push notification logic ever, and it would
+    # require a race condition in the endpoint where fcm tokens are set, and ... its just a push
+    # notification.
+    query = ParticipantFCMHistory.objects.filter(
             any_activity_field_gt_one_week_ago,
-            last_heartbeat_notification_details,
             
             participant__enable_heartbeat=True,  # TODO: remove this after feature completion.
             
             participant__deleted=False,                # no deleted participants
             participant__permanently_retired=False,    # should be rendundant with deleted.
             unregistered=None,                         # this is fcm-speak for non-retired fcm token
-            participant__os_type__in=[ANDROID_API, IOS_API],  # just a safety check.
-        )
-        .exclude(participant__id__in=participant_ids_with_recent_heartbeats)
+            participant__os_type__in=[ANDROID_API, IOS_API],# [ANDROID_API, IOS_API],  # just a safety check.
+        )\
         .values_list(
             "participant_id",
             "token",
             "participant__os_type",
-            "participant__study__device_settings__heartbeat_message",  # wow that's long...
-        )
+            "participant__study__device_settings__heartbeat_message",
+            "participant__study__device_settings__heartbeat_timer_minutes",
+            # only send one notification per participant per heartbeat period.
+            "participant__last_heartbeat_notification",
+            # These are the ACTIVE_PARTICIPANT_FIELDS in query form
+            'participant__last_upload',
+            'participant__last_get_latest_surveys',
+            'participant__last_set_password',
+            'participant__last_set_fcm_token',
+            'participant__last_get_latest_device_settings',
+            'participant__last_register_user',
+            "participant__last_heartbeat_checkin",
+        )\
         .order_by("?")  # cover for some slowness by at least not making it predictable... (dumb)
-    )
+        # .exclude(participant__id__in=participant_ids_with_recent_heartbeats)
+    
+    # We used to use the AppHeartbeats table inside a clever query, but when we added customizeable
+    # per-study heartbeat timers that query became too complex. Now we filter out participants that
+    # have ACTIVE_PARTICIPANT_FIELDS that are too recent manually in python. All of the information
+    # is contained within a single query, which is much more performant than running extra queries
+    # in the push notification celery task. This performance should be adequate up to thousands of
+    # participants taking seconds, not minutes.
+    
+    # check if the time to send the next notification has passed, if so, add to the return list.
+    # t1 - t8 are all of the fields we check for activity by getting the most recent one.
+    ret = []
+    for participant_id, token, os_type, message, heartbeat_minutes, t1, t2, t3, t4, t5, t6, t7, t8 in query:
+        # need to filter out Nones
+        most_recent_time_field = max(t for t in (t1, t2, t3, t4, t5, t6, t7, t8) if t)
+        point_at_which_to_send_next_notification = most_recent_time_field + timedelta(minutes=heartbeat_minutes)
+        # debugging code
+        # log("heartbeat_minutes:", heartbeat_minutes)
+        # log("last_heartbeat_notification:", t1)
+        # log("last_upload:", t2)
+        # log("last_get_latest_surveys:", t3)
+        # log("last_set_password:", t4)
+        # log("last_set_fcm_token:", t5)
+        # log("last_get_latest_device_settings:", t6)
+        # log("last_register_user:", t7)
+        # log("last_heartbeat_checkin:", t8)
+        # log("most_recent_time_field:", most_recent_time_field)
+        # log("point_at_which_to_send_next_notification:", point_at_which_to_send_next_notification)
+        if now > point_at_which_to_send_next_notification:
+            ret.append((participant_id, token, os_type, message))
+    
+    return ret
 
 
 def create_heartbeat_tasks():

@@ -291,6 +291,6 @@ class DeviceSettings(TimestampedModel):
     # it doesn't matter if the device receives some extra settings that it doesn't use.
     # heartbeat settings
     heartbeat_message = models.TextField(default=DEFAULT_HEARTBEAT_MESSAGE)
-    heartbeat_timer_minutes = models.PositiveIntegerField(default=90, validators=[MinValueValidator(1)])
+    heartbeat_timer_minutes = models.PositiveIntegerField(default=60, validators=[MinValueValidator(1)])
     
     study: Study = models.OneToOneField(Study, on_delete=models.PROTECT, related_name='device_settings')

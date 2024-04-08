@@ -51,5 +51,6 @@ ACTIVE_PARTICIPANT_FIELDS = (
     'last_set_fcm_token',
     'last_get_latest_device_settings',
     'last_register_user',
+    "last_heartbeat_checkin",
 )
 # Don't forget that you need to query the AppHeartbeat model to get the last time the app heartbat.

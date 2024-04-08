@@ -147,7 +147,7 @@ class TestHeartbeatQuery(TestCelery):
         # we will use last upload to declare a participant is valid, it can be any of the active fields.
         now = timezone.now()
         self.default_participant.update(
-            deleted=False, permanently_retired=False, enable_heartbeat=True, last_upload=now
+            deleted=False, permanently_retired=False, enable_heartbeat=True, last_upload=now - timedelta(minutes=61),
         )
         self.populate_default_fcm_token
     
@@ -194,23 +194,23 @@ class TestHeartbeatQuery(TestCelery):
         self.default_participant.update(last_heartbeat_notification=timezone.now() - timedelta(minutes=70))
         self.assertEqual(len(heartbeat_query()), 1)
     
-    def test_recent_app_heartbeat_disables_notifications(self):
-        # its not in ACTIVE_PARTICIPANT_FIELDS because there can be many
-        self.set_heartbeat_notification_fully_valid
-        app_heartbeat = AppHeartbeats.create(self.default_participant, timezone.now())
-        self.assertEqual(len(heartbeat_query()), 0)
-        app_heartbeat.update(timestamp=timezone.now() - timedelta(minutes=50))
-        self.assertEqual(len(heartbeat_query()), 0)
-        app_heartbeat.update(timestamp=timezone.now() - timedelta(minutes=70))
-        self.assertEqual(len(heartbeat_query()), 1)
+    # rewrote to use a last_heartbeat_checkin field.
+    # def test_recent_app_heartbeat_disables_notifications(self):
+    #     self.set_heartbeat_notification_fully_valid
+    #     app_heartbeat = AppHeartbeats.create(self.default_participant, timezone.now())
+    #     self.assertEqual(len(heartbeat_query()), 0)
+    #     app_heartbeat.update(timestamp=timezone.now() - timedelta(minutes=50))
+    #     self.assertEqual(len(heartbeat_query()), 0)
+    #     app_heartbeat.update(timestamp=timezone.now() - timedelta(minutes=70))
+    #     self.assertEqual(len(heartbeat_query()), 1)
     
     def test_query_each_every_active_field_tautology(self):
         self.set_heartbeat_notification_basics
-        now = timezone.now()
+        prior_event_time = timezone.now() - timedelta(minutes=61)
         for field_name in ACTIVE_PARTICIPANT_FIELDS:
             if not hasattr(self.default_participant, field_name):
                 raise ValueError(f"Participant does not have field {field_name}")
-            self.default_participant.update_only(**{field_name: now})
+            self.default_participant.update_only(**{field_name: prior_event_time})
             self.assertEqual(len(heartbeat_query()), 1)
             self.default_participant.update_only(**{field_name: None})
     
@@ -270,7 +270,7 @@ class TestHeartbeatQuery(TestCelery):
         p2 = self.generate_participant(self.default_study)
         self.generate_fcm_token(p2, None)
         p2.update(
-            deleted=False, permanently_retired=False, enable_heartbeat=True, last_upload=timezone.now()
+            deleted=False, permanently_retired=False, enable_heartbeat=True, last_upload=timezone.now() - timedelta(minutes=61),
         )
         self.assertEqual(Participant.objects.all().count(), 2)
         self.assertEqual(len(heartbeat_query()), 2)
@@ -319,7 +319,7 @@ class TestHeartbeatQuery(TestCelery):
         p2 = self.generate_participant(self.default_study)
         self.generate_fcm_token(p2, None)
         p2.update(
-            deleted=False, permanently_retired=False, enable_heartbeat=True, last_upload=timezone.now()
+            deleted=False, permanently_retired=False, enable_heartbeat=True, last_upload=timezone.now() - timedelta(minutes=61),
         )
         
         create_heartbeat_tasks()
@@ -344,7 +344,7 @@ class TestHeartbeatQuery(TestCelery):
             deleted=False,
             permanently_retired=False,
             enable_heartbeat=True,
-            last_upload=timezone.now()
+            last_upload=timezone.now() - timedelta(minutes=61),
         )
         
         create_heartbeat_tasks()

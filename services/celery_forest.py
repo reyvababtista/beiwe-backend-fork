@@ -358,8 +358,18 @@ def batch_create_file(task_and_chunk_tuple: Tuple[ForestTask, Dict]):
     # file ops, sometimes we have to add folder structure (surveys)
     file_name = path_join(forest_task.data_input_path, determine_file_name(chunk))
     makedirs(dirname(file_name), exist_ok=True)
-    with open(file_name, "xb") as f:
-        f.write(contents)
+    
+    try:
+        with open(file_name, "xb") as f:
+            f.write(contents)
+    except FileExistsError:
+        # instantiating an error sentry is slightly expensive, and this specific error case is Very
+        # uncommon and we don't want the overhead in this code poth. While we want information on
+        # this exact exception in the specific error is something we can ignore and the running code
+        # can continue.  That said, we don't know why the error happens. (Fun!)
+        tags = {k: str(v) for k, v in forest_task.as_dict().items()}
+        with make_error_sentry(SentryTypes.data_processing, tags={**tags, "file_name": file_name}):
+            raise
 
 
 def get_interventions_data(forest_task: ForestTask):

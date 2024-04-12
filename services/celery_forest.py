@@ -177,17 +177,18 @@ def run_forest_task(task: ForestTask, start: datetime, end: datetime):
             with make_error_sentry(SentryTypes.data_processing, tags=tags):
                 raise
     finally:
-        
-        ## try-except 2 - report generation and upload the output of the forest task. Report errors.
-        try:
-            generate_report(task)
-            compress_and_upload_raw_output(task)
-        except Exception as e:
-            print(f"Something went wrong with report generation or output upload. {e}")
-            print(traceback.format_exc())  # Hm, don't know which stack trace this prints 🧐
-            tags = {k: str(v) for k, v in task.as_dict().items()}  # report with many tags
-            with make_error_sentry(SentryTypes.data_processing, tags=tags):
-                raise
+        # there won't be anything to run generate report on if there was no data.
+        if task.stacktrace and NO_DATA_ERROR in task.stacktrace:
+            ## try-except 2 - report generation and upload the output of the forest task. Report errors.
+            try:
+                generate_report(task)
+                compress_and_upload_raw_output(task)
+            except Exception as e:
+                print(f"Something went wrong with report generation or output upload. {e}")
+                print(traceback.format_exc())  # Hm, don't know which stack trace this prints 🧐
+                tags = {k: str(v) for k, v in task.as_dict().items()}  # report with many tags
+                with make_error_sentry(SentryTypes.data_processing, tags=tags):
+                    raise
         
         ## try-except 3 - clean up files. Report errors.
         # report cleanup operations cleanly to both sentry and forest task infrastructure.
@@ -363,10 +364,9 @@ def batch_create_file(task_and_chunk_tuple: Tuple[ForestTask, Dict]):
         with open(file_name, "xb") as f:
             f.write(contents)
     except FileExistsError:
-        # instantiating an error sentry is slightly expensive, and this specific error case is Very
-        # uncommon and we don't want the overhead in this code poth. While we want information on
-        # this exact exception in the specific error is something we can ignore and the running code
-        # can continue.  That said, we don't know why the error happens. (Fun!)
+        # While we want information on this exact exception in the specific error is something we
+        # can ignore and the running code can continue. (This error occurred in the wild because of
+        # an old data bug where b' was present inside the chunk path, underlying cause was in 2019.)
         tags = {k: str(v) for k, v in forest_task.as_dict().items()}
         with make_error_sentry(SentryTypes.data_processing, tags={**tags, "file_name": file_name}):
             raise

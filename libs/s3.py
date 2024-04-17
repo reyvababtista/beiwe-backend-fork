@@ -91,7 +91,7 @@ def s3_upload_plaintext(upload_path: str, data_string: bytes) -> None:
 
 
 def s3_get_size(key_path: str):
-    conn.head_object(Bucket=S3_BUCKET, Key=key_path)["ContentLength"]
+    return conn.head_object(Bucket=S3_BUCKET, Key=key_path)["ContentLength"]
 
 
 def s3_retrieve(key_path: str, obj: str, raw_path: bool = False, number_retries=3) -> bytes:

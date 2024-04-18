@@ -171,10 +171,9 @@ def run_forest_task(task: ForestTask, start: datetime, end: datetime):
     except BaseException as e:
         task.update_only(status=ForestTaskStatus.error, stacktrace=traceback.format_exc())
         log("task.stacktrace 1:", task.stacktrace)
-        tags = {k: str(v) for k, v in task.as_dict().items()}  # report with many tags
         if not isinstance(e, NoSentryException):
             # manually report the error to sentry, unless its one of our special not-reported cases.
-            with make_error_sentry(SentryTypes.data_processing, tags=tags):
+            with make_error_sentry(SentryTypes.data_processing, tags=task.sentry_tags):
                 raise
     finally:
         # there won't be anything to run generate report on if there was no data.
@@ -186,8 +185,7 @@ def run_forest_task(task: ForestTask, start: datetime, end: datetime):
             except Exception as e:
                 print(f"Something went wrong with report generation or output upload. {e}")
                 print(traceback.format_exc())  # Hm, don't know which stack trace this prints 🧐
-                tags = {k: str(v) for k, v in task.as_dict().items()}  # report with many tags
-                with make_error_sentry(SentryTypes.data_processing, tags=tags):
+                with make_error_sentry(SentryTypes.data_processing, tags=task.sentry_tags):
                     raise
         
         ## try-except 3 - clean up files. Report errors.
@@ -199,8 +197,7 @@ def run_forest_task(task: ForestTask, start: datetime, end: datetime):
             # merging stack traces, handling null case, then conditionally report with tags
             task.update_only(stacktrace=((task.stacktrace or "") + CLN_ERR + traceback.format_exc()))
             log("task.stacktrace 2:", task.stacktrace)
-            tags = {k: str(v) for k, v in task.as_dict().items()}
-            with make_error_sentry(SentryTypes.data_processing, tags=tags):
+            with make_error_sentry(SentryTypes.data_processing, tags=task.sentry_tags):
                 raise
     
     ## this is functionally a try-except block because all the above real try-except blocks
@@ -367,8 +364,7 @@ def batch_create_file(task_and_chunk_tuple: Tuple[ForestTask, Dict]):
         # While we want information on this exact exception in the specific error is something we
         # can ignore and the running code can continue. (This error occurred in the wild because of
         # an old data bug where b' was present inside the chunk path, underlying cause was in 2019.)
-        tags = {k: str(v) for k, v in forest_task.as_dict().items()}
-        with make_error_sentry(SentryTypes.data_processing, tags={**tags, "file_name": file_name}):
+        with make_error_sentry(SentryTypes.data_processing, tags={**forest_task.sentry_tags, "file_name": file_name}):
             raise
 
 

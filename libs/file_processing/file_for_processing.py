@@ -52,7 +52,7 @@ class FileForProcessing():
         self.file_lines = None
         self.header = None
     
-    def download_file_contents(self) -> bytes or None:
+    def download_file_contents(self) -> None:
         """ Handles network errors and updates state accordingly """
         # blow up if misused
         if self.file_lines is not None:

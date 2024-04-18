@@ -69,6 +69,33 @@ class ForestTask(TimestampedModel):
         # this is the Foreign key reference field name in SummaryStatisticDaily
         return self.forest_tree + "_task"
     
+    @property
+    def sentry_tags(self) -> Dict[str, str]:
+        from libs.http_utils import easy_url
+        return {
+            "participant": self.participant.patient_id,
+            "study": self.participant.study.name,
+            "forest_tree": self.forest_tree,
+            "forest_version": self.forest_version,
+            "forest_commit": self.forest_commit,
+            "external_id": self.external_id,
+            "status": self.status if self.status else "None",
+            "task_page": easy_url("forest_pages.task_log", study_id=self.participant.study.id),
+            # "pickled_parameters": self.pickled_parameters,
+            "total_file_size": str(self.total_file_size),
+            "data_date_start": self.data_date_start.isoformat() if self.data_date_start else "None",
+            "data_date_end": self.data_date_end.isoformat() if self.data_date_end else "None",
+            "process_start_time": self.process_start_time.isoformat() if self.process_start_time else "None",
+            "process_download_end_time": self.process_download_end_time.isoformat() if self.process_download_end_time else "None",
+            "process_end_time": self.process_end_time.isoformat() if self.process_end_time else "None",
+            # "stacktrace": self.stacktrace, # it just doesn't work
+            # "forest_output_exists": self.forest_output_exists,
+            # "output_zip_s3_path": self.output_zip_s3_path,
+            # "all_bv_set_s3_key": self.all_bv_set_s3_key,
+            # "all_memory_dict_s3_key": self.all_memory_dict_s3_key,
+        }
+    
+    
     #
     ## forest tree parameters
     #

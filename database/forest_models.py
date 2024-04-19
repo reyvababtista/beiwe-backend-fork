@@ -9,6 +9,7 @@ from typing import Dict
 from django.db import models
 from django.db.models import Manager
 
+from config.settings import DOMAIN_NAME
 from constants.celery_constants import ForestTaskStatus
 from constants.forest_constants import (DEFAULT_FOREST_PARAMETERS, FOREST_PICKLING_ERROR,
     ForestTree, NON_PICKLED_PARAMETERS, OAK_DATE_FORMAT_PARAMETER, PARAMETER_ALL_BV_SET,
@@ -72,6 +73,7 @@ class ForestTask(TimestampedModel):
     @property
     def sentry_tags(self) -> Dict[str, str]:
         from libs.http_utils import easy_url
+        url = path_join(DOMAIN_NAME, easy_url("forest_pages.task_log", study_id=self.participant.study.id))
         return {
             "participant": self.participant.patient_id,
             "study": self.participant.study.name,
@@ -80,7 +82,7 @@ class ForestTask(TimestampedModel):
             "forest_commit": self.forest_commit,
             "external_id": self.external_id,
             "status": self.status if self.status else "None",
-            "task_page": easy_url("forest_pages.task_log", study_id=self.participant.study.id),
+            "task_page": url,
             # "pickled_parameters": self.pickled_parameters,
             "total_file_size": str(self.total_file_size),
             "data_date_start": self.data_date_start.isoformat() if self.data_date_start else "None",

@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 
 from constants.action_log_messages import HEARTBEAT_PUSH_NOTIFICATION_SENT
-from constants.common_constants import DEV_TIME_FORMAT
+from constants.common_constants import DEV_TIME_FORMAT, DEV_TIME_FORMAT3
 from constants.message_strings import MESSAGE_SEND_SUCCESS
 from database.data_access_models import FileToProcess
 from database.profiling_models import UploadTracking
@@ -28,6 +28,10 @@ THE_ONE_TRUE_TIMEZONE = gettz("America/New_York")
 
 def as_local(dt: datetime, tz=THE_ONE_TRUE_TIMEZONE):
     return localtime(dt, tz)
+
+
+def tformat(dt: datetime, tz=THE_ONE_TRUE_TIMEZONE):
+    return datetime.strftime(as_local(dt, tz), DEV_TIME_FORMAT3)
 
 
 def PARTICIPANT(patient_id: str or int):

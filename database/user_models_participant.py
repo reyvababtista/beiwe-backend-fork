@@ -419,6 +419,7 @@ class Participant(AbstractPasswordUser):
         data: dict = json.loads(self.device_status_report)
         return data.get(key, f"(no match for '{key}')")
 
+
 class PushNotificationDisabledEvent(UtilityModel):
     # There may be many events
     # this is (currently) purely for record keeping.
@@ -534,6 +535,7 @@ class AppVersionHistory(TimestampedModel):
     app_version_name = models.CharField(max_length=16, blank=False, null=False)
     os_version = models.CharField(max_length=16, blank=False, null=False)
 
+
 # device status report history 
 class DeviceStatusReportHistory(UtilityModel):
     participant = models.ForeignKey(
@@ -543,20 +545,15 @@ class DeviceStatusReportHistory(UtilityModel):
     os_version = models.CharField(max_length=32, blank=False, null=False)
     app_version = models.CharField(max_length=32, blank=False, null=False)
     endpoint = models.TextField(null=False, blank=False)
-    # it's memoryview because that's how binary fields binary. Use .compressed_bytes to get bytes.
-    compressed_report: memoryview = models.BinaryField(null=False, blank=False)
-    
-    @property
-    def compressed_bytes(self) -> int:
-        return self.compressed_report.tobytes()
+    compressed_report: bytes = models.BinaryField(null=False, blank=False)  # used to be a memoryview
     
     @property
     def decompress(self) -> Dict[str, Union[str, int]]:
-        return zstd.decompress(self.compressed_bytes).decode()
+        return zstd.decompress(self.compressed_report).decode()
     
     @property
     def load_json(self):
-        return orjson.loads(zstd.decompress(self.compressed_bytes))
+        return orjson.loads(zstd.decompress(self.compressed_report))
     
     @classmethod
     def bulk_decode(cls, list_of_compressed_reports: List[bytes]) -> List[str]:

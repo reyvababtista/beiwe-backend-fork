@@ -13,23 +13,32 @@ IDEBotoClientType = Union[BaseClient, ClientMeta]
 AWS_CREDENTIALS = get_aws_credentials()
 GLOBAL_CONFIGURATION = get_global_config()
 
+
+def _prepare_credentials() -> dict:
+    # general parameters for boto3 clients and resources.
+    params = {
+        "aws_access_key_id": AWS_CREDENTIALS["AWS_ACCESS_KEY_ID"],
+        "aws_secret_access_key": AWS_CREDENTIALS["AWS_SECRET_ACCESS_KEY"],
+        "region_name": GLOBAL_CONFIGURATION["AWS_REGION"],
+    }
+    
+    # if the configuration info contains AWS_SESSION_TOKEN (required for an SSO credentials) we need
+    # to add the session token to the client.
+    if "AWS_SESSION_TOKEN" in AWS_CREDENTIALS:
+        params["aws_session_token"] = AWS_CREDENTIALS["AWS_SESSION_TOKEN"]
+    
+    return params
+
+
 def _get_client(client_type):
     """ connect to a boto3 CLIENT in the appropriate type and region. """
-    return boto3.client(
-            client_type,
-            aws_access_key_id=AWS_CREDENTIALS["AWS_ACCESS_KEY_ID"],
-            aws_secret_access_key=AWS_CREDENTIALS["AWS_SECRET_ACCESS_KEY"],
-            region_name=GLOBAL_CONFIGURATION["AWS_REGION"],
-    )
+    return boto3.client(client_type, **_prepare_credentials())
+
 
 def _get_resource(client_type):
     """ connect to a boto3 RESOURCE in the appropriate type and region. """
-    return boto3.resource(
-            client_type,
-            aws_access_key_id=AWS_CREDENTIALS["AWS_ACCESS_KEY_ID"],
-            aws_secret_access_key=AWS_CREDENTIALS["AWS_SECRET_ACCESS_KEY"],
-            region_name=GLOBAL_CONFIGURATION["AWS_REGION"],
-    )
+    return boto3.resource(client_type, **_prepare_credentials())
+
 
 def create_s3_resource() -> IDEResourceType:
     return _get_resource("s3")

@@ -558,17 +558,11 @@ class DeviceStatusReportHistory(UtilityModel):
     @classmethod
     def bulk_decode(cls, list_of_compressed_reports: List[bytes]) -> List[str]:
         return [
-            zstd.decompress(cls.memview_to_bytes(report)).decode() for report in list_of_compressed_reports
+            zstd.decompress(report).decode() for report in list_of_compressed_reports
         ]
     
     @classmethod
     def bulk_load_json(cls, list_of_compressed_reports: List[bytes]) -> List[Dict[str, Union[str, int]]]:
         return [
-            orjson.loads(zstd.decompress(cls.memview_to_bytes(report))) for report in list_of_compressed_reports
+            orjson.loads(zstd.decompress(report)) for report in list_of_compressed_reports
         ]
-    
-    @staticmethod
-    def memview_to_bytes(memview: memoryview) -> bytes:
-        if isinstance(memview, bytes):
-            return memview
-        return memview.tobytes()

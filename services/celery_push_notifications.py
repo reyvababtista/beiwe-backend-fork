@@ -198,6 +198,7 @@ def heartbeat_query() -> List[Tuple[int, str, str, str]]:
         # Need to do string interpolation to get the field name, using a **{} inline dict unpacking.
         # Creates a Q object like: Q(participant__last_upload__gte=one_week_ago)
         Q(**{f"participant__{field_name}__gte": one_week_ago}) for field_name in ACTIVE_PARTICIPANT_FIELDS
+            if field_name != "permanently_retired"  # handled in main query below.
     ]
     
     # uses operator.or_ (note the underscore) to combine all those Q objects as an any match query.

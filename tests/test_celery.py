@@ -226,16 +226,28 @@ class TestHeartbeatQuery(TestCelery):
     
     def test_query_each_every_active_field_tautology(self):
         self.set_working_heartbeat_notification_basics
-        prior_event_time = timezone.now() - timedelta(minutes=61)
+        prior_event_time = timezone.now() - timedelta(minutes=61)  # e.g. send the notification
+        
+        # test the datetime active participant fields
         for field_name in ACTIVE_PARTICIPANT_FIELDS:
+            if field_name == "permanently_retired":
+                continue
             if not hasattr(self.default_participant, field_name):
                 raise ValueError(f"Participant does not have field {field_name}")
+        
             self.default_participant.update_only(**{field_name: prior_event_time})
             self.assertEqual(len(heartbeat_query()), 1)
             self.default_participant.update_only(**{field_name: None})
+        
+        # assert that permanently_retired overrides all other fields
+        self.default_participant.update_only(permanently_retired=True)
+        self.assertEqual(len(heartbeat_query()), 0)
+        
         # and then test 0 if all of them are None
         self.default_participant.update_only(
-            **{field_name: None for field_name in ACTIVE_PARTICIPANT_FIELDS})
+            **{field_name: None for field_name in ACTIVE_PARTICIPANT_FIELDS if field_name != "permanently_retired"},
+            permanently_retired=True,
+        )
         self.assertEqual(len(heartbeat_query()), 0)
     
     def test_query_fcm_unregistered(self):

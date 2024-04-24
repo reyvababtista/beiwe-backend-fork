@@ -391,6 +391,23 @@ class ReferenceObjectMixin:
         archived_event.save()
         return archived_event
     
+    def bulk_generate_archived_events(
+        self, quantity: int, survey: Survey, participant: Participant, schedule_type: str = None,
+        scheduled_time: datetime = None, status: str = None
+    ):
+        events = [
+            ArchivedEvent(
+                survey_archive=survey.archives.first(),
+                participant=participant,
+                schedule_type=schedule_type or ScheduleTypes.weekly,
+                scheduled_time=scheduled_time or timezone.now(),
+                status=status or MESSAGE_SEND_SUCCESS,
+            )
+            for _ in range(quantity)
+        ]
+        return ArchivedEvent.objects.bulk_create(events)
+        
+    
     def generate_weekly_schedule(
         self, survey: Survey = None, day_of_week: int = 0, hour: int = 0, minute: int = 0
     ) -> WeeklySchedule:

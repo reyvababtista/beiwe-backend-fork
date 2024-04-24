@@ -28,6 +28,7 @@ class TestNotificationHistory(ResearcherSessionTest):
     def test_50_100_200_210(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
         self.generate_participant_action_log() # this will be before everything, last page
+        self.smart_get_status_code(200, self.session_study.id, self.default_participant.patient_id)
         # the first query hits logic for a first page of exactly less than 100
         self.bulk_generate_archived_events(50, self.default_survey, self.default_participant)
         self.smart_get_status_code(200, self.session_study.id, self.default_participant.patient_id)

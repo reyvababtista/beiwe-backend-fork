@@ -570,18 +570,39 @@ class TestParticipantActive(CommonTestCase):
             self.assertFalse(p.is_active_one_week)
     
     def test_participant_is_active_one_week_true(self):
-        # this test is self referential...
+        # this test is self referential... - nope it actually caught a bug! cool.
         now = timezone.now()
         less_than_a_week_ago = now - timedelta(days=6)
         p = self.default_participant
+        
         for field_outer in ACTIVE_PARTICIPANT_FIELDS:
             for field_inner in ACTIVE_PARTICIPANT_FIELDS:
+                # skip permanently_retired
+                if "permanently_retired" in (field_inner, field_outer):
+                    continue
+                
                 if field_inner != field_outer:
                     setattr(p, field_inner, None)
                 else:
                     setattr(p, field_inner, less_than_a_week_ago)
             self.assertTrue(p.is_active_one_week)
-
+        
+        # test that a participant is INACTIVE if all of the fields are None
+        p.permanently_retired = False
+        for field_name in ACTIVE_PARTICIPANT_FIELDS:
+            if field_name != "permanently_retired":
+                setattr(p, field_name, None)
+        self.assertFalse(p.is_active_one_week)
+        
+        # assert that it is still false if permanently_retired is set to true
+        setattr(p, "permanently_retired", True)
+        self.assertFalse(p.is_active_one_week)
+        
+        # test that permanently_retired overrides all fields being valid
+        for field_name in ACTIVE_PARTICIPANT_FIELDS:
+            setattr(p, field_name, less_than_a_week_ago)
+        setattr(p, "permanently_retired", True)
+        self.assertFalse(p.is_active_one_week)
 
 class TestForestHash(unittest.TestCase):
     def test_get_forest_git_hash(self):

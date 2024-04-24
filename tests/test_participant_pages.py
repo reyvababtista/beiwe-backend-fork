@@ -14,11 +14,31 @@ from tests.common import ResearcherSessionTest
 class TestNotificationHistory(ResearcherSessionTest):
     ENDPOINT_NAME = "participant_pages.notification_history"
     
-    def test(self):
+    def test_1(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
         self.generate_archived_event(self.default_survey, self.default_participant)
         self.smart_get_status_code(200, self.session_study.id, self.default_participant.patient_id)
-
+    
+    def test_0(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        # self.generate_archived_event(self.default_survey, self.default_participant)
+        self.smart_get_status_code(200, self.session_study.id, self.default_participant.patient_id)
+    
+    # we need to hit all the logic possibilities for the heartbeat "pagination"
+    def test_50_100_200_210(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        # the first query hits logic for a first page of exactly less than 100
+        self.bulk_generate_archived_events(50, self.default_survey, self.default_participant)
+        self.smart_get_status_code(200, self.session_study.id, self.default_participant.patient_id)
+        # need to generate more for the followup tests
+        self.bulk_generate_archived_events(160, self.default_survey, self.default_participant)
+        # the first query hits logic for a first page of exactly 100
+        self.smart_get_status_code(200, self.session_study.id, self.default_participant.patient_id)
+        # the second query hits logic for a not-first page of exactly 100
+        self.smart_get_status_code(200, self.session_study.id, self.default_participant.patient_id, data=dict(page=2))
+        # the third query hits logic for a not-first page of less than 100
+        self.smart_get_status_code(200, self.session_study.id, self.default_participant.patient_id, data=dict(page=3))
+    
 
 class TestParticipantPage(ResearcherSessionTest):
     ENDPOINT_NAME = "participant_pages.participant_page"

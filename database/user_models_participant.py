@@ -256,10 +256,6 @@ class Participant(AbstractPasswordUser):
     ################################################################################################
     
     @property
-    def is_active_one_week(self) -> bool:
-        return self._is_active(timezone.now() - timedelta(days=7))
-    
-    @property
     def last_app_heartbeat(self) -> Optional[datetime]:
         """ Returns the last time the app sent a heartbeat. """
         try:
@@ -267,15 +263,37 @@ class Participant(AbstractPasswordUser):
         except AppHeartbeats.DoesNotExist:
             return None
     
-    def _is_active(self, now: datetime) -> bool:
+    @property
+    def is_active_one_week(self) -> bool:
+        return Participant._is_active(self, timezone.now() - timedelta(days=7))
+    
+    
+    @staticmethod
+    def _is_active(participant: Participant, activity_threshold: datetime) -> bool:
+        """ Logic to determine if a participnat counts as active. """
         # get the most recent timestamp from the list of fields, and check if it is more recent than
         # now the participant is considered active.
+        
+        # permanently retired participants are not active.
+        if participant.permanently_retired:
+            return False
+        
         for key in ACTIVE_PARTICIPANT_FIELDS:
-            if not hasattr(self, key):
+            if not hasattr(participant, key):
                 raise ImproperlyConfigured("Participant model does not have a field named {key}.")
-            value = getattr(self, key)
-            if value is not None and value >= now:
+                
+            # special case for permanently_retired, which is a boolean field.
+            if key == "permanently_retired":
+                continue
+            
+            # The rest are datetimes, if they are more recent than the threshold, they are active.
+            value = getattr(participant, key)
+            if value is not None and value >= activity_threshold:
                 return True
+        
+        # The case where the participant has no activity at all returns False - this is correct
+        # behavior, they are not active if they has no timestamps. Other code that cares about this
+        # scenario needs to detect this case and handle it.   ????
         return False
     
     @property

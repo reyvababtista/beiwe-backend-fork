@@ -12,6 +12,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from api.participant_administration import add_fields_and_interventions
 from authentication.admin_authentication import authenticate_researcher_study_access
 from config.settings import ENABLE_EXPERIMENTS
+from constants.action_log_messages import HEARTBEAT_PUSH_NOTIFICATION_SENT
 from constants.common_constants import API_DATE_FORMAT, RUNNING_TEST_OR_IN_A_SHELL
 from constants.message_strings import MESSAGE_SEND_SUCCESS, PARTICIPANT_LOCKED
 from constants.user_constants import DATA_DELETION_ALLOWED_RELATIONS
@@ -73,7 +74,7 @@ def notification_history(request: ResearcherRequest, study_id: int, patient_id: 
             )
         else:
             notification_attempts.append(
-                notification_details_heartbeat(notification, study.timezone, survey_names)
+                notification_details_heartbeat(notification, study.timezone)
             )
     
     # and then the conditional message
@@ -102,15 +103,21 @@ def get_heartbeats_query(participant: Participant, archived_events_page: Paginat
     if page_number == 1 and count < 100:
         # fewer than 100 notifications on the first page means that is all of them. So, get all the
         # heartbeats too. (this also detects and handles the case of zero total survey notifications)
-        heartbeat_query = participant.heartbeats.all()
+        heartbeat_query = participant.action_logs.filter(action=HEARTBEAT_PUSH_NOTIFICATION_SENT)
     elif page_number == 1 and count == 100:
         # if there are exactly 100 notifications on the first page then we want everything after
         # (greater than) the last notification on the page, no latest (most recent) bound).
-        heartbeat_query = participant.heartbeats.filter(timestamp__gte=archived_events_page[-1]["created_on"])
+        heartbeat_query = participant.action_logs.filter(
+            timestamp__gte=archived_events_page[-1]["created_on"],
+            action=HEARTBEAT_PUSH_NOTIFICATION_SENT
+        )
     elif count < 100:
         # any non-full pages that are not the first page = get all heartbeats before the top
         # (most recent) notification on the page with no earliest (most in-the-past) bound.
-        heartbeat_query = participant.heartbeats.filter(timestamp__lte=archived_events_page[0]["created_on"])
+        heartbeat_query = participant.action_logs.filter(
+            timestamp__lte=archived_events_page[0]["created_on"],
+            action=HEARTBEAT_PUSH_NOTIFICATION_SENT,
+        )
     elif count == 100:
         # if there are exactly 100 notifications and we are not on the first page, then we bound it
         # by the first and last notifications... but that leaves out heartbeats between pages... but
@@ -118,7 +125,8 @@ def get_heartbeats_query(participant: Participant, archived_events_page: Paginat
         # unless someone complains we just will ignore this.
         # (we would need the date of the notification that came after the top (most recent)
         # notification in our list, and then use that as the upper (most recent) bound.)
-        heartbeat_query = participant.heartbeats.filter(
+        heartbeat_query = participant.action_logs.filter(
+            action=HEARTBEAT_PUSH_NOTIFICATION_SENT,
             timestamp__range=(archived_events_page[0]["created_on"], archived_events_page[-1]["created_on"])
         )
     else:

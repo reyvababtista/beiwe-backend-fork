@@ -1,14 +1,13 @@
 import json
 from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from dateutil.tz import UTC
 from django.shortcuts import get_object_or_404, render
 from django.utils.timezone import make_aware
 
 from authentication.admin_authentication import authenticate_researcher_study_access
-from constants.common_constants import API_DATE_FORMAT
+from constants.common_constants import API_DATE_FORMAT, EARLIEST_POSSIBLE_DATA_DATETIME
 from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_DATA_STREAMS
 from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
 from database.data_access_models import ChunkRegistry
@@ -168,7 +167,7 @@ def dashboard_participant_page(request: ResearcherRequest, study_id, patient_id)
 
 
 def get_unique_dates(start: datetime, end: datetime, first_day: date, last_day: date, chunks=None):
-    """ create a list of all the unique days in which data was recorded for this study """
+    """ Create a list of all the unique days in which data was recorded for this study """
     first_date_data_entry = last_date_data_entry = None
     
     if chunks:
@@ -270,10 +269,9 @@ def get_bytes_date_match(stream_data: List[Dict[str, datetime]], a_date: date) -
 
 def dashboard_chunkregistry_date_query(
     study: Study, data_stream: str = None, participant: Participant = None
-):
+) -> Tuple[Optional[date], Optional[date]]:
     """ Gets the first and last days in the study excluding 1/1/1970 bc that is obviously an error
     and makes the frontend annoying to use """
-    earlist_possible_data = datetime(year=2014, month=8, day=1, tzinfo=UTC)  # beiwe launch date
     kwargs = {"study_id": study.id}
     if data_stream:
         kwargs["data_type"] = data_stream
@@ -283,7 +281,7 @@ def dashboard_chunkregistry_date_query(
     # this process as queries with .first() and .last() is slow even as size of all_time_bins grows.
     all_time_bins: List[datetime] = list(
         ChunkRegistry.objects.filter(**kwargs)
-        .exclude(time_bin__lt=earlist_possible_data)
+        .exclude(time_bin__lt=EARLIEST_POSSIBLE_DATA_DATETIME)
         .order_by("time_bin")
         .values_list("time_bin", flat=True)
     )
@@ -331,10 +329,11 @@ def dashboard_chunkregistry_query(
     return dict(patient_id_to_datapoints)
 
 
-def extract_date_args_from_request(request: ResearcherRequest, timezone: tzinfo) -> Tuple[datetime, datetime]:
+def extract_date_args_from_request(request: ResearcherRequest, timezone: tzinfo) -> Tuple[Optional[datetime], Optional[datetime]]:
     """ Gets start and end arguments from GET/POST params, throws 400 on date formatting errors. """
-    start = argument_grabber(request, "start", None)
-    end = argument_grabber(request, "end", None)
+    # "or None" handles the case of an empty string getting passed in.
+    start = argument_grabber(request, "start", None) or None
+    end = argument_grabber(request, "end", None) or None
     try:
         if start:
             start = make_aware(datetime.strptime(start, API_DATE_FORMAT), timezone)
@@ -346,7 +345,7 @@ def extract_date_args_from_request(request: ResearcherRequest, timezone: tzinfo)
     return start, end
 
 
-def argument_grabber(request: ResearcherRequest, key: str, default: Any = None) -> str or None:
+def argument_grabber(request: ResearcherRequest, key: str, default: Any = None) -> Optional[str]:
     return request.GET.get(key, request.POST.get(key, default))
 
 

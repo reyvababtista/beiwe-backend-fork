@@ -576,7 +576,7 @@ def success_send_handler(participant: Participant, fcm_token: str, schedules: Li
 
 
 def failed_send_handler(
-        participant: Participant, fcm_token: str, error_message: str, schedules: List[ScheduledEvent]
+    participant: Participant, fcm_token: str, error_message: str, schedules: List[ScheduledEvent]
 ):
     """ Contains body of code for unregistering a participants push notification behavior.
         Participants get reenabled when they next touch the app checkin endpoint. """

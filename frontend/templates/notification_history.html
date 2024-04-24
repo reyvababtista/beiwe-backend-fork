@@ -50,12 +50,16 @@
           <td>{{ attempt.schedule_type }}</td>
           <td>{{ attempt.status.capitalize() }}</td>
           <td>
+          {# we need to only show this button for real push notifications, which we will detect #}
+          {# by checking if the scheduled_time field is a dash #}
+          {% if attempt.scheduled_time != "-" %}
             <form action="{{ easy_url("push_notifications_api.resend_push_notification", study_id=study.id, patient_id=participant.patient_id) }}" method="post">
               <input type="hidden" name="survey_id" value="{{ attempt.survey_id }}">
               <button class="btn btn-sm btn-group btn-warning" type="submit" {% if locked %} disabled {% endif %}>
                 Resend Push Notification
               </button>
             </form>
+          {% endif %}
           </td>
         </tr>
       {% endfor %}

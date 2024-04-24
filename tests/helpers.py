@@ -24,8 +24,8 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
     InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
-from database.user_models_participant import (Participant, ParticipantDeletionEvent,
-    ParticipantFCMHistory, ParticipantFieldValue)
+from database.user_models_participant import (AppHeartbeats, Participant, ParticipantActionLog,
+    ParticipantDeletionEvent, ParticipantFCMHistory, ParticipantFieldValue)
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import Schedule
 from libs.schedules import set_next_weekly
@@ -406,7 +406,24 @@ class ReferenceObjectMixin:
             for _ in range(quantity)
         ]
         return ArchivedEvent.objects.bulk_create(events)
-        
+    
+    def generate_heartbeat(self, participant: Participant = None, time: datetime = None):
+        if time is None:
+            time = timezone.now()
+        if participant is None:
+            participant = self.default_participant
+        heartbeat = AppHeartbeats(participant=participant, timestamp=time, message="test")
+        heartbeat.save()
+        return heartbeat
+    
+    def generate_participant_action_log(self, participant: Participant = None, time: datetime = None):
+        if time is None:
+            time = timezone.now()
+        if participant is None:
+            participant = self.default_participant
+        heartbeat = ParticipantActionLog(participant=participant, timestamp=time, action="test")
+        heartbeat.save()
+        return heartbeat
     
     def generate_weekly_schedule(
         self, survey: Survey = None, day_of_week: int = 0, hour: int = 0, minute: int = 0

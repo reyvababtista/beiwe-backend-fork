@@ -280,7 +280,8 @@ def query_values_for_notification_history(participant_id) -> ArchivedEventQueryS
             survey_id=F('survey_archive__survey'), survey_version=F('survey_archive__archive_start')
         )
         .values(
-            'scheduled_time', 'created_on', 'survey_id', 'survey_version', 'schedule_type', 'status'
+            'scheduled_time', 'created_on', 'survey_id', 'survey_version', 'schedule_type',
+            'status', 'survey_archive__survey__deleted'
         )
     )
 
@@ -306,6 +307,7 @@ def notification_details_archived_event(
         'attempted_time': really_nice_time_format_with_tz(archived_event['created_on'], study_timezone),
         'survey_name': survey_names[archived_event['survey_id']],
         'survey_id': archived_event['survey_id'],
+        'survey_deleted': archived_event["survey_archive__survey__deleted"],
         'survey_version': archived_event['survey_version'].strftime('%Y-%m-%d'),
         'schedule_type': archived_event['schedule_type'],
         'status': archived_event['status'],
@@ -322,6 +324,7 @@ def notification_details_heartbeat(
         'survey_version': "-",
         'schedule_type': "Inactivity Notification",
         'status': MESSAGE_SEND_SUCCESS,
+        # 'survey_deleted' # we don't actually need to include this.
     }
 
 

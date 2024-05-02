@@ -114,6 +114,7 @@ GLOBAL_CONFIGURATION_FILE_KEYS = [
 ]
 
 AWS_CREDENTIALS_FILE_KEYS = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
+AWS_CREDENTIALS_OPTIONAL_KEYS = ["AWS_CREDENTIALS_FILE_KEYS"]
 
 
 ####################################################################################################

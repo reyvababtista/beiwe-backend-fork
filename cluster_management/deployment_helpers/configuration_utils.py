@@ -3,13 +3,14 @@ import os
 import re
 from os.path import exists as file_exists, relpath
 from time import sleep
+from typing import Callable, Dict, List
 
 from deployment_helpers.aws.iam import create_server_access_credentials
 from deployment_helpers.aws.rds import get_full_db_credentials
 from deployment_helpers.aws.s3 import create_data_bucket
 from deployment_helpers.constants import (AWS_CREDENTIALS_FILE, AWS_CREDENTIALS_FILE_KEYS,
-    DB_SERVER_TYPE, ELASTIC_BEANSTALK_INSTANCE_TYPE, get_aws_credentials,
-    get_beiwe_environment_variables, get_beiwe_environment_variables_file_path,
+    AWS_CREDENTIALS_OPTIONAL_KEYS, DB_SERVER_TYPE, ELASTIC_BEANSTALK_INSTANCE_TYPE,
+    get_aws_credentials, get_beiwe_environment_variables, get_beiwe_environment_variables_file_path,
     get_finalized_settings_file_path, get_finalized_settings_variables, get_global_config,
     get_pushed_full_processing_server_env_file_path, get_rabbit_mq_manager_ip_file_path,
     get_server_configuration_variables_path, GLOBAL_CONFIGURATION_FILE,
@@ -47,27 +48,32 @@ def reference_data_processing_server_configuration():
 ################################### Reference Configs ##############################################
 ####################################################################################################
 
-def _simple_validate_required(getter_func, file_path, appropriate_keys, display_name):
+def _simple_validate_required(
+        getter_func: Callable, file_path: str, required_keys: Dict[str, str], display_name: str,
+        optional_keys:Dict[str, str]=None
+    ) -> bool:
     """ returns False if invalid, True if valid.  For use with fully required keys, prints useful messages."""
     # try and load, fail usefully.
     try:
-        json_config = getter_func()
+        json_config: Dict = getter_func()
     except Exception:
         log.error("could not load the %s file '%s'." % (display_name, file_path))
         sleep(0.1)
         return False  # could not load, did not pass
     
+    optional_keys = optional_keys or []
+    
     # check for invalid values and keys errors
     error_free = True
     for k, v in json_config.items():
-        if k not in appropriate_keys:
+        if k not in required_keys and k not in optional_keys:
             log.error("a key '%s' is present in %s, but was not expected." % (k, display_name))
             error_free = False
         if not v:
             error_free = False
             log.error("'%s' must be present in %s and have a value." % (k, display_name))
     
-    for key in appropriate_keys:
+    for key in required_keys:
         if key not in json_config:
             log.error("the key '%s' was expected in %s but not present." % (key, display_name))
             error_free = False
@@ -76,34 +82,37 @@ def _simple_validate_required(getter_func, file_path, appropriate_keys, display_
     return error_free
 
 
-def are_aws_credentials_present():
-    ret = _simple_validate_required(get_aws_credentials,
-                                    AWS_CREDENTIALS_FILE,
-                                    AWS_CREDENTIALS_FILE_KEYS,
-                                    relpath(AWS_CREDENTIALS_FILE))
+def are_aws_credentials_present() -> bool:
+    ret = _simple_validate_required(
+        get_aws_credentials,
+        AWS_CREDENTIALS_FILE,
+        AWS_CREDENTIALS_FILE_KEYS,
+        relpath(AWS_CREDENTIALS_FILE),
+        AWS_CREDENTIALS_OPTIONAL_KEYS,
+    )
     if not ret:
         log.error(VALIDATE_AWS_CREDENTIALS_MESSAGE)
     return ret
 
 
-def is_global_configuration_valid():
-    ret = _simple_validate_required(get_global_config,
-                                    GLOBAL_CONFIGURATION_FILE,
-                                    GLOBAL_CONFIGURATION_FILE_KEYS,
-                                    relpath(GLOBAL_CONFIGURATION_FILE))
+def is_global_configuration_valid() -> bool:
+    ret = _simple_validate_required(
+        get_global_config,
+        GLOBAL_CONFIGURATION_FILE,
+        GLOBAL_CONFIGURATION_FILE_KEYS,
+        relpath(GLOBAL_CONFIGURATION_FILE)
+    )
     if not ret:
         log.error(VALIDATE_GLOBAL_CONFIGURATION_MESSAGE)
     return ret
 
 
-def ensure_nonempty_string(value, value_name, errors_list, subject):
-    """
-    Checks that an inputted value is a nonempty string
+def ensure_nonempty_string(value: str, value_name: str, errors_list: List, subject: str):
+    """ Checks that an inputted value is a nonempty string
     :param value: A value to be checked
     :param value_name: The name of the value, to be used in the error string
     :param errors_list: The pass-by-reference list of error strings which we append to
-    :return: Whether or not the value is in fact a nonempty string
-    """
+    :return: Whether or not the value is in fact a nonempty string """
     if not isinstance(value, str):
         # log.error(value_name + " encountered an error")
         errors_list.append('({}) {} must be a string'.format(subject, value))
@@ -131,7 +140,7 @@ def email_param_validation(src_name: str, key_name: str, source: dict, errors: l
             errors.append(f'({src_name}) Invalid email address: {email_string}')
 
 
-def validate_beiwe_environment_config(eb_environment_name):
+def validate_beiwe_environment_config(eb_environment_name: str):
     # DOMAIN_NAME
     # SENTRY_DATA_PROCESSING_DSN
     # SENTRY_ELASTIC_BEANSTALK_DSN
@@ -141,10 +150,11 @@ def validate_beiwe_environment_config(eb_environment_name):
     finalized = os.path.exists(get_finalized_settings_file_path(eb_environment_name))
     errors = []
     try:
-        aws_credentials = get_aws_credentials()
-        global_config = get_global_config()
-        beiwe_variables = get_beiwe_environment_variables(eb_environment_name)
-        finalized_variables = get_finalized_settings_variables(eb_environment_name) if finalized else {}
+        # trunk-ignore(ruff/F841)
+        aws_credentials: Dict = get_aws_credentials()
+        global_config: Dict = get_global_config()
+        beiwe_variables: Dict = get_beiwe_environment_variables(eb_environment_name)
+        finalized_variables: Dict = get_finalized_settings_variables(eb_environment_name) if finalized else {}
     
     except Exception as e:
         log.error("encountered an error while trying to read configuration files.")
@@ -208,7 +218,7 @@ def validate_beiwe_environment_config(eb_environment_name):
     # Put the data into one dict to be returned
     sysadmin_email = finalized_variables["SYSADMIN_EMAILS"] \
         if finalized else global_config["SYSTEM_ADMINISTRATOR_EMAIL"]
-
+    
     return {
         'DOMAIN_NAME': domain_name,
         'SYSADMIN_EMAILS': sysadmin_email,

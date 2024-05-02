@@ -60,7 +60,8 @@ def notification_history(request: ResearcherRequest, study_id: int, patient_id: 
     # interleave them) while we have datetime objects because we are using the super nice datetime
     # string formatting that is not sortable.
     all_notifications.sort(
-        key=lambda list_or_dict: list_or_dict["created_on"] if isinstance(list_or_dict, dict) else list_or_dict
+        key=lambda list_or_dict: list_or_dict["created_on"] if isinstance(list_or_dict, dict) else list_or_dict,
+        reverse=True,
     )
     
     # again based on object type we can determine which dictionaryifier to call, and we're done with

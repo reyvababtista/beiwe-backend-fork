@@ -120,7 +120,7 @@ def get_most_recent_ubuntu():
                 {"Name": 'state', "Values": ['available']},
                 {
                     "Name": 'name',
-                    "Values": ["ubuntu/images/hvm-ssd-gp3/ubuntu-mantic-23.10-amd64-server*"]
+                    "Values": ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server*"]
                 },
             ]
     )['Images']

@@ -221,7 +221,7 @@ def heartbeat_query() -> List[Tuple[int, str, str, str]]:
             participant__deleted=False,                # no deleted participants
             participant__permanently_retired=False,    # should be rendundant with deleted.
             unregistered=None,                         # this is fcm-speak for non-retired fcm token
-            participant__os_type__in=[ANDROID_API, IOS_API],# [ANDROID_API, IOS_API],  # just a safety check.
+            participant__os_type__in=[ANDROID_API, IOS_API],  # participants need to _have an OS_.
         )\
         .values_list(
             "participant_id",

@@ -1,3 +1,7 @@
+from datetime import timedelta
+
+from django.utils import timezone
+
 from api.mobile_api import upload_and_create_file_to_process_and_log
 from database.data_access_models import IOSDecryptionKey
 from database.system_models import GenericEvent

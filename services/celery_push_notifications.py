@@ -92,6 +92,8 @@ def _send_notification(fcm_token: str, os_type: str, message: str):
     }
     # os requires different setup
     if os_type == ANDROID_API:
+        data_kwargs['type'] = 'message'
+        data_kwargs['message'] = message
         message = Message(android=AndroidConfig(data=data_kwargs, priority='high'), token=fcm_token)
     else:
         message = Message(

@@ -66,12 +66,10 @@
         <td><b>Registration</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_register_user, participant.study.timezone) }}</td>
       </tr>
-      {% if participant.os_type == IOS_API and participant.enable_heartbeat %}
-        <tr>
-          <td><b>Last Heartbeat</b></td>
-          <td>{{ really_nice_time_format_with_tz(participant.last_app_heartbeat, participant.study.timezone) }}</td>
-        </tr>
-      {% endif %}
+      <tr>
+        <td><b>Last Heartbeat</b></td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_app_heartbeat, participant.study.timezone) }}</td>
+      </tr>
       <tr>
         <td><b>Last check-in for updated surveys</b></td>
         <td>{{ really_nice_time_format_with_tz(participant.last_get_latest_surveys, participant.study.timezone) }}</td>

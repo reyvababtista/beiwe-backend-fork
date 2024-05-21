@@ -5,6 +5,7 @@ import random
 from collections import defaultdict
 from datetime import datetime, timedelta
 from functools import reduce
+from pprint import pprint
 from typing import List, Tuple
 
 from dateutil.tz import gettz
@@ -258,7 +259,10 @@ def heartbeat_query() -> List[Tuple[int, str, str, str]]:
     for participant_id, token, os_type, message, heartbeat_minutes, t1, t2, t3, t4, t5, t6, t7, t8 in query:
         # need to filter out Nones
         most_recent_time_field = max(t for t in (t1, t2, t3, t4, t5, t6, t7, t8) if t)
-        point_at_which_to_send_next_notification = most_recent_time_field + timedelta(minutes=heartbeat_minutes)
+        
+        # We offset by one minute due to periodicity of the task, this should fix off-by-six-minutes bugs.
+        point_at_which_to_send_next_notification = \
+            most_recent_time_field + timedelta(minutes=heartbeat_minutes - 1)
         # debugging code
         # log("heartbeat_minutes:", heartbeat_minutes)
         # log("last_heartbeat_notification:", t1)
@@ -327,7 +331,7 @@ def celery_heartbeat_send_push_notification(participant_id: int, fcm_token: str,
 ################################### SURVEY PUSH NOTIFICATIONS ######################################
 ####################################################################################################
 
-def get_surveys_and_schedules(now: datetime) -> Tuple[DictOfStrToListOfStr, DictOfStrToListOfStr, DictOfStrStr]:
+def get_surveys_and_schedules(now: datetime, **filter_kwargs) -> Tuple[DictOfStrToListOfStr, DictOfStrToListOfStr, DictOfStrStr]:
     """ Mostly this function exists to reduce mess. returns:
     a mapping of fcm tokens to list of survey object ids
     a mapping of fcm tokens to list of schedule ids
@@ -352,7 +356,9 @@ def get_surveys_and_schedules(now: datetime) -> Tuple[DictOfStrToListOfStr, Dict
         # participant__push_notification_unreachable_count__lte=PUSH_NOTIFICATION_ATTEMPT_COUNT
         # added august 2022, part of checkins
         deleted=False,
-    ).values_list(
+    ) \
+    .filter(**filter_kwargs) \
+    .values_list(
         "scheduled_time",
         "survey__object_id",
         "survey__study__timezone_name",
@@ -458,6 +464,46 @@ def create_survey_push_notification_tasks():
 
 @push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
 def celery_send_survey_push_notification(fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]):
+    return _celery_send_survey_push_notification(fcm_token, survey_obj_ids, schedule_pks)
+
+
+def debug_send_valid_survey_push_notification(participant: Participant, now: datetime = None):
+    """ Debugging function that sends all survey corrent push notifications to a single participant. """
+    if not now:
+        now = timezone.now()
+    surveys, schedules, patient_ids = get_surveys_and_schedules(now)
+    print("Surveys:", surveys)
+    print("Schedules:", schedules)
+    print("Patient_ids:", patient_ids)
+    if not check_firebase_instance():
+        print("Firebase is not configured, cannot queue notifications.")
+        return
+    
+    for fcm_token in surveys.keys():
+        print("fcm_token:", fcm_token)
+        print("surveys[fcm_token]:")
+        pprint(surveys[fcm_token])
+        pprint("schedules[fcm_token]:")
+        pprint(schedules[fcm_token])
+        _celery_send_survey_push_notification(fcm_token, surveys[fcm_token], schedules[fcm_token])
+
+
+def debug_send_all_survey_push_notification(participant: Participant):
+    """ Debugging function that sends a survey notification for all surveys on a study.
+    This will run with celery logging etc., just not on a  """
+    token = participant.get_valid_fcm_token().token
+    if not token:
+        print("no valid token")
+        return
+    
+    surveys = participant.study.surveys.filter(deleted=False).values_list("object_id", flat=True)
+    # can't add schedules, empty list should be safe if weird.
+    _celery_send_survey_push_notification(token, surveys, [])
+
+
+def _celery_send_survey_push_notification(
+        fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int], 
+    ):
     """ Celery task that sends push notifications. Note that this list of pks may contain duplicates. """
     # Oh.  The reason we need the patient_id is so that we can debug anything ever. lol...
     patient_id = ParticipantFCMHistory.objects.filter(token=fcm_token) \
@@ -543,7 +589,7 @@ def send_survey_push_notification(
         'sent_time': reference_schedule.scheduled_time.strftime(API_TIME_FORMAT),
         'type': 'survey',
         'survey_ids': json.dumps(survey_obj_ids),
-        'schedule_uuid': reference_schedule.uuid or ""
+        'schedule_uuid': (reference_schedule.uuid if reference_schedule else "") or ""
     }
     
     if participant.os_type == ANDROID_API:

@@ -8,6 +8,8 @@ from functools import reduce
 from pprint import pprint
 from typing import List, Tuple
 
+from cronutils import null_error_handler
+from cronutils.error_handler import ErrorSentry
 from dateutil.tz import gettz
 from django.db.models import Q
 from django.utils import timezone
@@ -295,7 +297,7 @@ def create_heartbeat_tasks():
     log(f"Sending heartbeats to {len(push_notification_data)} "
         "participants considered active in the past week.")
     
-    # dispatch the push notifications celery tasks 
+    # dispatch the push notifications celery tasks
     for participant_id, fcm_token, os_type, message in heartbeat_query():
         safe_apply_async(
             celery_heartbeat_send_push_notification,
@@ -462,16 +464,12 @@ def create_survey_push_notification_tasks():
             )
 
 
-@push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
-def celery_send_survey_push_notification(fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]):
-    return _celery_send_survey_push_notification(fcm_token, survey_obj_ids, schedule_pks)
-
-
 def debug_send_valid_survey_push_notification(participant: Participant, now: datetime = None):
     """ Debugging function that sends all survey corrent push notifications to a single participant. """
     if not now:
         now = timezone.now()
-    surveys, schedules, patient_ids = get_surveys_and_schedules(now)
+    # get_surveys_and_schedules for one participant, extra args are query filters on ScheduledEvents.
+    surveys, schedules, patient_ids = get_surveys_and_schedules(now, participant=participant)
     print("Surveys:", surveys)
     print("Schedules:", schedules)
     print("Patient_ids:", patient_ids)
@@ -485,31 +483,45 @@ def debug_send_valid_survey_push_notification(participant: Participant, now: dat
         pprint(surveys[fcm_token])
         pprint("schedules[fcm_token]:")
         pprint(schedules[fcm_token])
-        _celery_send_survey_push_notification(fcm_token, surveys[fcm_token], schedules[fcm_token])
+        do_send_survey_push_notification(
+            fcm_token, surveys[fcm_token], schedules[fcm_token], null_error_handler
+        )
 
 
 def debug_send_all_survey_push_notification(participant: Participant):
-    """ Debugging function that sends a survey notification for all surveys on a study.
-    This will run with celery logging etc., just not on a  """
+    """ Debugging function that sends a survey notification for all surveys on a study. """
     token = participant.get_valid_fcm_token().token
     if not token:
         print("no valid token")
         return
     
-    surveys = participant.study.surveys.filter(deleted=False).values_list("object_id", flat=True)
+    surveys = list(
+        participant.study.surveys.filter(deleted=False).values_list("object_id", flat=True)
+    )
     # can't add schedules, empty list should be safe if weird.
-    _celery_send_survey_push_notification(token, surveys, [])
+    do_send_survey_push_notification(token, surveys, [], null_error_handler)
 
 
-def _celery_send_survey_push_notification(
-        fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int], 
-    ):
-    """ Celery task that sends push notifications. Note that this list of pks may contain duplicates. """
+@push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
+def celery_send_survey_push_notification(fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]):
+    """ passthrough for the survey push notification function, simply a wrapper for celery. """
+    do_send_survey_push_notification(
+        fcm_token,
+        survey_obj_ids,
+        schedule_pks,
+        make_error_sentry(sentry_type=SentryTypes.data_processing),
+    )
+
+
+def do_send_survey_push_notification(
+    fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int], error_handler: ErrorSentry
+):
+    """ Sends push notifications. Note that this list of pks may contain duplicates. """
     # Oh.  The reason we need the patient_id is so that we can debug anything ever. lol...
     patient_id = ParticipantFCMHistory.objects.filter(token=fcm_token) \
         .values_list("participant__patient_id", flat=True).get()
     
-    with make_error_sentry(sentry_type=SentryTypes.data_processing):
+    with error_handler:
         if not check_firebase_instance():
             loge("Surveys - Firebase credentials are not configured.")
             return
@@ -578,8 +590,8 @@ def _celery_send_survey_push_notification(
 
 
 def send_survey_push_notification(
-        participant: Participant, reference_schedule: ScheduledEvent, survey_obj_ids: List[str],
-        fcm_token: str
+    participant: Participant, reference_schedule: ScheduledEvent, survey_obj_ids: List[str],
+    fcm_token: str
 ) -> str:
     """ Contains the body of the code to send a notification  """
     # we include a nonce in case of notification deduplication, and a schedule_uuid to for the
@@ -660,9 +672,8 @@ def failed_send_handler(
 
 def create_archived_events(schedules: List[ScheduledEvent], status: str, created_on: datetime = None):
     # """ Populates event history, does not mark ScheduledEvents as deleted. """
-    
     # TODO: We are currently blindly deleting after sending, this will be changed after the app is
-    #  updated to provide uuid checkins on the download surveys endpoint.
+    #  updated to provide uuid checkins on the download surveys endpoint. (maybe)
     mark_as_deleted = status == MESSAGE_SEND_SUCCESS
     for scheduled_event in schedules:
         scheduled_event.archive(self_delete=mark_as_deleted, status=status, created_on=created_on)

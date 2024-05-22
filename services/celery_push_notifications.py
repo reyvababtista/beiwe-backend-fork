@@ -5,7 +5,6 @@ import random
 from collections import defaultdict
 from datetime import datetime, timedelta
 from functools import reduce
-from pprint import pprint
 from typing import List, Tuple
 
 from cronutils import null_error_handler
@@ -24,7 +23,8 @@ from constants.message_strings import MESSAGE_SEND_SUCCESS
 from constants.schedule_constants import ScheduleTypes
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API
-from database.schedule_models import ScheduledEvent
+from database.schedule_models import ArchivedEvent, ScheduledEvent
+from database.survey_models import Survey
 from database.user_models_participant import (Participant, ParticipantActionLog,
     ParticipantFCMHistory, PushNotificationDisabledEvent)
 from libs.celery_control import push_send_celery_app, safe_apply_async
@@ -465,24 +465,31 @@ def create_survey_push_notification_tasks():
 
 
 def debug_send_valid_survey_push_notification(participant: Participant, now: datetime = None):
-    """ Debugging function that sends all survey corrent push notifications to a single participant. """
+    """ Runs the REAL LOGIC for sending push notifications based on the time passed in, but without
+    the ErrorSentry. """
     if not now:
         now = timezone.now()
     # get_surveys_and_schedules for one participant, extra args are query filters on ScheduledEvents.
-    surveys, schedules, patient_ids = get_surveys_and_schedules(now, participant=participant)
-    print("Surveys:", surveys)
-    print("Schedules:", schedules)
-    print("Patient_ids:", patient_ids)
+    surveys, schedules, _ = get_surveys_and_schedules(now, participant=participant)
+    
+    if len(surveys) == 0:
+        print(f"There are no surveys to send push notifications for {participant}.")
+        return
+    if len(surveys) > 1:
+        print("There are multiple participants to send push notifications for...")
+        return
+    
+    # it is exactly one participant, get the number of surveys in item one
+    survey_object_ids = list(surveys.values())[0]
+    print(f"sending {len(survey_object_ids)} notifications to", participant)
+    for survey in Survey.objects.filter(object_id__in=survey_object_ids):
+        print(f"Sending notification for survey '{survey.name if survey.name else survey.object_id}'")
+    
     if not check_firebase_instance():
         print("Firebase is not configured, cannot queue notifications.")
         return
     
     for fcm_token in surveys.keys():
-        print("fcm_token:", fcm_token)
-        print("surveys[fcm_token]:")
-        pprint(surveys[fcm_token])
-        pprint("schedules[fcm_token]:")
-        pprint(schedules[fcm_token])
         do_send_survey_push_notification(
             fcm_token, surveys[fcm_token], schedules[fcm_token], null_error_handler
         )
@@ -490,21 +497,42 @@ def debug_send_valid_survey_push_notification(participant: Participant, now: dat
 
 def debug_send_all_survey_push_notification(participant: Participant):
     """ Debugging function that sends a survey notification for all surveys on a study. """
-    token = participant.get_valid_fcm_token().token
-    if not token:
+    fcm_token = participant.get_valid_fcm_token().token
+    if not fcm_token:
         print("no valid token")
         return
     
-    surveys = list(
-        participant.study.surveys.filter(deleted=False).values_list("object_id", flat=True)
-    )
-    # can't add schedules, empty list should be safe if weird.
-    do_send_survey_push_notification(token, surveys, [], null_error_handler)
+    surveys: List[Survey] = list(participant.study.surveys.filter(deleted=False))
+    if not surveys:
+        print(f"There are no surveys to send push notifications for {participant}.")
+        return
+    
+    print(f"Sending {len(surveys)} notifications to", participant)
+    for survey in surveys:
+        print(f"Sending notification for survey '{survey.name if survey.name else survey.object_id}'")
+    
+    survey_obj_ids = [survey.object_id for survey in surveys]
+    print(survey_obj_ids)
+    do_send_survey_push_notification(fcm_token, survey_obj_ids, None, null_error_handler, debug=True)
+    
+    # and create some fake archived events
+    timezone.now()
+    for survey in surveys:
+        ArchivedEvent(
+            survey_archive=survey.most_recent_archive(),
+            participant=participant,
+            schedule_type="DEBUG",
+            scheduled_time=None,
+            status="success",
+            uuid=None,
+        ).save()
 
 
 @push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
-def celery_send_survey_push_notification(fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]):
-    """ passthrough for the survey push notification function, simply a wrapper for celery. """
+def celery_send_survey_push_notification(
+    fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]
+):
+    """ Passthrough for the survey push notification function, just a wrapper for celery. """
     do_send_survey_push_notification(
         fcm_token,
         survey_obj_ids,
@@ -514,10 +542,15 @@ def celery_send_survey_push_notification(fcm_token: str, survey_obj_ids: List[st
 
 
 def do_send_survey_push_notification(
-    fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int], error_handler: ErrorSentry
+    fcm_token: str,
+    survey_obj_ids: List[str],
+    schedule_pks: List[int],
+    error_handler: ErrorSentry,
+    debug: bool = False
 ):
     """ Sends push notifications. Note that this list of pks may contain duplicates. """
-    # Oh.  The reason we need the patient_id is so that we can debug anything ever. lol...
+    
+    # We need the patient_id is so that we can debug anything on Sentry. Worth a database call?
     patient_id = ParticipantFCMHistory.objects.filter(token=fcm_token) \
         .values_list("participant__patient_id", flat=True).get()
     
@@ -526,15 +559,16 @@ def do_send_survey_push_notification(
             loge("Surveys - Firebase credentials are not configured.")
             return
         
-        # use the earliest timed schedule as our reference for the sent_time parameter.  (why?)
         participant = Participant.objects.get(patient_id=patient_id)
-        schedules = ScheduledEvent.objects.filter(pk__in=schedule_pks)
-        reference_schedule = schedules.order_by("scheduled_time").first()
         survey_obj_ids = list(set(survey_obj_ids))  # Dedupe-dedupe
-        
         log(f"Sending push notification to {patient_id} for {survey_obj_ids}...")
+        
+        # we need to mock the reference_schedule object in debug mode... it is stupid.
+        reference_schedule, schedules = get_or_mock_schedule(schedule_pks, debug)
         try:
-            send_survey_push_notification(participant, reference_schedule, survey_obj_ids, fcm_token)
+            send_survey_push_notification(
+                participant, reference_schedule, survey_obj_ids, fcm_token
+            )
         # error types are documented at firebase.google.com/docs/reference/fcm/rest/v1/ErrorCode
         except UnregisteredError:
             log("\nUnregisteredError\n")
@@ -548,14 +582,14 @@ def do_send_survey_push_notification(
             # sysadmin attention and probably new development to allow multiple firebase
             # credentials. Read comments in settings.py if toggling.
             if BLOCK_QUOTA_EXCEEDED_ERROR:
-                failed_send_handler(participant, fcm_token, str(e), schedules)
+                failed_send_handler(participant, fcm_token, str(e), schedules, debug)
                 return
             else:
                 raise
         
         except ThirdPartyAuthError as e:
             loge("\nThirdPartyAuthError\n")
-            failed_send_handler(participant, fcm_token, str(e), schedules)
+            failed_send_handler(participant, fcm_token, str(e), schedules, debug)
             # This means the credentials used were wrong for the target app instance.  This can occur
             # both with bad server credentials, and with bad device credentials.
             # We have only seen this error statement, error name is generic so there may be others.
@@ -569,13 +603,14 @@ def do_send_survey_push_notification(
             # executes.)
             loge("\nSenderIdMismatchError:\n")
             loge(e)
-            failed_send_handler(participant, fcm_token, str(e), schedules)
+            failed_send_handler(participant, fcm_token, str(e), schedules, debug)
             return
         
         except ValueError as e:
             loge("\nValueError\n")
-            # This case occurs ever? is tested for in check_firebase_instance... weird race condition?
-            # Error should be transient, and like all other cases we enqueue the next weekly surveys regardless.
+            # This case occurs ever? is tested for in check_firebase_instance... weird race
+            # condition? Error should be transient, and like all other cases we enqueue the next
+            # weekly surveys regardless.
             if "The default Firebase app does not exist" in str(e):
                 enqueue_weekly_surveys(participant, schedules)
                 return
@@ -583,10 +618,25 @@ def do_send_survey_push_notification(
                 raise
         
         except Exception as e:
-            failed_send_handler(participant, fcm_token, str(e), schedules)
-            return
+            failed_send_handler(participant, fcm_token, str(e), schedules, debug)
+            raise
         
         success_send_handler(participant, fcm_token, schedules)
+
+
+def get_or_mock_schedule(schedule_pks: List[str], debug: bool) -> Tuple[ScheduledEvent, List[ScheduledEvent]]:
+    # in debug mode we need to mock a schedule object, in production we need to get the earliest one.
+    if not debug:
+        # use the earliest timed schedule as our reference for the sent_time parameter.
+        schedules = ScheduledEvent.objects.filter(pk__in=schedule_pks)
+        reference_schedule = schedules.order_by("scheduled_time").first()
+        return reference_schedule, schedules
+    else:
+        # object needs a scheduled_time attribute, and a falsey uuid attribute.
+        class mock_reference_schedule:
+            scheduled_time = timezone.now()
+            uuid = ""
+        return mock_reference_schedule, []
 
 
 def send_survey_push_notification(
@@ -636,7 +686,11 @@ def success_send_handler(participant: Participant, fcm_token: str, schedules: Li
 
 
 def failed_send_handler(
-    participant: Participant, fcm_token: str, error_message: str, schedules: List[ScheduledEvent]
+    participant: Participant,
+    fcm_token: str,
+    error_message: str,
+    schedules: List[ScheduledEvent],
+    debug: bool,
 ):
     """ Contains body of code for unregistering a participants push notification behavior.
         Participants get reenabled when they next touch the app checkin endpoint. """
@@ -665,6 +719,10 @@ def failed_send_handler(
         participant.push_notification_unreachable_count += 1
         logd(f"Participant {participant.patient_id} has had push notifications failures "
               f"incremented to {participant.push_notification_unreachable_count}.")
+    
+    # don't do the new archive events if this is running in debug mode, raise uncatchable exception
+    if debug:
+        raise BaseException("debug mode, not archiving events.")
     
     create_archived_events(schedules, status=error_message, created_on=now)
     enqueue_weekly_surveys(participant, schedules)

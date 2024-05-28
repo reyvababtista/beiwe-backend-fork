@@ -213,9 +213,22 @@ class TestHeartbeatQuery(TestCelery):
         self.set_working_heartbeat_notification_fully_valid
         now = timezone.now()
         self.default_study.device_settings.update(heartbeat_timer_minutes=30)
-        self.default_participant.update(last_upload=now - timedelta(minutes=29))
+        self.default_participant.update(last_upload=now - timedelta(minutes=5))
         self.assertEqual(len(heartbeat_query()), 0)
         self.default_participant.update(last_upload=now - timedelta(minutes=31))
+        self.assertEqual(len(heartbeat_query()), 1)
+    
+    def test_one_minute_offset(self):
+        self.set_working_heartbeat_notification_fully_valid
+        now = timezone.now()
+        self.default_study.device_settings.update(heartbeat_timer_minutes=30)
+        self.default_participant.update(last_upload=now - timedelta(minutes=28))
+        self.assertEqual(len(heartbeat_query()), 0)
+        # this will one will find a valid push notification because we offset the time my 1 minute
+        # to fix compounding off-by-6-minute time bugs.
+        self.default_participant.update(last_upload=now - timedelta(minutes=29))
+        self.assertEqual(len(heartbeat_query()), 1)
+        self.default_participant.update(last_upload=now - timedelta(minutes=30))
         self.assertEqual(len(heartbeat_query()), 1)
     
     def test_study_configurable_heartbeat_message(self):
@@ -234,7 +247,7 @@ class TestHeartbeatQuery(TestCelery):
                 continue
             if not hasattr(self.default_participant, field_name):
                 raise ValueError(f"Participant does not have field {field_name}")
-        
+            
             self.default_participant.update_only(**{field_name: prior_event_time})
             self.assertEqual(len(heartbeat_query()), 1)
             self.default_participant.update_only(**{field_name: None})

@@ -28,7 +28,7 @@ from libs.internal_types import ResearcherRequest
 from libs.password_validation import check_password_requirements, get_min_password_requirement
 from libs.security import create_mfa_object, qrcode_bas64_png, verify_mfa
 from middleware.abort_middleware import abort
-from serializers.tableau_serializers import ApiKeySerializer
+
 
 
 ####################################################################################################
@@ -162,11 +162,11 @@ def manage_credentials(request: ResearcherRequest):
     When loaded with the password the MFA code's image is visible. There is also a special
     MFA_CREATED value in the session that forces the QR code to be visible without a password for
     one minute after it was created (based on page-load time). """
-    # TODO: this is an inappropriate use of a serializer.  It is a single use entity, the contents
-    #  of this database entity do not require special serialization or deserialization, and the use
-    #  of the serializer is complex enough to obscure functionality.  This use of the serializer
-    #  requires that you be an expert in the DRF.  AND there is still crap later to make it work.
-    srlzr = ApiKeySerializer(ApiKey.objects.filter(researcher=request.session_researcher), many=True)
+    
+    # api key names for the researcher - these are sanitized by the template layer.
+    api_keys = list(request.session_researcher.api_keys.order_by("created_on").values(
+        "access_key_id", "has_tableau_api_permissions", "is_active", "readable_name"
+    ))
     
     password = request.POST.get("view_mfa_password", None)
     provided_password = password is not None
@@ -192,7 +192,7 @@ def manage_credentials(request: ResearcherRequest):
         'manage_credentials.html',
         context=dict(
             is_admin=request.session_researcher.is_an_admin(),
-            api_keys=sorted(srlzr.data, reverse=True, key=lambda x: x['created_on']),  # further serializer garbage
+            api_keys=api_keys,
             new_api_access_key=request.session.pop("new_access_key", None),
             new_api_secret_key=request.session.pop("new_secret_key", None),
             new_tableau_key_id=request.session.pop("new_tableau_key_id", None),

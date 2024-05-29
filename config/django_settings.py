@@ -81,7 +81,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django_extensions',
     'timezone_field',
-    'rest_framework',
     # 'static_files',
 ]
 

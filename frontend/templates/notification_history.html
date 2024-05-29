@@ -5,32 +5,30 @@
   <div class="title row">
     <h1>Notification history for <a href="/view_study/{{ study.id }}/participant/{{ participant.patient_id }}">{{ participant.patient_id }}</a></h1>
 
+    {# add a url to load the page without the message notifications #}
+    {% if include_keepalive %}
+      {# INCLUDE the keepalive parameter on the page links #}
+      {% set keepalive_param = "include_keepalive=true&" %}
+      Seeing too many keepalive notifications?
+      {# DON'T include the parameter to tho swap mode link #}
+      <a href="/view_study/{{ study.id }}/participant/{{ participant.patient_id }}/notification_history?page={{page.number}}">Hide Keepalive Notifications</a>
+    {% else %}
+      {# DON'T include the keepalive parameter on the page links #}
+      {% set keepalive_param = "" %}
+      Want to include all keepalive notifications?
+      {# INCLUDE the parameter to tho swap mode link #}
+      <a href="/view_study/{{ study.id }}/participant/{{ participant.patient_id }}/notification_history?include_keepalive=true&page={{page.number}}">Show keepalive notifications</a>
+    {% endif %}
+
     <p><b>Page of results:</b></p>
     <ul class="pagination" style="margin-top:0px;">
-      {% set urlbase = "/view_study/" + study.id|string + "/participant/" + participant.patient_id + "/notification_history?page=" %}
-      {% if page.has_previous() %}
-        <li><a href="{{ urlbase }}{{ page.previous_page_number() }}">&laquo;</a></li>
-        {% if page.previous_page_number() > 1 %}
-          <li><a href="{{ urlbase }}1">1</a></li>
-          {% if page.previous_page_number() > 2 %}
-            <li class="disabled"><a href="">...</a></li>
-          {% endif %}
-        {% endif %}
-        <li><a href="{{ urlbase }}{{ page.previous_page_number() }}">{{ page.previous_page_number() }}</a></li>
-      {% endif %}
-      <li class="active"><a href="#">{{ page.number }}</a></li>
-      {% if page.has_next() %}
-        <li><a href="{{ urlbase }}{{ page.next_page_number() }}">{{ page.next_page_number() }}</a></li>
-        {% if page.next_page_number() < last_page_number %}
-          {% if page.next_page_number() < last_page_number - 1 %}
-            <li class="disabled"><a href="">...</a></li>
-          {% endif %}
-          <li><a href="{{ urlbase }}{{ last_page_number }}">{{ last_page_number }}</a></li>
-        {% endif %}
-        <li><a href="{{ urlbase }}{{ page.next_page_number() }}">&raquo;</a></li>
-      {% endif %}
+      {% set urlbase = "/view_study/" + study.id|string + "/participant/" + participant.patient_id + "/notification_history?" + keepalive_param + "page=" %}
+      {# just create a button for every page it's fine #}
+      {% for page_number in range(last_page_number) %}
+        <li class={% if (page_number +1) == page.number %}"disabled"{% else %}"active"{% endif %}><a href="{{ urlbase }}{{ page_number + 1 }}">{{ page_number + 1 }}</a></li>
+      {% endfor %}
     </ul>
-
+    
     <table class="table table-bordered">
       <tr>
         <th>Scheduled time</th>
@@ -48,7 +46,11 @@
           <td>{{ attempt.survey_name }}</td>
           <td>{{ attempt.survey_version }}</td>
           <td>{{ attempt.schedule_type }}</td>
-          <td>{{ attempt.status.capitalize() }}</td>
+          {% if  attempt.status == "success" %}
+            <td> Sent </td>
+          {% else %}
+            <td> Failed </td>
+          {% endif %}
           <td>
           {# we need to only show this button for real push notifications, which we will detect #}
           {# by checking if the scheduled_time field is a dash #}

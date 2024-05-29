@@ -21,7 +21,7 @@ from database.study_models import Study
 from database.user_models_participant import Participant
 from forms.django_forms import ParticipantExperimentForm
 from libs.firebase_config import check_firebase_instance
-from libs.http_utils import easy_url, really_nice_time_format_with_tz
+from libs.http_utils import easy_url, nice_iso_time_format
 from libs.internal_types import ArchivedEventQuerySet, ResearcherRequest
 from libs.schedules import repopulate_all_survey_scheduled_events
 from middleware.abort_middleware import abort
@@ -41,21 +41,27 @@ def notification_history(request: ResearcherRequest, study_id: int, patient_id: 
     study = get_object_or_404(Study, pk=study_id) 
     participant = get_object_or_404(Participant, patient_id=patient_id)
     
-    # archived events are survey notification events, we have logic that expects page size of 100.
-    archived_events = Paginator(query_values_for_notification_history(participant.id), 100)
+    # defaults to false, looks for the string 'true'.
+    include_keepalive = request.GET.get('include_keepalive', "false").lower() == 'true'
+    
+    # archived events are survey notification events, we have logic that expects page size of 25.
+    archived_events = Paginator(query_values_for_notification_history(participant.id), 25)
     try:
         archived_events_page = archived_events.page(page_number)
     except EmptyPage:
         return HttpResponse(content="", status=404)
     last_page_number = archived_events.page_range.stop - 1
     
-    # get the heartbeats that are relevant to this page
-    heartbeats_query = get_heartbeats_query(participant, archived_events_page, page_number)
+    if include_keepalive:
+        # get the heartbeats that are relevant to this page
+        heartbeats_query = get_heartbeats_query(participant, archived_events_page, page_number)
+        # shove everything into one list.
+        all_notifications = list(
+            chain(archived_events_page, heartbeats_query.values_list("timestamp", flat=True))
+        )
+    else:
+        all_notifications = list(archived_events_page)
     
-    # shove everything into one list.
-    all_notifications = list(
-        chain(archived_events_page, heartbeats_query.values_list("timestamp", flat=True))
-    )
     # Sort by the datetime objects we have, using a dictionary to detect (gross but we need to
     # interleave them) while we have datetime objects because we are using the super nice datetime
     # string formatting that is not sortable.
@@ -90,6 +96,7 @@ def notification_history(request: ResearcherRequest, study_id: int, patient_id: 
             study=study,
             last_page_number=last_page_number,
             locked=participant.is_dead,
+            include_keepalive=include_keepalive,
         )
     )
 
@@ -101,26 +108,27 @@ def get_heartbeats_query(participant: Participant, archived_events_page: Paginat
     # tested, this does return the size of the page 
     count = archived_events_page.object_list.count()  
     
-    if page_number == 1 and count < 100:
-        # fewer than 100 notifications on the first page means that is all of them. So, get all the
-        # heartbeats too. (this also detects and handles the case of zero total survey notifications)
+    if page_number == 1 and count < 25:
+        # fewer than 25 notifications on the first page means that is all of them. So, get all the
+        # heartbeats too. (this also detects and handles the case of zero total survey
+        # notifications)
         heartbeat_query = participant.action_logs.filter(action=HEARTBEAT_PUSH_NOTIFICATION_SENT)
-    elif page_number == 1 and count == 100:
-        # if there are exactly 100 notifications on the first page then we want everything after
+    elif page_number == 1 and count == 25:
+        # if there are exactly 25 notifications on the first page then we want everything after
         # (greater than) the last notification on the page, no latest (most recent) bound).
         heartbeat_query = participant.action_logs.filter(
             timestamp__gte=archived_events_page[-1]["created_on"],
             action=HEARTBEAT_PUSH_NOTIFICATION_SENT
         )
-    elif count < 100:
-        # any non-full pages that are not the first page = get all heartbeats before the top
-        # (most recent) notification on the page with no earliest (most in-the-past) bound.
+    elif count < 25:
+        # any non-full pages that are not the first page = get all heartbeats before the top (most
+        # recent) notification on the page with no earliest (most in-the-past) bound.
         heartbeat_query = participant.action_logs.filter(
             timestamp__lte=archived_events_page[0]["created_on"],
             action=HEARTBEAT_PUSH_NOTIFICATION_SENT,
         )
-    elif count == 100:
-        # if there are exactly 100 notifications and we are not on the first page, then we bound it
+    elif count == 25:
+        # if there are exactly 25 notifications and we are not on the first page, then we bound it
         # by the first and last notifications... but that leaves out heartbeats between pages... but
         # that's both transient and rare? Solving this requires an extra queries and is hard so
         # unless someone complains we just will ignore this.
@@ -195,7 +203,8 @@ def experiments_page(request: ResearcherRequest, study_id: int, patient_id: str)
             form=ParticipantExperimentForm(instance=participant),
         )
     )
-    
+
+
 @authenticate_researcher_study_access
 def update_experiments(request: ResearcherRequest, study_id: int, patient_id: str):
     if not ENABLE_EXPERIMENTS and not RUNNING_TEST_OR_IN_A_SHELL:
@@ -304,8 +313,8 @@ def notification_details_archived_event(
     if archived_event is None:
         return {}
     return {
-        'scheduled_time': really_nice_time_format_with_tz(archived_event['scheduled_time'], study_timezone),
-        'attempted_time': really_nice_time_format_with_tz(archived_event['created_on'], study_timezone),
+        'scheduled_time': nice_iso_time_format(archived_event['scheduled_time'], study_timezone),
+        'attempted_time': nice_iso_time_format(archived_event['created_on'], study_timezone),
         'survey_name': survey_names[archived_event['survey_id']],
         'survey_id': archived_event['survey_id'],
         'survey_deleted': archived_event["survey_archive__survey__deleted"],
@@ -319,7 +328,7 @@ def notification_details_heartbeat(
     heartbeat_timestamp: datetime, study_timezone: tzinfo) -> Dict[str, str]:
     return {
         'scheduled_time': "-",
-        'attempted_time': really_nice_time_format_with_tz(heartbeat_timestamp, study_timezone),
+        'attempted_time': nice_iso_time_format(heartbeat_timestamp, study_timezone),
         'survey_name': "-",
         'survey_id': "-",
         'survey_version': "-",

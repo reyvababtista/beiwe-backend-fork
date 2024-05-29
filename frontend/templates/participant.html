@@ -165,8 +165,15 @@
         </form>
       </div>
     </div>
+    {% if study.easy_enrollment %}
+      <div class="col-md-7 h3-margins-vertical">
+        <b>
+          Easy enrollment is globally enabled for this study.  All participants in this study may enroll without a password.
+        </b>
+      </div>
+    {% endif %}
     <div class="col-md-7 h3-margins-vertical">
-      Easy enrollment may enabled on a per-participant basis.
+      Easy enrollment may be enabled on a per-participant basis.
       <p>
       When easy enrollment is enabled for a study or a participant the Temporary Password that is otherwised required at registration is ignored.  Any value that passes any validation performed by the app is allowed.
     </div>

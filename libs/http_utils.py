@@ -29,6 +29,16 @@ def time_with_tz(dt: datetime):
     return dt.strftime(API_TIME_FORMAT_WITH_TZ)
 
 
+def nice_iso_time_format(dt: datetime, timezone: Union[tzinfo, str]):
+    """ output looks like Tuesday 2024-8-25, 4:31 PM """
+    if dt is None:
+        return ""
+    if isinstance(timezone, str):
+        timezone = tz.gettz(timezone)
+    final_dt = dt.astimezone(timezone)
+    return final_dt.strftime('%A %Y-%m-%d, %-I:%M %p')
+
+
 def really_nice_time_format_with_tz(dt: datetime, timezone: Union[tzinfo, str]):
     """ output looks like Tuesday Aug 25, 2020, 4:31 PM (EST) """
     if dt is None:

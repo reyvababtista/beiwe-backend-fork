@@ -164,7 +164,7 @@ def manage_credentials(request: ResearcherRequest):
     one minute after it was created (based on page-load time). """
     
     # api key names for the researcher - these are sanitized by the template layer.
-    api_keys = list(request.session_researcher.api_keys.order_by("created_on").values(
+    api_keys = list(request.session_researcher.api_keys.order_by("-created_on").values(
         "access_key_id", "has_tableau_api_permissions", "is_active", "readable_name"
     ))
     

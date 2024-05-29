@@ -5,8 +5,7 @@ Jinja2 # used to require pinning, I guess review if there is a major version bum
 zstd>=1.5.5.1 # can be stuck on older versions sometimes
 orjson==3.9.15
 
-# various extensions
-djangorestframework==3.14.0
+# django-extensions for some really nice management commands and terminal helpers.
 django-extensions==3.2.3
 
 python-dateutil==2.8.2  # this is currently locked due to our old celery requirement.

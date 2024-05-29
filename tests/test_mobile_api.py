@@ -456,7 +456,6 @@ class TestGetLatestDeviceSettings(ParticipantSessionTest):
             'consent_sections': DEFAULT_CONSENT_SECTIONS,
             
             # Experiment features, yep you gotta manually change it when you change them too.
-            'enable_heartbeat': False,
             # 'enable_binary_uploads': False,
             # 'enable_new_authentication': False,
             # 'enable_developer_datastream': False,

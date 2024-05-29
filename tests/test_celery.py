@@ -139,7 +139,7 @@ class TestHeartbeatQuery(TestCelery):
     def set_working_heartbeat_notification_basics(self):
         # we are not testing fcm token details in these tests.
         self.default_participant.update(
-            deleted=False, permanently_retired=False, enable_heartbeat=True,
+            deleted=False, permanently_retired=False
         )
         self.populate_default_fcm_token
     
@@ -149,7 +149,7 @@ class TestHeartbeatQuery(TestCelery):
         # after calling this function the default participant should be found by the heartbeat query
         now = timezone.now()
         self.default_participant.update(
-            deleted=False, permanently_retired=False, enable_heartbeat=True, last_upload=now - timedelta(minutes=61),
+            deleted=False, permanently_retired=False, last_upload=now - timedelta(minutes=61),
         )
         self.populate_default_fcm_token
     
@@ -338,7 +338,7 @@ class TestHeartbeatQuery(TestCelery):
         p2 = self.generate_participant(self.default_study)
         self.generate_fcm_token(p2, None)
         p2.update(
-            deleted=False, permanently_retired=False, enable_heartbeat=True, last_upload=timezone.now() - timedelta(minutes=61),
+            deleted=False, permanently_retired=False, last_upload=timezone.now() - timedelta(minutes=61),
         )
         self.assertEqual(Participant.objects.all().count(), 2)
         self.assertEqual(len(heartbeat_query()), 2)
@@ -387,7 +387,7 @@ class TestHeartbeatQuery(TestCelery):
         p2 = self.generate_participant(self.default_study)
         self.generate_fcm_token(p2, None)
         p2.update(
-            deleted=False, permanently_retired=False, enable_heartbeat=True, last_upload=timezone.now() - timedelta(minutes=61),
+            deleted=False, permanently_retired=False, last_upload=timezone.now() - timedelta(minutes=61),
         )
         
         create_heartbeat_tasks()
@@ -411,7 +411,6 @@ class TestHeartbeatQuery(TestCelery):
         p2.update(
             deleted=False,
             permanently_retired=False,
-            enable_heartbeat=True,
             last_upload=timezone.now() - timedelta(minutes=61),
         )
         

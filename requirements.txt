@@ -34,7 +34,7 @@ cachecontrol==0.14.0
     # via firebase-admin
 cachetools==5.3.3
     # via google-auth
-celery==5.3.6
+celery==5.4.0
     # via -r requirements.in
 certifi==2024.2.2
     # via
@@ -81,7 +81,7 @@ executing==2.0.1
     # via stack-data
 firebase-admin==5.4.0
     # via -r requirements.in
-forest @ git+https://git@github.com/onnela-lab/forest@1c0e7bcc9bed574b0392db7004921c51a440b4e0
+forest @ git+https://git@github.com/onnela-lab/forest@592e303c85be6b38bd3512b6c90bcfba36e210f4
     # via -r requirements.in
 google-api-core[grpc]==2.18.0
     # via

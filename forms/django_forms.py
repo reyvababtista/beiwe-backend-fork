@@ -172,7 +172,7 @@ class StudySecuritySettingsForm(forms.ModelForm):
 
 class ParticipantExperimentForm(forms.ModelForm):
     EXPERIMENT_DESCRIPTIONS = {
-        "enable_heartbeat": "The server will send a notification to the participant asking them to open the app if the device has not checked in for over an hour.",
+        # "enable_heartbeat": "The server will send a notification to the participant asking them to open the app if the device has not checked in for over an hour.",
         "enable_extensive_device_info_tracking": "Store device info every time the device makes an API call to the server. (This can generate a lot of data, it is for development and debugging purposes only.)",
     }
     

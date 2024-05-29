@@ -221,8 +221,6 @@ def heartbeat_query() -> List[Tuple[int, str, str, str]]:
     query = ParticipantFCMHistory.objects.filter(
             any_activity_field_gt_one_week_ago,
             
-            participant__enable_heartbeat=True,  # TODO: remove this after feature completion.
-            
             participant__deleted=False,                # no deleted participants
             participant__permanently_retired=False,    # should be rendundant with deleted.
             unregistered=None,                         # this is fcm-speak for non-retired fcm token

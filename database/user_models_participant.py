@@ -113,7 +113,6 @@ class Participant(AbstractPasswordUser):
     # backend feature, some are for app features. (features under active development should be
     # annotated in some way but no promises.)
     # Set help text over in /forms/django_forms.py
-    enable_heartbeat = models.BooleanField(default=False)
     enable_aggressive_background_persistence = models.BooleanField(default=False)
     enable_binary_uploads = models.BooleanField(default=False)
     enable_new_authentication = models.BooleanField(default=False)
@@ -122,7 +121,6 @@ class Participant(AbstractPasswordUser):
     enable_extensive_device_info_tracking = models.BooleanField(default=False)
     
     EXPERIMENT_FIELDS = (
-        "enable_heartbeat",
         # "enable_aggressive_background_persistence",
         # "enable_binary_uploads",
         # "enable_new_authentication",

@@ -499,10 +499,12 @@ class ParticipantSessionTest(SmartRequestsTestCase):
 
 class DataApiTest(SmartRequestsTestCase):
     DISABLE_CREDENTIALS = False
+    API_KEY: ApiKey = None
     
     def setUp(self) -> None:
-        self.session_access_key, self.session_secret_key = \
-            self.session_researcher.reset_access_credentials()
+        self.API_KEY = ApiKey.generate(self.session_researcher)
+        self.session_access_key = self.API_KEY.access_key_id
+        self.session_secret_key = self.API_KEY.access_key_secret_plaintext
         return super().setUp()
     
     def smart_post(self, *reverse_args, reverse_kwargs={}, **post_params) -> HttpResponseRedirect:
@@ -541,7 +543,7 @@ class TableauAPITest(ResearcherSessionTest):
     
     def setUp(self) -> None:
         ret = super().setUp()
-        self.api_key = ApiKey.generate(self.session_researcher, has_tableau_api_permissions=True)
+        self.api_key = ApiKey.generate(self.session_researcher)
         self.api_key_public = self.api_key.access_key_id
         self.api_key_private = self.api_key.access_key_secret_plaintext
         self.set_session_study_relation(ResearcherRole.researcher)

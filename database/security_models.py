@@ -20,8 +20,8 @@ class ApiKey(TimestampedModel):
     access_key_secret = models.CharField(max_length=256, validators=[PASSWORD_VALIDATOR], blank=True)
     
     is_active = models.BooleanField(default=True)
-    has_tableau_api_permissions = models.BooleanField(default=False)
-    researcher: Researcher = models.ForeignKey(Researcher, on_delete=models.CASCADE, related_name="api_keys")
+    last_used = models.DateTimeField(null=True, blank=True)
+    researcher: Researcher = models.ForeignKey(Researcher, null=True, on_delete=models.SET_NULL, related_name="api_keys")
     readable_name = models.TextField(blank=True, default="")
     
     _access_key_secret_plaintext = None

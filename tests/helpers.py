@@ -157,7 +157,6 @@ class ReferenceObjectMixin:
         researcher = Researcher(
             username=name or generate_easy_alphanumeric_string(),
             password=self.SOME_SHA1_PASSWORD_COMPONENTS,
-            access_key_secret=self.SOME_SHA1_PASSWORD_COMPONENTS,
             site_admin=relation_to_session_study == ResearcherRole.site_admin,
             password_force_reset=False,  # is True by default, makes no sense in a test context
         )

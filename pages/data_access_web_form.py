@@ -24,10 +24,10 @@ def data_api_web_form_page(request: ResearcherRequest):
 
 
 def warn_researcher_if_hasnt_yet_generated_access_key(request: ResearcherRequest):
-    if not request.session_researcher.access_key_id:
+    if not request.session_researcher.api_keys.filter(is_active=True).exists():
         msg = """You need to generate an <b>Access Key</b> and a <b>Secret Key </b> before you
-        can download data. Go to <a href='/manage_credentials'> Manage Credentials</a> and click
-        'Reset Data-Download API Access Credentials'. """
+        can download data. Go to <a href='/manage_credentials'> Manage Credentials</a> and create
+        some access keys. """
         messages.warning(request, Markup(msg))
 
 

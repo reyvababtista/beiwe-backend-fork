@@ -164,9 +164,14 @@ def manage_credentials(request: ResearcherRequest):
     one minute after it was created (based on page-load time). """
     
     # api key names for the researcher - these are sanitized by the template layer.
-    api_keys = list(request.session_researcher.api_keys.order_by("-created_on").values(
-        "access_key_id", "has_tableau_api_permissions", "is_active", "readable_name"
+    api_keys = list(
+        request.session_researcher.api_keys
+        .filter(is_active=True)  # don't actually need is_active anymore, we are filtering on it.
+        .order_by("-created_on").values(
+        "access_key_id", "is_active", "readable_name", "created_on"
     ))
+    for key in api_keys:
+        key["created_on"] = key["created_on"].date().isoformat()
     
     password = request.POST.get("view_mfa_password", None)
     provided_password = password is not None
@@ -242,16 +247,6 @@ def researcher_change_my_password(request: ResearcherRequest):
 
 @require_POST
 @authenticate_researcher_login
-def reset_download_api_credentials(request: ResearcherRequest):
-    access_key, secret_key = request.session_researcher.reset_access_credentials()
-    messages.warning(request, RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE)
-    request.session["new_access_key"] = access_key
-    request.session["new_secret_key"] = secret_key
-    return redirect("admin_pages.manage_credentials")
-
-
-@require_POST
-@authenticate_researcher_login
 def new_tableau_api_key(request: ResearcherRequest):
     form = NewApiKeyForm(request.POST)
     if not form.is_valid():
@@ -259,7 +254,6 @@ def new_tableau_api_key(request: ResearcherRequest):
     
     api_key = ApiKey.generate(
         researcher=request.session_researcher,
-        has_tableau_api_permissions=True,
         readable_name=form.cleaned_data['readable_name'],
     )
     request.session["new_tableau_key_id"] = api_key.access_key_id

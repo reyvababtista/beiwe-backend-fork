@@ -236,7 +236,7 @@
           <button type="submit" class="btn btn-danger large-font-size"
           onclick="return confirm('Are you sure you want to permanently end data collection from {{ participant.patient_id }}?')" 
             {% if participant.permanently_retired or locked %} disabled {% endif %}>
-            Permenantly Retire Participant
+            Permanantly Retire Participant
           </button>
         </form>
         {% if participant.permanently_retired %}
@@ -261,7 +261,7 @@
           <button type="submit" class="btn btn-danger large-font-size"
             onclick="confirm_delete_participant('{{ participant.patient_id }}', '{{ study.id }}')"
             {% if locked %} disabled {% endif %}>
-            Permenantly Delete All Participant Data
+            Permanantly Delete All Participant Data
           </button>
 
           {% if locked %}

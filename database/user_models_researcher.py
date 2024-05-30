@@ -66,8 +66,6 @@ class Researcher(AbstractPasswordUser):
         not be associated with any Study. """
         researcher = cls(username=username, **kwargs)
         researcher.set_password(password)
-        # TODO: add check to see if access credentials are in kwargs
-        researcher.reset_access_credentials()
         return researcher
     
     def set_password(self, password: str):
@@ -165,22 +163,6 @@ class Researcher(AbstractPasswordUser):
         if it_matched and (iterations != self.DESIRED_ITERATIONS or algorithm != self.DESIRED_ALGORITHM):
             self.set_access_credentials(self.access_key_id, proposed_secret_key)
         return it_matched
-    
-    def reset_access_credentials(self) -> Tuple[str, str]:
-        """ Replaces access credentials with """
-        access_key = generate_random_string(64)
-        secret_key = generate_random_bytestring(64)
-        self.set_access_credentials(access_key, secret_key)
-        return access_key, secret_key.decode()
-    
-    def set_access_credentials(self, access_key: str, secret_key: bytes) -> Tuple[bytes, bytes]:
-        secret_hash, secret_salt = self.generate_hash_and_salt(secret_key)
-        self.access_key_id = access_key
-        self.access_key_secret = to_django_password_components(
-            self.DESIRED_ALGORITHM, self.DESIRED_ITERATIONS, secret_hash, secret_salt
-        )
-        self.save()
-        return secret_hash, secret_salt
     
     ## Logic
     def is_study_admin(self) -> bool:

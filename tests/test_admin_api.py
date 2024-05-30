@@ -97,7 +97,7 @@ class TestDeleteResearcher(ResearcherSessionTest):
         
         # generate all possible researcher relations for r2 as determined above:
         ApiKey.generate(
-            researcher=r2, has_tableau_api_permissions=True, readable_name="test_api_key"
+            researcher=r2, readable_name="test_api_key"
         )
         relation_id = self.generate_study_relation(
             r2, self.default_study, ResearcherRole.researcher
@@ -112,12 +112,12 @@ class TestDeleteResearcher(ResearcherSessionTest):
         self.smart_get_status_code(302, r2.id)
         # test that these were deleted
         self.assertFalse(Researcher.objects.filter(id=r2.id).exists())
-        self.assertFalse(ApiKey.objects.exists())
         self.assertFalse(StudyRelation.objects.filter(id=relation_id).exists())
         # I can never remember the direction of cascade, confirm study is still there
         self.assertTrue(Study.objects.filter(id=default_study_id).exists())
         # and assert that the DataAccessRecord is still there with a null researcher and a username.
         self.assertTrue(DataAccessRecord.objects.filter(id=record.id).exists())
+        self.assertTrue(ApiKey.objects.exists())
         record.refresh_from_db()
         self.assertIsNone(record.researcher)
         self.assertEqual(record.username, r2.username)

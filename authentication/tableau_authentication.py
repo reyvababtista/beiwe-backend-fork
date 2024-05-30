@@ -76,10 +76,6 @@ def check_tableau_permissions(request: HttpRequest, study_object_id=None):
         log("proposed secret key is not valid")
         raise TableauAuthenticationFailed(CREDENTIALS_NOT_VALID_ERROR_MESSAGE)
     
-    if not api_key.has_tableau_api_permissions:
-        log("api key does not have permission")
-        raise TableauPermissionDenied(APIKEY_NO_ACCESS_MESSAGE)
-    
     # existence errors
     if study_object_id is None:
         log("study_object_id was None")

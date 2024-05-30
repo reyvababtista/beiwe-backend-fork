@@ -78,7 +78,6 @@ class TestManageCredentials(ResearcherSessionTest):
         self.smart_get_status_code(200)
         api_key = ApiKey.generate(
             researcher=self.session_researcher,
-            has_tableau_api_permissions=True,
             readable_name="not important",
         )
         response = self.smart_get_status_code(200)
@@ -227,21 +226,6 @@ class TestResetAdminPassword(ResearcherSessionTest):
         self.assert_present(NEW_PASSWORD_MISMATCH, self.redirect_get_contents())
 
 
-class TestResetDownloadApiCredentials(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.reset_download_api_credentials"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
-    
-    def test_reset(self):
-        self.assertIsNone(self.session_researcher.access_key_id)
-        self.smart_post()
-        self.session_researcher.refresh_from_db()
-        self.assertIsNotNone(self.session_researcher.access_key_id)
-        self.assert_present(
-            "Your Data-Download API access credentials have been reset",
-            self.redirect_get_contents()
-        )
-
-
 class TestResetMFASelf(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.reset_mfa_self"
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
@@ -367,7 +351,6 @@ class TestNewTableauAPIKey(ResearcherSessionTest):
         api_key = ApiKey.objects.get(readable_name="test_generated_api_key")
         self.assertEqual(api_key.researcher.id, self.session_researcher.id)
         self.assertTrue(api_key.is_active)
-        self.assertTrue(api_key.has_tableau_api_permissions)
 
 
 class TestDisableTableauAPIKey(TableauAPITest):
@@ -410,7 +393,6 @@ class TestDisableTableauApiKey(ResearcherSessionTest):
         # basic test
         api_key = ApiKey.generate(
             researcher=self.session_researcher,
-            has_tableau_api_permissions=True,
             readable_name="something",
         )
         self.smart_post(api_key_id=api_key.access_key_id)
@@ -425,7 +407,6 @@ class TestDisableTableauApiKey(ResearcherSessionTest):
         self.assert_present(TABLEAU_NO_MATCHING_API_KEY, self.redirect_get_contents())
         api_key = ApiKey.generate(
             researcher=self.session_researcher,
-            has_tableau_api_permissions=True,
             readable_name="something",
         )
         self.smart_post(api_key_id="abc")
@@ -436,7 +417,6 @@ class TestDisableTableauApiKey(ResearcherSessionTest):
     def test_already_disabled(self):
         api_key = ApiKey.generate(
             researcher=self.session_researcher,
-            has_tableau_api_permissions=True,
             readable_name="something",
         )
         api_key.update(is_active=False)

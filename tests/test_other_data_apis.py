@@ -1,8 +1,10 @@
+from datetime import datetime
 import json
 
 from django.core.exceptions import ValidationError
 
 from constants.user_constants import ResearcherRole
+from database.security_models import ApiKey
 from database.study_models import Study
 from database.survey_models import Survey, SurveyArchive
 from database.user_models_researcher import Researcher
@@ -19,28 +21,19 @@ from tests.common import DataApiTest
 class TestAPIGetStudies(DataApiTest):
     ENDPOINT_NAME = "other_data_apis.get_studies"
     
-    def test_data_access_credential_upgrade(self):
-        # check our assumptions make sense, set algorithm to sha1 and generate old-style credentials
-        self.assertEqual(Researcher.DESIRED_ALGORITHM, "sha256")  # testing assumption
-        self.assertEqual(Researcher.DESIRED_ITERATIONS, 1000)  # testing assumption
-        self.session_researcher.DESIRED_ALGORITHM = "sha1"
-        self.session_access_key, self.session_secret_key = self.session_researcher.reset_access_credentials(
-        )
-        self.session_researcher.DESIRED_ALGORITHM = "sha256"
-        # grab the old-style credentials, run the test_no_study test to confirm it works at all.
-        original_database_value = self.session_researcher.access_key_secret
-        resp = self.smart_post_status_code(200)
-        self.assertEqual(Study.objects.count(), 0)
-        self.assertEqual(json.loads(resp.content), {})
-        # get any new credentials, make sure they're sha256
-        self.session_researcher.refresh_from_db()
-        self.assertNotEqual(original_database_value, self.session_researcher.access_key_secret)
-        self.assertIn("sha1", original_database_value)
-        self.assertIn("sha256", self.session_researcher.access_key_secret)
-        # and then make sure the same password works again!
-        resp = self.smart_post_status_code(200)
-        self.assertEqual(Study.objects.count(), 0)
-        self.assertEqual(json.loads(resp.content), {})
+    def test_inactive_credentials(self):
+        """ this test serves as a test of authentication database details. """
+        self.API_KEY.is_active = False
+        self.API_KEY.save()
+        self.smart_post_status_code(403)
+        self.API_KEY.refresh_from_db()
+        self.assertFalse(self.API_KEY.is_active)  # don't change it yet
+        self.assertIsNone(self.API_KEY.last_used)
+        
+        self.API_KEY.update_only(is_active=True) # ok now change it
+        self.smart_post_status_code(200)
+        self.API_KEY.refresh_from_db()
+        self.assertIsInstance(self.API_KEY.last_used, datetime)
     
     def test_no_study(self):
         resp = self.smart_post_status_code(200)
@@ -101,15 +94,15 @@ class TestApiCredentialCheck(DataApiTest):
         self.assertEqual(400, resp.status_code)
     
     def test_regex_validation(self):
-        # Weird, but keep it, useful when debugging this test.
-        self.session_researcher.access_key_secret = "apples"
-        self.assertRaises(ValidationError, self.session_researcher.save)
+        # asserts that the regex validation is working on te secret key
+        self.API_KEY.access_key_secret = "apples"
+        self.assertRaises(ValidationError, self.API_KEY.save)
     
     def test_wrong_secret_key_db(self):
         # Weird, but keep it, useful when debugging this test.
-        the_id = self.session_researcher.id  # instantiate the researcher, get their id
+        # the_id = self.session_researcher.id  # instantiate the researcher, get their id
         # have to bypass validation
-        Researcher.objects.filter(id=the_id).update(access_key_secret="apples")
+        ApiKey.objects.filter(id=self.API_KEY.id).update(access_key_secret="apples")
         resp = self.smart_post()
         # key doesn't match, forbidden
         self.assertEqual(403, resp.status_code)
@@ -121,8 +114,8 @@ class TestApiCredentialCheck(DataApiTest):
     
     def test_wrong_access_key_db(self):
         # Weird, but keep it, useful when debugging this test.
-        self.session_researcher.access_key_id = "apples"
-        self.session_researcher.save()
+        self.API_KEY.access_key_id = "apples"
+        self.API_KEY.save()
         resp = self.smart_post()
         # no such user, forbidden
         self.assertEqual(403, resp.status_code)

@@ -41,9 +41,6 @@ class Researcher(AbstractPasswordUser):
     username = models.CharField(max_length=32, unique=True, help_text='User-chosen username, stored in plain text')
     site_admin = models.BooleanField(default=False, help_text='Whether the researcher is also an admin')
     
-    access_key_id = models.CharField(max_length=64, validators=[STANDARD_BASE_64_VALIDATOR], unique=True, null=True, blank=True)
-    access_key_secret = models.CharField(max_length=256, validators=[PASSWORD_VALIDATOR], blank=True)
-    
     password_last_changed = models.DateTimeField(null=False, blank=False, default=timezone.now)
     password_force_reset = models.BooleanField(default=True)  # new researchers must reset their password
     # in principle it is somewhat unsafe to store this, but the cryptographic search space is only

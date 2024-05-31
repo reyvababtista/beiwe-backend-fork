@@ -4,10 +4,9 @@ import json
 from django.http.request import HttpRequest
 from django.http.response import HttpResponse
 
-from constants.tableau_api_constants import (APIKEY_NO_ACCESS_MESSAGE,
-    CREDENTIALS_NOT_VALID_ERROR_MESSAGE, NO_STUDY_FOUND_MESSAGE, NO_STUDY_PROVIDED_MESSAGE,
-    RESEARCHER_NOT_ALLOWED, RESOURCE_NOT_FOUND, STUDY_HAS_FOREST_DISABLED_MESSAGE, X_ACCESS_KEY_ID,
-    X_ACCESS_KEY_SECRET)
+from constants.tableau_api_constants import (CREDENTIALS_NOT_VALID_ERROR_MESSAGE,
+    NO_STUDY_FOUND_MESSAGE, NO_STUDY_PROVIDED_MESSAGE, RESEARCHER_NOT_ALLOWED, RESOURCE_NOT_FOUND,
+    X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET)
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.user_models_researcher import StudyRelation

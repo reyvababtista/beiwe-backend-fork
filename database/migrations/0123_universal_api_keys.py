@@ -3,6 +3,7 @@
 from django.db import migrations
 from django.db.migrations.state import StateApps
 
+
 NEW_NAME = "Data Access API Key"
 
 def migrate_access_to_api_keys(apps: StateApps, schema_editor):
@@ -30,6 +31,7 @@ def reverse_migration(apps: StateApps, schema_editor):
     ResearcherOld = apps.get_model('database', 'Researcher')
     ApiKey = apps.get_model('database', 'ApiKey')
     
+    # get the api key that was generated for each researcher and add it back to the researcher model
     for researcher in ResearcherOld.objects.all():
         # we are not bothering to handle the case where the researcher has multiple api_keys with this name
         try:
@@ -46,11 +48,11 @@ def reverse_migration(apps: StateApps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
+    
     dependencies = [
-        ('database', '0121_alter_devicesettings_heartbeat_timer_minutes'),
+        ('database', '0122_remove_participant_enable_heartbeat'),
     ]
-
+    
     operations = [
         migrations.RunPython(migrate_access_to_api_keys, reverse_code=reverse_migration),
         migrations.RemoveField(

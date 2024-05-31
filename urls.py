@@ -68,8 +68,8 @@ path("logout", admin_pages.logout_admin, login_redirect=IGNORE)
 # Researcher self administration
 path("manage_credentials", admin_pages.manage_credentials, login_redirect=IGNORE)
 path("researcher_change_my_password", admin_pages.researcher_change_my_password, login_redirect=IGNORE)
-path("new_api_key", admin_pages.new_tableau_api_key)
-path("disable_tableau_api_key", admin_pages.disable_tableau_api_key)
+path("new_api_key", admin_pages.new_api_key)
+path("disable_api_key", admin_pages.disable_api_key)
 path("reset_mfa_self", admin_pages.reset_mfa_self, login_redirect=IGNORE)
 path("test_mfa", admin_pages.test_mfa)
 

@@ -5,11 +5,11 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
+    
     dependencies = [
-        ('database', '0122_universal_api_keys'),
+        ('database', '0123_universal_api_keys'),
     ]
-
+    
     operations = [
         migrations.RemoveField(
             model_name='apikey',

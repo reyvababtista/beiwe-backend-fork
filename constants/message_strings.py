@@ -88,7 +88,7 @@ ALERT_SPECIFIC_ERROR_TEXT = \
 
 ## Admin Pages
 RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE = "Your Data-Download API access credentials have been reset."
-NEW_API_KEY_MESSAGE = "New Tableau API credentials have been generated for you!"
+NEW_API_KEY_MESSAGE = "New credentials have been generated for you!"
 PASSWORD_WILL_EXPIRE = "Your password will expire in {days} days, reset it to clear this reminder."
 PASSWORD_EXPIRED = "Your password has expired, please reset your password."
 PASSWORD_RESET_FORCED = "You have had your password administratively reset, please set a new password."
@@ -119,10 +119,10 @@ NEW_PASSWORD_MISMATCH = "New Password does not match Confirm New Password"
 NEW_PASSWORD_N_LONG = "Your New Password must be at least {length} characters long."
 NEW_PASSWORD_RULES_FAIL = "Your New Password must contain at least one symbol, one number, one lowercase, and one uppercase character."
 
-# tableau key messages
-TABLEAU_NO_MATCHING_API_KEY = "No matching API key found to disable"
-TABLEAU_API_KEY_IS_DISABLED = "This API key has already been disabled:"
-TABLEAU_API_KEY_NOW_DISABLED = "The API key {key} is now disabled"
+# api key messages
+NO_MATCHING_API_KEY = "No matching API key found to disable"
+API_KEY_IS_DISABLED = "This API key has already been disabled:"
+API_KEY_NOW_DISABLED = "The API key {key} is now disabled"
 
 ## Mobile API
 DECRYPTION_KEY_ERROR_MESSAGE = "This file did not contain a valid decryption key and could not be processed."

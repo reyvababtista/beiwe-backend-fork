@@ -128,7 +128,6 @@ HEADER_IS_REQUIRED = "This header is required"
 RESOURCE_NOT_FOUND = "resource not found"
 
 # permissions errors
-APIKEY_NO_ACCESS_MESSAGE = "ApiKey does not have access to Tableau API"
 NO_STUDY_PROVIDED_MESSAGE = "No study id specified"
 NO_STUDY_FOUND_MESSAGE = "No matching study found"
 RESEARCHER_NOT_ALLOWED = "Researcher does not have permission to view that study"

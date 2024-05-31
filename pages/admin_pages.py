@@ -11,11 +11,11 @@ from authentication.admin_authentication import (authenticate_researcher_login,
     logout_researcher)
 from config.settings import DOMAIN_NAME
 from constants.common_constants import DISPLAY_TIME_FORMAT
-from constants.message_strings import (MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING,
-    MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED, MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS,
-    MFA_TEST_DISABLED, MFA_TEST_FAIL, MFA_TEST_SUCCESS, NEW_API_KEY_MESSAGE, NEW_PASSWORD_MISMATCH,
-    PASSWORD_RESET_SUCCESS, RESET_DOWNLOAD_API_CREDENTIALS_MESSAGE, TABLEAU_API_KEY_IS_DISABLED,
-    TABLEAU_API_KEY_NOW_DISABLED, TABLEAU_NO_MATCHING_API_KEY, WRONG_CURRENT_PASSWORD)
+from constants.message_strings import (API_KEY_IS_DISABLED, API_KEY_NOW_DISABLED, MFA_CODE_6_DIGITS,
+    MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING, MFA_SELF_BAD_PASSWORD, MFA_SELF_DISABLED,
+    MFA_SELF_NO_PASSWORD, MFA_SELF_SUCCESS, MFA_TEST_DISABLED, MFA_TEST_FAIL, MFA_TEST_SUCCESS,
+    NEW_API_KEY_MESSAGE, NEW_PASSWORD_MISMATCH, NO_MATCHING_API_KEY, PASSWORD_RESET_SUCCESS,
+    WRONG_CURRENT_PASSWORD)
 from constants.security_constants import MFA_CREATED
 from constants.user_constants import EXPIRY_NAME, ResearcherRole
 from database.security_models import ApiKey
@@ -28,7 +28,6 @@ from libs.internal_types import ResearcherRequest
 from libs.password_validation import check_password_requirements, get_min_password_requirement
 from libs.security import create_mfa_object, qrcode_bas64_png, verify_mfa
 from middleware.abort_middleware import abort
-
 
 
 ####################################################################################################
@@ -198,10 +197,8 @@ def manage_credentials(request: ResearcherRequest):
         context=dict(
             is_admin=request.session_researcher.is_an_admin(),
             api_keys=api_keys,
-            new_api_access_key=request.session.pop("new_access_key", None),
-            new_api_secret_key=request.session.pop("new_secret_key", None),
-            new_tableau_key_id=request.session.pop("new_tableau_key_id", None),
-            new_tableau_secret_key=request.session.pop("new_tableau_secret_key", None),
+            new_api_access_key=request.session.pop("new_api_key_id", None),
+            new_api_secret_key=request.session.pop("new_api_secret_key", None),
             min_password_length=get_min_password_requirement(request.session_researcher),
             mfa_png=mfa_png,
             has_mfa=has_mfa,
@@ -256,8 +253,8 @@ def new_tableau_api_key(request: ResearcherRequest):
         researcher=request.session_researcher,
         readable_name=form.cleaned_data['readable_name'],
     )
-    request.session["new_tableau_key_id"] = api_key.access_key_id
-    request.session["new_tableau_secret_key"] = api_key.access_key_secret_plaintext
+    request.session["new_api_key_id"] = api_key.access_key_id
+    request.session["new_api_secret_key"] = api_key.access_key_secret_plaintext
     messages.warning(request, Markup(NEW_API_KEY_MESSAGE))
     return redirect("admin_pages.manage_credentials")
 
@@ -273,15 +270,15 @@ def disable_tableau_api_key(request: ResearcherRequest):
         .filter(researcher=request.session_researcher)
     
     if not api_key_query.exists():
-        messages.warning(request, Markup(TABLEAU_NO_MATCHING_API_KEY))
+        messages.warning(request, Markup(NO_MATCHING_API_KEY))
         return redirect("admin_pages.manage_credentials")
     
     api_key = api_key_query[0]
     if not api_key.is_active:
-        messages.warning(request, TABLEAU_API_KEY_IS_DISABLED + f" {api_key_id}")
+        messages.warning(request, API_KEY_IS_DISABLED + f" {api_key_id}")
         return redirect("admin_pages.manage_credentials")
     
     api_key.is_active = False
     api_key.save()
-    messages.success(request, TABLEAU_API_KEY_NOW_DISABLED.format(key=api_key.access_key_id))
+    messages.success(request, API_KEY_NOW_DISABLED.format(key=api_key.access_key_id))
     return redirect("admin_pages.manage_credentials")

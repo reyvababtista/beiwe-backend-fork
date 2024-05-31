@@ -332,11 +332,12 @@ class TestTestMFA(ResearcherSessionTest):
 
 #
 ## The tableau stuff
-#
+#  We have ended up with multiple tests of the same endpoint after the merging formerly tableau 
+#  and data access api keys. Tests still pass, tests are different, but the endpoints are the same.
 
 
-class TestNewTableauAPIKey(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.new_tableau_api_key"
+class TestNewAPIKeyTableau(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.new_api_key"
     
     def test_new_api_key(self):
         """ Asserts that:
@@ -353,10 +354,10 @@ class TestNewTableauAPIKey(ResearcherSessionTest):
         self.assertTrue(api_key.is_active)
 
 
-class TestDisableTableauAPIKey(TableauAPITest):
-    ENDPOINT_NAME = "admin_pages.disable_tableau_api_key"
+class TestDisableAPIKeyTableau(TableauAPITest):
+    ENDPOINT_NAME = "admin_pages.disable_api_key"
     
-    def test_disable_tableau_api_key(self):
+    def test_disable_api_key(self):
         """ Asserts that:
             -exactly one fewer active api key is present in the database
             -the api key is no longer active """
@@ -366,8 +367,8 @@ class TestDisableTableauAPIKey(TableauAPITest):
         self.assertFalse(ApiKey.objects.get(access_key_id=self.api_key_public).is_active)
 
 
-class TestNewTableauApiKey(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.new_tableau_api_key"
+class TestNewApiKey(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.new_api_key"
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
     # FIXME: add tests for sanitization of the input name
@@ -384,9 +385,9 @@ class TestNewTableauApiKey(ResearcherSessionTest):
         )
 
 
-# admin_pages.disable_tableau_api_key
+# admin_pages.disable_api_key
 class TestDisableTableauApiKey(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.disable_tableau_api_key"
+    ENDPOINT_NAME = "admin_pages.disable_api_key"
     REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
     
     def test_disable_success(self):

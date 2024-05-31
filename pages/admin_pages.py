@@ -244,7 +244,7 @@ def researcher_change_my_password(request: ResearcherRequest):
 
 @require_POST
 @authenticate_researcher_login
-def new_tableau_api_key(request: ResearcherRequest):
+def new_api_key(request: ResearcherRequest):
     form = NewApiKeyForm(request.POST)
     if not form.is_valid():
         return redirect("admin_pages.manage_credentials")
@@ -261,7 +261,7 @@ def new_tableau_api_key(request: ResearcherRequest):
 
 @require_POST
 @authenticate_researcher_login
-def disable_tableau_api_key(request: ResearcherRequest):
+def disable_api_key(request: ResearcherRequest):
     form = DisableApiKeyForm(request.POST)
     if not form.is_valid():
         return redirect("admin_pages.manage_credentials")

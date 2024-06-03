@@ -1,6 +1,8 @@
+import csv
 import json
 from collections import defaultdict
 from datetime import datetime, timedelta
+from io import StringIO
 from typing import Dict, Optional, Union
 
 from django.contrib import messages
@@ -9,7 +11,7 @@ from django.db.models.expressions import ExpressionWrapper
 from django.db.models.fields import BooleanField
 from django.db.models.functions.text import Lower
 from django.db.models.query_utils import Q
-from django.http import FileResponse, JsonResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
@@ -51,6 +53,42 @@ def study_participants_api(request: ResearcherRequest, study_id: int):
         "data": data
     }
     return JsonResponse(table_data, status=200)
+
+
+@require_http_methods(['GET', 'POST'])
+@authenticate_researcher_study_access
+def download_participants_csv(request: ResearcherRequest, study_id: int = None):
+    """ Download a CSV file version of the participants table on the view study page. """
+    study: Study = Study.objects.get(pk=study_id)  # already validated by the decorator.
+    
+    total_participants = Participant.objects.filter(study_id=study_id).count()
+    data = get_values_for_participants_table(
+        study=study,
+        start=0,
+        length=total_participants,
+        sort_by_column_index=1,  # sort by patient_id
+        sort_in_descending_order=False,  
+        contains_string="",
+    )
+    
+    # we need to get the field names and intervention names as they are displayed on the page
+    study_fields = list(study.fields.all().values_list('field_name', flat=True))
+    interventions = list(study.interventions.all().values_list("name", flat=True))
+    
+    # sort is defined as lower case, interventions then fields
+    interventions.sort(key=lambda x: x.lower())
+    study_fields.sort(key=lambda x: x.lower())
+    header_row = ["Created On", "Patient ID", "Status", "OS Type"] + interventions + study_fields
+    
+    # we need to write the data to a buffer, and then return the buffer as a response
+    buffer = StringIO()
+    writer = csv.writer(buffer, dialect="excel")
+    writer.writerow(header_row)
+    writer.writerows(data)
+    buffer.seek(0)
+    return HttpResponse(buffer.read(), content_type='text/csv')
+
+
 
 
 @require_http_methods(['GET', 'POST'])
@@ -233,12 +271,23 @@ def get_values_for_participants_table(
     This code used to be horrible - e.g. it committed the unforgivable sin of trying to speed up
     complex query logic with prefetch_related. It has been rewritten in ugly but performant and
     comprehensible values_list code that emits a total of 4 queries. This is literally a hundred
-    times faster, even though it always has to pull in all the study participants. """
+    times faster, even though it always has to pull in all the study participants.
+    
+    Example extremely simple study output, no fields or interventions, no sorting or filtering
+    parameters were applied:
+    [['2021-12-09', '1f9qb91f', 'Inactive', 'ANDROID'],
+    ['2021-03-18', 'bnhyxqey', 'Inactive', 'ANDROID'],
+    ['2022-09-27', 'c3b7mk7j', 'Inactive', 'IOS'],
+    ['2021-12-09', 'e1yjh259', 'Inactive', 'IOS'],
+    ['2022-06-23', 'ksg8clpo', 'Inactive', 'IOS'],
+    ['2018-04-12', 'prx7ap5x', 'Inactive', 'ANDROID'],
+    ['2018-04-12', 'whr8nx5b', 'Inactive', 'IOS']]
+    """
     # ~ is the not operator - this might or might not speed up the query, whatever.
     HAS_NO_DEVICE_ID = ExpressionWrapper(~Q(device_id=''), output_field=BooleanField())
     
     # we need a reference list of all field and intervention names names ordered to match the
-    # ordering on the rendering page.
+    # ordering on the rendering page. Order is lowercase alphanumerical.
     field_names_ordered = list(
         study.fields.values_list("field_name", flat=True).order_by(Lower('field_name'))
     )

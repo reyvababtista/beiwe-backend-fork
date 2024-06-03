@@ -68,6 +68,7 @@ def choose_study(request: ResearcherRequest):
 @authenticate_researcher_study_access
 def view_study(request: ResearcherRequest, study_id=None):
     study: Study = Study.objects.get(pk=study_id)
+    
     def get_survey_info(survey_type: str):
         survey_info = list(
             study.surveys.filter(survey_type=survey_type, deleted=False)

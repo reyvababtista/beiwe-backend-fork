@@ -256,7 +256,7 @@ class ReferenceObjectMixin:
         return token
     
     @property
-    def default_participant_field_value(self) -> StudyField:
+    def default_participant_field_value(self) -> ParticipantFieldValue:
         try:
             return self._default_participant_field_value
         except AttributeError:
@@ -267,9 +267,13 @@ class ReferenceObjectMixin:
         return self._default_participant_field_value
     
     def generate_participant_field_value(
-        self, study_field: StudyField, participant: Participant, value: str
+        self, study_field: StudyField, participant: Participant, value: str = None
     ) -> ParticipantFieldValue:
-        pfv = ParticipantFieldValue(participant=participant, field=study_field, value=value)
+        pfv = ParticipantFieldValue(
+            participant=participant,
+            field=study_field,
+            value=value if value else self.DEFAULT_PARTICIPANT_FIELD_VALUE,
+        )
         pfv.save()
         return pfv
     
@@ -277,7 +281,8 @@ class ReferenceObjectMixin:
     def generate_10_default_participants(self) -> List[Participant]:
         return [self.generate_participant(self.session_study) for _ in range(10)]
     
-    def generate_participant(self, study: Study, patient_id: str = None, ios=False, device_id=None):
+    def generate_participant(
+            self, study: Study, patient_id: str = None, ios=False, device_id=None) -> Participant:
         participant = Participant(
             patient_id=patient_id or generate_easy_alphanumeric_string(),
             os_type=IOS_API if ios else ANDROID_API,

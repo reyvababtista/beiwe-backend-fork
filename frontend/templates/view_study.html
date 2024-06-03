@@ -88,17 +88,23 @@
           </thead>
         </table>
 
-        <form action="/create_new_participant" method="post">
-          <div class="form-inline pull-right h3-margins margin-right-1">
+        <form action={{ easy_url("study_api.download_participants_csv", study_id) }} method="post">
+          <div class="form-inline pull-left h3-margins margin-right-1">
             <input type="hidden" name="study_id" value="{{ study.id }}">
-            <button type="submit" class="btn btn-primary ">Add new participant</button>
+            <button type="submit" class="btn btn-primary">Download Participants Table</button>
           </div>
         </form>
 
-        <button type="button" class="btn btn-warning pull-left h3-margins" data-toggle="modal" data-target="#addManyPatientsModal" 
-                title="Enable a number of new participants to enroll in {{ study.name }}: 
-                download a file of new Patient IDs and registration passwords">Add many new participants</button>
+        <form action="/create_new_participant" method="post">
+          <div class="form-inline btn-warning pull-right h3-margins margin-right-1">
+            <input type="hidden" name="study_id" value="{{ study.id }}">
+            <button type="submit" class="btn btn-info">Add New <b>Participant</b></button>
+          </div>
+        </form>
 
+        <button type="button" class="btn btn-warning pull-right h3-margins margin-right-1" data-toggle="modal" data-target="#addManyPatientsModal" 
+                title="Enable a number of new participants to enroll in {{ study.name }}: 
+                download a file of new Patient IDs and registration passwords">Add <b>Many</b> New Participants</button>
         {% include 'create_many_participants_modal.html' %}
       </div>
     </div>

@@ -19,7 +19,7 @@ from libs.intervention_utils import add_fields_and_interventions
 from libs.participant_purge import add_participant_for_deletion
 from libs.s3 import create_client_key_pair, s3_upload
 from libs.schedules import repopulate_all_survey_scheduled_events
-from libs.streaming_bytes_io import StreamingStringsIO
+from libs.streaming_io import StreamingStringsIO
 
 
 #FIXME: rename to participant_administration_api.py

@@ -31,6 +31,7 @@ from libs.forest_utils import download_output_file
 from libs.http_utils import easy_url
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest
 from libs.s3 import NoSuchKeyException
+from libs.streaming_io import CSVBuffer
 from libs.streaming_zip import ZipGenerator
 from libs.utils.date_utils import daterange
 
@@ -482,14 +483,3 @@ def yes_no_unknown(a_bool: bool):
         return "No"
     else:
         return "Unknown"
-
-
-# we need a class that has a read and write method for the csv writer machinery to use.
-class CSVBuffer:
-    line = ""
-    
-    def read(self):
-        return self.line
-    
-    def write(self, line):
-        self.line = line

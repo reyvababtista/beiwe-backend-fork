@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta
+from typing import Tuple
 
 from django.utils import timezone
 
@@ -7,7 +8,9 @@ from constants.common_constants import API_DATE_FORMAT
 from constants.user_constants import ResearcherRole
 from database.schedule_models import Intervention
 from database.study_models import StudyField
+from database.user_models_participant import Participant
 from tests.common import ResearcherSessionTest
+
 
 # trunk-ignore-all(ruff/B018)
 
@@ -308,3 +311,106 @@ class TestEditStudyField(ResearcherSessionTest):
         study_field_new = StudyField.objects.get(id=study_field.id)
         self.assertEqual(study_field.id, study_field_new.id)
         self.assertEqual(study_field_new.field_name, "new_name")
+
+
+# test download_participants_csv
+class TestDownloadParticipantsCsv(ResearcherSessionTest):
+    ENDPOINT_NAME = "study_api.download_participants_csv"
+    JAN_1_2020 = datetime(2020, 1, 1, 12, tzinfo=timezone.utc)
+    
+    @property
+    def response_basic(self) -> bytes:
+        return (b"Created On,Patient ID,Status,OS Type\r\n"
+                b"2020-01-01,patient1,Inactive,ANDROID\r\n" 
+                b"2020-01-01,patient2,Inactive,ANDROID\r\n")
+    
+    @property
+    def response_with_intervention(self) -> bytes:
+        return (b"Created On,Patient ID,Status,OS Type,default_intervention_name\r\n"
+                b"2020-01-01,patient1,Inactive,ANDROID,2020-01-01\r\n"
+                b"2020-01-01,patient2,Inactive,ANDROID,2020-01-01\r\n")
+    
+    @property
+    def response_with_custom_field(self) -> bytes:
+        return (b"Created On,Patient ID,Status,OS Type,default_study_field_name\r\n"
+                b"2020-01-01,patient1,Inactive,ANDROID,default_study_field_value\r\n"
+                b"2020-01-01,patient2,Inactive,ANDROID,default_study_field_value\r\n")
+    
+    @property
+    def response_with_intervention_and_custom_field(self) -> bytes:
+        return (b"Created On,Patient ID,Status,OS Type,default_intervention_name,default_study_field_name\r\n"
+                b"2020-01-01,patient1,Inactive,ANDROID,2020-01-01,default_study_field_value\r\n"
+                b"2020-01-01,patient2,Inactive,ANDROID,2020-01-01,default_study_field_value\r\n")
+    
+    @property
+    def setup_two_base_participants(self) -> Tuple[Participant, Participant]:
+        p1 = self.generate_participant(self.session_study, "patient1")
+        p2 = self.generate_participant(self.session_study, "patient2")
+        p1.update_only(created_on=self.JAN_1_2020)
+        p2.update_only(created_on=self.JAN_1_2020)
+        return p1, p2
+    
+    def test_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_two_participants_basic()
+    
+    def test_study_researcher(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_two_participants_basic()
+    
+    def test_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test_two_participants_basic()
+    
+    def _test_two_participants_basic(self):
+        self.setup_two_base_participants
+        resp = self.smart_get(self.session_study.id)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "text/csv")
+        self.assertEqual(resp.content, self.response_basic)
+    
+    def test_two_participants_with_intervention(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        p1, p2 = self.setup_two_base_participants
+        self.generate_intervention_date(p1, self.default_intervention, self.JAN_1_2020)
+        self.generate_intervention_date(p2, self.default_intervention, self.JAN_1_2020)
+        resp = self.smart_get(self.session_study.id)
+        self.assertEqual(resp.content, self.response_with_intervention)
+    
+    def test_two_participants_with_custom_field(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        p1, p2 = self.setup_two_base_participants
+        self.generate_participant_field_value(
+            self.default_study_field, p1, self.DEFAULT_PARTICIPANT_FIELD_VALUE)
+        self.generate_participant_field_value(
+            self.default_study_field, p2, self.DEFAULT_PARTICIPANT_FIELD_VALUE)
+        resp = self.smart_get(self.session_study.id)
+        self.assertEqual(self.response_with_custom_field, resp.content)
+    
+    def test_two_participants_with_intervention_and_custom_field(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        p1, p2 = self.setup_two_base_participants
+        self.generate_intervention_date(p1, self.default_intervention, self.JAN_1_2020)
+        self.generate_intervention_date(p2, self.default_intervention, self.JAN_1_2020)
+        self.generate_participant_field_value(
+            self.default_study_field, p1, self.DEFAULT_PARTICIPANT_FIELD_VALUE)
+        self.generate_participant_field_value(
+            self.default_study_field, p2, self.DEFAULT_PARTICIPANT_FIELD_VALUE)
+        resp = self.smart_get(self.session_study.id)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "text/csv")
+        self.assertEqual(resp.content, self.response_with_intervention_and_custom_field)
+    
+    def test_no_participants(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        content = self.smart_get(self.session_study.id).content
+        self.assertEqual(content, b"Created On,Patient ID,Status,OS Type\r\n")
+    
+    def test_single_base_participant(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        p1 = self.generate_participant(self.session_study, "patient1")
+        p1.update_only(created_on=self.JAN_1_2020)
+        resp = self.smart_get(self.session_study.id)
+        # I don't know why there is a trailing newline, but it is there.
+        ref = b"\r\n".join(self.response_basic.splitlines()[:-1]) + b"\r\n"
+        self.assertEqual(resp.content, ref)

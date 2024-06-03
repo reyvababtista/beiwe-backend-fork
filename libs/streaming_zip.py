@@ -7,7 +7,7 @@ from constants.data_stream_constants import (SURVEY_ANSWERS, SURVEY_TIMINGS,
     VOICE_RECORDING)
 from database.study_models import Study
 from libs.s3 import s3_retrieve
-from libs.streaming_bytes_io import StreamingBytesIO
+from libs.streaming_io import StreamingBytesIO
 
 
 class DummyError(Exception): pass

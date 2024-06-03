@@ -143,6 +143,8 @@ path("privacy_policy", admin_api.download_privacy_policy)
 
 # study api
 path('study/<str:study_id>/get_participants_api', study_api.study_participants_api)
+path('study/<str:study_id>/download_participants_csv', study_api.download_participants_csv)
+
 path('interventions/<str:study_id>', study_api.interventions_page, login_redirect=SAFE)
 path('delete_intervention/<str:study_id>', study_api.delete_intervention)
 path('edit_intervention/<str:study_id>', study_api.edit_intervention)

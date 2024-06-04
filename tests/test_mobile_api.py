@@ -275,6 +275,37 @@ class TestRegisterParticipant(ParticipantSessionTest):
     def test_bad_request(self):
         self.skip_next_device_tracker_params
         self.smart_post_status_code(403)
+        self.assertIsNone(self.default_participant.last_register_user)
+        self.assertIsNone(self.default_participant.first_register_user)
+    
+    @patch("api.mobile_api.s3_upload")
+    @patch("api.mobile_api.get_client_public_key_string")
+    def test_first_register_only_triggers_once(
+        self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
+    ):
+        s3_upload.return_value = None
+        get_client_public_key_string.return_value = "a_private_key"
+        resp = self.smart_post_status_code(200, **self.BASIC_PARAMS)
+        # include the basic validity of the request doing its thing test
+        response_dict = json.loads(resp.content)
+        self.assertEqual("a_private_key", response_dict["client_public_key"])
+        self.session_participant.refresh_from_db()
+        self.assertIsInstance(self.default_participant.last_register_user, datetime)
+        self.assertIsInstance(self.default_participant.first_register_user, datetime)
+        self.assertEqual(self.default_participant.last_register_user,
+                         self.default_participant.first_register_user)
+        old_first_register_user = self.default_participant.first_register_user
+        # And then test that the second request Works but doesn't modify the first_register_user.
+        # first_register_user should be the same as the last_register_user on these tests.
+        response_dict = json.loads(resp.content)
+        self.assertEqual("a_private_key", response_dict["client_public_key"])
+        self.session_participant.refresh_from_db()
+        self.assertIsInstance(self.default_participant.last_register_user, datetime)
+        self.assertIsInstance(self.default_participant.first_register_user, datetime)
+        self.assertEqual(old_first_register_user, self.default_participant.first_register_user)
+        # is also a test for non-equality:
+        self.assertGreaterEqual(self.default_participant.last_register_user,
+                                self.default_participant.first_register_user)
     
     @patch("api.mobile_api.s3_upload")
     @patch("api.mobile_api.get_client_public_key_string")
@@ -287,6 +318,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         # None intervention so its probably fine.
         s3_upload.return_value = None
         self.assertIsNone(self.default_participant.last_register_user)
+        self.assertIsNone(self.default_participant.first_register_user)  # one off test detail
         get_client_public_key_string.return_value = "a_private_key"
         # unenrolled participants have no device id
         self.session_participant.update(device_id="")
@@ -296,6 +328,9 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
         self.assertIsInstance(self.default_participant.last_register_user, datetime)
+        self.assertIsInstance(self.default_participant.first_register_user, datetime)
+        self.assertEqual(self.default_participant.last_register_user,
+                         self.default_participant.first_register_user)
     
     @patch("api.mobile_api.s3_upload")
     @patch("api.mobile_api.get_client_public_key_string")
@@ -322,6 +357,11 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertIsInstance(self.default_participant.last_register_user, datetime)
         self.default_populated_intervention_date.refresh_from_db()
         self.assertIsNone(self.default_populated_intervention_date.date)
+        # the first_register_user should be the same as the last_register_user on these tests.
+        self.assertIsInstance(self.default_participant.last_register_user, datetime)
+        self.assertIsInstance(self.default_participant.first_register_user, datetime)
+        self.assertEqual(self.default_participant.last_register_user,
+                         self.default_participant.first_register_user)
     
     @patch("api.mobile_api.s3_upload")
     @patch("api.mobile_api.get_client_public_key_string")
@@ -340,6 +380,10 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
+        self.assertIsInstance(self.default_participant.last_register_user, datetime)
+        self.assertIsInstance(self.default_participant.first_register_user, datetime)
+        self.assertEqual(self.default_participant.last_register_user,
+                         self.default_participant.first_register_user)
     
     @patch("api.mobile_api.s3_upload")
     @patch("api.mobile_api.get_client_public_key_string")
@@ -353,6 +397,8 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertEqual(resp.content, b"")
         self.session_participant.refresh_from_db()
         self.assertFalse(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
+        self.assertIsNone(self.default_participant.last_register_user)
+        self.assertIsNone(self.default_participant.first_register_user)
     
     @patch("api.mobile_api.s3_upload")
     @patch("api.mobile_api.get_client_public_key_string")
@@ -369,6 +415,10 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
+        self.assertIsInstance(self.default_participant.last_register_user, datetime)
+        self.assertIsInstance(self.default_participant.first_register_user, datetime)
+        self.assertEqual(self.default_participant.last_register_user,
+                         self.default_participant.first_register_user)
     
     @patch("api.mobile_api.s3_upload")
     @patch("api.mobile_api.get_client_public_key_string")
@@ -385,6 +435,10 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
+        self.assertIsInstance(self.default_participant.last_register_user, datetime)
+        self.assertIsInstance(self.default_participant.first_register_user, datetime)
+        self.assertEqual(self.default_participant.last_register_user,
+                         self.default_participant.first_register_user)
     
     def test_deleted_participant(self):
         self.INJECT_DEVICE_TRACKER_PARAMS = False
@@ -392,6 +446,8 @@ class TestRegisterParticipant(ParticipantSessionTest):
         response = self.smart_post_status_code(403)
         self.assertEqual(response.content, b"")
         self.INJECT_DEVICE_TRACKER_PARAMS = True
+        self.assertIsNone(self.default_participant.last_register_user)
+        self.assertIsNone(self.default_participant.first_register_user)
 
 
 class TestGetLatestDeviceSettings(ParticipantSessionTest):

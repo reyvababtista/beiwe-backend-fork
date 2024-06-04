@@ -86,6 +86,7 @@ class Participant(AbstractPasswordUser):
     # pure tracking - these are used to track the last time a participant did something.
     last_get_latest_surveys = models.DateTimeField(null=True, blank=True)
     last_upload = models.DateTimeField(null=True, blank=True)
+    first_register_user = models.DateTimeField(null=True, blank=True)
     last_register_user = models.DateTimeField(null=True, blank=True)
     last_set_password = models.DateTimeField(null=True, blank=True)
     last_set_fcm_token = models.DateTimeField(null=True, blank=True)

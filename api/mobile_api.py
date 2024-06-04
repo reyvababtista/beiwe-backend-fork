@@ -178,12 +178,17 @@ def register_user(request: ParticipantRequest, OS_API=""):
     contacting the study researcher/admin. It became impossible to maintain this as operating
     systems changed and blocked device-specific ids. There was a similar test for locking a user to
     an operating system type that was dropped. """
-    request.session_participant.update_only(last_register_user=timezone.now())
+    
+    # We want to record a first registration time, we only want to do so if this is _actually_ the
+    # first time for participants that existed before we added this detail.
+    now = timezone.now()
+    if request.session_participant.last_register_user:
+        request.session_participant.update_only(last_register_user=now)
+    else:
+        request.session_participant.update_only(last_register_user=now, first_register_user=now)
     if (
-        'patient_id' not in request.POST
-        or 'phone_number' not in request.POST
-        or 'device_id' not in request.POST
-        or 'new_password' not in request.POST
+        'patient_id' not in request.POST or 'device_id' not in request.POST
+        or 'phone_number' not in request.POST or 'new_password' not in request.POST
     ):
         return HttpResponse(content="", status=400)
     

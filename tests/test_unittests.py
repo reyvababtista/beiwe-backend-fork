@@ -8,7 +8,6 @@ import dateutil
 from dateutil.tz import gettz
 from django.utils import timezone
 
-from api.study_api import determine_registered_status
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import MIDNIGHT_EVERY_DAY
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS
@@ -22,6 +21,7 @@ from libs.file_processing.utility_functions_simple import BadTimecodeError, bini
 from libs.forest_utils import get_forest_git_hash
 from libs.participant_purge import (confirm_deleted, get_all_file_path_prefixes,
     run_next_queued_participant_data_deletion)
+from libs.participant_table_api import determine_registered_status
 from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_and_schedule,
     NoSchedulesException)
 from tests.common import CommonTestCase
@@ -547,12 +547,15 @@ class TestParticipantActive(CommonTestCase):
         correct_annotations = {
             'now': datetime,
             'registered': bool,
+            'permanently_retired': bool,
             'last_upload': typing.Union[datetime, NoneType],  # can't import NoneType...
             'last_get_latest_surveys': typing.Union[datetime, NoneType],
             'last_set_password': typing.Union[datetime, NoneType],
             'last_set_fcm_token': typing.Union[datetime, NoneType],
             'last_get_latest_device_settings': typing.Union[datetime, NoneType],
-            'last_register_user': typing.Union[datetime, NoneType]
+            'last_register_user': typing.Union[datetime, NoneType],
+            'last_register_user': typing.Union[datetime, NoneType],
+            'last_heartbeat_checkin': typing.Union[datetime, NoneType],
         }
         self.assertDictEqual(annotes, correct_annotations)
     

@@ -1,4 +1,4 @@
-from typing import List
+from typing import Generator, List
 
 from django.db.models import QuerySet
 from orjson import dumps as orjson_dumps
@@ -68,7 +68,7 @@ class EfficientQueryPaginator:
         if pks:
             yield list(self.value_query.filter(pk__in=pks))
     
-    def stream_orjson_paginate(self):
+    def stream_orjson_paginate(self) -> Generator[bytes, None, None]:
         """ streams a page by page orjson'd bytes of json list elements """
         yield b"["
         for i, page in enumerate(self.paginate()):
@@ -102,3 +102,4 @@ class TableauApiPaginator(EfficientQueryPaginator):
                     yield b","
                 yield orjson_dumps(page)[1:-1]
             yield b"]"
+

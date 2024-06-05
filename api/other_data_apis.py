@@ -1,14 +1,16 @@
 import json
 
-from django.http import FileResponse
+from django.http import FileResponse, StreamingHttpResponse
 from django.http.response import HttpResponse
 from django.views.decorators.http import require_POST
 
 from authentication.data_access_authentication import (api_credential_check,
     api_study_credential_check)
+from database.user_models_participant import Participant
 from database.user_models_researcher import StudyRelation
 from libs.internal_types import ApiResearcherRequest, ApiStudyResearcherRequest
 from libs.intervention_utils import intervention_survey_data, survey_history_export
+from libs.utils.effiicient_paginator import EfficientQueryPaginator
 
 
 @require_POST
@@ -57,3 +59,35 @@ def download_study_survey_history(request: ApiStudyResearcherRequest):
     )
     fr.set_headers(None)  # django is still stupid?
     return fr
+
+
+@require_POST
+@api_credential_check
+def get_participant_upload_history(request: ApiStudyResearcherRequest):
+    participant_id = request.POST.get('participant_id')
+    if not participant_id:
+        return HttpResponse(content=b"", status=400)
+    # raising a 404 on participant not found is not an information leak.
+    # get_object_or_404 renders the 404 page, which is not what we want.
+    try:
+        participant = Participant.objects.get(patient_id=participant_id)
+    except Participant.DoesNotExist:
+        return HttpResponse(content=b"", status=404)
+    
+    # authentication is weird because this endpoint doesn't have the mandatory study so code
+    # patterns might change.
+    # if the researcher is not a site admin, they must have a relationship to the study.
+    if not request.api_researcher.site_admin:
+        if not StudyRelation.determine_relationship_exists(
+            study_pk=participant.study.pk, researcher_pk=request.api_researcher.pk
+        ):
+            return HttpResponse(content=b"", status=403)
+    
+    # we use our efficient paginator class to stream the bytes of the database query.
+    paginator = EfficientQueryPaginator(
+        filtered_query=participant.upload_trackers.order_by("timestamp"), 
+        page_size=10000,
+        values = ["file_path", "file_size", "timestamp"]
+    )
+    
+    return StreamingHttpResponse(paginator.stream_orjson_paginate(), content_type="application/json")

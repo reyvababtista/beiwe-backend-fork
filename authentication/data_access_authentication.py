@@ -167,10 +167,9 @@ def api_get_validate_researcher_on_study(request: ResearcherRequest, study: Stud
     
     # if the researcher has no relation to the study, 403.
     # case: researcher is not credentialed for this study.
-    query = StudyRelation.objects.filter(study_id=study.pk, researcher=researcher)
-    if not query.exists():
-        log(f"study relation found: {list(query.values())}")
-        log("no study access")
+    exists = StudyRelation.determine_relationship_exists(study_pk=study.pk, researcher_pk=researcher.pk)
+    if not exists:
+        log("no study relation found")
         return abort(403)
     return researcher
 

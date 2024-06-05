@@ -70,11 +70,6 @@ if VERBOSE_2_OR_3:
     messages.error = monkeypatch_messages(messages.error)
 
 
-class HttpResponse(HttpResponse):
-    # This class exists to improve IDE type interpretation
-    content: bytes
-
-
 class MisconfiguredTestException(Exception):
     pass
 
@@ -348,6 +343,7 @@ class SmartRequestsTestCase(BasicSessionTestCase):
     ) -> HttpResponse:
         """ This helper function takes a status code in addition to post paramers, and tests for
         it.  Use for writing concise tests. """
+        # print(f"reverse_args: {reverse_args}\nreverse_kwargs: {reverse_kwargs}\npost_params: {post_params}")
         resp = self.smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
         self.assertEqual(resp.status_code, status_code)
         return resp
@@ -514,6 +510,18 @@ class DataApiTest(SmartRequestsTestCase):
             post_params["access_key"] = self.session_access_key
             post_params["secret_key"] = self.session_secret_key
         return super().smart_post(*reverse_args, reverse_kwargs=reverse_kwargs, **post_params)
+    
+    def smart_post_status_code(
+        self, status_code: int, *reverse_args, reverse_kwargs=None, **post_params
+    ) -> HttpResponse:
+        """ We need to inject the session keys into the post parameters because the code that uses
+        smart_post is inside the super class. """
+        if not self.DISABLE_CREDENTIALS:
+            post_params["access_key"] = self.session_access_key
+            post_params["secret_key"] = self.session_secret_key
+        return super().smart_post_status_code(
+            status_code, *reverse_args, reverse_kwargs=reverse_kwargs, **post_params
+        )
     
     def less_smart_post(self, *reverse_args, reverse_kwargs=None, **post_params) -> HttpResponse:
         """ we need the passthrough and calling super() in an implementation class is dumb.... """

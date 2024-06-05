@@ -237,6 +237,11 @@ class StudyRelation(TimestampedModel):
         return "%s is a %s in %s" % (
             self.researcher.username, self.relationship.replace("_", " ").title(), self.study.name
         )
+    
+    @classmethod
+    def determine_relationship_exists(self, researcher_pk: Researcher, study_pk: Study) -> bool:
+        """ Does EXACTLY what it says. """
+        return self.objects.filter(researcher_id=researcher_pk, study_id=study_pk).exists()
 
 
 ## Custom Session classes for Researchers

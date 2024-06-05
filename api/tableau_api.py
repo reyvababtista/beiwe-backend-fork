@@ -36,9 +36,7 @@ def get_tableau_daily(request: TableauRequest, study_object_id: str = None):
         query_fields=query_fields,
         **form.cleaned_data,  # already cleaned and validated
     )
-    return StreamingHttpResponse(
-        paginator.stream_orjson_paginate(), content_type="application/json"
-    )
+    return StreamingHttpResponse(paginator.stream_orjson_paginate(), content_type="application/json")
 
 
 @require_GET

@@ -1,13 +1,14 @@
-from datetime import datetime
 import json
+from datetime import datetime
 
+from dateutil.tz import UTC
 from django.core.exceptions import ValidationError
 
 from constants.user_constants import ResearcherRole
+from database.profiling_models import UploadTracking
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.survey_models import Survey, SurveyArchive
-from database.user_models_researcher import Researcher
 from tests.common import DataApiTest
 
 
@@ -325,4 +326,61 @@ class TestStudySurveyHistory(DataApiTest):
         should_be = should_be.replace(b"replace", archive.archive_start.isoformat().encode())
         ret = b"".join(resp.streaming_content)
         self.assertEqual(ret, should_be)
-        
+
+
+class TestGetParticipantUploadHistory(DataApiTest):
+    ENDPOINT_NAME = "other_data_apis.get_participant_upload_history"
+    
+    def test_no_participant_parameter(self):
+        # it should 400
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        resp = self.smart_post_status_code(400)
+        self.assertEqual(resp.content, b"")
+    
+    def test_bad_participant_parameter(self):
+        # it should 404 and not render the 404 page
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        resp = self.smart_post_status_code(404, participant_id="a" * 24)
+        self.assertEqual(resp.content, b"")
+    
+    def test_one_participant_no_uploads(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, b'[]')
+    
+    def test_one_participant_one_upload(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        UploadTracking.objects.create(
+            participant=self.default_participant,
+            file_path="abc123",
+            file_size="10",
+            timestamp=datetime(2020,1,1,12, tzinfo=UTC),
+        )
+        resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(
+            content,
+            b'[{"file_path":"abc123","file_size":10,"timestamp":"2020-01-01T12:00:00+00:00"}]'
+        )
+    
+    def test_ten_uploads(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        for i in range(10):
+            UploadTracking.objects.create(
+                participant=self.default_participant,
+                file_path="abc123",
+                file_size="10",
+                timestamp=datetime(2020,1,1,12, tzinfo=UTC),
+            )
+        resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
+        content = b"".join(resp.streaming_content)
+        text = b'{"file_path":"abc123","file_size":10,"timestamp":"2020-01-01T12:00:00+00:00"}'
+        for i in range(9):
+            text += b',{"file_path":"abc123","file_size":10,"timestamp":"2020-01-01T12:00:00+00:00"}'
+        text = b"[" + text + b"]"
+        self.assertEqual(content, text)

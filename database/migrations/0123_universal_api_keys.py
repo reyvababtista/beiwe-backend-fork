@@ -13,7 +13,7 @@ def migrate_access_to_api_keys(apps: StateApps, schema_editor):
     # create a new api key for each researcher from their data access api keys
     for researcher in ResearcherOld.objects.all():
         if not researcher.access_key_id or not researcher.access_key_secret:
-            print("Skipping researcher", researcher)
+            # print("Skipping researcher", researcher)
             continue
         
         api_key = ApiKey.objects.create(
@@ -24,7 +24,7 @@ def migrate_access_to_api_keys(apps: StateApps, schema_editor):
             researcher=researcher,
             readable_name=NEW_NAME,
         )
-        print("api_key created for", api_key.researcher)
+        # print("api_key created for", api_key.researcher)
 
 
 def reverse_migration(apps: StateApps, schema_editor):
@@ -37,14 +37,14 @@ def reverse_migration(apps: StateApps, schema_editor):
         try:
             new_api_key = ApiKey.objects.get(researcher=researcher, readable_name=NEW_NAME)
         except ApiKey.DoesNotExist:
-            print("No api_key found for researcher", researcher)
+            # print("No api_key found for researcher", researcher)
             continue
         
         researcher.access_key_id = new_api_key.access_key_id
         researcher.access_key_secret = new_api_key.access_key_secret
         researcher.save()
         new_api_key.delete()
-        print("Deleted api_key for researcher, added it back to researcher model", researcher)
+        # print("Deleted api_key for researcher, added it back to researcher model", researcher)
 
 
 class Migration(migrations.Migration):

@@ -1,5 +1,6 @@
 from typing import Generator, List
 
+import orjson
 from django.db.models import QuerySet
 from orjson import dumps as orjson_dumps
 
@@ -68,13 +69,13 @@ class EfficientQueryPaginator:
         if pks:
             yield list(self.value_query.filter(pk__in=pks))
     
-    def stream_orjson_paginate(self) -> Generator[bytes, None, None]:
-        """ streams a page by page orjson'd bytes of json list elements """
+    def stream_orjson_paginate(self, **kwargs) -> Generator[bytes, None, None]:
+        """ streams a page by page orjson'd bytes of json list elements. Accepts kwargs for orjson. """
         yield b"["
         for i, page in enumerate(self.paginate()):
             if i != 0:
                 yield b","
-            yield orjson_dumps(page)[1:-1]  # this is a bytes object, we cut the first and last brackets
+            yield orjson_dumps(page, **kwargs)[1:-1]  # this is a bytes object, we cut the first and last brackets
         yield b"]"
 
 
@@ -102,4 +103,3 @@ class TableauApiPaginator(EfficientQueryPaginator):
                     yield b","
                 yield orjson_dumps(page)[1:-1]
             yield b"]"
-

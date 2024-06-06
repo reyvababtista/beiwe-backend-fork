@@ -9,6 +9,7 @@ from database.profiling_models import UploadTracking
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.survey_models import Survey, SurveyArchive
+from database.user_models_participant import AppHeartbeats
 from tests.common import DataApiTest
 
 
@@ -362,7 +363,7 @@ class TestGetParticipantUploadHistory(DataApiTest):
         self.set_session_study_relation(ResearcherRole.study_admin)
         self._test_one_participant_no_uploads()
     
-    def test_study_admin_one_participant_no_uploads(self):
+    def test_site_admin_one_participant_no_uploads(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
         self._test_one_participant_no_uploads()
     
@@ -421,5 +422,94 @@ class TestGetParticipantUploadHistory(DataApiTest):
         text = b'[10,"2020-01-01T12:00:00Z","some_file_name"]'
         for i in range(9):
             text += b',[10,"2020-01-01T12:00:00Z","some_file_name"]'
+        text = b"[" + text + b"]"
+        self.assertEqual(content, text)
+
+
+class TestParticipantHeartbeatHistory(DataApiTest):
+    ENDPOINT_NAME = "other_data_apis.get_participant_heartbeat_history"
+    
+    def create_a_heartbeat(self):
+        AppHeartbeats.objects.create(
+            timestamp=datetime(2020,1,1,12, tzinfo=UTC), participant=self.default_participant)
+    
+    def test_no_participant_parameter(self):
+        # it should 400
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        resp = self.smart_post_status_code(400)
+        self.assertEqual(resp.content, b"")
+    
+    def test_bad_participant_parameter(self):
+        # it should 404 and not render the 404 page
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        resp = self.smart_post_status_code(404, participant_id="a" * 24)
+        self.assertEqual(resp.content, b"")
+    
+    def test_researcher_one_participant_no_heartbeats(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_one_participant_no_heartbeats()
+    
+    def test_study_admin_one_participant_no_heartbeats(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_one_participant_no_heartbeats()
+    
+    def test_site_admin_one_participant_no_heartbeats(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test_one_participant_no_heartbeats()
+    
+    def _test_one_participant_no_heartbeats(self):
+        resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, b'[]')
+    
+    def test_no_relation_one_participant_no_heartbeats(self):
+        resp = self.smart_post_status_code(403, participant_id=self.default_participant.patient_id)
+    
+    def test_one_participant_one_heartbeat_values(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        self.create_a_heartbeat()
+        resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, b'[{"timestamp":"2020-01-01T12:00:00Z"}]')
+    
+    def test_one_participant_one_heartbeat_values_list(self):
+        # as values but formatted data lacks keys.
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        self.create_a_heartbeat()
+        resp = self.smart_post_status_code(
+            200, participant_id=self.default_participant.patient_id, omit_keys="true"
+        )
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, b'["2020-01-01T12:00:00Z"]')
+    
+    def test_ten_heartbeats_values(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        for i in range(10):
+            self.create_a_heartbeat()
+        resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
+        content = b"".join(resp.streaming_content)
+        text = b'{"timestamp":"2020-01-01T12:00:00Z"}'
+        for i in range(9):
+            text += b',{"timestamp":"2020-01-01T12:00:00Z"}'
+        text = b"[" + text + b"]"
+        self.assertEqual(content, text)
+    
+    def test_ten_heartbeats_values_list(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        for i in range(10):
+            self.create_a_heartbeat()
+        resp = self.smart_post_status_code(
+            200, participant_id=self.default_participant.patient_id, omit_keys="true"
+        )
+        content = b"".join(resp.streaming_content)
+        text = b'"2020-01-01T12:00:00Z"'
+        for i in range(9):
+            text += b',"2020-01-01T12:00:00Z"'
         text = b"[" + text + b"]"
         self.assertEqual(content, text)

@@ -218,7 +218,7 @@ path("get-users/v1", other_data_apis.get_users_in_study)
 path("get-interventions/v1", other_data_apis.download_study_interventions)
 path("get-survey-history/v1", other_data_apis.download_study_survey_history)
 path("get-participant-upload-history/v1", other_data_apis.get_participant_upload_history)
-
+path("get-participant-heartbeat-history/v1", other_data_apis.get_participant_heartbeat_history)
 
 # data_access_api
 path("get-data/v1", data_access_api.get_data)

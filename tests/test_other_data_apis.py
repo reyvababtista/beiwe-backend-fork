@@ -352,7 +352,7 @@ class TestGetParticipantUploadHistory(DataApiTest):
         # it should 404 and not render the 404 page
         self.set_session_study_relation(ResearcherRole.researcher)
         self.default_participant
-        resp = self.smart_post_status_code(404, participant_id="a" * 24)
+        resp = self.smart_post_status_code(404, participant_id="a" * 8)
         self.assertEqual(resp.content, b"")
     
     def test_researcher_one_participant_no_uploads(self):
@@ -444,7 +444,7 @@ class TestParticipantHeartbeatHistory(DataApiTest):
         # it should 404 and not render the 404 page
         self.set_session_study_relation(ResearcherRole.researcher)
         self.default_participant
-        resp = self.smart_post_status_code(404, participant_id="a" * 24)
+        resp = self.smart_post_status_code(404, participant_id="a" * 8)
         self.assertEqual(resp.content, b"")
     
     def test_researcher_one_participant_no_heartbeats(self):
@@ -511,5 +511,96 @@ class TestParticipantHeartbeatHistory(DataApiTest):
         text = b'"2020-01-01T12:00:00Z"'
         for i in range(9):
             text += b',"2020-01-01T12:00:00Z"'
+        text = b"[" + text + b"]"
+        self.assertEqual(content, text)
+
+
+class TestParticipantVersionHistory(DataApiTest):
+    ENDPOINT_NAME = "other_data_apis.get_participant_version_history"
+    
+    def create_a_version(self):
+        self.default_participant.app_version_history.create(
+            app_version_code="1", app_version_name="1.0", os_version="1.0"
+        )
+    
+    def test_no_participant_parameter(self):
+        # it should 400
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        resp = self.smart_post_status_code(400)
+        self.assertEqual(resp.content, b"")
+    
+    def test_bad_participant_parameter(self):
+        # it should 404 and not render the 404 page
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        resp = self.smart_post_status_code(404, participant_id="a" * 8)
+        self.assertEqual(resp.content, b"")
+    
+    def test_researcher_one_participant_no_versions(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_one_participant_no_versions()
+    
+    def test_study_admin_one_participant_no_versions(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_one_participant_no_versions()
+    
+    def test_site_admin_one_participant_no_versions(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test_one_participant_no_versions()
+    
+    def _test_one_participant_no_versions(self):
+        resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, b'[]')
+    
+    def test_no_relation_one_participant_no_versions(self):
+        resp = self.smart_post_status_code(403, participant_id=self.default_participant.patient_id)
+    
+    def test_one_participant_one_version_values(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        self.create_a_version()
+        resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(
+            content, b'[{"app_version_code":"1","app_version_name":"1.0","os_version":"1.0"}]'
+        )
+    
+    def test_one_participant_one_version_values_list(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        self.create_a_version()
+        resp = self.smart_post_status_code(
+            200, participant_id=self.default_participant.patient_id, omit_keys="true"
+        )
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, b'[["1","1.0","1.0"]]')
+    
+    def test_ten_versions_values(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        for i in range(10):
+            self.create_a_version()
+        resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
+        content = b"".join(resp.streaming_content)
+        text = b'{"app_version_code":"1","app_version_name":"1.0","os_version":"1.0"}'
+        for i in range(9):
+            text += b',{"app_version_code":"1","app_version_name":"1.0","os_version":"1.0"}'
+        text = b"[" + text + b"]"
+        self.assertEqual(content, text)
+    
+    def test_ten_versions_values_list(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        for i in range(10):
+            self.create_a_version()
+        resp = self.smart_post_status_code(
+            200, participant_id=self.default_participant.patient_id, omit_keys="true"
+        )
+        content = b"".join(resp.streaming_content)
+        text = b'["1","1.0","1.0"]'
+        for i in range(9):
+            text += b',["1","1.0","1.0"]'
         text = b"[" + text + b"]"
         self.assertEqual(content, text)

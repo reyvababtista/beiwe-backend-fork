@@ -331,6 +331,15 @@ class TestStudySurveyHistory(DataApiTest):
 class TestGetParticipantUploadHistory(DataApiTest):
     ENDPOINT_NAME = "other_data_apis.get_participant_upload_history"
     
+    def create_an_upload(self):
+        # file name has a transformation applied to it, the patient id is stripped
+        UploadTracking.objects.create(
+            participant=self.default_participant,
+            file_path=f"{self.default_participant.patient_id}/some_file_name",
+            file_size="10",
+            timestamp=datetime(2020,1,1,12, tzinfo=UTC),
+        )
+    
     def test_no_participant_parameter(self):
         # it should 400
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -345,42 +354,72 @@ class TestGetParticipantUploadHistory(DataApiTest):
         resp = self.smart_post_status_code(404, participant_id="a" * 24)
         self.assertEqual(resp.content, b"")
     
-    def test_one_participant_no_uploads(self):
+    def test_researcher_one_participant_no_uploads(self):
         self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_one_participant_no_uploads()
+    
+    def test_study_admin_one_participant_no_uploads(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_one_participant_no_uploads()
+    
+    def test_study_admin_one_participant_no_uploads(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test_one_participant_no_uploads()
+    
+    def _test_one_participant_no_uploads(self):
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
         content = b"".join(resp.streaming_content)
         self.assertEqual(content, b'[]')
     
-    def test_one_participant_one_upload(self):
+    def test_no_relation_one_participant_no_uploads(self):
+        resp = self.smart_post_status_code(403, participant_id=self.default_participant.patient_id)
+    
+    def test_one_participant_one_upload_values(self):
         self.set_session_study_relation(ResearcherRole.researcher)
         self.default_participant
-        UploadTracking.objects.create(
-            participant=self.default_participant,
-            file_path="abc123",
-            file_size="10",
-            timestamp=datetime(2020,1,1,12, tzinfo=UTC),
-        )
+        self.create_an_upload()
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
         content = b"".join(resp.streaming_content)
         self.assertEqual(
             content,
-            b'[{"file_path":"abc123","file_size":10,"timestamp":"2020-01-01T12:00:00+00:00"}]'
+            b'[{"file_size":10,"timestamp":"2020-01-01T12:00:00Z","file_name":"some_file_name"}]'
         )
     
-    def test_ten_uploads(self):
+    def test_one_participant_one_upload_values_list(self):
+        # as values but formatted data lacks keys.
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        self.create_an_upload()
+        resp = self.smart_post_status_code(
+            200, participant_id=self.default_participant.patient_id, omit_keys="true"
+        )
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, b'[[10,"2020-01-01T12:00:00Z","some_file_name"]]')
+    
+    def test_ten_uploads_values(self):
         self.set_session_study_relation(ResearcherRole.researcher)
         self.default_participant
         for i in range(10):
-            UploadTracking.objects.create(
-                participant=self.default_participant,
-                file_path="abc123",
-                file_size="10",
-                timestamp=datetime(2020,1,1,12, tzinfo=UTC),
-            )
+            self.create_an_upload()
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
         content = b"".join(resp.streaming_content)
-        text = b'{"file_path":"abc123","file_size":10,"timestamp":"2020-01-01T12:00:00+00:00"}'
+        text = b'{"file_size":10,"timestamp":"2020-01-01T12:00:00Z","file_name":"some_file_name"}'
         for i in range(9):
-            text += b',{"file_path":"abc123","file_size":10,"timestamp":"2020-01-01T12:00:00+00:00"}'
+            text += b',{"file_size":10,"timestamp":"2020-01-01T12:00:00Z","file_name":"some_file_name"}'
+        text = b"[" + text + b"]"
+        self.assertEqual(content, text)
+    
+    def test_ten_uploads_values_list(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        for i in range(10):
+            self.create_an_upload()
+        resp = self.smart_post_status_code(
+            200, participant_id=self.default_participant.patient_id, omit_keys="true"
+        )
+        content = b"".join(resp.streaming_content)
+        text = b'[10,"2020-01-01T12:00:00Z","some_file_name"]'
+        for i in range(9):
+            text += b',[10,"2020-01-01T12:00:00Z","some_file_name"]'
         text = b"[" + text + b"]"
         self.assertEqual(content, text)

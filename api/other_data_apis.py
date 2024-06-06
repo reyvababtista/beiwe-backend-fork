@@ -13,6 +13,7 @@ from database.user_models_researcher import StudyRelation
 from libs.internal_types import ApiResearcherRequest, ApiStudyResearcherRequest
 from libs.intervention_utils import intervention_survey_data, survey_history_export
 from libs.utils.effiicient_paginator import EfficientQueryPaginator
+from middleware.abort_middleware import abort
 
 
 @require_POST
@@ -63,33 +64,20 @@ def download_study_survey_history(request: ApiStudyResearcherRequest):
     return fr
 
 
+## New api endpoints for participant metadata
+
+
 @require_POST
 @api_credential_check
 def get_participant_upload_history(request: ApiStudyResearcherRequest):
-    participant_id = request.POST.get('participant_id')
+    """ Returns a streaming JSON response of the upload history of a participant."""
+    
+    participant = get_validate_participant_from_request(request)
     omit_keys = check_request_for_omit_keys_param(request)
     
     # EXTREMELY OBSCURE DETAIL: the annotated pseudofield "field_name" is forced to come after real
     # fields in the key ordering on query.values _but not on query.values_list_???
     FIELDS_TO_SERIALIZE = ["file_size", "timestamp", "file_name"]
-    
-    if not participant_id:
-        return HttpResponse(content=b"", status=400)
-    # raising a 404 on participant not found is not an information leak.
-    # get_object_or_404 renders the 404 page, which is not what we want.
-    try:
-        participant = Participant.objects.get(patient_id=participant_id)
-    except Participant.DoesNotExist:
-        return HttpResponse(content=b"", status=404)
-    
-    # authentication is weird because this endpoint doesn't have the mandatory study so code
-    # patterns might change.
-    # if the researcher is not a site admin, they must have a relationship to the study.
-    if not request.api_researcher.site_admin:
-        if not StudyRelation.determine_relationship_exists(
-            study_pk=participant.study.pk, researcher_pk=request.api_researcher.pk
-        ):
-            return HttpResponse(content=b"", status=403)
     
     # We want to reduce the amount of raw data, so we strip out some unnecessary details both in
     # the query and using orjson options.
@@ -116,7 +104,60 @@ def get_participant_upload_history(request: ApiStudyResearcherRequest):
     )
 
 
+@require_POST
+@api_credential_check
+def get_participant_heartbeat_history(request: ApiStudyResearcherRequest):
+    """ Returns a streaming JSON response of the heartbeat history of a participant."""
+    
+    participant = get_validate_participant_from_request(request)
+    omit_keys = check_request_for_omit_keys_param(request)
+    FIELDS_TO_SERIALIZE = ["timestamp"]
+    
+    # We want to reduce the amount of raw data, so we strip out some unnecessary details both in
+    # the query and using orjson options.
+    
+    query = participant.heartbeats.order_by("timestamp")
+    paginator = EfficientQueryPaginator(
+        filtered_query=query, 
+        page_size=10000,
+        values=FIELDS_TO_SERIALIZE if not omit_keys else None,
+        values_list=FIELDS_TO_SERIALIZE if omit_keys else None,
+    )
+    # OPT_OMIT_MICROSECONDS - obvious
+    # OPT_UTC_Z - UTC timezone serialized to Z instead of +00:00
+    options = orjson.OPT_OMIT_MICROSECONDS | orjson.OPT_UTC_Z
+    return StreamingHttpResponse(
+        paginator.stream_orjson_paginate(option=options), content_type="application/json"
+    )
+
+
+def get_validate_participant_from_request(request: ApiStudyResearcherRequest) -> Participant:
+    """ checks for a mandatory POST param participant_id, and returns the Participant object. 
+    If participant_id is not present raise a 400 error. If the participant is not found a 404 error."""
+    participant_id = request.POST.get('participant_id')
+    if not participant_id:
+        return abort(400)
+    
+    # raising a 404 on participant not found is not an information leak.
+    # get_object_or_404 renders the 404 page, which is not what we want.
+    try:
+        participant = Participant.objects.get(patient_id=participant_id)
+    except Participant.DoesNotExist:
+        return abort(404)
+    
+    # authentication is weird because these endpoint doesn't have the mandatory study so code
+    # patterns might change.
+    # if the researcher is not a site admin, they must have a relationship to the study.
+    if not request.api_researcher.site_admin:
+        if not StudyRelation.determine_relationship_exists(
+            study_pk=participant.study.pk, researcher_pk=request.api_researcher.pk
+        ):
+            return abort(403)
+    
+    return participant
+
+
 def check_request_for_omit_keys_param(request):
-    """ Returns true if the request has a POST param omit_keys set to "true". """
+    """ Returns true if the request has a POST param omit_keys set to case-insensitive "true". """
     omit_keys = request.POST.get("omit_keys", "false")
-    return omit_keys == "true"
+    return omit_keys.lower() == "true"

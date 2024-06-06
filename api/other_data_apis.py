@@ -131,6 +131,31 @@ def get_participant_heartbeat_history(request: ApiStudyResearcherRequest):
     )
 
 
+@require_POST
+@api_credential_check
+def get_participant_version_history(request: ApiStudyResearcherRequest):
+    participant = get_validate_participant_from_request(request)
+    omit_keys = check_request_for_omit_keys_param(request)
+    FIELDS_TO_SERIALIZE = ["app_version_code", "app_version_name", "os_version",]
+    
+    query = participant.app_version_history.order_by("created_on")
+    paginator = EfficientQueryPaginator(
+        filtered_query=query, 
+        page_size=10000,
+        values=FIELDS_TO_SERIALIZE if not omit_keys else None,
+        values_list=FIELDS_TO_SERIALIZE if omit_keys else None,
+    )
+    # OPT_OMIT_MICROSECONDS - obvious
+    # OPT_UTC_Z - UTC timezone serialized to Z instead of +00:00
+    options = orjson.OPT_OMIT_MICROSECONDS | orjson.OPT_UTC_Z
+    return b(
+        paginator.stream_orjson_paginate(option=options), content_type="application/json"
+    )
+
+
+# Helper functions for the participant metadata endpoints
+
+
 def get_validate_participant_from_request(request: ApiStudyResearcherRequest) -> Participant:
     """ checks for a mandatory POST param participant_id, and returns the Participant object. 
     If participant_id is not present raise a 400 error. If the participant is not found a 404 error."""

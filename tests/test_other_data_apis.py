@@ -1,15 +1,18 @@
 import json
 from datetime import datetime
 
+import orjson
 from dateutil.tz import UTC
 from django.core.exceptions import ValidationError
 
+from constants.data_access_api_constants import MISSING_JSON_CSV_MESSAGE
 from constants.user_constants import ResearcherRole
 from database.profiling_models import UploadTracking
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.survey_models import Survey, SurveyArchive
 from database.user_models_participant import AppHeartbeats
+from libs.participant_table_api import get_table_columns
 from tests.common import DataApiTest
 
 
@@ -327,6 +330,178 @@ class TestStudySurveyHistory(DataApiTest):
         should_be = should_be.replace(b"replace", archive.archive_start.isoformat().encode())
         ret = b"".join(resp.streaming_content)
         self.assertEqual(ret, should_be)
+
+
+class TestDownloadParticipantTableData(DataApiTest):
+    ENDPOINT_NAME = "other_data_apis.download_participant_table_data"
+    json_table_default_columns = \
+    b'["Created On","Patient ID","Status","OS Type","Last Upload","Last Survey Download",' \
+        b'"Last Registration","Last Set Password","Last Push Token Update","Last Device Settings ' \
+        b'Update","Last OS Version","App Version Code","App Version Name","Last Heartbeat"]'
+    
+    def test_no_study_param(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_status_code(400)
+    
+    def test_missing_data_param(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_post_status_code(400, study_id=self.session_study.object_id)
+        self.assertEqual(resp.content, MISSING_JSON_CSV_MESSAGE)
+    
+    def test_data_format_param_wrong(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_post_status_code(400, study_id=self.session_study.object_id, data_format="apples")
+        self.assertEqual(resp.content, MISSING_JSON_CSV_MESSAGE)
+    
+    def test_no_data_csv(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id, data_format="csv")
+        # its just the header row and a \r\n
+        self.assertEqual(resp.content, (",".join(get_table_columns(self.session_study)) + "\r\n").encode())
+    
+    def test_no_data_json(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id, data_format="json")
+        # there are no rows for columns to be in
+        self.assertEqual(resp.content, b"[]")
+    
+    def test_no_data_json_table(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_post_status_code(
+            200, study_id=self.session_study.object_id, data_format="json_table"
+        )
+        # results in a table with a first row of column names
+        row = ('[["' + '","'.join(get_table_columns(self.session_study)) + '"]]').encode()
+        self.assertEqual(resp.content, row)
+    
+    def test_one_participant_csv(self):
+        resp = self._do_one_participant("csv")
+        # the header row and a row of data
+        # b'Created On,Patient ID,Status,OS Type,Last Upload,Last Survey Download,Last Registration,Last Set Password,Last Push Token Update,Last Device Settings Update,Last OS Version,App Version Code,App Version Name,Last Heartbeat
+        #2024-06-06,patient1,Inactive,ANDROID,None,None,None,None,None,None,None,None,None,None
+        row1 = ",".join(get_table_columns(self.session_study)) + "\r\n"
+        row2 = "2020-01-01,patient1,Inactive,ANDROID,"
+        row2 += "None,None,None,None,None,None,None,None,None,None\r\n"
+        self.assertEqual(resp.content, (row1 + row2).encode())
+        self.modify_participant()
+        row2_2 = "2020-01-01,patient1,Inactive,ANDROID,"
+        row2_2 += "2020-01-02 12:00:00 (UTC),2020-01-03 12:00:00 (UTC),2020-01-04 12:00:00 (UTC),"
+        row2_2 += "2020-01-05 12:00:00 (UTC),2020-01-06 12:00:00 (UTC),2020-01-07 12:00:00 (UTC),"
+        row2_2 += "1.0,6,six,2020-01-08 12:00:00 (UTC)\r\n"
+        resp = self._do_one_participant("csv")
+        self.assertEqual(resp.content, (row1 + row2_2).encode())
+    
+    def test_one_participant_json(self):
+        resp = self._do_one_participant("json")
+        keys = get_table_columns(self.session_study)
+        
+        row = {
+            keys[0]: "2020-01-01",
+            keys[1]: "patient1",
+            keys[2]: "Inactive",
+            keys[3]: "ANDROID",
+            keys[4]: "None",
+            keys[5]: "None",
+            keys[6]: "None",
+            keys[7]: "None",
+            keys[8]: "None",
+            keys[9]: "None",
+            keys[10]: "None",
+            keys[11]: "None",
+            keys[12]: "None",
+            keys[13]: "None",
+        }
+        self.assertEqual(orjson.loads(resp.content), [row])
+        
+        self.modify_participant()
+        resp = self._do_one_participant("json")
+        row = {
+            keys[0]: "2020-01-01",
+            keys[1]: "patient1",
+            keys[2]: "Inactive",
+            keys[3]: "ANDROID",
+            keys[4]: "2020-01-02 12:00:00 (UTC)",
+            keys[5]: "2020-01-03 12:00:00 (UTC)",
+            keys[6]: "2020-01-04 12:00:00 (UTC)",
+            keys[7]: "2020-01-05 12:00:00 (UTC)",
+            keys[8]: "2020-01-06 12:00:00 (UTC)",
+            keys[9]: "2020-01-07 12:00:00 (UTC)",
+            keys[10]: "1.0",
+            keys[11]: "6",
+            keys[12]: "six",
+            keys[13]: "2020-01-08 12:00:00 (UTC)",
+        }
+        print(orjson.loads(resp.content))
+        print(row)
+        self.assertEqual(orjson.loads(resp.content), [row])
+    
+    def test_one_participant_json_table(self):
+        resp = self._do_one_participant("json_table")
+        keys = get_table_columns(self.session_study)
+        
+        row = [
+            "2020-01-01",
+            "patient1",
+            "Inactive",
+            "ANDROID",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+            "None",
+        ]
+        self.assertEqual(orjson.loads(resp.content), [keys, row])
+        
+        self.modify_participant()
+        resp = self._do_one_participant("json_table")
+        row = [
+            "2020-01-01",
+            "patient1",
+            "Inactive",
+            "ANDROID",
+            "2020-01-02 12:00:00 (UTC)",
+            "2020-01-03 12:00:00 (UTC)",
+            "2020-01-04 12:00:00 (UTC)",
+            "2020-01-05 12:00:00 (UTC)",
+            "2020-01-06 12:00:00 (UTC)",
+            "2020-01-07 12:00:00 (UTC)",
+            "1.0",
+            "6",
+            "six",
+            "2020-01-08 12:00:00 (UTC)",
+        ]
+        self.assertEqual(orjson.loads(resp.content), [keys, row])
+    
+    def _do_one_participant(self, data_format: str):
+        if not hasattr(self, "_default_study_relation"):
+            self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_participant
+        self.default_participant.update_only(created_on=datetime(2020, 1, 1, 12, tzinfo=UTC))
+        return self.smart_post_status_code(200, study_id=self.session_study.object_id, data_format=data_format)
+    
+    def modify_participant(self):
+        # you have to update this list if you add fields to EXTRA_TABLE_FIELDS
+        some_column_names_and_values = [
+            ("created_on", datetime(2020, 1, 1, 12, tzinfo=UTC)),  # not an extra row
+            ("last_upload", datetime(2020, 1, 2, 12, tzinfo=UTC)),
+            ("last_get_latest_surveys", datetime(2020, 1, 3, 12, tzinfo=UTC)),
+            ("last_register_user", datetime(2020, 1, 4, 12, tzinfo=UTC)),
+            ("last_set_password", datetime(2020, 1, 5, 12, tzinfo=UTC)),
+            ("last_set_fcm_token", datetime(2020, 1, 6, 12, tzinfo=UTC)),
+            ("last_get_latest_device_settings", datetime(2020, 1, 7, 12, tzinfo=UTC)),
+            ("last_os_version", "1.0"),
+            ("last_version_code", "6"),
+            ("last_version_name", "six"),
+            ("last_heartbeat_checkin", datetime(2020, 1, 8, 12, tzinfo=UTC)),
+        ]
+        for name, value in some_column_names_and_values:
+            setattr(self.default_participant, name, value)
+        self.default_participant.save()
 
 
 class TestGetParticipantUploadHistory(DataApiTest):

@@ -212,7 +212,8 @@ path(
     push_notifications_api.resend_push_notification
 )
 
-# other researcher apis
+# data access api and other researcher apis
+path("get-data/v1", data_access_api.get_data)
 path("get-studies/v1", other_data_apis.get_studies)
 path("get-users/v1", other_data_apis.get_users_in_study)
 path("get-interventions/v1", other_data_apis.download_study_interventions)
@@ -220,10 +221,35 @@ path("get-survey-history/v1", other_data_apis.download_study_survey_history)
 path("get-participant-upload-history/v1", other_data_apis.get_participant_upload_history)
 path("get-participant-heartbeat-history/v1", other_data_apis.get_participant_heartbeat_history)
 path("get-participant-version-history/v1", other_data_apis.get_participant_version_history)
-path("download-participant-table-data/v1", other_data_apis.download_participant_table_data)
+path("get-participant-table-data/v1", other_data_apis.get_participant_table_data)
 
-# data_access_api
-path("get-data/v1", data_access_api.get_data)
+# tableau
+path(
+    "api/v0/studies/<str:study_object_id>/summary-statistics/daily",
+    tableau_api.get_tableau_daily
+)
+path(
+    'api/v0/studies/<str:study_object_id>/summary-statistics/daily/wdc',
+    tableau_api.web_data_connector
+)
+
+# forest pages
+path('studies/<str:study_id>/forest/tasks/create', forest_pages.create_tasks)
+path('studies/<str:study_id>/forest/tasks/copy', forest_pages.copy_forest_task)
+path('studies/<str:study_id>/forest/progress', forest_pages.forest_tasks_progress, login_redirect=SAFE)
+path("studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/cancel", forest_pages.cancel_task)
+path('studies/<str:study_id>/forest/tasks', forest_pages.task_log, login_redirect=SAFE)
+path('studies/<str:study_id>/forest/tasks/download', forest_pages.download_task_log)
+path(
+    "studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/download_output",
+    forest_pages.download_output_data
+)
+path(
+    "studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/download",
+    forest_pages.download_task_data
+)
+
+## Endpoints related to the Apps
 
 # Mobile api (includes ios targets, which require custom names)
 path('upload', mobile_api.upload)
@@ -242,31 +268,7 @@ path('mobile-heartbeat/ios', mobile_api.mobile_heartbeat, name="mobile_api.mobil
 # mobile pages
 path('graph', mobile_pages.fetch_graph)
 
-# forest pages
-path('studies/<str:study_id>/forest/tasks/create', forest_pages.create_tasks)
-path('studies/<str:study_id>/forest/tasks/copy', forest_pages.copy_forest_task)
-path('studies/<str:study_id>/forest/progress', forest_pages.forest_tasks_progress, login_redirect=SAFE)
-path("studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/cancel", forest_pages.cancel_task)
-path('studies/<str:study_id>/forest/tasks', forest_pages.task_log, login_redirect=SAFE)
-path('studies/<str:study_id>/forest/tasks/download', forest_pages.download_task_log)
-path(
-    "studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/download_output",
-    forest_pages.download_output_data
-)
-path(
-    "studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/download",
-    forest_pages.download_task_data
-)
 
-# tableau
-path(
-    "api/v0/studies/<str:study_object_id>/summary-statistics/daily",
-    tableau_api.get_tableau_daily
-)
-path(
-    'api/v0/studies/<str:study_object_id>/summary-statistics/daily/wdc',
-    tableau_api.web_data_connector
-)
 
 # add the static resource url patterns
 urlpatterns.extend(static(settings.STATIC_URL, document_root=settings.STATIC_ROOT))

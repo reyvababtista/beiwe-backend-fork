@@ -37,3 +37,5 @@ EXTRA_TABLE_FIELDS = {
 INCONCEIVABLY_HUGE_NUMBER = 2**64
 
 BASE_TABLE_FIELDS = ["Created On", "Patient ID", "Status", "OS Type"]
+
+MISSING_JSON_CSV_MESSAGE = b"Invalid required data_format parameter, only 'csv' and 'json' supported"

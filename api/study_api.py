@@ -9,16 +9,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
 from authentication.admin_authentication import authenticate_researcher_study_access
-from constants.data_access_api_constants import (BASE_TABLE_FIELDS, EXTRA_TABLE_FIELDS,
-    INCONCEIVABLY_HUGE_NUMBER)
 from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
 from database.user_models_participant import Participant, ParticipantFieldValue
 from libs.internal_types import ResearcherRequest
 from libs.intervention_utils import (correct_bad_interventions, intervention_survey_data,
     survey_history_export)
-from libs.participant_table_api import (filtered_participants, get_values_for_participants_table,
-    reference_field_and_interventions, zip_extra_fields_into_participant_table_data)
+from libs.participant_table_api import (common_data_extraction_for_apis, filtered_participants,
+    get_table_columns, get_values_for_participants_table)
 
 
 @require_POST
@@ -49,28 +47,18 @@ def study_participants_api(request: ResearcherRequest, study_id: int):
     }
     return JsonResponse(table_data, status=200)
 
+
 @require_http_methods(['GET', 'POST'])
 @authenticate_researcher_study_access
 def download_participants_csv(request: ResearcherRequest, study_id: int = None):
     """ Download a CSV file version of the participants table on the view study page. """
     study: Study = Study.objects.get(pk=study_id)  # already validated by the decorator.
-    study_fields, interventions = reference_field_and_interventions(study)
-    header_row = BASE_TABLE_FIELDS + interventions + study_fields + list(EXTRA_TABLE_FIELDS.values())
+    table_data = common_data_extraction_for_apis(study)
     
-    # total_participants = Participant.objects.filter(study_id=study_id).count()
-    table_data = get_values_for_participants_table(
-        study=study,
-        start=0,
-        length=INCONCEIVABLY_HUGE_NUMBER,  # this is only used in a slice, we want everything
-        sort_by_column_index=1,  # sort by patient_id
-        sort_in_descending_order=False,
-        contains_string="",
-    )
-    zip_extra_fields_into_participant_table_data(table_data, study_id)
     # we need to write the data to a buffer, and then return the buffer as a response
     buffer = StringIO()
     writer = csv.writer(buffer, dialect="excel")
-    writer.writerow(header_row)
+    writer.writerow(get_table_columns(study))  # write the header row
     writer.writerows(table_data)
     buffer.seek(0)
     return HttpResponse(buffer.read(), content_type='text/csv')

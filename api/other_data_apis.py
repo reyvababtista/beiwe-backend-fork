@@ -1,3 +1,5 @@
+import csv
+from io import StringIO
 import json
 
 import orjson
@@ -8,10 +10,12 @@ from django.views.decorators.http import require_POST
 
 from authentication.data_access_authentication import (api_credential_check,
     api_study_credential_check)
+from constants.data_access_api_constants import MISSING_JSON_CSV_MESSAGE
 from database.user_models_participant import Participant
 from database.user_models_researcher import StudyRelation
 from libs.internal_types import ApiResearcherRequest, ApiStudyResearcherRequest
 from libs.intervention_utils import intervention_survey_data, survey_history_export
+from libs.participant_table_api import common_data_extraction_for_apis, get_table_columns
 from libs.utils.effiicient_paginator import EfficientQueryPaginator
 from middleware.abort_middleware import abort
 
@@ -63,6 +67,42 @@ def download_study_survey_history(request: ApiStudyResearcherRequest):
     fr.set_headers(None)  # django is still stupid?
     return fr
 
+
+@require_POST
+@api_study_credential_check()
+def download_participant_table_data(request: ApiStudyResearcherRequest):
+    """ Returns a streaming JSON response of the participant data for Tableau."""
+    table_data = common_data_extraction_for_apis(request.api_study)
+    data_format = request.POST.get("data_format", None)
+    
+    # error with message for bad data_format
+    if data_format not in ("json", "json_table", "csv"):
+        return HttpResponse(MISSING_JSON_CSV_MESSAGE, status=400)
+    
+    column_names = get_table_columns(request.api_study)
+    table_data = common_data_extraction_for_apis(request.api_study)
+    
+    # virtually if not literally identical to the button api
+    if data_format == "csv":
+        buffer = StringIO()
+        writer = csv.writer(buffer, dialect="excel")
+        writer.writerow(column_names)  # write the header row
+        writer.writerows(table_data)
+        buffer.seek(0)
+        return HttpResponse(buffer.read(), content_type='text/csv')    
+    
+    if data_format == "json":
+        return HttpResponse(
+                orjson.dumps([dict(zip(column_names, row)) for row in table_data]),
+                content_type="application/json",
+            )
+    
+    if data_format == "json_table":
+        # just return the table data as a json list of lists, but insert a first row of table names.
+        table_data.insert(0, column_names)
+        return HttpResponse(orjson.dumps(table_data), content_type="application/json")
+    
+    assert False, "unreachable code."
 
 ## New api endpoints for participant metadata
 
@@ -148,7 +188,7 @@ def get_participant_version_history(request: ApiStudyResearcherRequest):
     # OPT_OMIT_MICROSECONDS - obvious
     # OPT_UTC_Z - UTC timezone serialized to Z instead of +00:00
     options = orjson.OPT_OMIT_MICROSECONDS | orjson.OPT_UTC_Z
-    return b(
+    return StreamingHttpResponse(
         paginator.stream_orjson_paginate(option=options), content_type="application/json"
     )
 

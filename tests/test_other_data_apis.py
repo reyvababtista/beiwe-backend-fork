@@ -333,7 +333,7 @@ class TestStudySurveyHistory(DataApiTest):
 
 
 class TestDownloadParticipantTableData(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.download_participant_table_data"
+    ENDPOINT_NAME = "other_data_apis.get_participant_table_data"
     json_table_default_columns = \
     b'["Created On","Patient ID","Status","OS Type","Last Upload","Last Survey Download",' \
         b'"Last Registration","Last Set Password","Last Push Token Update","Last Device Settings ' \
@@ -431,8 +431,6 @@ class TestDownloadParticipantTableData(DataApiTest):
             keys[12]: "six",
             keys[13]: "2020-01-08 12:00:00 (UTC)",
         }
-        print(orjson.loads(resp.content))
-        print(row)
         self.assertEqual(orjson.loads(resp.content), [row])
     
     def test_one_participant_json_table(self):

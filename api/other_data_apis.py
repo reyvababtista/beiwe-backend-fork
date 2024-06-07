@@ -70,7 +70,7 @@ def download_study_survey_history(request: ApiStudyResearcherRequest):
 
 @require_POST
 @api_study_credential_check()
-def download_participant_table_data(request: ApiStudyResearcherRequest):
+def get_participant_table_data(request: ApiStudyResearcherRequest):
     """ Returns a streaming JSON response of the participant data for Tableau."""
     table_data = common_data_extraction_for_apis(request.api_study)
     data_format = request.POST.get("data_format", None)

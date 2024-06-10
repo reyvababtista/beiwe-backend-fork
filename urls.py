@@ -104,7 +104,7 @@ path("manage_studies", system_admin_pages.manage_studies, login_redirect=SAFE)
 path("edit_study/<int:study_id>", system_admin_pages.edit_study, login_redirect=SAFE)
 path("reset_researcher_mfa/<int:researcher_id>", system_admin_pages.reset_researcher_mfa)
 
-# study manamegement
+# study management
 path("create_study", system_admin_pages.create_study)
 path("toggle_study_forest_enabled/<int:study_id>", system_admin_pages.toggle_study_forest_enabled)
 path("delete_study/<int:study_id>", system_admin_pages.delete_study)
@@ -144,15 +144,16 @@ path("privacy_policy", admin_api.download_privacy_policy)
 # study api
 path('study/<str:study_id>/get_participants_api', study_api.study_participants_api)
 path('study/<str:study_id>/download_participants_csv', study_api.download_participants_csv)
-
+# study actions
 path('interventions/<str:study_id>', study_api.interventions_page, login_redirect=SAFE)
 path('delete_intervention/<str:study_id>', study_api.delete_intervention)
 path('edit_intervention/<str:study_id>', study_api.edit_intervention)
-path('download_study_intervention_history/<str:study_id>', study_api.download_study_interventions)
-path('download_study_survey_history/<str:study_id>', study_api.download_study_survey_history)
 path('study_fields/<str:study_id>', study_api.study_fields, login_redirect=SAFE)
 path('delete_field/<str:study_id>', study_api.delete_field)
 path('edit_custom_field/<str:study_id>', study_api.edit_custom_field)
+# study data
+path('download_study_intervention_history/<str:study_id>', study_api.download_study_interventions)
+path('download_study_survey_history/<str:study_id>', study_api.download_study_survey_history)
 
 # participant pages
 path(
@@ -240,6 +241,7 @@ path('studies/<str:study_id>/forest/progress', forest_pages.forest_tasks_progres
 path("studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/cancel", forest_pages.cancel_task)
 path('studies/<str:study_id>/forest/tasks', forest_pages.task_log, login_redirect=SAFE)
 path('studies/<str:study_id>/forest/tasks/download', forest_pages.download_task_log)
+path('studies/<str:study_id>/download_summary_statistic_summary/', forest_pages.download_summary_statistics_summary)
 path(
     "studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/download_output",
     forest_pages.download_output_data

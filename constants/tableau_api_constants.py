@@ -3,15 +3,17 @@ from django.db.models.fields import (BooleanField, CharField, DateField, DateTim
 
 from constants.forest_constants import TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS
 
-
-SERIALIZABLE_FIELD_NAMES = [
-    # Metadata
+# Metadata
+SUMMARY_METADATA_FIELD_NAMES = [
     "date",
     "participant_id",
     "study_id",
     "timezone",
-    
-    # Data quantities
+]
+
+
+# Data quantities
+DATA_QUANTITY_FIELD_NAMES = [
     "beiwe_accelerometer_bytes",
     "beiwe_ambient_audio_bytes",
     "beiwe_app_log_bytes",
@@ -31,7 +33,10 @@ SERIALIZABLE_FIELD_NAMES = [
     "beiwe_texts_bytes",
     "beiwe_audio_recordings_bytes",
     "beiwe_wifi_bytes",
-    
+]
+
+
+SERIALIZABLE_FIELD_NAMES = SUMMARY_METADATA_FIELD_NAMES + DATA_QUANTITY_FIELD_NAMES + [
     # GPS
     "jasmine_distance_diameter",
     "jasmine_distance_from_home",

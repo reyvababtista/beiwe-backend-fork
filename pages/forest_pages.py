@@ -2,6 +2,7 @@ import csv
 import pickle
 from collections import defaultdict
 from datetime import date, datetime
+from io import StringIO
 from typing import Dict
 
 import orjson
@@ -33,6 +34,8 @@ from libs.internal_types import ParticipantQuerySet, ResearcherRequest
 from libs.s3 import NoSuchKeyException
 from libs.streaming_io import CSVBuffer
 from libs.streaming_zip import ZipGenerator
+from libs.study_summaries import (get_summary_statistics_summary_in_one_database_query,
+    reference_summary_csv_columns)
 from libs.utils.date_utils import daterange
 
 
@@ -378,6 +381,47 @@ def download_output_data(request: ResearcherRequest, study_id, forest_task_exter
         content_type="zip",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@require_GET
+@authenticate_admin
+@forest_enabled
+def download_summary_statistics_summary(request: ResearcherRequest, study_id):
+    study = Study.objects.get(pk=study_id)  # study id already validated in authenticate_admin()
+    
+    # get the data, we want a csv of the summary statistics summary by participant in alphabetical order.
+    per_participant_data, grand_totals = get_summary_statistics_summary_in_one_database_query(study)
+    patient_ids = list(per_participant_data.keys())
+    patient_ids.sort()
+    
+    # generate a csv of the data row by row
+    # CSVBuffer
+    buffer = StringIO()
+    writer = csv.writer(buffer, dialect="excel")
+    # we need the patient ids in the first column, and the grand totals in the last columns
+    writer.writerow(reference_summary_csv_columns())
+    
+    for patient_id in patient_ids:
+        row = [patient_id] + list(per_participant_data[patient_id].values())
+        writer.writerow(row)
+    
+    # add the grand totals row
+    writer.writerow(["Grand Totals"] + list(grand_totals.values()))
+    
+    # blank row
+    writer.writerow([])
+    writer.writerow(["Global Total:"])
+    byte_count = sum(grand_totals.values())
+    writer.writerow([byte_count])
+    
+    # convert to MB, limit to 2 decimal places
+    writer.writerow([])
+    writer.writerow(["Global Total (MB):"])
+    writer.writerow([f"{(byte_count /1024 / 1024):.2f} MB"])
+    
+    # reset to beginning of file and return the response
+    buffer.seek(0)
+    return HttpResponse(buffer.read(), content_type="text/csv")
 
 
 def render_create_tasks(request: ResearcherRequest, study: Study):

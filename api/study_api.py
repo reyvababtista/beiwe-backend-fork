@@ -220,12 +220,3 @@ def edit_custom_field(request: ResearcherRequest, study_id=None):
     
     # this apparent insanity is a hopefully unnecessary confirmation of the study id
     return redirect(f'/study_fields/{Study.objects.get(pk=study_id).id}')
-
-
-
-
-
-
-
-
-    

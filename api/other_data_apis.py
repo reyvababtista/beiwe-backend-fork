@@ -1,6 +1,6 @@
 import csv
-from io import StringIO
 import json
+from io import StringIO
 
 import orjson
 from django.db.models.functions import Substr
@@ -16,6 +16,7 @@ from database.user_models_researcher import StudyRelation
 from libs.internal_types import ApiResearcherRequest, ApiStudyResearcherRequest
 from libs.intervention_utils import intervention_survey_data, survey_history_export
 from libs.participant_table_api import common_data_extraction_for_apis, get_table_columns
+from libs.summary_statistic_api import summary_statistics_request_handler
 from libs.utils.effiicient_paginator import EfficientQueryPaginator
 from middleware.abort_middleware import abort
 
@@ -103,6 +104,14 @@ def get_participant_table_data(request: ApiStudyResearcherRequest):
         return HttpResponse(orjson.dumps(table_data), content_type="application/json")
     
     assert False, "unreachable code."
+
+
+@require_POST
+@api_study_credential_check()
+def get_summary_statistics(request: ApiStudyResearcherRequest, study_id: str = None):
+    return summary_statistics_request_handler(request, request.api_study.object_id)
+
+
 
 ## New api endpoints for participant metadata
 

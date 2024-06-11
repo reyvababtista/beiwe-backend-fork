@@ -9,6 +9,7 @@ from django.http.response import FileResponse
 from constants.celery_constants import ForestTaskStatus
 from constants.data_stream_constants import GPS
 from constants.forest_constants import FOREST_NO_TASK, FOREST_TASK_CANCELLED, ForestTree
+from constants.tableau_api_constants import DATA_QUANTITY_FIELD_NAMES
 from constants.testing_constants import EMPTY_ZIP, SIMPLE_FILE_CONTENTS
 from constants.user_constants import ResearcherRole
 from database.forest_models import ForestTask
@@ -280,3 +281,131 @@ class TestRerunForestTask(ResearcherSessionTest):
         self.smart_post_status_code(403, self.session_study.id, external_id=old_task.external_id)
         self.assertEqual(ForestTask.objects.count(), 1)
         self.smart_post_status_code(403, self.session_study.id)
+
+
+# download_summary_statistics_summary
+class TestDownloadSummaryStatisticsSummary(ResearcherSessionTest):
+    ENDPOINT_NAME = "forest_pages.download_summary_statistics_summary"
+    
+    # edit this to match the csv header if it is updated
+    # (note that Beiwe Wifi Bytes, the last one before the newline, has no comma)
+    CSV_HEADER: bytes= (
+        'Patient Id,'
+        'Beiwe Accelerometer Bytes,'
+        'Beiwe Ambient Audio Bytes,'
+        'Beiwe App Log Bytes,'
+        'Beiwe Bluetooth Bytes,'
+        'Beiwe Calls Bytes,'
+        'Beiwe Devicemotion Bytes,'
+        'Beiwe Gps Bytes,'
+        'Beiwe Gyro Bytes,'
+        'Beiwe Identifiers Bytes,'
+        'Beiwe Ios Log Bytes,'
+        'Beiwe Magnetometer Bytes,'
+        'Beiwe Power State Bytes,'
+        'Beiwe Proximity Bytes,'
+        'Beiwe Reachability Bytes,'
+        'Beiwe Survey Answers Bytes,'
+        'Beiwe Survey Timings Bytes,'
+        'Beiwe Texts Bytes,'
+        'Beiwe Audio Recordings Bytes,'
+        'Beiwe Wifi Bytes'
+        '\r\n'
+    ).encode()
+    
+    EMPTY_PARTICIPANT = b"patient1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0\r\n"
+    EMPTY_GRAND_TOTALS= b"Grand Totals\r\n"
+    # the globals start with a new line
+    EMPTY_GLOBALS = b"\r\nGlobal Total:\r\n0\r\n\r\nGlobal Total (MB):\r\n0.00 MB\r\n"
+    
+    def test_no_relation_no_worky(self):
+        self.smart_get_status_code(403, self.session_study.id)
+    
+    def test_researcher_no_worky(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_get_status_code(403, self.session_study.id)
+    
+    def test_study_admin_can(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.smart_get_status_code(200, self.session_study.id)
+    
+    def test_site_admin_can(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.smart_get_status_code(200, self.session_study.id)
+    
+    def test_no_participants(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        resp = self.smart_get_status_code(200, self.session_study.id)
+        self.assertEqual(resp.content, self.CSV_HEADER + self.EMPTY_GRAND_TOTALS + self.EMPTY_GLOBALS)
+    
+    def test_one_participant_no_data(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.default_participant
+        resp = self.smart_get_status_code(200, self.session_study.id)
+        correct = self.CSV_HEADER + self.EMPTY_PARTICIPANT + self.EMPTY_GRAND_TOTALS + self.EMPTY_GLOBALS
+        self.assertEqual(resp.content, correct)
+    
+    def test_one_participant_single_summarystatistic(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.default_participant
+        self.default_summary_statistic_daily.update(
+            **{field_name: 1000 for field_name in DATA_QUANTITY_FIELD_NAMES}
+        )
+        resp = self.smart_get_status_code(200, self.session_study.id)
+        grand_totals = b"Grand Totals,1000,1000,1000,1000,1000,1000,1000,1000,1000,"\
+            b"1000,1000,1000,1000,1000,1000,1000,1000,1000,1000\r\n"
+        global_totals = b"\r\nGlobal Total:\r\n19000\r\n\r\nGlobal Total (MB):\r\n0.02 MB\r\n"
+        correct = b"".join((
+            self.CSV_HEADER,
+            self.EMPTY_PARTICIPANT.replace(b"0", b"1000"),
+            grand_totals,
+            global_totals,
+        ))
+        
+        self.assertEqual(resp.content, correct)
+    
+    def test_two_summary_statistics(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.default_participant
+        # self.generate_participant(self.session_study)
+        self.default_summary_statistic_daily.update(
+            **{field_name: 1000 for field_name in DATA_QUANTITY_FIELD_NAMES}
+        )
+        self.generate_summary_statistic_daily(date(2020,1,1)).update(
+            **{field_name: 2000 for field_name in DATA_QUANTITY_FIELD_NAMES}
+        )
+        resp = self.smart_get_status_code(200, self.session_study.id)
+        grand_totals = b"Grand Totals,3000,3000,3000,3000,3000,3000,3000,3000,3000,"\
+            b"3000,3000,3000,3000,3000,3000,3000,3000,3000,3000\r\n"
+        global_totals = b"\r\nGlobal Total:\r\n57000\r\n\r\nGlobal Total (MB):\r\n0.05 MB\r\n"
+        correct = b"".join((
+            self.CSV_HEADER,
+            self.EMPTY_PARTICIPANT.replace(b"0", b"3000"),
+            grand_totals,
+            global_totals,
+        ))
+        self.assertEqual(resp.content, correct)
+    
+    def test_two_participants(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.default_participant
+        p2 = self.generate_participant(self.session_study, patient_id="patient2")
+        self.default_summary_statistic_daily.update(
+            **{field_name: 1000 for field_name in DATA_QUANTITY_FIELD_NAMES}
+        )
+        self.generate_summary_statistic_daily(date(2020,1,1), p2).update(
+            **{field_name: 2000 for field_name in DATA_QUANTITY_FIELD_NAMES}
+        )
+        resp = self.smart_get_status_code(200, self.session_study.id)
+        grand_totals = b"Grand Totals,3000,3000,3000,3000,3000,3000,3000,3000,3000,"\
+            b"3000,3000,3000,3000,3000,3000,3000,3000,3000,3000\r\n"
+        global_totals = b"\r\nGlobal Total:\r\n57000\r\n\r\nGlobal Total (MB):\r\n0.05 MB\r\n"
+        
+        correct = b"".join((
+            self.CSV_HEADER,
+            self.EMPTY_PARTICIPANT.replace(b"0", b"1000"),
+            self.EMPTY_PARTICIPANT.replace(b"0", b"2000").replace(b"patient1", b"patient2"),
+            grand_totals,
+            global_totals,
+        ))
+        self.assertEqual(resp.content, correct)

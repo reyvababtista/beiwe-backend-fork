@@ -15,17 +15,17 @@ from libs.utils.effiicient_paginator import EfficientQueryPaginator
 
 
 def summary_statistics_request_handler(
-        request: Union[TableauRequest, ResearcherRequest], study_object_id: str
+    request: Union[TableauRequest, ResearcherRequest], study_object_id: str
 ):
     form = ApiQueryForm(data=request.GET)
     if not form.is_valid():
         return HttpResponse(
-            format_errors(form.errors.get_json_data()), status=400, content_type="application/json"
+            format_summary_data_errors(form.errors.get_json_data()), status=400, content_type="application/json"
         )
     
     # The don't need to specify the study_id and participant_id fields, those are provided.
     query_fields = [f for f in form.cleaned_data["fields"] if f in SERIALIZABLE_FIELD_NAMES]
-    paginator = tableau_query_database(
+    paginator = summary_statistics_api_query_database(
         study_object_id=study_object_id,  # the object id is validated in the login logic
         query_fields=query_fields,
         **form.cleaned_data,  # already cleaned and validated
@@ -33,7 +33,7 @@ def summary_statistics_request_handler(
     return StreamingHttpResponse(paginator.stream_orjson_paginate(), content_type="application/json")
 
 
-def format_errors(errors: dict) -> str:
+def format_summary_data_errors(errors: dict) -> str:
     """ Flattens a django validation error dictionary into a json string. """
     messages = []
     for field, field_errs in errors.items():
@@ -41,7 +41,7 @@ def format_errors(errors: dict) -> str:
     return json.dumps({"errors": messages})
 
 
-def tableau_query_database(
+def summary_statistics_api_query_database(
     study_object_id, participant_ids=None, limit=None,  # basics
     end_date=None, start_date=None,                     # time
     ordered_by="date", order_direction="default",       # sort
@@ -57,7 +57,7 @@ def tableau_query_database(
         order_direction (str): order to sort in, either "ascending" or "descending"
         participant_ids (optional[list[str]]): a list of participants to limit the search to
     Returns EfficientPaginator of the SummaryStatisticsDaily objects specified by the parameters """
-
+    
     if not query_fields:
         raise Exception("invalid usage")
     

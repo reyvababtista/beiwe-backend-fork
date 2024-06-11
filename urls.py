@@ -223,6 +223,7 @@ path("get-participant-upload-history/v1", other_data_apis.get_participant_upload
 path("get-participant-heartbeat-history/v1", other_data_apis.get_participant_heartbeat_history)
 path("get-participant-version-history/v1", other_data_apis.get_participant_version_history)
 path("get-participant-table-data/v1", other_data_apis.get_participant_table_data)
+path("get-summary-statistics/v1", other_data_apis.get_summary_statistics)
 
 # tableau
 path(

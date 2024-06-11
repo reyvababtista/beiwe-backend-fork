@@ -6,6 +6,7 @@ from dateutil.tz import UTC
 from django.core.exceptions import ValidationError
 
 from constants.data_access_api_constants import MISSING_JSON_CSV_MESSAGE
+from constants.tableau_api_constants import SERIALIZABLE_FIELD_NAMES
 from constants.user_constants import ResearcherRole
 from database.profiling_models import UploadTracking
 from database.security_models import ApiKey
@@ -777,3 +778,44 @@ class TestParticipantVersionHistory(DataApiTest):
             text += b',["1","1.0","1.0"]'
         text = b"[" + text + b"]"
         self.assertEqual(content, text)
+
+
+# other_data_apis.get_summary_statistics is identical to the tableau_api.get_tableau_daily, which is
+# tested extensively in test_tableau_api.py. The difference is that this endpoint uses the data
+# access api decorator for authentication and the other is explicitly for tableau integration.
+# All we need to test is that this works at all.
+class TestGetSummaryStatistics(DataApiTest):
+    ENDPOINT_NAME = "other_data_apis.get_summary_statistics"
+    
+    def test_no_study_param(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_status_code(400)
+    
+    def test_no_data(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, b"[]")
+    
+    def test_single_summary_statistic(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_summary_statistic_daily
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
+        content = b"".join(resp.streaming_content)
+        
+        # get the data
+        list_of_dict = orjson.loads(content)
+        self.assertEqual(len(list_of_dict), 1)
+        exported_summary_statistic = list_of_dict[0]
+        
+        # assemble the correct data directly out of the database, do some formatting, confirm match.
+        correct = {
+            k:v for k,v in 
+            self.default_summary_statistic_daily.as_dict().items()
+            if k in SERIALIZABLE_FIELD_NAMES
+        }
+        correct["date"] = correct["date"].isoformat()
+        correct["study_id"] = self.session_study.object_id
+        correct["participant_id"] = self.default_participant.patient_id
+        
+        self.assertDictEqual(exported_summary_statistic, correct)

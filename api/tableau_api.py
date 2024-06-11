@@ -16,7 +16,6 @@ FINAL_SERIALIZABLE_FIELDS: List[Field] = [
 ]
 
 
-
 @require_GET
 @authenticate_tableau
 def get_tableau_daily(request: TableauRequest, study_object_id: str = None):

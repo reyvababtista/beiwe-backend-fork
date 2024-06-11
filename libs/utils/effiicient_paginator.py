@@ -1,6 +1,5 @@
 from typing import Generator, List
 
-import orjson
 from django.db.models import QuerySet
 from orjson import dumps as orjson_dumps
 
@@ -77,29 +76,3 @@ class EfficientQueryPaginator:
                 yield b","
             yield orjson_dumps(page, **kwargs)[1:-1]  # this is a bytes object, we cut the first and last brackets
         yield b"]"
-
-
-class TableauApiPaginator(EfficientQueryPaginator):
-    """ This class handles a compatibility issue and some weird python behavior. """
-    
-    def stream_orjson_paginate(self):
-        """ we need to rename the patient_id field, because we can't annotate our way out of this
-        one due to a Django limitation. """
-        
-        if "patient_id" in self.values:
-            yield b"["
-            for i, page in enumerate(self.paginate()):
-                if i != 0:
-                    yield b","
-                for values_dict in page:
-                    values_dict["participant_id"] = values_dict.pop("patient_id")
-                yield orjson_dumps(page)[1:-1]
-            yield b"]"
-        else:
-            # For some reason we can't call the super implementation, so I have copy-pasted.
-            yield b"["
-            for i, page in enumerate(self.paginate()):
-                if i != 0:
-                    yield b","
-                yield orjson_dumps(page)[1:-1]
-            yield b"]"

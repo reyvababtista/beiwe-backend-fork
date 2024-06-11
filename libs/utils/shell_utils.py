@@ -7,6 +7,7 @@ from typing import Dict, List, Tuple, Union
 from dateutil.tz import gettz
 from django.utils import timezone
 from django.utils.timezone import localtime
+from numpy import char
 
 from constants.action_log_messages import HEARTBEAT_PUSH_NOTIFICATION_SENT
 from constants.common_constants import DEV_TIME_FORMAT, DEV_TIME_FORMAT3
@@ -385,3 +386,27 @@ def describe_problem_uploads():
     print()
     print("study file counts:")
     pprint(dict(sorted(list(study_counts.items()), key=lambda x: x[1], reverse=True)), sort_dicts=False)
+
+
+def diff_strings(s1: str, s2: str):
+    if isinstance(s1, bytes):
+        s1 = s1.decode("utf-8")
+    if isinstance(s2, bytes):
+        s2 = s2.decode("utf-8")
+        
+    print("")
+    for i, (char_s1, char_s2) in enumerate(zip(s1, s2)):
+        if char_s1 != char_s2:
+            print()
+            print(f"\ndiff at {i}, '{char_s1}' != '{char_s2}'")
+            break
+        else:
+            # print(f"'{char_s1}' matches")
+            print(char_s1.encode("unicode_escape").decode(), end="", flush=True)
+    if i == len(s1) - 1:
+        print("\nstrings match!")
+    else:
+        print("")
+        start = i - 20 if i - 20 > 0 else 0
+        print(f"chars -20 to +20 of s1: '{s1[start:i+20].encode('unicode_escape').decode()}'")
+        print(f"chars -20 to +20 of s2: '{s2[start:i+20].encode('unicode_escape').decode()}'")

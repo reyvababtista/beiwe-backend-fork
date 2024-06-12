@@ -33,7 +33,7 @@ class TestDashboard(ResearcherSessionTest):
         self.assert_data_streams_present(resp)
     
     def test_dashboard_one_participant(self):
-        self.default_participant
+        self.using_default_participant()
         # default user and default study already instantiated
         self.set_session_study_relation(ResearcherRole.researcher)
         resp = self.smart_get_status_code(200, str(self.session_study.id))

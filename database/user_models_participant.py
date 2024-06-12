@@ -537,6 +537,10 @@ class ParticipantActionLog(UtilityModel):
     participant: Participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="action_logs")
     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
     action = models.TextField(null=False, blank=False)
+    
+    @classmethod
+    def heartbeat_notifications(cls) -> QuerySet[ParticipantActionLog]:
+        return cls.objects.filter(action=HEARTBEAT_PUSH_NOTIFICATION_SENT)
 
 
 # feature disabled, untested

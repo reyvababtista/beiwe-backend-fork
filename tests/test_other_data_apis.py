@@ -244,13 +244,13 @@ class TestGetUsersInStudy(DataApiTest):
     
     def test_one_participant(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
         self.assertEqual(resp.content, f'["{self.default_participant.patient_id}"]'.encode())
     
     def test_two_participants(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         p2 = self.generate_participant(self.session_study)
         resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
         # ordering here is random because generate_participant is random, so we will just test both.
@@ -479,7 +479,7 @@ class TestDownloadParticipantTableData(DataApiTest):
     def _do_one_participant(self, data_format: str):
         if not hasattr(self, "_default_study_relation"):
             self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         self.default_participant.update_only(created_on=datetime(2020, 1, 1, 12, tzinfo=UTC))
         return self.smart_post_status_code(200, study_id=self.session_study.object_id, data_format=data_format)
     
@@ -518,14 +518,14 @@ class TestGetParticipantUploadHistory(DataApiTest):
     def test_no_participant_parameter(self):
         # it should 400
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         resp = self.smart_post_status_code(400)
         self.assertEqual(resp.content, b"")
     
     def test_bad_participant_parameter(self):
         # it should 404 and not render the 404 page
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         resp = self.smart_post_status_code(404, participant_id="a" * 8)
         self.assertEqual(resp.content, b"")
     
@@ -551,7 +551,7 @@ class TestGetParticipantUploadHistory(DataApiTest):
     
     def test_one_participant_one_upload_values(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         self.create_an_upload()
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
         content = b"".join(resp.streaming_content)
@@ -563,7 +563,7 @@ class TestGetParticipantUploadHistory(DataApiTest):
     def test_one_participant_one_upload_values_list(self):
         # as values but formatted data lacks keys.
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         self.create_an_upload()
         resp = self.smart_post_status_code(
             200, participant_id=self.default_participant.patient_id, omit_keys="true"
@@ -573,7 +573,7 @@ class TestGetParticipantUploadHistory(DataApiTest):
     
     def test_ten_uploads_values(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         for i in range(10):
             self.create_an_upload()
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
@@ -586,7 +586,7 @@ class TestGetParticipantUploadHistory(DataApiTest):
     
     def test_ten_uploads_values_list(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         for i in range(10):
             self.create_an_upload()
         resp = self.smart_post_status_code(
@@ -610,14 +610,14 @@ class TestParticipantHeartbeatHistory(DataApiTest):
     def test_no_participant_parameter(self):
         # it should 400
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         resp = self.smart_post_status_code(400)
         self.assertEqual(resp.content, b"")
     
     def test_bad_participant_parameter(self):
         # it should 404 and not render the 404 page
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         resp = self.smart_post_status_code(404, participant_id="a" * 8)
         self.assertEqual(resp.content, b"")
     
@@ -643,7 +643,7 @@ class TestParticipantHeartbeatHistory(DataApiTest):
     
     def test_one_participant_one_heartbeat_values(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         self.create_a_heartbeat()
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
         content = b"".join(resp.streaming_content)
@@ -652,7 +652,7 @@ class TestParticipantHeartbeatHistory(DataApiTest):
     def test_one_participant_one_heartbeat_values_list(self):
         # as values but formatted data lacks keys.
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         self.create_a_heartbeat()
         resp = self.smart_post_status_code(
             200, participant_id=self.default_participant.patient_id, omit_keys="true"
@@ -662,7 +662,7 @@ class TestParticipantHeartbeatHistory(DataApiTest):
     
     def test_ten_heartbeats_values(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         for i in range(10):
             self.create_a_heartbeat()
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
@@ -675,7 +675,7 @@ class TestParticipantHeartbeatHistory(DataApiTest):
     
     def test_ten_heartbeats_values_list(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         for i in range(10):
             self.create_a_heartbeat()
         resp = self.smart_post_status_code(
@@ -700,14 +700,14 @@ class TestParticipantVersionHistory(DataApiTest):
     def test_no_participant_parameter(self):
         # it should 400
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         resp = self.smart_post_status_code(400)
         self.assertEqual(resp.content, b"")
     
     def test_bad_participant_parameter(self):
         # it should 404 and not render the 404 page
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         resp = self.smart_post_status_code(404, participant_id="a" * 8)
         self.assertEqual(resp.content, b"")
     
@@ -733,7 +733,7 @@ class TestParticipantVersionHistory(DataApiTest):
     
     def test_one_participant_one_version_values(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         self.create_a_version()
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
         content = b"".join(resp.streaming_content)
@@ -743,7 +743,7 @@ class TestParticipantVersionHistory(DataApiTest):
     
     def test_one_participant_one_version_values_list(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         self.create_a_version()
         resp = self.smart_post_status_code(
             200, participant_id=self.default_participant.patient_id, omit_keys="true"
@@ -753,7 +753,7 @@ class TestParticipantVersionHistory(DataApiTest):
     
     def test_ten_versions_values(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         for i in range(10):
             self.create_a_version()
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
@@ -766,7 +766,7 @@ class TestParticipantVersionHistory(DataApiTest):
     
     def test_ten_versions_values_list(self):
         self.set_session_study_relation(ResearcherRole.researcher)
-        self.default_participant
+        self.using_default_participant()
         for i in range(10):
             self.create_a_version()
         resp = self.smart_post_status_code(

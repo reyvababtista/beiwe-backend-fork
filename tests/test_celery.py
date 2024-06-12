@@ -170,7 +170,7 @@ class TestHeartbeatQuery(TestCelery):
         self.assertEqual(len(heartbeat_query()), 0)
     
     def test_query_one_invalid_participant(self):
-        self.default_participant
+        self.using_default_participant()
         self.assertEqual(len(heartbeat_query()), 0)
     
     def test_query_deleted_participant(self):

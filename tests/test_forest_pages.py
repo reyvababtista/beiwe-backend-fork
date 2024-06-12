@@ -23,7 +23,7 @@ from tests.helpers import CURRENT_TEST_DATE_BYTES, DummyThreadPool
 #
 
 
-# FIXME: make a real test...
+# FIXME: This endpoint is unusable, it is not a viable way to look at forest stuff.
 class TestForestAnalysisProgress(ResearcherSessionTest):
     ENDPOINT_NAME = "forest_pages.forest_tasks_progress"
     
@@ -34,7 +34,6 @@ class TestForestAnalysisProgress(ResearcherSessionTest):
             self.generate_participant(self.session_study)
         # print(Participant.objects.count())
         self.smart_get(self.session_study.id)
-
 
 
 # class TestForestCreateTasks(ResearcherSessionTest):
@@ -341,14 +340,14 @@ class TestDownloadSummaryStatisticsSummary(ResearcherSessionTest):
     
     def test_one_participant_no_data(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
-        self.default_participant
+        self.using_default_participant()
         resp = self.smart_get_status_code(200, self.session_study.id)
         correct = self.CSV_HEADER + self.EMPTY_PARTICIPANT + self.EMPTY_GRAND_TOTALS + self.EMPTY_GLOBALS
         self.assertEqual(resp.content, correct)
     
     def test_one_participant_single_summarystatistic(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
-        self.default_participant
+        self.using_default_participant()
         self.default_summary_statistic_daily.update(
             **{field_name: 1000 for field_name in DATA_QUANTITY_FIELD_NAMES}
         )
@@ -367,7 +366,7 @@ class TestDownloadSummaryStatisticsSummary(ResearcherSessionTest):
     
     def test_two_summary_statistics(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
-        self.default_participant
+        self.using_default_participant()
         # self.generate_participant(self.session_study)
         self.default_summary_statistic_daily.update(
             **{field_name: 1000 for field_name in DATA_QUANTITY_FIELD_NAMES}
@@ -389,7 +388,7 @@ class TestDownloadSummaryStatisticsSummary(ResearcherSessionTest):
     
     def test_two_participants(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
-        self.default_participant
+        self.using_default_participant()
         p2 = self.generate_participant(self.session_study, patient_id="patient2")
         self.default_summary_statistic_daily.update(
             **{field_name: 1000 for field_name in DATA_QUANTITY_FIELD_NAMES}

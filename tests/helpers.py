@@ -252,6 +252,11 @@ class ReferenceObjectMixin:
         )
         return self._default_participant
     
+    def using_default_participant(self):
+        """ Literally just a placeholder so that you can expressively say that you are 
+        using/creating the default participant. (and also linters might complain) """
+        self.default_participant
+    
     @property
     def populate_default_fcm_token(self) -> ParticipantFCMHistory:
         token = ParticipantFCMHistory(

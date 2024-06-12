@@ -3,7 +3,7 @@ import pickle
 from collections import defaultdict
 from datetime import date, datetime
 from io import StringIO
-from typing import Dict
+from typing import Dict, List
 
 import orjson
 from django.contrib import messages
@@ -17,11 +17,12 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from authentication.admin_authentication import (authenticate_admin,
     authenticate_researcher_study_access, forest_enabled)
 from constants.celery_constants import ForestTaskStatus
-from constants.common_constants import DEV_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATE
+from constants.common_constants import DEV_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATE, RUNNING_TESTS
 from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import (FOREST_NO_TASK, FOREST_TASK_CANCELLED,
     FOREST_TASKVIEW_PICKLING_EMPTY, FOREST_TASKVIEW_PICKLING_ERROR,
     FOREST_TREE_REQUIRED_DATA_STREAMS, ForestTree)
+from constants.tableau_api_constants import FOREST_TREE_TO_SERIALIZEABLE_FIELD_NAMES
 from database.data_access_models import ChunkRegistry
 from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.study_models import Study
@@ -37,6 +38,7 @@ from libs.streaming_zip import ZipGenerator
 from libs.study_summaries import (get_summary_statistics_summary_in_one_database_query,
     reference_summary_csv_columns)
 from libs.utils.date_utils import daterange
+from libs.utils.effiicient_paginator import EfficientQueryPaginator
 
 
 TASK_SERIALIZER_FIELDS = [
@@ -226,6 +228,9 @@ def task_log(request: ResearcherRequest, study_id=None):
         
         # rename and transform
         task_dict["has_output_data"] = task_dict["forest_output_exists"]
+        task_dict["download_participant_tree_data_url"] = easy_url(
+            "forest_pages.download_participant_tree_data", study_id=study_id, forest_task_external_id=extern_id,
+        )
         task_dict["forest_tree_display"] = task_dict.pop("forest_tree").title()
         task_dict["created_on_display"] = task_dict.pop("created_on").strftime(DEV_TIME_FORMAT)
         task_dict["forest_output_exists_display"] = yes_no_unknown(task_dict["forest_output_exists"])
@@ -280,7 +285,7 @@ def task_log(request: ResearcherRequest, study_id=None):
 @require_POST
 @authenticate_admin
 @forest_enabled
-def cancel_task(request: ResearcherRequest, study_id, forest_task_external_id):
+def cancel_task(request: ResearcherRequest, study_id: int, forest_task_external_id: str):
     if not request.session_researcher.site_admin:
         return HttpResponse(content="", status=403)
     
@@ -306,7 +311,7 @@ def cancel_task(request: ResearcherRequest, study_id, forest_task_external_id):
 @require_GET
 @authenticate_admin
 @forest_enabled
-def download_task_data(request: ResearcherRequest, study_id, forest_task_external_id):
+def download_task_data(request: ResearcherRequest, study_id: int, forest_task_external_id: str):
     try:
         forest_task: ForestTask = ForestTask.objects.get(
             external_id=forest_task_external_id, participant__study_id=study_id
@@ -350,7 +355,7 @@ def download_task_data(request: ResearcherRequest, study_id, forest_task_externa
 @require_GET
 @authenticate_admin
 @forest_enabled
-def download_output_data(request: ResearcherRequest, study_id, forest_task_external_id):
+def download_output_data(request: ResearcherRequest, study_id: int, forest_task_external_id: str):
     try:
         forest_task: ForestTask = ForestTask.objects.get(
             external_id=forest_task_external_id, participant__study_id=study_id
@@ -381,6 +386,52 @@ def download_output_data(request: ResearcherRequest, study_id, forest_task_exter
         content_type="zip",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@require_GET
+@authenticate_admin
+@forest_enabled
+def download_participant_tree_data(request: ResearcherRequest, study_id: int, forest_task_external_id: str):
+    """ Downloads a csv representation of a participant's data for a specific forest tree. """
+    # study id is validated in the authenticate_admin decorator, but its not tied to the forest task
+    try:
+        forest_task: ForestTask = ForestTask.objects.get(external_id=forest_task_external_id)
+        participant = forest_task.participant
+    except (ForestTask.DoesNotExist, ValidationError):
+        return HttpResponse(content="", status=404)
+    
+    if participant.study.id != int(study_id):
+        return HttpResponse(content="correct 404 case" if RUNNING_TESTS else "", status=404)
+    
+    if forest_task.forest_tree not in FOREST_TREE_TO_SERIALIZEABLE_FIELD_NAMES:
+        return HttpResponse(content="No such forest tree found.", status=404)
+    
+    # get the database fields and construct values for the csv header
+    fields_names: List[str] = ["date"] + FOREST_TREE_TO_SERIALIZEABLE_FIELD_NAMES[forest_task.forest_tree]
+    nice_names = [
+        # e.g. jasmine_distance_from_home -> Distance From Home
+        name.replace(f"{forest_task.forest_tree}_", "").replace("_", " ").title()
+            for name in fields_names
+    ]
+    
+    # protect our users from themselves, handle case of no data with a conformant header plus newline
+    if not participant.summarystatisticdaily_set.exists():
+        return HttpResponse(content=",".join(nice_names) + "\r\n", status=200)
+    
+    paginator = EfficientQueryPaginator(
+        participant.summarystatisticdaily_set.order_by("date"), 10000, values_list=fields_names
+    )
+    
+    contextually_accurate_date = participant.study.now().date()  # studies have time zones, use that
+    
+    f = FileResponse(
+        paginator.stream_csv(nice_names),
+        content_type="text/csv",
+        as_attachment=True,
+        filename=f"{participant.patient_id}_{forest_task.forest_tree}_data_{contextually_accurate_date}.csv",
+    )
+    f.set_headers(None)  # this is just a thing you have to do, its a django bug.
+    return f
 
 
 @require_GET

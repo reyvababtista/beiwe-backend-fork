@@ -105,6 +105,7 @@ NON_PICKLED_PARAMETERS = [
 
 
 # documented at https://forest.beiwe.org/en/latest/#forest-trees
+# Don't forget about FOREST_TREE_TO_SERIALIZEABLE_FIELD_NAMES in tableau_api_constants.py
 FOREST_TREE_REQUIRED_DATA_STREAMS = {
     # ForestTree.bonsai: [GPS, TEXTS_LOG],
     ForestTree.jasmine: [GPS],

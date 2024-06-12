@@ -90,6 +90,13 @@
                 </a>
               </div>
               
+              <div ng-if="log.has_output_data">
+                <a class="btn btn-link" ng-href="{% raw %}{{ log.download_participant_tree_data_url|trustAsResourceUrl }}{% endraw %}" style="padding: 0;">
+                  Download {% raw %}{{ log.forest_tree_display }}{% endraw %} Output Data
+                </a>
+              </div>
+              
+              
               <div ng-if="log.status === '{{ status_choices.queued }}'">
                 <form action="{% raw %}{{ log.cancel_url|trustAsResourceUrl }}{% endraw %}" method="post">
                   <button class="btn btn-link"

@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from typing import Tuple
 from unittest.mock import MagicMock, patch
 
 import dateutil
@@ -12,9 +13,9 @@ from constants.forest_constants import FOREST_NO_TASK, FOREST_TASK_CANCELLED, Fo
 from constants.tableau_api_constants import DATA_QUANTITY_FIELD_NAMES
 from constants.testing_constants import EMPTY_ZIP, SIMPLE_FILE_CONTENTS
 from constants.user_constants import ResearcherRole
-from database.forest_models import ForestTask
+from database.forest_models import ForestTask, SummaryStatisticDaily
 from tests.common import ResearcherSessionTest
-from tests.helpers import DummyThreadPool
+from tests.helpers import CURRENT_TEST_DATE_BYTES, DummyThreadPool
 
 
 #
@@ -290,27 +291,27 @@ class TestDownloadSummaryStatisticsSummary(ResearcherSessionTest):
     # edit this to match the csv header if it is updated
     # (note that Beiwe Wifi Bytes, the last one before the newline, has no comma)
     CSV_HEADER: bytes= (
-        'Patient Id,'
-        'Beiwe Accelerometer Bytes,'
-        'Beiwe Ambient Audio Bytes,'
-        'Beiwe App Log Bytes,'
-        'Beiwe Bluetooth Bytes,'
-        'Beiwe Calls Bytes,'
-        'Beiwe Devicemotion Bytes,'
-        'Beiwe Gps Bytes,'
-        'Beiwe Gyro Bytes,'
-        'Beiwe Identifiers Bytes,'
-        'Beiwe Ios Log Bytes,'
-        'Beiwe Magnetometer Bytes,'
-        'Beiwe Power State Bytes,'
-        'Beiwe Proximity Bytes,'
-        'Beiwe Reachability Bytes,'
-        'Beiwe Survey Answers Bytes,'
-        'Beiwe Survey Timings Bytes,'
-        'Beiwe Texts Bytes,'
-        'Beiwe Audio Recordings Bytes,'
-        'Beiwe Wifi Bytes'
-        '\r\n'
+        "Patient Id,"
+        "Accelerometer Bytes,"
+        "Ambient Audio Bytes,"
+        "App Log Bytes,"
+        "Bluetooth Bytes,"
+        "Calls Bytes,"
+        "Devicemotion Bytes,"
+        "Gps Bytes,"
+        "Gyro Bytes,"
+        "Identifiers Bytes,"
+        "Ios Log Bytes,"
+        "Magnetometer Bytes,"
+        "Power State Bytes,"
+        "Proximity Bytes,"
+        "Reachability Bytes,"
+        "Survey Answers Bytes,"
+        "Survey Timings Bytes,"
+        "Texts Bytes,"
+        "Audio Recordings Bytes,"
+        "Wifi Bytes"
+        "\r\n"
     ).encode()
     
     EMPTY_PARTICIPANT = b"patient1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0\r\n"
@@ -409,3 +410,141 @@ class TestDownloadSummaryStatisticsSummary(ResearcherSessionTest):
             global_totals,
         ))
         self.assertEqual(resp.content, correct)
+
+
+class TestDownloadParticipantTreeData(ResearcherSessionTest):
+    ENDPOINT_NAME = "forest_pages.download_participant_tree_data"
+    
+    summary_field_tree_map = {
+        ForestTree.jasmine: "jasmine_task",
+        ForestTree.oak: "oak_task",
+        ForestTree.sycamore: "sycamore_task",
+        ForestTree.willow: "willow_task",
+    }
+    
+    # hardcode these, but generate with
+    # from constants.tableau_api_constants import *
+    # b"Date," + ",".join(JASMINE_FIELDS).replace("jasmine_", "").replace("_", " ").title().encode()
+    # b"Date," + ",".join(OAK_FIELDS).replace("oak_", "").replace("_", " ").title().encode()
+    # b"Date," + ",".join(SYCAMORE_FIELDS).replace("sycamore_", "").replace("_", " ").title().encode()
+    # b"Date," + ",".join(WILLOW_FIELDS).replace("willow_", "").replace("_", " ").title().encode()
+    csv_columns_map = {
+        ForestTree.jasmine:
+            b'Date,Distance Diameter,Distance From Home,Distance Traveled,Flight Distance Average,'
+            b'Flight Distance Stddev,Flight Duration Average,Flight Duration Stddev,Gps Data '
+            b'Missing Duration,Home Duration,Gyration Radius,Significant Location Count,Significant'
+            b' Location Entropy,Pause Time,Obs Duration,Obs Day,Obs Night,Total Flight Time,Av'
+            b' Pause Duration,Sd Pause Duration',
+        ForestTree.oak:
+            b'Date,Walking Time,Steps,Cadence',
+        ForestTree.sycamore:
+            b'Date,Total Surveys,Total Completed Surveys,Total Opened Surveys,Average Time To Submit,'
+            b'Average Time To Open,Average Duration',
+        ForestTree.willow:
+            b'Date,Incoming Text Count,Incoming Text Degree,Incoming Text Length,Outgoing Text Count,'
+            b'Outgoing Text Degree,Outgoing Text Length,Incoming Text Reciprocity,Outgoing Text'
+            b' Reciprocity,Outgoing Mms Count,Incoming Mms Count,Incoming Call Count,Incoming'
+            b' Call Degree,Incoming Call Duration,Outgoing Call Count,Outgoing Call Degree,Outgoing'
+            b' Call Duration,Missed Call Count,Missed Callers,Uniq Individual Call Or Text Count'
+    }
+    
+    # the values for these are permuted in self.default_summary_statistic_daily_cheatsheet
+    # (we do this to create a different value in every field so that we can test and have
+    # something visibly wrong.)
+    csv_data_line_map = {
+        ForestTree.jasmine: CURRENT_TEST_DATE_BYTES + 
+            b",25.0,26.0,27.0,28.0,29.0,30.0,31.0,32,33.0,34.0,35,36.0,37,38.0,39.0,40.0,41.0,42.0,43.0",
+        ForestTree.oak: CURRENT_TEST_DATE_BYTES + 
+            b',69.0,70.0,71.0',
+        ForestTree.sycamore: CURRENT_TEST_DATE_BYTES + 
+            b',63,64,65,66.0,67.0,68.0',
+        ForestTree.willow: CURRENT_TEST_DATE_BYTES + 
+            b',44,45,46,47,48,49,50,51,52,53,54,55,56.0,57,58,59.0,60,61,62'
+    }
+    
+    def setup_valid_tree_and_summary_statistic(self, tree_name: str) -> Tuple[ForestTask, SummaryStatisticDaily]:
+        task = self.default_forest_task
+        task.update(forest_tree=tree_name)
+        stat = self.default_summary_statistic_daily
+        # we need to point at a correctly typed tree
+        stat.update_only(**{self.summary_field_tree_map[tree_name]: task})
+        return task, stat
+    
+    def test_no_relation_no_worky(self):
+        task, stat = self.setup_valid_tree_and_summary_statistic(ForestTree.jasmine)
+        self.smart_get_status_code(403, self.session_study.id, task.external_id)
+    
+    def test_researcher_no_worky(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        task, stat = self.setup_valid_tree_and_summary_statistic(ForestTree.jasmine)
+        self.smart_get_status_code(403, self.session_study.id, task.external_id)
+    
+    def test_study_admin_can(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        task, stat = self.setup_valid_tree_and_summary_statistic(ForestTree.jasmine)
+        self.smart_get_status_code(200, self.session_study.id, task.external_id)
+    
+    def test_site_admin_can(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        task, stat = self.setup_valid_tree_and_summary_statistic(ForestTree.jasmine)
+        self.smart_get_status_code(200, self.session_study.id, task.external_id)
+    
+    def test_wrong_study_id(self):
+        task, stat = self.setup_valid_tree_and_summary_statistic(ForestTree.jasmine)
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        # set up a second study so that normal validation passes and we hit our special 404 clause
+        study2 = self.generate_study("whatever")
+        # set admin relation on the second study
+        self.generate_study_relation(self.session_researcher, study2, ResearcherRole.study_admin)
+        resp = self.smart_get_status_code(404, study2.id, task.external_id)
+        self.assertEqual(resp.content, b"correct 404 case")
+    
+    def test_each_summary_statistic(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        # jasmine gets overwritten in the for loop
+        task, stat = self.setup_valid_tree_and_summary_statistic(ForestTree.jasmine)
+        
+        # update the tree type and compare output to correct data
+        for tree_name in ForestTree.values():
+            task.update_only(forest_tree=tree_name)
+            resp = self.smart_get_status_code(200, self.session_study.id, task.external_id)
+            
+            # painful to debug, keep these extra variables
+            content = b"".join(resp.streaming_content)
+            header, line, split_backslash_r_backslash_n = content.split(b"\r\n")
+            self.assertEqual(split_backslash_r_backslash_n, b"")
+            correct_line = self.csv_data_line_map[tree_name]
+            correct_header = self.csv_columns_map[tree_name]
+            self.assertEqual(header, correct_header)
+            self.assertEqual(line, correct_line)
+    
+    def test_no_summary_statistics(self):
+        # unlikely to be encountered, but we handle in the request body because otherwise we get an
+        # empty string and that could screw someone up.
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        task, stat = self.setup_valid_tree_and_summary_statistic(ForestTree.jasmine)
+        stat.delete()
+        resp = self.smart_get_status_code(200, self.session_study.id, task.external_id)
+        header, split_backslash_r_backslash_n = resp.content.split(b"\r\n")
+        correct_header = self.csv_columns_map[ForestTree.jasmine]
+        self.assertEqual(header, correct_header)
+        self.assertEqual(split_backslash_r_backslash_n, b"")
+    
+    def test_two_data_lines(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        task, stat = self.setup_valid_tree_and_summary_statistic(ForestTree.jasmine)
+        stat2 = self.generate_summary_statistic_daily(date(2020,1,1))
+        
+        # we need to point at a correctly typed tree
+        stat2.update_only(**{self.summary_field_tree_map[ForestTree.jasmine]: task})
+        
+        # get the data, esure it has two lines of data
+        # painful to debug, keep the extra variables
+        resp = self.smart_get_status_code(200, self.session_study.id, task.external_id)
+        content = b"".join(resp.streaming_content)
+        correct_line = self.csv_data_line_map[ForestTree.jasmine]
+        header, line1, line2, split_backslash_r_backslash_n = content.split(b"\r\n")
+        self.assertEqual(split_backslash_r_backslash_n, b"")
+        self.assertEqual(header, self.csv_columns_map[ForestTree.jasmine])
+        self.assertEqual(line2, correct_line)
+        self.assertEqual(line1, correct_line.replace(CURRENT_TEST_DATE_BYTES, b"2020-01-01"))

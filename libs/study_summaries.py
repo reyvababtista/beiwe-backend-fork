@@ -10,7 +10,10 @@ from database.study_models import Study
 
 def reference_summary_csv_columns():
     """ The reference for the columns that are generated for the summary statistics CSV file. """
-    return [v.replace("_", " ").title() for v in (["patient_id"] + reference_key_ordering_for_summary())]
+    return [
+        v.replace("beiwe_", "").replace("_", " ").title()
+        for v in (["patient_id"] + reference_key_ordering_for_summary())
+    ]
 
 
 def reference_key_ordering_for_summary():

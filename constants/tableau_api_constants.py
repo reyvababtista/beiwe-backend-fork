@@ -1,7 +1,8 @@
 from django.db.models.fields import (BooleanField, CharField, DateField, DateTimeField, FloatField,
     IntegerField, TextField)
 
-from constants.forest_constants import TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS
+from constants.forest_constants import ForestTree, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS
+
 
 # Metadata
 SUMMARY_METADATA_FIELD_NAMES = [
@@ -36,7 +37,7 @@ DATA_QUANTITY_FIELD_NAMES = [
 ]
 
 
-SERIALIZABLE_FIELD_NAMES = SUMMARY_METADATA_FIELD_NAMES + DATA_QUANTITY_FIELD_NAMES + [
+JASMINE_FIELDS = [
     # GPS
     "jasmine_distance_diameter",
     "jasmine_distance_from_home",
@@ -57,7 +58,10 @@ SERIALIZABLE_FIELD_NAMES = SUMMARY_METADATA_FIELD_NAMES + DATA_QUANTITY_FIELD_NA
     "jasmine_total_flight_time",
     "jasmine_av_pause_duration",
     "jasmine_sd_pause_duration",
-    
+]
+
+
+WILLOW_FIELDS = [
     # Willow, Texts
     "willow_incoming_text_count",
     "willow_incoming_text_degree",
@@ -69,7 +73,6 @@ SERIALIZABLE_FIELD_NAMES = SUMMARY_METADATA_FIELD_NAMES + DATA_QUANTITY_FIELD_NA
     "willow_outgoing_text_reciprocity",
     "willow_outgoing_MMS_count",
     "willow_incoming_MMS_count",
-    
     # Willow, Calls
     "willow_incoming_call_count",
     "willow_incoming_call_degree",
@@ -81,7 +84,10 @@ SERIALIZABLE_FIELD_NAMES = SUMMARY_METADATA_FIELD_NAMES + DATA_QUANTITY_FIELD_NA
     "willow_missed_callers",
     
     "willow_uniq_individual_call_or_text_count",
-    
+]
+
+
+SYCAMORE_FIELDS = [
     # Sycamore, Survey Frequency
     "sycamore_total_surveys",
     "sycamore_total_completed_surveys",
@@ -89,12 +95,26 @@ SERIALIZABLE_FIELD_NAMES = SUMMARY_METADATA_FIELD_NAMES + DATA_QUANTITY_FIELD_NA
     "sycamore_average_time_to_submit",
     "sycamore_average_time_to_open",
     "sycamore_average_duration",
-    
+]
+
+OAK_FIELDS = [
     # Oak, walking statistics
     "oak_walking_time",
     "oak_steps",
     "oak_cadence",
 ]
+
+
+FOREST_TREE_TO_SERIALIZEABLE_FIELD_NAMES = {
+    ForestTree.jasmine: JASMINE_FIELDS,
+    ForestTree.willow: WILLOW_FIELDS,
+    ForestTree.sycamore: SYCAMORE_FIELDS,
+    ForestTree.oak: OAK_FIELDS,
+}
+
+
+SERIALIZABLE_FIELD_NAMES = SUMMARY_METADATA_FIELD_NAMES + DATA_QUANTITY_FIELD_NAMES \
+    + JASMINE_FIELDS + WILLOW_FIELDS + SYCAMORE_FIELDS + OAK_FIELDS
 
 SERIALIZABLE_FIELD_NAMES.extend(TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS.values())
 

@@ -35,6 +35,10 @@ from libs.security import device_hash, generate_easy_alphanumeric_string
 CURRENT_TEST_HTML_FILEPATH = BEIWE_PROJECT_ROOT + "private/current_test_page.html"
 ABS_STATIC_ROOT = (BEIWE_PROJECT_ROOT + STATIC_ROOT).encode()
 
+# we need this to not be an _instance_ variable in TestDownloadParticipantTreeData
+CURRENT_TEST_DATE = timezone.now().today().date()
+CURRENT_TEST_DATE_TEXT = CURRENT_TEST_DATE.isoformat()
+CURRENT_TEST_DATE_BYTES = CURRENT_TEST_DATE_TEXT.encode()
 
 class ReferenceObjectMixin:
     """ This class implements DB object creation.  Some objects have convenience property wrappers
@@ -53,6 +57,7 @@ class ReferenceObjectMixin:
     SOME_SHA1_PASSWORD_COMPONENTS = 'sha1$1000$zsk387ts02hDMRAALwL2SL3nVHFgMs84UcZRYIQWYNQ=$hllJauvRYDJMQpXQKzTdwQ=='
     DEFAULT_STUDY_FIELD_NAME = "default_study_field_name"
     DEFAULT_PARTICIPANT_FIELD_VALUE = "default_study_field_value"
+    
     # this needs to be a dynamic property in order for the time_machine library to work
     @property
     def CURRENT_DATE(self) -> datetime:

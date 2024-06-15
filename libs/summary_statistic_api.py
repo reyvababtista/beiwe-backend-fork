@@ -50,8 +50,8 @@ def summary_statistics_api_query_database(
 ) -> TableauApiPaginator:
     """ Args:
         study_object_id (str): study in which to find data
-        end_date (optional[date]): last date to include in search
         start_date (optional[date]): first date to include in search
+        end_date (optional[date]): last date to include in search
         limit (optional[int]): maximum number of data points to return
         order_by (str): parameter to sort output by. Must be one in the list of fields to return
         order_direction (str): order to sort in, either "ascending" or "descending"
@@ -100,24 +100,13 @@ def summary_statistics_api_query_database(
 class TableauApiPaginator(EfficientQueryPaginator):
     """ This class handles a compatibility issue and some weird python behavior. """
     
-    def stream_orjson_paginate(self):
-        """ we need to rename the patient_id field, because we can't annotate our way out of this
-        one due to a Django limitation. """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # we can save some very minor time later by only having a mutation function if we actually
+        # need it
+        if  "patient_id" in self.field_names:
+            self.mutate_query_results = self._mutate_query_results
         
-        if "patient_id" in self.values:
-            yield b"["
-            for i, page in enumerate(self.paginate()):
-                if i != 0:
-                    yield b","
-                for values_dict in page:
-                    values_dict["participant_id"] = values_dict.pop("patient_id")
-                yield orjson_dumps(page)[1:-1]
-            yield b"]"
-        else:
-            # For some reason we can't call the super implementation, so I have copy-pasted.
-            yield b"["
-            for i, page in enumerate(self.paginate()):
-                if i != 0:
-                    yield b","
-                yield orjson_dumps(page)[1:-1]
-            yield b"]"
+    def _mutate_query_results(self, page: List[dict]):
+        for values_dict in page:
+            values_dict["participant_id"] = values_dict.pop("patient_id")

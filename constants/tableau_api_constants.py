@@ -104,7 +104,6 @@ OAK_FIELDS = [
     "oak_cadence",
 ]
 
-
 FOREST_TREE_TO_SERIALIZEABLE_FIELD_NAMES = {
     ForestTree.jasmine: JASMINE_FIELDS,
     ForestTree.willow: WILLOW_FIELDS,

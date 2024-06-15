@@ -27,7 +27,7 @@ class EfficientQueryPaginator:
         
         self.page_size = page_size
         self.pk_query = filtered_query.values_list("pk", flat=True)
-        self.values = values or values_list  # values is a list of field names - rename?
+        self.field_names = values or values_list
         
         self.doing_values_list = bool(values_list)
         
@@ -37,10 +37,10 @@ class EfficientQueryPaginator:
         
         # pass values params intelligently
         if values:
-            self.value_query = filtered_query.values(*self.values)
+            self.value_query = filtered_query.values(*self.field_names)
         elif values_list:
             self.value_query = filtered_query.values_list(
-                *values_list, flat=flat and len(self.values) == 1  # intelligently handle flat=True
+                *values_list, flat=flat and len(self.field_names) == 1  # intelligently handle flat=True
             )
             self.values_list = values_list
     
@@ -66,6 +66,8 @@ class EfficientQueryPaginator:
             pks.append(pk)
             if count % self.page_size == 0:
                 # using list(query) the iteration occurs inside cpython and is extremely quick.
+                # Do not create a variable that references the list! that creates a reference!
+                # (it might still have a reference, this is very hard to test.)
                 yield list(self.value_query.filter(pk__in=pks))
                 pks = []
         
@@ -92,10 +94,51 @@ class EfficientQueryPaginator:
             si.empty()
     
     def stream_orjson_paginate(self, **kwargs) -> Generator[bytes, None, None]:
-        """ streams a page by page orjson'd bytes of json list elements. Accepts kwargs for orjson. """
-        yield b"["
-        for i, page in enumerate(self.paginate()):
-            if i != 0:
-                yield b","
-            yield orjson_dumps(page, **kwargs)[1:-1]  # this is a bytes object, we cut the first and last brackets
+        """ Streams a page by page orjson'd bytes of json list elements. Accepts kwargs for orjson. """
+        
+        mutate = hasattr(self, "mutate_query_results")
+        
+        # We are going for maximum throughput with minimum memory usage. We reduce the load inside
+        # the loop where there would need to be a check of which, and manage memory usage.
+        # do the query before yielding the first page, this is the only way to get the first page
+        paginator = self.paginate()   # 0x memory, just the iterator
+        
+        # usage of next raises a StopIteration exception if the iterator is empty.
+        try:
+            first_page = next(paginator)  # 1x memory
+        except StopIteration:
+            yield b"[]"
+            return
+        
+        if mutate:
+            self.mutate_query_results(first_page)
+        
+        # documented inside the loop
+        out_raw = orjson_dumps(first_page, **kwargs)  # 2x memory
+        del first_page                                # 1x memory
+        out_final = out_raw[0:-1]                     # 2x memory
+        del out_raw                                   # 1x memory
+        yield out_final
+        del out_final                                 # 0x memory
+        
+        # if we have a single page the iterator is empty and the body of the loop is skipped.
+        for page in paginator:
+            yield b","
+            
+            if mutate:
+                self.mutate_query_results(page)
+            
+            # this is a bytes object, we cut the first and last characters (brackets) off
+            # unfortunately this results in a copy. Fairly certain there is no way to solve the
+            # overhead of the page variable because even if we del page there is a reference in the
+            # paginator scope. However, if that is not the case, then with some stupid shuffling and
+            # careful calls to del we can at least get to a point where the garbage collector
+            # _might_ clean up out_raw and page before we yield out_final.
+            out_raw = orjson_dumps(page, **kwargs)  # 2x memory
+            del page                                # 1x memory
+            out_final = out_raw[1:-1]               # 2x memory
+            del out_raw                             # 1x memory
+            yield out_final
+            del out_final                           # 0x memory
+        
         yield b"]"

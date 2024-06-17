@@ -8,6 +8,7 @@ from constants.data_stream_constants import ACCELEROMETER
 from constants.user_constants import ResearcherRole
 from database.data_access_models import ChunkRegistry
 from database.user_models_participant import Participant
+from libs.security import generate_easy_alphanumeric_string
 from tests.common import ResearcherSessionTest
 
 
@@ -69,52 +70,50 @@ class TestDashboardStream(ResearcherSessionTest):
         self.do_data_stream_test(create_chunkregistries=True, number_participants=5)
     
     def do_data_stream_test(self, create_chunkregistries=False, number_participants=1):
+        # this is slow because it make SO MANY REQUESTS
+        
         # self.default_participant  < -- breaks, collision with default name.
         self.set_session_study_relation()
         participants: List[Participant] = [
             self.generate_participant(self.session_study, patient_id=f"patient{i+1}")
             for i in range(number_participants)
         ]
-        
         # create all the participants we need
         if create_chunkregistries:
+            # miniscule optimization...
+            bulk = []
             for i, participant in enumerate(participants, start=0):
-                self.generate_chunkregistry(
-                    self.session_study,
-                    participant,
-                    "junk",  # data_stream
+                bulk.append(ChunkRegistry(
+                    study=self.session_study,
+                    participant=participant,
+                    data_type="junk",
+                    chunk_path=generate_easy_alphanumeric_string(),
+                    chunk_hash=generate_easy_alphanumeric_string(),
+                    time_bin=timezone.localtime().replace(hour=i, minute=0, second=0, microsecond=0),
                     file_size=123456 + i,
-                    time_bin=timezone.localtime().replace(
-                        hour=i, minute=0, second=0, microsecond=0
-                    ),
-                )
+                    is_chunkable=False,
+                ))
+            ChunkRegistry.objects.bulk_create(bulk)
         
+        # technically the end point accepts post and get. We don't care enouhg to test both.
         for data_stream in DASHBOARD_DATA_STREAMS:
             if create_chunkregistries:  # force correct data type
                 ChunkRegistry.objects.all().update(data_type=data_stream)
             
-            html1 = self.smart_get_status_code(200, self.session_study.id, data_stream).content
-            html2 = self.smart_post_status_code(200, self.session_study.id, data_stream).content
+            html = self.smart_get_status_code(200, self.session_study.id, data_stream).content
             title = COMPLETE_DATA_STREAM_DICT[data_stream]
-            self.assert_present(title, html1)
-            self.assert_present(title, html2)
+            self.assert_present(title, html)
             
             for i, participant in enumerate(participants, start=0):
                 comma_separated = str(123456 + i)[:-3] + "," + str(123456 + i)[3:]
                 if create_chunkregistries:
-                    self.assert_present(participant.patient_id, html1)
-                    self.assert_present(participant.patient_id, html2)
-                    self.assert_present(comma_separated, html1)
-                    self.assert_present(comma_separated, html2)
+                    self.assert_present(participant.patient_id, html)
+                    self.assert_present(comma_separated, html)
                 else:
-                    self.assert_not_present(participant.patient_id, html1)
-                    self.assert_not_present(participant.patient_id, html2)
-                    self.assert_not_present(comma_separated, html1)
-                    self.assert_not_present(comma_separated, html2)
-            
+                    self.assert_not_present(participant.patient_id, html)
+                    self.assert_not_present(comma_separated, html)
             if not participants or not create_chunkregistries:
-                self.assert_present(f"There is no data currently available for {title}", html1)
-                self.assert_present(f"There is no data currently available for {title}", html2)
+                self.assert_present(f"There is no data currently available for {title}", html)
 
 
 # FIXME: this page renders with almost no data

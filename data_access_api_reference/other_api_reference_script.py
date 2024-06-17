@@ -95,7 +95,7 @@ MY_BEIWE_SERVER = "https://example.com"
 # make a post request to the get-participant-upload-history/v1 endpoint, including the api key,
 # secret key, and participant_id as post parameters.
 t_start = datetime.now()
-print("Starting request at", t1, flush=True)
+print("Starting request at", t_start, flush=True)
 response = requests.post(
     TARGET_ENDPOINT_URL,
     

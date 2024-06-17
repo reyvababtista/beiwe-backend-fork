@@ -295,7 +295,6 @@ def dashboard_chunkregistry_date_query(
            all_time_bins[-1].astimezone(study.timezone).date()
 
 
-# Fixme: start and end dates are never used
 def dashboard_chunkregistry_query(
     participants: Union[ParticipantQuerySet, Participant], data_stream: str = None
 ):

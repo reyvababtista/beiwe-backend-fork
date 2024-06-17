@@ -18,7 +18,7 @@ from django.utils import timezone
 
 from config.settings import DOMAIN_NAME
 from constants.action_log_messages import HEARTBEAT_PUSH_NOTIFICATION_SENT
-from constants.common_constants import LEGIBLE_TIME_FORMAT
+from constants.common_constants import LEGIBLE_TIME_FORMAT, RUNNING_TESTS
 from constants.data_stream_constants import ALL_DATA_STREAMS, IDENTIFIERS
 from constants.user_constants import (ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API,
     OS_TYPE_CHOICES)
@@ -207,9 +207,11 @@ class Participant(AbstractPasswordUser):
         return super().generate_hash_and_salt(device_hash(password))
     
     def debug_validate_password(self, compare_me: str) -> bool:
-        """ Hardcoded values for a test, this is for a test. """
+        """ Hardcoded values for a test, this is for a test, do not use, this is just for tests. """
+        if not RUNNING_TESTS:
+            raise PermissionError("This method is for testing only.")
         _algorithm, _iterations, password, salt = django_password_components(self.password)
-        return compare_password('sha1', 1000, device_hash(compare_me.encode()), password, salt)
+        return compare_password('sha1', 2, device_hash(compare_me.encode()), password, salt)
     
     def get_private_key(self) -> RSA.RsaKey:
         from libs.s3 import get_client_private_key  # weird import triangle

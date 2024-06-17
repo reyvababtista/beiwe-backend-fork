@@ -40,7 +40,7 @@ CURRENT_TEST_DATE = timezone.now().today().date()
 CURRENT_TEST_DATE_TEXT = CURRENT_TEST_DATE.isoformat()
 CURRENT_TEST_DATE_BYTES = CURRENT_TEST_DATE_TEXT.encode()
 
-class ReferenceObjectMixin:
+class DatabaseHelperMixin:
     """ This class implements DB object creation.  Some objects have convenience property wrappers
     because they are so common. """
     

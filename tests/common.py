@@ -22,7 +22,7 @@ from database.user_models_participant import Participant
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import ResponseOrRedirect, StrOrBytes
 from libs.security import generate_easy_alphanumeric_string
-from tests.helpers import ReferenceObjectMixin, render_test_html_file
+from tests.helpers import DatabaseHelperMixin, render_test_html_file
 from urls import urlpatterns
 
 
@@ -81,7 +81,7 @@ Participant.DESIRED_ITERATIONS = 2
 ApiKey.DESIRED_ITERATIONS = 2
 
 
-class CommonTestCase(TestCase, ReferenceObjectMixin):
+class CommonTestCase(TestCase, DatabaseHelperMixin):
     """ This class contains the various test-oriented features, for example the assert_present
     method that handles a common case of some otherwise distracting type coersion. """
     

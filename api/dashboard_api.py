@@ -47,7 +47,7 @@ def get_data_for_dashboard_datastream_display(
     and get requests in the same function because the body of the get request relies on the
     variables set in the post request if a post request is sent --thus if a post request is sent
     we don't want all of the get request running. """
-    study = get_object_or_404(Study, pk=study_id)
+    study = Study.objects.get(pk=study_id)  # already checked in decorator
     
     # general data fetching
     participants = Participant.objects.filter(study=study).order_by("patient_id")

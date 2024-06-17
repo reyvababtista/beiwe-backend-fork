@@ -1,8 +1,10 @@
 import csv
 import json
 from io import StringIO
+from typing import List
 
 import orjson
+import zstd
 from django.db.models.functions import Substr
 from django.http import FileResponse, StreamingHttpResponse
 from django.http.response import HttpResponse
@@ -200,6 +202,51 @@ def get_participant_version_history(request: ApiStudyResearcherRequest):
     return StreamingHttpResponse(
         paginator.stream_orjson_paginate(option=options), content_type="application/json"
     )
+
+
+@require_POST
+@api_credential_check
+def get_participant_device_status_report_history(request: ApiStudyResearcherRequest):
+    participant = get_validate_participant_from_request(request)
+    
+    if not participant.device_status_reports.exists():
+        return HttpResponse("[]", content_type="application/json")
+    
+    # we rewrite compressed report to device_status
+    FIELDS_TO_SERIALIZE = [
+        "created_on", "endpoint", "app_os", "os_version", "app_version", "compressed_report"
+    ]
+    
+    query = participant.device_status_reports.order_by("created_on")
+    paginator = DeviceStatusHistoryPaginator(
+        filtered_query=query, 
+        page_size=1000,
+        values=FIELDS_TO_SERIALIZE,
+    )
+    
+    # OPT_OMIT_MICROSECONDS - obvious
+    # OPT_UTC_Z - UTC timezone serialized to Z instead of +00:00
+    options = orjson.OPT_OMIT_MICROSECONDS | orjson.OPT_UTC_Z
+    return StreamingHttpResponse(
+        paginator.stream_orjson_paginate(option=options), content_type="application/json"
+    )
+
+
+class DeviceStatusHistoryPaginator(EfficientQueryPaginator):
+    
+    def mutate_query_results(self, page: List[dict]):
+        """ We need to decompress the json-encoded device status data field. """
+        for row in page:
+            device_status = row.pop("compressed_report")
+            if device_status == b"empty":
+                row["device_status"] = {}  # probably not reachable on real server
+            else:
+                # zstd compression is _very_ fast. A weak server processed 460,541 decompresses of
+                # device infos in 1.179045 seconds in a tight loop.
+                # orjson.Fragment is orjson's mechanism to pass ...subsegments? that are already
+                # json encoded. This causes the output json to be an object, not a json string,
+                # (And it's faster and avoids a bytes -> string -> bytes conversion.)
+                row["device_status"] = orjson.Fragment(zstd.decompress(device_status))
 
 
 # Helper functions for the participant metadata endpoints

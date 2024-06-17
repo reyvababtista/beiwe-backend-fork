@@ -25,7 +25,7 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
 from database.user_models_participant import (AppHeartbeats, Participant, ParticipantActionLog,
-    ParticipantDeletionEvent, ParticipantFCMHistory, ParticipantFieldValue)
+    ParticipantDeletionEvent, ParticipantFCMHistory, ParticipantFieldValue, DeviceStatusReportHistory)
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import Schedule
 from libs.schedules import set_next_weekly
@@ -659,6 +659,25 @@ class ReferenceObjectMixin:
         stats = SummaryStatisticDaily(**params)
         stats.save()
         return stats
+    
+    def generate_device_status_report_history(
+            self, participant: Participant = None,
+            app_os: str = ANDROID_API,
+            os_version: str = "1.0",
+            app_version: str = "1.0",
+            endpoint: str = "test",
+            compressed_report: bytes = b"empty",
+    ):
+        report = DeviceStatusReportHistory(
+            participant=participant or self.default_participant,
+            app_os=app_os,
+            os_version=os_version,
+            app_version=app_version,
+            endpoint=endpoint,
+            compressed_report=compressed_report,
+        )
+        report.save()
+        return report
 
 
 def compare_dictionaries(reference, comparee, ignore=None):

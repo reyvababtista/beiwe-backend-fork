@@ -524,6 +524,8 @@ class AppHeartbeats(UtilityModel):
     notification)  """
     participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="heartbeats")
     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
+    # TODO: message is not intended to be surfaced to anyone other than developers, at time of comment
+    # contains ios debugging info.
     message = models.TextField(null=True, blank=True)
     
     @classmethod
@@ -560,6 +562,7 @@ class AppVersionHistory(TimestampedModel):
 
 # device status report history 
 class DeviceStatusReportHistory(UtilityModel):
+    created_on = models.DateTimeField(default=timezone.now)
     participant = models.ForeignKey(
         Participant, null=False, on_delete=models.PROTECT, related_name="device_status_reports"
     )

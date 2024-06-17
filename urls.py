@@ -224,6 +224,7 @@ path("get-participant-heartbeat-history/v1", other_data_apis.get_participant_hea
 path("get-participant-version-history/v1", other_data_apis.get_participant_version_history)
 path("get-participant-table-data/v1", other_data_apis.get_participant_table_data)
 path("get-summary-statistics/v1", other_data_apis.get_summary_statistics)
+path("get-participant-device-status-history/v1", other_data_apis.get_participant_device_status_report_history)
 
 # tableau
 path(

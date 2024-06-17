@@ -140,7 +140,7 @@ assert response.status_code != 301, \
     "Encountered HTTP redirect, you may have forgotten the s in https. first 100 bytes of response:\n" \
     f"{raw_output[:100]}"
 
-assert(response.content != b"", "No data was returned by the server..."
+assert response.content != b"", "No data was returned by the server..."
 
 print("Testing whether it is valid json...")
 try:

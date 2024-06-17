@@ -1,3 +1,4 @@
+import zstd
 import json
 from datetime import datetime
 
@@ -309,7 +310,7 @@ class TestStudySurveyHistory(DataApiTest):
         self.assertEqual(SurveyArchive.objects.count(), 2)
         
         # for archive in SurveyArchive.objects.all():
-            
+        
         resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
         should_be = '{"u1Z3SH7l2xNsw72hN3LnYi96":[{"archive_start":'\
                     '"replace1","survey_json":[]},{"archive_start":'\
@@ -810,7 +811,7 @@ class TestGetSummaryStatistics(DataApiTest):
         
         # assemble the correct data directly out of the database, do some formatting, confirm match.
         correct = {
-            k:v for k,v in 
+            k: v for k,v in
             self.default_summary_statistic_daily.as_dict().items()
             if k in SERIALIZABLE_FIELD_NAMES
         }
@@ -819,3 +820,69 @@ class TestGetSummaryStatistics(DataApiTest):
         correct["participant_id"] = self.default_participant.patient_id
         
         self.assertDictEqual(exported_summary_statistic, correct)
+
+
+class TestGetParticipantDeviceStatusHistory(DataApiTest):
+    ENDPOINT_NAME = "other_data_apis.get_participant_device_status_report_history"
+    COLUMNS = ["created_on", "endpoint", "app_os", "os_version", "app_version", "device_status"]
+    
+    def test_no_participant_parameter(self):
+        # it should 400
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.using_default_participant()
+        resp = self.smart_post_status_code(400)
+        self.assertEqual(resp.content, b"")
+    
+    def test_bad_participant_parameter(self):
+        # it should 404 and not render the 404 page
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.using_default_participant()
+        resp = self.smart_post_status_code(404, participant_id="a" * 8)
+        self.assertEqual(resp.content, b"")
+    
+    def test_participant_on_unauthenticated_study(self):
+        wrong_study = self.generate_study("study 2")
+        self.generate_study_relation(self.session_researcher, wrong_study, ResearcherRole.researcher)
+        self.using_default_participant()
+        resp = self.smart_post_status_code(403, participant_id=self.default_participant.patient_id)
+    
+    def test_fields_are_correct_empty_report(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.using_default_participant()
+        status_history = self.generate_device_status_report_history()
+        resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
+        content = b"".join(resp.streaming_content)
+        out_list_of_dicts = orjson.loads(content)
+        self.assertEqual(len(out_list_of_dicts), 1)
+        out_dict = out_list_of_dicts[0]
+        reference_out_dict = {
+            'created_on': status_history.created_on.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            'endpoint': 'test',
+            'app_os': 'ANDROID',
+            'os_version': '1.0',
+            'app_version': '1.0',
+            'device_status': {}
+        }
+        self.assertDictEqual(out_dict, reference_out_dict)
+    
+    def test_fields_are_correct_with_compression(self):
+        obj = ["this is a test string inside a json list so we have something to deserialize"]
+        slug = b'["this is a test string inside a json list so we have something to deserialize"]'
+        zslug = zstd.compress(slug, 0, 0)  # saves 4 whole bytes!
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.using_default_participant()
+        status_history = self.generate_device_status_report_history(compressed_report=zslug)
+        resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
+        content = b"".join(resp.streaming_content)
+        out_list_of_dicts = orjson.loads(content)
+        self.assertEqual(len(out_list_of_dicts), 1)
+        out_dict = out_list_of_dicts[0]
+        reference_out_dict = {
+            'created_on': status_history.created_on.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            'endpoint': 'test',
+            'app_os': 'ANDROID',
+            'os_version': '1.0',
+            'app_version': '1.0',
+            'device_status': obj,
+        }
+        self.assertDictEqual(out_dict, reference_out_dict)

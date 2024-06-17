@@ -1,5 +1,4 @@
 import csv
-import json
 from io import StringIO
 from typing import List
 
@@ -34,9 +33,9 @@ def get_studies(request: ApiResearcherRequest):
     :return: string: JSON-dumped dict {object_id: name}
     """
     return HttpResponse(
-        json.dumps(
-            dict(StudyRelation.objects.filter(
-                researcher=request.api_researcher).values_list("study__object_id", "study__name")
+        orjson.dumps(
+            dict(StudyRelation.objects.filter(researcher=request.api_researcher)
+                    .values_list("study__object_id", "study__name")
             )
         )
     )
@@ -47,14 +46,14 @@ def get_studies(request: ApiResearcherRequest):
 def get_users_in_study(request: ApiStudyResearcherRequest):
     # json can't operate on queryset, need as list.
     return HttpResponse(
-        json.dumps(list(request.api_study.participants.values_list('patient_id', flat=True)))
+        orjson.dumps(list(request.api_study.participants.values_list('patient_id', flat=True)), 200)
     )
 
 
 @require_POST
 @api_study_credential_check()
 def download_study_interventions(request: ApiStudyResearcherRequest):
-    return HttpResponse(json.dumps(intervention_survey_data(request.api_study)))
+    return HttpResponse(orjson.dumps(intervention_survey_data(request.api_study)), 200)
 
 
 @require_POST
@@ -187,7 +186,7 @@ def get_participant_heartbeat_history(request: ApiStudyResearcherRequest):
 def get_participant_version_history(request: ApiStudyResearcherRequest):
     participant = get_validate_participant_from_request(request)
     omit_keys = check_request_for_omit_keys_param(request)
-    FIELDS_TO_SERIALIZE = ["app_version_code", "app_version_name", "os_version",]
+    FIELDS_TO_SERIALIZE = ["app_version_code", "app_version_name", "os_version"]
     
     query = participant.app_version_history.order_by("created_on")
     paginator = EfficientQueryPaginator(

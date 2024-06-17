@@ -1,11 +1,11 @@
 from datetime import datetime
-from pprint import pprint
 
 # You need 2 libraries installed to run this script, run `pip install orjson requests`
 # requests is a (fantastic) library for making http requests
 # orjson is a highly optimized library for parsing json, I assure you, you will want to use it.
 import orjson
 import requests
+
 
 # provide your Beiwe access keys here
 ACCESS_KEY = "your access key"
@@ -111,11 +111,13 @@ response = requests.post(
         # much smaller and faster. Format of data will replace dictions with lists of values, order
         # will be retained. It takes a string, "true" or "false".
         # "omit_keys": "true",
+        
+        # etc.
     },
     allow_redirects=False,
 )
 t_end = datetime.now()
-print("Request completed at", t2.isoformat(), "duration:", (t2 - t1).total_seconds(), "seconds")
+print("Request completed at", t_end.isoformat(), "duration:", (t_end - t_start).total_seconds(), "seconds")
 
 status_code = response.status_code
 raw_output = response.content

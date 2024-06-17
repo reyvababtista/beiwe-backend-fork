@@ -74,11 +74,11 @@ class MisconfiguredTestException(Exception):
     pass
 
 
-# This parameter sets the password iteration count for researchers, which directly adds to the
-# runtime of ALL researcher tests.  If we use the default value it is literally minimum 10x slower.
-Researcher.DESIRED_ITERATIONS = 1000
-Participant.DESIRED_ITERATIONS = 1000
-ApiKey.DESIRED_ITERATIONS = 1000
+# This parameter sets the password iteration count, which directly adds to the runtime of ALL user
+# tests. If we use the default value it is 1000s of times slower and tests take forever.
+Researcher.DESIRED_ITERATIONS = 2
+Participant.DESIRED_ITERATIONS = 2
+ApiKey.DESIRED_ITERATIONS = 2
 
 
 class CommonTestCase(TestCase, ReferenceObjectMixin):

@@ -1,7 +1,7 @@
 import time
-import typing
 import unittest
 from datetime import datetime, timedelta
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import dateutil
@@ -25,10 +25,6 @@ from libs.participant_table_api import determine_registered_status
 from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_and_schedule,
     NoSchedulesException)
 from tests.common import CommonTestCase
-
-
-# trunk-ignore-all(ruff/B018,bandit/B101)
-NoneType = type(None)  # noqa
 
 
 # timezones should be compared using the 'is' operator
@@ -548,14 +544,14 @@ class TestParticipantActive(CommonTestCase):
             'now': datetime,
             'registered': bool,
             'permanently_retired': bool,
-            'last_upload': typing.Union[datetime, NoneType],  # can't import NoneType...
-            'last_get_latest_surveys': typing.Union[datetime, NoneType],
-            'last_set_password': typing.Union[datetime, NoneType],
-            'last_set_fcm_token': typing.Union[datetime, NoneType],
-            'last_get_latest_device_settings': typing.Union[datetime, NoneType],
-            'last_register_user': typing.Union[datetime, NoneType],
-            'last_register_user': typing.Union[datetime, NoneType],
-            'last_heartbeat_checkin': typing.Union[datetime, NoneType],
+            'last_upload': Optional[datetime],
+            'last_get_latest_surveys': Optional[datetime],
+            'last_set_password': Optional[datetime],
+            'last_set_fcm_token': Optional[datetime],
+            'last_get_latest_device_settings': Optional[datetime],
+            'last_register_user': Optional[datetime],
+            'last_register_user': Optional[datetime],
+            'last_heartbeat_checkin': Optional[datetime],
         }
         self.assertDictEqual(annotes, correct_annotations)
     
@@ -606,6 +602,7 @@ class TestParticipantActive(CommonTestCase):
             setattr(p, field_name, less_than_a_week_ago)
         setattr(p, "permanently_retired", True)
         self.assertFalse(p.is_active_one_week)
+
 
 class TestForestHash(unittest.TestCase):
     def test_get_forest_git_hash(self):

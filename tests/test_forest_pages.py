@@ -284,9 +284,8 @@ class TestRerunForestTask(ResearcherSessionTest):
         self.smart_post_status_code(403, self.session_study.id)
 
 
-# download_summary_statistics_summary
 class TestDownloadSummaryStatisticsSummary(ResearcherSessionTest):
-    ENDPOINT_NAME = "forest_pages.download_summary_statistics_summary"
+    ENDPOINT_NAME = "forest_pages.download_summary_statistics_csv"
     
     # edit this to match the csv header if it is updated
     CSV_HEADER: bytes = ",".join((

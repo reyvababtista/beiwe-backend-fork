@@ -8,6 +8,9 @@ from database.forest_models import SummaryStatisticDaily
 from database.study_models import Study
 
 
+""" THIS FILE IS NO LONGER USED, IT WAS BUILT DUE TO A MISUNDERSTANDING OF THE REQUIREMENTS. """
+
+
 def reference_summary_csv_columns():
     """ The reference for the columns that are generated for the summary statistics CSV file. """
     return [

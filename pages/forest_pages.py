@@ -437,7 +437,7 @@ def download_participant_tree_data(request: ResearcherRequest, study_id: int, fo
 @require_GET
 @authenticate_admin
 @forest_enabled
-def download_summary_statistics_summary(request: ResearcherRequest, study_id):
+def download_summary_statistics_csv(request: ResearcherRequest, study_id):
     study = Study.objects.get(pk=study_id)  # study id already validated in authenticate_admin()
     # we need to rename two fields like we do over in the tableau api
     query = SummaryStatisticDaily.objects.filter(participant__study_id=study.id)\

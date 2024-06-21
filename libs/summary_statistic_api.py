@@ -47,7 +47,7 @@ def summary_statistics_api_query_database(
     ordered_by="date", order_direction="default",       # sort
     query_fields: List[str] = None,
     **_  # Because Whimsy is important.                 # ignore everything else
-) -> TableauApiPaginator:
+) -> SummaryStatisticsPaginator:
     """ Args:
         study_object_id (str): study in which to find data
         start_date (optional[date]): first date to include in search
@@ -94,11 +94,13 @@ def summary_statistics_api_query_database(
     query = SummaryStatisticDaily.objects \
         .annotate(**annotate_kwargs).order_by(ordered_by).filter(**filter_kwargs)
     
-    return TableauApiPaginator(query, 10000, values=query_fields, limit=limit)
+    return SummaryStatisticsPaginator(query, 10000, values=query_fields, limit=limit)
 
 
-class TableauApiPaginator(EfficientQueryPaginator):
-    """ This class handles a compatibility issue and some weird python behavior. """
+class SummaryStatisticsPaginator(EfficientQueryPaginator):
+    # Handles a small data mutation, we need to convert patient_id back to participant_id, because
+    # that is literally already a foreign key field so we couldn't include it under that name.
+    # Note that this class is used in the csv export button too.
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

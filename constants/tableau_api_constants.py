@@ -12,6 +12,9 @@ SUMMARY_METADATA_FIELD_NAMES = [
     "timezone",
 ]
 
+NICE_SUMMARY_METADATA_FIELD_NAMES = [
+    name.replace("_", " ").title() for name in SUMMARY_METADATA_FIELD_NAMES
+]
 
 # Data quantities
 DATA_QUANTITY_FIELD_NAMES = [
@@ -36,6 +39,9 @@ DATA_QUANTITY_FIELD_NAMES = [
     "beiwe_wifi_bytes",
 ]
 
+NICE_BEIWE_DATA_QUANTITY_FIELD_NAMES = [
+    name.replace("beiwe_", "").title() for name in DATA_QUANTITY_FIELD_NAMES
+]
 
 JASMINE_FIELDS = [
     # GPS
@@ -58,6 +64,9 @@ JASMINE_FIELDS = [
     "jasmine_total_flight_time",
     "jasmine_av_pause_duration",
     "jasmine_sd_pause_duration",
+]
+NICE_JASMINE_FIELDS = [
+    name.replace("jasmine_", "").title() for name in JASMINE_FIELDS
 ]
 
 
@@ -86,6 +95,9 @@ WILLOW_FIELDS = [
     "willow_uniq_individual_call_or_text_count",
 ]
 
+NICE_WILLOW_FIELDS = [
+    name.replace("willow_", "").title() for name in WILLOW_FIELDS
+]
 
 SYCAMORE_FIELDS = [
     # Sycamore, Survey Frequency
@@ -97,12 +109,28 @@ SYCAMORE_FIELDS = [
     "sycamore_average_duration",
 ]
 
+NICE_SYCAMORE_FIELDS = [
+    name.replace("sycamore_", "").title() for name in SYCAMORE_FIELDS
+]
+
 OAK_FIELDS = [
     # Oak, walking statistics
     "oak_walking_time",
     "oak_steps",
     "oak_cadence",
 ]
+
+NICE_OAK_FIELDS = [
+    name.replace("oak_", "").title() for name in OAK_FIELDS
+]
+
+SERIALIZABLE_FIELD_NAMES = SUMMARY_METADATA_FIELD_NAMES + DATA_QUANTITY_FIELD_NAMES \
+    + JASMINE_FIELDS + WILLOW_FIELDS + SYCAMORE_FIELDS + OAK_FIELDS
+
+# SERIALIZABLE_FIELD_NAMES.extend(TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS.values())
+NICE_SERIALIZABLE_FIELD_NAMES = NICE_SUMMARY_METADATA_FIELD_NAMES + NICE_BEIWE_DATA_QUANTITY_FIELD_NAMES \
+    + NICE_JASMINE_FIELDS + NICE_WILLOW_FIELDS + NICE_SYCAMORE_FIELDS + NICE_OAK_FIELDS
+
 
 FOREST_TREE_TO_SERIALIZEABLE_FIELD_NAMES = {
     ForestTree.jasmine: JASMINE_FIELDS,
@@ -111,11 +139,6 @@ FOREST_TREE_TO_SERIALIZEABLE_FIELD_NAMES = {
     ForestTree.oak: OAK_FIELDS,
 }
 
-
-SERIALIZABLE_FIELD_NAMES = SUMMARY_METADATA_FIELD_NAMES + DATA_QUANTITY_FIELD_NAMES \
-    + JASMINE_FIELDS + WILLOW_FIELDS + SYCAMORE_FIELDS + OAK_FIELDS
-
-SERIALIZABLE_FIELD_NAMES.extend(TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS.values())
 
 SERIALIZABLE_FIELD_NAMES_DROPDOWN = [(f, f) for f in SERIALIZABLE_FIELD_NAMES]
 

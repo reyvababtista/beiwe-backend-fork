@@ -393,16 +393,16 @@ def diff_strings(s1: str, s2: str):
         s1 = s1.decode("utf-8")
     if isinstance(s2, bytes):
         s2 = s2.decode("utf-8")
-        
-    print("")
+    
+    print()
     for i, (char_s1, char_s2) in enumerate(zip(s1, s2)):
-        if char_s1 != char_s2:
-            print()
-            print(f"\ndiff at {i}, '{char_s1}' != '{char_s2}'")
-            break
+        if char_s1 == char_s2:
+            print(char_s1.encode('unicode_escape').decode(), end="")
         else:
-            # print(f"'{char_s1}' matches")
-            print(char_s1.encode("unicode_escape").decode(), end="", flush=True)
+            print("\n")
+            print(f"diff at {i}, '{char_s1.encode('unicode_escape').decode()}' != '{char_s2.encode('unicode_escape').decode()}'")
+            break
+        
     if i == len(s1) - 1:
         print("\nstrings match!")
     else:

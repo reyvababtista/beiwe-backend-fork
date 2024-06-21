@@ -40,7 +40,7 @@ DATA_QUANTITY_FIELD_NAMES = [
 ]
 
 NICE_BEIWE_DATA_QUANTITY_FIELD_NAMES = [
-    name.replace("beiwe_", "").title() for name in DATA_QUANTITY_FIELD_NAMES
+    name.replace("beiwe_", "").replace("_", " ").title() for name in DATA_QUANTITY_FIELD_NAMES
 ]
 
 JASMINE_FIELDS = [
@@ -66,7 +66,7 @@ JASMINE_FIELDS = [
     "jasmine_sd_pause_duration",
 ]
 NICE_JASMINE_FIELDS = [
-    name.replace("jasmine_", "").title() for name in JASMINE_FIELDS
+    name.replace("jasmine_", "").replace("_", " ").title() for name in JASMINE_FIELDS
 ]
 
 
@@ -96,7 +96,7 @@ WILLOW_FIELDS = [
 ]
 
 NICE_WILLOW_FIELDS = [
-    name.replace("willow_", "").title() for name in WILLOW_FIELDS
+    name.replace("willow_", "").replace("_", " ").title() for name in WILLOW_FIELDS
 ]
 
 SYCAMORE_FIELDS = [
@@ -110,7 +110,7 @@ SYCAMORE_FIELDS = [
 ]
 
 NICE_SYCAMORE_FIELDS = [
-    name.replace("sycamore_", "").title() for name in SYCAMORE_FIELDS
+    name.replace("sycamore_", "").replace("_", " ").title() for name in SYCAMORE_FIELDS
 ]
 
 OAK_FIELDS = [
@@ -121,7 +121,7 @@ OAK_FIELDS = [
 ]
 
 NICE_OAK_FIELDS = [
-    name.replace("oak_", "").title() for name in OAK_FIELDS
+    name.replace("oak_", "").replace("_", " ").title() for name in OAK_FIELDS
 ]
 
 SERIALIZABLE_FIELD_NAMES = SUMMARY_METADATA_FIELD_NAMES + DATA_QUANTITY_FIELD_NAMES \

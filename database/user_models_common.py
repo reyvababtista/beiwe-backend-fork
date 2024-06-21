@@ -39,7 +39,7 @@ class AbstractPasswordUser(TimestampedModel):
         )
         self.save()
     
-    def reset_password(self):
+    def reset_password(self) -> str:
         """ Resets the patient's password to match an sha256 hash of a randomly generated string. """
         password = generate_easy_alphanumeric_string()
         self.set_password(password)

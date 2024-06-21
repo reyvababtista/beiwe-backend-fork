@@ -4,11 +4,12 @@ from io import StringIO
 
 from django.contrib import messages
 from django.db.models import ProtectedError
-from django.http import FileResponse, HttpResponse, JsonResponse
+from django.http import FileResponse, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
-from authentication.admin_authentication import authenticate_researcher_study_access
+from authentication.admin_authentication import (authenticate_researcher_study_access,
+    authenticate_researcher_study_access_and_call)
 from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
 from database.user_models_participant import Participant, ParticipantFieldValue
@@ -20,9 +21,22 @@ from libs.participant_table_api import (common_data_extraction_for_apis, filtere
 
 
 @require_POST
-@authenticate_researcher_study_access
 def study_participants_api(request: ResearcherRequest, study_id: int):
+    """ API endpoint for the participants table on the view study page. """
+    # Due the datatables library being kinda crap, the page freaks out when the user is not logged
+    # in. Our stupid fix is to run the authentication decorator's inner logic manually and intercept
+    # the redirect.  junk_func just a dummy function to avoid a crash.
+    def junk_func(*args, **kwargs): pass
+    maybe_redirict = authenticate_researcher_study_access_and_call(junk_func, request, study_id=study_id)
+    
+    if isinstance(maybe_redirict, HttpResponseRedirect):
+        return HttpResponse(content=b"[]", status=200)
+    
+    # ok, onto the real work of the endpoint...
+    
     study: Study = Study.objects.get(pk=study_id)
+    # We.... need to do this for some reason. I think it has to do with this not happening during
+    # participant creation? maybe new intervention creation?
     correct_bad_interventions(study)
     
     # `draw` is passed by DataTables. It's automatically incremented, starting with 1 on the page

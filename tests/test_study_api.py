@@ -1,4 +1,4 @@
-import json
+import orjson
 from datetime import datetime, timedelta
 from typing import Tuple
 
@@ -27,6 +27,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
     ORDER_DIRECTION_KEY = "order[0][dir]"
     SEARCH_PARAMETER = "search[value]"
     SOME_TIMESTAMP = timezone.make_aware(datetime(2020, 10, 1))
+    SOME_TIMESTAMP_STR = SOME_TIMESTAMP.strftime(API_DATE_FORMAT)
     
     THE_STATUS_FIELD_NAMES = [
         "last_get_latest_surveys",
@@ -78,12 +79,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
             "recordsFiltered":
                 1,
             "data":
-                [
-                    [
-                        self.SOME_TIMESTAMP.strftime(API_DATE_FORMAT),
-                        self.default_participant.patient_id, status, "ANDROID"
-                    ]
-                ]
+                [[self.SOME_TIMESTAMP_STR, self.default_participant.patient_id, status, "ANDROID"]]
         }
     
     def test_basics(self):
@@ -91,9 +87,37 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
         # this endpoint uses get args, for which we have to pass in the dict as the "data" kwarg
         resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
-        content = json.loads(resp.content.decode())
+        content = orjson.loads(resp.content)
         # this participant has never contacted the server, but it does have a device id.
         self.assertEqual(content, self.CONSTRUCT_RESPONSE("Inactive"))
+    
+    def test_not_logged_in_1(self):
+        self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
+        self.session_researcher.force_global_logout()
+        resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
+        self.assertEqual(resp.content, b'[]')
+    
+    def test_not_logged_in_2(self):
+        self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
+        self.do_researcher_logout()
+        resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
+        self.assertEqual(resp.content, b'[]')
+    
+    def test_404_no_matching_study(self):
+        self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
+        resp = self.smart_post_status_code(404, 0)
+        self.assertEqual(resp.content, b'')
+    
+    def test_400_illegal_study_id(self):
+        self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
+        resp = self.smart_post_status_code(400, "jeff")
+        self.assertEqual(resp.content, b'')
+    
+    def test_no_study_relation(self):
+        self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
+        self.session_researcher.study_relations.all().delete()
+        resp = self.smart_post_status_code(403, self.session_study.id)
+        self.assertEqual(resp.content, b'')
     
     def test_various_statuses(self):
         # this test tests all the timestamp fields that are used to determine the status of a participant,
@@ -115,7 +139,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
                 200, self.session_study.id, **self.DEFAULT_PARAMETERS
             )
             self.assertDictEqual(
-                json.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (just now)")
+                orjson.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (just now)")
             )
         
         t = timezone.now() - timedelta(minutes=6)
@@ -125,7 +149,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
                 200, self.session_study.id, **self.DEFAULT_PARAMETERS
             )
             self.assertDictEqual(
-                json.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (last hour)")
+                orjson.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (last hour)")
             )
         
         t = timezone.now() - timedelta(hours=2)
@@ -135,7 +159,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
                 200, self.session_study.id, **self.DEFAULT_PARAMETERS
             )
             self.assertDictEqual(
-                json.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (past day)")
+                orjson.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (past day)")
             )
         
         t = timezone.now() - timedelta(days=2)
@@ -145,7 +169,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
                 200, self.session_study.id, **self.DEFAULT_PARAMETERS
             )
             self.assertDictEqual(
-                json.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (past week)")
+                orjson.loads(resp.content), self.CONSTRUCT_RESPONSE("Active (past week)")
             )
     
     def test_with_intervention(self):
@@ -155,7 +179,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         self.default_intervention
         self.default_populated_intervention_date
         resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
-        content = json.loads(resp.content.decode())
+        content = orjson.loads(resp.content)
         correct_content = self.CONSTRUCT_RESPONSE("Inactive")
         correct_content["data"][0].append(
             self.CURRENT_DATE.strftime(API_DATE_FORMAT)
@@ -166,7 +190,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         self.default_participant.update_only(created_on=self.SOME_TIMESTAMP)
         self.default_participant_field_value  # populate database state
         resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
-        content = json.loads(resp.content.decode())
+        content = orjson.loads(resp.content)
         correct_content = self.CONSTRUCT_RESPONSE("Inactive")
         correct_content["data"][0].append(self.DEFAULT_PARTICIPANT_FIELD_VALUE)  # default value
         self.assertEqual(content, correct_content)
@@ -177,7 +201,7 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         self.default_populated_intervention_date
         self.default_participant_field_value
         resp = self.smart_post_status_code(200, self.session_study.id, **self.DEFAULT_PARAMETERS)
-        content = json.loads(resp.content.decode())
+        content = orjson.loads(resp.content)
         correct_content = self.CONSTRUCT_RESPONSE("Inactive")
         correct_content["data"][0].append(self.CURRENT_DATE.strftime(API_DATE_FORMAT))
         correct_content["data"][0].append(self.DEFAULT_PARTICIPANT_FIELD_VALUE)
@@ -209,13 +233,13 @@ class TestStudyParticipantApi(ResearcherSessionTest):
         # request, compare
         params = self.DEFAULT_PARAMETERS
         resp = self.smart_post_status_code(200, self.session_study.id, **params)
-        content = json.loads(resp.content.decode())
+        content = orjson.loads(resp.content)
         self.assertEqual(content, correct_content)
         # reverse the order
         params[self.ORDER_DIRECTION_KEY] = "desc"
         correct_content["data"].append(correct_content["data"].pop(0))  # swap 2 rows
         resp = self.smart_post_status_code(200, self.session_study.id, **params)
-        content = json.loads(resp.content.decode())
+        content = orjson.loads(resp.content)
         self.assertEqual(content, correct_content)
 
 

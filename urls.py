@@ -243,7 +243,7 @@ path('studies/<str:study_id>/forest/progress', forest_pages.forest_tasks_progres
 path("studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/cancel", forest_pages.cancel_task)
 path('studies/<str:study_id>/forest/tasks', forest_pages.task_log, login_redirect=SAFE)
 path('studies/<str:study_id>/forest/tasks/download', forest_pages.download_task_log)
-path('studies/<str:study_id>/download_summary_statistic_summary/', forest_pages.download_summary_statistics_summary)
+path('studies/<str:study_id>/download_summary_statistics_csv/', forest_pages.download_summary_statistics_csv)
 path('studies/<str:study_id>/download_participant_tree_data/<str:forest_task_external_id>', forest_pages.download_participant_tree_data)
 path(
     "studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/download_output",

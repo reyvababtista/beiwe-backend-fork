@@ -194,71 +194,89 @@ def authenticate_researcher_study_access(some_function):
     keywords to the function, and will error if one is not.
     The pattern is for a url with <string:survey/study_id> to pass in this value.
     A site admin is always able to access a study or survey. """
+    
     @functools.wraps(some_function)
     def authenticate_and_call(*args, **kwargs):
-        # Check for regular login requirement
-        request: ResearcherRequest = args[0]
-        assert isinstance(request, HttpRequest), \
-            f"first parameter of {some_function.__name__} must be an HttpRequest, was {type(request)}."
-        
-        if not check_is_logged_in(request):
-            log("researcher is not logged in")
-            return do_login_page_redirect(request)
-        
-        populate_session_researcher(request)
-        
-        try:
-            # first get from kwargs, then from the POST request, either one is fine
-            survey_id = kwargs.get('survey_id', request.POST.get('survey_id', None))
-            study_id = kwargs.get('study_id', request.POST.get('study_id', None))
-        except UnreadablePostError:
-            return abort(500)
-        
-        # Check proper usage
-        if survey_id is None and study_id is None:
-            log("no survey or study provided")
-            return abort(400)
-        
-        if survey_id is not None and study_id is None:
-            log("survey was provided but no study was provided")
-            return abort(400)
-        
-        # We want the survey_id check to execute first if both args are supplied, surveys are
-        # attached to studies but do not supply the study id.
-        if survey_id:
-            # get studies for a survey, fail with 404 if study does not exist
-            studies = Study.objects.filter(surveys=survey_id)
-            if not studies.exists():
-                log("no such study 1")
-                return abort(404)
-            
-            # Check that researcher is either a researcher on the study or a site admin,
-            # and populate study_id variable
-            study_id = studies.values_list('pk', flat=True).get()
-        
-        # assert that such a study exists
-        if not Study.objects.filter(pk=study_id, deleted=False).exists():
-            log("no such study 2")
-            return abort(404)
-        
-        # always allow site admins, allow all types of study relations
-        if not request.session_researcher.site_admin:
-            try:
-                relation = StudyRelation.objects \
-                    .filter(study_id=study_id, researcher=request.session_researcher) \
-                    .values_list("relationship", flat=True).get()
-            except StudyRelation.DoesNotExist:
-                log("no study relationship for researcher")
-                return abort(403)
-            
-            if relation not in ALL_RESEARCHER_TYPES:
-                log("invalid study relationship for researcher")
-                return abort(403)
-        
-        goto_redirect = determine_any_redirects(request)
-        return goto_redirect if goto_redirect else some_function(*args, **kwargs)
+        return authenticate_researcher_study_access_and_call(some_function, *args, **kwargs)
     
     return authenticate_and_call
+
+
+# we need to be able to import this for a special case in the study_api.py file
+def authenticate_researcher_study_access_and_call(some_function, *args, **kwargs):
+    # Check for regular login requirement
+    request: ResearcherRequest = args[0]
+    assert isinstance(request, HttpRequest), \
+        f"first parameter of {some_function.__name__} must be an HttpRequest, was {type(request)}."
+    
+    if not check_is_logged_in(request):
+        log("researcher is not logged in")
+        return do_login_page_redirect(request)
+    
+    populate_session_researcher(request)
+    
+    try:
+        # first get from kwargs, then from the POST request, either one is fine
+        survey_id = kwargs.get('survey_id', request.POST.get('survey_id', None))
+        study_id = kwargs.get('study_id', request.POST.get('study_id', None))
+    except UnreadablePostError:
+        log("unreadable post error")
+        return abort(500)
+    
+    # Check proper usage
+    if survey_id is None and study_id is None:
+        log("no survey or study provided")
+        return abort(400)
+    
+    if survey_id is not None and study_id is None:
+        log("survey was provided but no study was provided")
+        return abort(400)
+    
+    # TODO REAL TEST FOR THIS
+    try:
+        if survey_id is not None:
+            survey_id = int(survey_id)
+        if study_id is not None:
+            study_id = int(study_id)
+    except ValueError:
+        log("survey or study id was not an integer")
+        return abort(400)
+    
+    # We want the survey_id check to execute first if both args are supplied, surveys are
+    # attached to studies but do not supply the study id.
+    if survey_id:
+        # get studies for a survey, fail with 404 if study does not exist
+        studies = Study.objects.filter(surveys=survey_id)
+        if not studies.exists():
+            log("no such study 1")
+            return abort(404)
+        
+        # check that the study found matches the study id.
+        if study_id != studies.values_list('pk', flat=True).get():
+            log("study id mismatch")
+            return abort(404)
+    
+    # assert that such a study exists
+    if not Study.objects.filter(pk=study_id, deleted=False).exists():
+        log("no such study 2")
+        return abort(404)
+    
+    # always allow site admins, allow all types of study relations
+    if not request.session_researcher.site_admin:
+        try:
+            relation = StudyRelation.objects \
+                .filter(study_id=study_id, researcher=request.session_researcher) \
+                .values_list("relationship", flat=True).get()
+        except StudyRelation.DoesNotExist:
+            log("no study relationship for researcher")
+            return abort(403)
+        
+        if relation not in ALL_RESEARCHER_TYPES:
+            log("invalid study relationship for researcher")
+            return abort(403)
+    
+    goto_redirect = determine_any_redirects(request)
+    return goto_redirect if goto_redirect else some_function(*args, **kwargs)
 
 
 def get_researcher_allowed_studies_as_query_set(request: ResearcherRequest) -> QuerySet[Study]:

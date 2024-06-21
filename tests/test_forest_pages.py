@@ -10,10 +10,11 @@ from django.http.response import FileResponse
 from constants.celery_constants import ForestTaskStatus
 from constants.data_stream_constants import GPS
 from constants.forest_constants import FOREST_NO_TASK, FOREST_TASK_CANCELLED, ForestTree
-from constants.tableau_api_constants import DATA_QUANTITY_FIELD_NAMES
+from constants.tableau_api_constants import DATA_QUANTITY_FIELD_NAMES, SERIALIZABLE_FIELD_NAMES
 from constants.testing_constants import EMPTY_ZIP, SIMPLE_FILE_CONTENTS
 from constants.user_constants import ResearcherRole
 from database.forest_models import ForestTask, SummaryStatisticDaily
+from libs.utils.shell_utils import diff_strings
 from tests.common import ResearcherSessionTest
 from tests.helpers import CURRENT_TEST_DATE_BYTES, DummyThreadPool
 
@@ -288,35 +289,92 @@ class TestDownloadSummaryStatisticsSummary(ResearcherSessionTest):
     ENDPOINT_NAME = "forest_pages.download_summary_statistics_summary"
     
     # edit this to match the csv header if it is updated
-    # (note that Beiwe Wifi Bytes, the last one before the newline, has no comma)
-    CSV_HEADER: bytes= (
-        "Patient Id,"
-        "Accelerometer Bytes,"
-        "Ambient Audio Bytes,"
-        "App Log Bytes,"
-        "Bluetooth Bytes,"
-        "Calls Bytes,"
-        "Devicemotion Bytes,"
-        "Gps Bytes,"
-        "Gyro Bytes,"
-        "Identifiers Bytes,"
-        "Ios Log Bytes,"
-        "Magnetometer Bytes,"
-        "Power State Bytes,"
-        "Proximity Bytes,"
-        "Reachability Bytes,"
-        "Survey Answers Bytes,"
-        "Survey Timings Bytes,"
-        "Texts Bytes,"
-        "Audio Recordings Bytes,"
-        "Wifi Bytes"
-        "\r\n"
-    ).encode()
+    CSV_HEADER: bytes = ",".join((
+        'Date',
+        'Participant Id',
+        'Study Id',
+        'Timezone',
+        'Accelerometer_Bytes',
+        'Ambient_Audio_Bytes',
+        'App_Log_Bytes',
+        'Bluetooth_Bytes',
+        'Calls_Bytes',
+        'Devicemotion_Bytes',
+        'Gps_Bytes',
+        'Gyro_Bytes',
+        'Identifiers_Bytes',
+        'Ios_Log_Bytes',
+        'Magnetometer_Bytes',
+        'Power_State_Bytes',
+        'Proximity_Bytes',
+        'Reachability_Bytes',
+        'Survey_Answers_Bytes',
+        'Survey_Timings_Bytes',
+        'Texts_Bytes',
+        'Audio_Recordings_Bytes',
+        'Wifi_Bytes',
+        'Distance_Diameter',
+        'Distance_From_Home',
+        'Distance_Traveled',
+        'Flight_Distance_Average',
+        'Flight_Distance_Stddev',
+        'Flight_Duration_Average',
+        'Flight_Duration_Stddev',
+        'Gps_Data_Missing_Duration',
+        'Home_Duration',
+        'Gyration_Radius',
+        'Significant_Location_Count',
+        'Significant_Location_Entropy',
+        'Pause_Time',
+        'Obs_Duration',
+        'Obs_Day',
+        'Obs_Night',
+        'Total_Flight_Time',
+        'Av_Pause_Duration',
+        'Sd_Pause_Duration',
+        'Incoming_Text_Count',
+        'Incoming_Text_Degree',
+        'Incoming_Text_Length',
+        'Outgoing_Text_Count',
+        'Outgoing_Text_Degree',
+        'Outgoing_Text_Length',
+        'Incoming_Text_Reciprocity',
+        'Outgoing_Text_Reciprocity',
+        'Outgoing_Mms_Count',
+        'Incoming_Mms_Count',
+        'Incoming_Call_Count',
+        'Incoming_Call_Degree',
+        'Incoming_Call_Duration',
+        'Outgoing_Call_Count',
+        'Outgoing_Call_Degree',
+        'Outgoing_Call_Duration',
+        'Missed_Call_Count',
+        'Missed_Callers',
+        'Uniq_Individual_Call_Or_Text_Count',
+        'Total_Surveys',
+        'Total_Completed_Surveys',
+        'Total_Opened_Surveys',
+        'Average_Time_To_Submit',
+        'Average_Time_To_Open',
+        'Average_Duration',
+        'Walking_Time',
+        'Steps',
+        'Cadence',
+    )).encode() + b"\r\n"
     
-    EMPTY_PARTICIPANT = b"patient1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0\r\n"
-    EMPTY_GRAND_TOTALS= b"Grand Totals\r\n"
-    # the globals start with a new line
-    EMPTY_GLOBALS = b"\r\nGlobal Total:\r\n0\r\n\r\nGlobal Total (MB):\r\n0.00 MB\r\n"
+    @property
+    def EMPTY_PARTICIPANT(self) -> bytes:
+        """ The csv contains data from our default serializable fields which have this increasing
+        numeric pattern, they vary between ints and floats inconsistently. """
+        return (
+            f"{self.CURRENT_DATE.isoformat()},"
+            f"{self.default_participant.patient_id},"
+            f"{self.default_study.object_id},"
+            "5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25.0,26.0,27.0,28.0,29.0,30.0"
+            ",31.0,32,33.0,34.0,35,36.0,37,38.0,39.0,40.0,41.0,42.0,43.0,44,45,46,47,48,49,50,51,52,"
+            "53,54,55,56.0,57,58,59.0,60,61,62,63,64,65,66.0,67.0,68.0,69.0,70.0,71.0\r\n"
+            .encode()
+        )
     
     def test_no_relation_no_worky(self):
         self.smart_get_status_code(403, self.session_study.id)
@@ -336,79 +394,56 @@ class TestDownloadSummaryStatisticsSummary(ResearcherSessionTest):
     def test_no_participants(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
         resp = self.smart_get_status_code(200, self.session_study.id)
-        self.assertEqual(resp.content, self.CSV_HEADER + self.EMPTY_GRAND_TOTALS + self.EMPTY_GLOBALS)
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, self.CSV_HEADER)# + self.EMPTY_GRAND_TOTALS + self.EMPTY_GLOBALS)
     
     def test_one_participant_no_data(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
         self.using_default_participant()
         resp = self.smart_get_status_code(200, self.session_study.id)
-        correct = self.CSV_HEADER + self.EMPTY_PARTICIPANT + self.EMPTY_GRAND_TOTALS + self.EMPTY_GLOBALS
-        self.assertEqual(resp.content, correct)
+        correct = self.CSV_HEADER
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, correct)
     
     def test_one_participant_single_summarystatistic(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
         self.using_default_participant()
-        self.default_summary_statistic_daily.update(
-            **{field_name: 1000 for field_name in DATA_QUANTITY_FIELD_NAMES}
-        )
+        self.default_summary_statistic_daily
         resp = self.smart_get_status_code(200, self.session_study.id)
-        grand_totals = b"Grand Totals,1000,1000,1000,1000,1000,1000,1000,1000,1000,"\
-            b"1000,1000,1000,1000,1000,1000,1000,1000,1000,1000\r\n"
-        global_totals = b"\r\nGlobal Total:\r\n19000\r\n\r\nGlobal Total (MB):\r\n0.02 MB\r\n"
-        correct = b"".join((
-            self.CSV_HEADER,
-            self.EMPTY_PARTICIPANT.replace(b"0", b"1000"),
-            grand_totals,
-            global_totals,
-        ))
-        
-        self.assertEqual(resp.content, correct)
+        correct = self.CSV_HEADER + self.EMPTY_PARTICIPANT
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, correct)
     
     def test_two_summary_statistics(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
         self.using_default_participant()
-        # self.generate_participant(self.session_study)
-        self.default_summary_statistic_daily.update(
-            **{field_name: 1000 for field_name in DATA_QUANTITY_FIELD_NAMES}
-        )
-        self.generate_summary_statistic_daily(date(2020,1,1)).update(
-            **{field_name: 2000 for field_name in DATA_QUANTITY_FIELD_NAMES}
-        )
+        self.default_summary_statistic_daily
+        p2 = self.generate_participant(self.session_study, patient_id="patient2")
+        self.generate_summary_statistic_daily(date(2020,1,1))
         resp = self.smart_get_status_code(200, self.session_study.id)
-        grand_totals = b"Grand Totals,3000,3000,3000,3000,3000,3000,3000,3000,3000,"\
-            b"3000,3000,3000,3000,3000,3000,3000,3000,3000,3000\r\n"
-        global_totals = b"\r\nGlobal Total:\r\n57000\r\n\r\nGlobal Total (MB):\r\n0.05 MB\r\n"
         correct = b"".join((
             self.CSV_HEADER,
-            self.EMPTY_PARTICIPANT.replace(b"0", b"3000"),
-            grand_totals,
-            global_totals,
+            self.EMPTY_PARTICIPANT.replace(CURRENT_TEST_DATE_BYTES, b"2020-01-01"),
+            self.EMPTY_PARTICIPANT,
         ))
-        self.assertEqual(resp.content, correct)
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, correct)
     
     def test_two_participants(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
         self.using_default_participant()
         p2 = self.generate_participant(self.session_study, patient_id="patient2")
-        self.default_summary_statistic_daily.update(
-            **{field_name: 1000 for field_name in DATA_QUANTITY_FIELD_NAMES}
-        )
-        self.generate_summary_statistic_daily(date(2020,1,1), p2).update(
-            **{field_name: 2000 for field_name in DATA_QUANTITY_FIELD_NAMES}
-        )
-        resp = self.smart_get_status_code(200, self.session_study.id)
-        grand_totals = b"Grand Totals,3000,3000,3000,3000,3000,3000,3000,3000,3000,"\
-            b"3000,3000,3000,3000,3000,3000,3000,3000,3000,3000\r\n"
-        global_totals = b"\r\nGlobal Total:\r\n57000\r\n\r\nGlobal Total (MB):\r\n0.05 MB\r\n"
-        
+        self.default_summary_statistic_daily
+        self.generate_summary_statistic_daily(date(2020,1,1), p2)
+        resp = self.smart_get_status_code(200, self.session_study.id)        
         correct = b"".join((
             self.CSV_HEADER,
-            self.EMPTY_PARTICIPANT.replace(b"0", b"1000"),
-            self.EMPTY_PARTICIPANT.replace(b"0", b"2000").replace(b"patient1", b"patient2"),
-            grand_totals,
-            global_totals,
+            self.EMPTY_PARTICIPANT,
+            self.EMPTY_PARTICIPANT.replace(b"patient1", b"patient2")
+                .replace(CURRENT_TEST_DATE_BYTES, b"2020-01-01")
         ))
-        self.assertEqual(resp.content, correct)
+        content = b"".join(resp.streaming_content)
+        self.assertEqual(content, correct)
 
 
 class TestDownloadParticipantTreeData(ResearcherSessionTest):

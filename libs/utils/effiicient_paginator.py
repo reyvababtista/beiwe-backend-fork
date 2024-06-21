@@ -85,6 +85,9 @@ class EfficientQueryPaginator:
         si = StreamingStringsIO()  # use our special streaming class to make this work
         filewriter = csv.writer(si)
         filewriter.writerow(self.values_list if header_names is None else header_names)
+        # yield the header row
+        yield si.getvalue()
+        si.empty()
         
         # use the bulk writerows function, should be faster.
         rows: List[Tuple] = []

@@ -2,13 +2,13 @@ import csv
 import pickle
 from collections import defaultdict
 from datetime import date, datetime
-from io import StringIO
 from typing import Dict, List
 
 import orjson
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db.models import QuerySet
+from django.db.models import F, QuerySet
+from django.http import StreamingHttpResponse
 from django.http.response import FileResponse, HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -22,7 +22,8 @@ from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import (FOREST_NO_TASK, FOREST_TASK_CANCELLED,
     FOREST_TASKVIEW_PICKLING_EMPTY, FOREST_TASKVIEW_PICKLING_ERROR,
     FOREST_TREE_REQUIRED_DATA_STREAMS, ForestTree)
-from constants.tableau_api_constants import FOREST_TREE_TO_SERIALIZEABLE_FIELD_NAMES
+from constants.tableau_api_constants import (FOREST_TREE_TO_SERIALIZEABLE_FIELD_NAMES,
+    NICE_SERIALIZABLE_FIELD_NAMES, SERIALIZABLE_FIELD_NAMES)
 from database.data_access_models import ChunkRegistry
 from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.study_models import Study
@@ -35,8 +36,7 @@ from libs.internal_types import ParticipantQuerySet, ResearcherRequest
 from libs.s3 import NoSuchKeyException
 from libs.streaming_io import CSVBuffer
 from libs.streaming_zip import ZipGenerator
-from libs.study_summaries import (get_summary_statistics_summary_in_one_database_query,
-    reference_summary_csv_columns)
+from libs.summary_statistic_api import SummaryStatisticsPaginator
 from libs.utils.date_utils import daterange
 from libs.utils.effiicient_paginator import EfficientQueryPaginator
 
@@ -439,40 +439,19 @@ def download_participant_tree_data(request: ResearcherRequest, study_id: int, fo
 @forest_enabled
 def download_summary_statistics_summary(request: ResearcherRequest, study_id):
     study = Study.objects.get(pk=study_id)  # study id already validated in authenticate_admin()
+    # we need to rename two fields like we do over in the tableau api
+    query = SummaryStatisticDaily.objects.filter(participant__study_id=study.id)\
+        .order_by("participant__patient_id", "date")\
+        .annotate(
+            study_id=F("participant__study__object_id"),
+            patient_id=F("participant__patient_id"),
+        )
+    # same a s SERIALIZABLE_FIELD_NAMES but replace patient_id with participant_id
+    query_field_names = SERIALIZABLE_FIELD_NAMES.copy()
+    query_field_names[query_field_names.index("participant_id")] = "patient_id"
     
-    # get the data, we want a csv of the summary statistics summary by participant in alphabetical order.
-    per_participant_data, grand_totals = get_summary_statistics_summary_in_one_database_query(study)
-    patient_ids = list(per_participant_data.keys())
-    patient_ids.sort()
-    
-    # generate a csv of the data row by row
-    # CSVBuffer
-    buffer = StringIO()
-    writer = csv.writer(buffer, dialect="excel")
-    # we need the patient ids in the first column, and the grand totals in the last columns
-    writer.writerow(reference_summary_csv_columns())
-    
-    for patient_id in patient_ids:
-        row = [patient_id] + list(per_participant_data[patient_id].values())
-        writer.writerow(row)
-    
-    # add the grand totals row
-    writer.writerow(["Grand Totals"] + list(grand_totals.values()))
-    
-    # blank row
-    writer.writerow([])
-    writer.writerow(["Global Total:"])
-    byte_count = sum(grand_totals.values())
-    writer.writerow([byte_count])
-    
-    # convert to MB, limit to 2 decimal places
-    writer.writerow([])
-    writer.writerow(["Global Total (MB):"])
-    writer.writerow([f"{(byte_count /1024 / 1024):.2f} MB"])
-    
-    # reset to beginning of file and return the response
-    buffer.seek(0)
-    return HttpResponse(buffer.read(), content_type="text/csv")
+    paginator = SummaryStatisticsPaginator(query, 10000, values_list=query_field_names)
+    return StreamingHttpResponse(paginator.stream_csv(NICE_SERIALIZABLE_FIELD_NAMES), content_type="text/csv")
 
 
 def render_create_tasks(request: ResearcherRequest, study: Study):

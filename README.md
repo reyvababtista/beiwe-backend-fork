@@ -3,8 +3,8 @@
 <img width="33%" height="33%" src="beiwe-logo-color.png">
 
 ## Welcome to the Beiwe Platform
-
 </div>
+<!-- there has to be an extra line of whitespace here for the following paragraph to break properly -->
 
 The Onnela Lab at the Harvard T.H. Chan School of Public Health has developed the Beiwe Research Platform to collect high-throughput smartphone-based digital phenotyping data. This highly configurable open-source platform supports collection of a range of social, behavioral, and cognitive data, including spatial trajectories (via GPS), physical activity patterns (via accelerometer and gyroscope), social networks and communication dynamics (via call and text logs), and voice samples (via microphone). The platform consists of a smartphone application for [iOS](https://github.com/onnela-lab/beiwe-ios) and [Android](https://github.com/onnela-lab/beiwe-android) devices, plus this repository - the back-end system that supports a web-based study management portal and tools for handling data processing and storage. Beiwe currently supports Amazon Web Services (AWS) cloud computing infrastructure and provides tools to assist in deploying and managing an instance of the Beiwe Platform. Data analysis is increasingly identified as the main bottleneck in digital phonotyping research; our data analysis platform, [Forest](https://github.com/onnela-lab/forest), makes sense of the data collected by Beiwe.
 
@@ -16,6 +16,7 @@ Every aspect of data collection is fully customizable, including which sensors t
 
 ## Data Security and Privacy
 </div>
+<!-- there has to be an extra line of whitespace here for the following paragraph to break properly -->
 
 All Beiwe data are encrypted while stored on the phone awaiting upload and while in transit, and are re-encrypted after upload to the study server. During study registration, Beiwe provides the smartphone app with the public half of a 2048-bit RSA encryption key. While the device can encrypt data, only the server, which has the private key, can decrypt it. As such, data stored by the app cannot be compromised. (The RSA key is used to encrypt a symmetric Advanced Encryption Standard (AES) key for bulk encryption. These keys are generated as needed by the app and are decrypted on the study server at time of upload. Data received by the cloud server is re-encrypted with the study's master encrytption key for long term storage.)
 
@@ -37,12 +38,42 @@ Cite the code: <br> [![DOI](https://zenodo.org/badge/53344506.svg)](https://zeno
 
 # Setup Instructions
 
+Please see the [this section Beiwe Backend Wiki landing page](https://github.com/onnela-lab/beiwe-backend/wiki#documentation-for-software-developers-and-sysadmins) for extensive documentation on how to deploy a Beiwe Backend instance.
+
+### Expectations for System Administrators
+
+This is an actively maintained but under-development platform with live applications that may evolve over the course of a study or backend instance. No features are expected to be removed, unless they never worked to begin with. The Backend is a rolling release, the apps have semantic version numbers.
+
+*The Beiwe Platform is low-code, but not no-code.* The platform contains a launch script, and we push out periodic updates to the launch script when there are platform-level infrastructure updates or major changes. The launch script manages initial deployment of Elastic Beanstalk environments, major EB platform-level updates, and basic data processing server management.
+
+If you are running in a context where you have to add additional at-deployment-time software, for instance you are part of an institution that requires intrusion and malware detection software, we have a hook for you to accomplish this, but you will have to provide your own script, and we cannot provide direct support for that.
+
+To run the launch script and manage your own deployment you are expected to have a _basic-to-moderate_ level of knowledge and ability with Python environments, AWS services and credential management, and a familiarity with CLI tools.
+
+You also _must_ be able to use GIT to pull the latest code from the `main` branch of this repository.
+
+Your intended pattern-of-work for maintaining an actual deployment is:
+- (Ensure you [still] have the "AWSEBCLI" tool functional, this is described in the initial deployment instructions.)
+- Blow away your old manager/worker data processing servers with the termination command via the launch script.
+- Pull the up-to-date `main` branch.
+- Use the AWSEBCLI `eb deploy` command to update the web servers with current `main` code.
+- (`eb deploy` may also update the database schema, it must finish before you deploy a new manager/worker server.)
+- Launch a new manager server with the command from the launch script. (and any workers, if you need them)
+
+When there are major technical and migration operations _we provide a command in the launch script and detailed step-by-step instructions on the wiki_. For example the Python 3.6->3.8 Elastic Beanstalk platform update had a `-clone-environment` command a dedicated wiki page.
+
+> [!TIP]
+> When these items are under development there will be a GitHub issue on our issues page with an `Infrastructure` tag and you are welcomed and encouraged to ask questions or assist us. Upon completion a *new* issue will be created with an `ANNOUNCEMENT` tag. Due to space limitations _only the most recent critical Announcement issue can be pinned to the top of the issues page - but it will be pinned!_
+> We recommend any system administrator either subscribe to the GitHub issues page for this repository, or set a periodic reminder to check in and manually then watch any active Announcement or Infrastructure issues. Infrastructure issues will be closed when the details are completed, announcements will be closed only after an extended amount of time has passed (months+).
+
+
 ### Configuring SSL/TL
 > [!IMPORTANT]
-> Because Beiwe often deals with sensitive data covered under HIPAA, the platform _requires_ to add an SSL certificate so that web traffic is encrypted with HTTPS.
+> Because Beiwe deals with sensitive data covered under laws like that of HIPAA in the United States, the platform makes it a _fundamental requirement_ that you to add an SSL certificate so that web traffic is encrypted. The platform will not be visible or available in any way without that SSL certificate. Please look through the existing issues if you run into problems with this, they should be easily discoverable via your search engine of choice.
 
-The setup script [uses AWS Certificate Manager to generate an SSL certificate](http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request.html).  AWS Certificate Manager [will check that you control the domain by sending verification emails](http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-validate.html) to the email addresses in the domain's WHOIS listing.
+We recommend using [the AWS Certificate Manager] (http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request.html) service as that will integrate with AWS' Route53 service and centralize your domain management. The AWS Certificate Manager [will check that you control the domain by sending verification emails](http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-validate.html) to the email addresses in the domain's WHOIS listing.
 
+After deployment is successful you will need to enable the port 443 forwarding on the Elastic Load Balancer for your Elastic Beanstalk environment. This is done in the AWS console, under the EC2 service, in the Load Balancers section. You will need to add a listener for port 443, and then add a rule to forward traffic from port 443 to port 80 on the instances in your Elastic Beanstalk environment.
 
 
 > [!TIP]

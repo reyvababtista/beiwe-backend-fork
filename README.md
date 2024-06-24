@@ -15,8 +15,8 @@ Every aspect of data collection is fully customizable, including which sensors t
 <div align="center">
 
 ## Data Security and Privacy
-
 </div>
+
 All Beiwe data are encrypted while stored on the phone awaiting upload and while in transit, and are re-encrypted after upload to the study server. During study registration, Beiwe provides the smartphone app with the public half of a 2048-bit RSA encryption key. While the device can encrypt data, only the server, which has the private key, can decrypt it. As such, data stored by the app cannot be compromised. (The RSA key is used to encrypt a symmetric Advanced Encryption Standard (AES) key for bulk encryption. These keys are generated as needed by the app and are decrypted on the study server at time of upload. Data received by the cloud server is re-encrypted with the study's master encrytption key for long term storage.)
 
 Some of the data collected by Beiwe contain identifiers, such as phone numbers. The Beiwe app generates a unique cryptographic code, called a salt, during the Beiwe registration process, and then uses the salt to hash phone numbers and other similar identifiers. The salt never gets uploaded to the server and is known only to the phone for this purpose. Using the industry-standard SHA-256 (Secure Hash Algorithm) and PBKDF2 (Password-Based Key Derivation Function 2) algorithms, an identifier is transformed into an 88-character anonymized string that can then be used in data analysis.
@@ -34,20 +34,27 @@ A recent study found that 65% of medical studies were inconsistent when retested
 Cite the code: <br> [![DOI](https://zenodo.org/badge/53344506.svg)](https://zenodo.org/badge/latestdoi/53344506)
 </div>
 
+
 # Setup Instructions
 
-## Configuring SSL/TL
-Because Beiwe often deals with sensitive data covered under HIPAA, the platform _requires_ to add an SSL certificate so that web traffic is encrypted with HTTPS.
+### Configuring SSL/TL
+> [!IMPORTANT]
+> Because Beiwe often deals with sensitive data covered under HIPAA, the platform _requires_ to add an SSL certificate so that web traffic is encrypted with HTTPS.
 
 The setup script [uses AWS Certificate Manager to generate an SSL certificate](http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request.html).  AWS Certificate Manager [will check that you control the domain by sending verification emails](http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-validate.html) to the email addresses in the domain's WHOIS listing.
 
-## Configuring Firebase
-To initialize the Firebase SDK, [generate a private key file](https://firebase.google.com/docs/admin/setup#initialize-sdk).
-Rename the file firebase_cloud_messaging_credentials.json and place it in the project root.
 
-***
 
-# Configuration And Settings
+> [!TIP]
+> ### Configuring Push Notification
+> Push notifications are currently *required* for the iOS platform for survey notifications, but they also unlock additional scheduling features for surveys on Android. Some other (obvious) features of the platform expect or require push notifications credentials be present.
+> Due to technical limitations Onnela Lab must provide push notification credentials directly, but cannot post them inside this repository. You can find our platform maintainer's email address on this github issue: https://github.com/onnela-lab/beiwe-backend/issues/100
+> Participant Devices send Push notification _tokens_ to your Beiwe Backend instance only, no other Beiwe Backend instance can send push notifications to your study participants.
+
+
+*** 
+
+### Configuration And Settings
 
 > [!IMPORTANT]
 > ### Required Settings

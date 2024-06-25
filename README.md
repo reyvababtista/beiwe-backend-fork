@@ -44,7 +44,7 @@ Please see the [this section Beiwe Backend Wiki landing page](https://github.com
 
 This is an actively maintained but under-development platform with live applications that may evolve over the course of a study or Beiwe Backend instance. No features are expected to be removed, unless they never worked to begin with. The Backend is a rolling release, the apps have semantic version numbers. 
 
-<b>The Beiwe Platform is low-code, but not no-code.</b> The platform contains a launch script, and we push out periodic updates to the launch script when there are platform-level infrastructure updates or major changes. The launch script manages initial deployment of Elastic Beanstalk environments, major EB platform-level updates, and basic data processing and push notification server management.
+The platform contains a launch script, and we push out periodic updates to the launch script when there are platform-level infrastructure updates or major changes. The launch script manages initial deployment of Elastic Beanstalk environments, major EB platform-level updates, and basic data processing and push notification server management.
 
 If you are running in a context where you have to add additional at-deployment-time software, for instance you are part of an institution that requires intrusion and malware detection software, we have a hook for you to accomplish this, but you will have to provide your own script, and we cannot provide direct support for that.
 
@@ -93,7 +93,7 @@ The apps send unique push notification "tokens" to your Beiwe Backend instance a
 > [!IMPORTANT]
 > ### Required Settings
 > If any of these environment options are not provided Beiwe will not run.
-> Empty strings and `None` considered invalid.
+> Empty strings and `None` are considered invalid.
 
 ```
 FLASK_SECRET_KEY - a unique, cryptographically secure string
@@ -116,6 +116,17 @@ If you find an issue in the [`config/django_settings.py`](config/django_settings
 
 > [!TIP]
 > We _strongly_ recommend making a Sentry.io account and adding Sentry DSNs to all your Beiwe servers.  Without these, or at least a Python stack trace, there is very little data to work with when something goes wrong.
+
+
+### Forest
+
+The [Forest](https://github.com/onnela-lab/forest) integration for deriving useful real-world metrics from raw data is still under active development at Onnela Lab. [You can find documentation for Forest here.](https://forest.beiwe.org/en/latest/)
+
+> [!Caution]
+> The Oak and Jasmine Forest "Trees" require large amounts of storage space, it is possible for a data processing server to run out of free space mid-run, endangering stability and blocking the analysis from finishing. This occurs because the Accelerometer and Gyro data streams can collect huge quantities of data.
+>
+> We are actively working to reduce these requirements, currently the solution is to mount a large EBS volume on the data processing server and mount it over `/tmp/forest/` with permissive read/write settings.
+
 
 
 # Development setup
@@ -142,8 +153,8 @@ I usually store it at `private/environment.sh`.  Load up these environment varia
 
 For additional tips on running a local development enironment please see the [Tips For Local Development](https://github.com/onnela-lab/beiwe-backend/wiki/Tips-For-Local-Beiwe-Development) wiki page.  If you are having difficulty getting started, or believe you could assist with any issues of documentation, please post an issue with a `documentation` tag.
 
-### Local Celery setup
-**Update**: it is no longer necessary to use Celery for local testing, though you still need it to be installed in your Python environment in order to avoid import errors.  A full test of Celery requires the full setup below, including installing `rabbitmq`, but as long as the file for the rabbitmq host server IP and password (declared in a `manager_ip` in the root of the repository) is missing you will instead be presented with output similar to the example shell session below. indicating a that you are running in a _much_ more convenient single-threaded local testing mode:
+### Local Celery and RabbitMQ
+**Update**: it is no longer necessary to configure Celery and RabbitMQ just to run the tasks, though you still need it to be installed in your Python environment in order to avoid import errors.  A full test of Celery requires the full setup below, including installing `rabbitmq`, but as long as the file for the rabbitmq host server IP and password (declared in a `manager_ip` in the root of the repository) is missing you will instead be presented with output similar to the example shell session below. indicating a that you are running in a _much_ more convenient (and single-threaded) testing mode:
 
 ``` ipython
 In [1]: from services.celery_data_processing import *
@@ -153,6 +164,7 @@ Instantiating a FalseCeleryApp for celery_process_file_chunks.
 
 The [Tips For Local Development](https://github.com/onnela-lab/beiwe-backend/wiki/Tips-For-Local-Beiwe-Development) page contains info on running the iPython Django database shell.
 
+#### RabbitMQ setup
 For those souls brave enough to run the entire broker queue and Celery task dispatch machinery locally, here are our best instructions. Also, due to the use of the system's `service` command it is incompatible with the varient of Ubuntu for use on the Windows Subsystem for Linux.  Have at:
 
 1. Install RabbitMQ (https://docs.celeryproject.org/en/latest/getting-started/backends-and-brokers/rabbitmq.html#broker-rabbitmq)
@@ -171,12 +183,3 @@ For those souls brave enough to run the entire broker queue and Celery task disp
 7. To run data processing tasks run this command _while inside the root of the repo_: `celery -A services.celery_data_processing worker -Q data_processing --loglevel=info -Ofair --hostname=%%h_processing`
 8. To run forest tasks run this comand _while inside the root of the repo_: `celery -A services.celery_forest worker -Q forest_queue --loglevel=info -Ofair --hostname=%%h_forest` (Forest is still in beta.)
 9. Run this command to dispatch new tasks, which will then be consumed by the Celery processes, _while inside the root of the repo_. `python services/cron.py five_minutes`
-
-
-
-### Forest
-
-> [!IMPORTANT]
-> The Forest integration is still in active development and may require hands-on additions particularly in drive storage to servers to run on studies that recorded substantial amounts of per-participant data. This difficulty results from the Accelerometer and Gyro data streams potentially collecting more data than there is available disk space on the data processing servers.
->
-> We are working to reduce these requirements through various means.

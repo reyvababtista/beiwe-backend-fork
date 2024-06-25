@@ -6,7 +6,7 @@
 </div>
 <!-- there has to be an extra line of whitespace here for the following paragraph to break properly -->
 
-The Onnela Lab at the Harvard T.H. Chan School of Public Health has developed the Beiwe Research Platform to collect high-throughput smartphone-based digital phenotyping data. This highly configurable open-source platform supports collection of a range of social, behavioral, and cognitive data, including spatial trajectories (via GPS), physical activity patterns (via accelerometer and gyroscope), social networks and communication dynamics (via call and text logs), and voice samples (via microphone). The platform consists of a smartphone application for [iOS](https://github.com/onnela-lab/beiwe-ios) and [Android](https://github.com/onnela-lab/beiwe-android) devices, plus this repository - the back-end system that supports a web-based study management portal and tools for handling data processing and storage. Beiwe currently supports Amazon Web Services (AWS) cloud computing infrastructure and provides tools to assist in deploying and managing an instance of the Beiwe Platform. Data analysis is increasingly identified as the main bottleneck in digital phonotyping research; our data analysis platform, [Forest](https://github.com/onnela-lab/forest), makes sense of the data collected by Beiwe.
+The Onnela Lab at the Harvard T.H. Chan School of Public Health has developed the Beiwe Research Platform to collect high-throughput smartphone-based digital phenotyping data. This highly configurable open-source platform supports collection of a range of social, behavioral, and cognitive data, including spatial trajectories (via GPS), physical activity patterns (via accelerometer and gyroscope), social networks and communication dynamics (via call and text logs), and voice samples (via microphone). The platform consists of a smartphone application for [iOS](https://github.com/onnela-lab/beiwe-ios) and [Android](https://github.com/onnela-lab/beiwe-android) devices, plus this repository - the back-end system that supports a web-based study management portal and tools for handling data processing, push notifications, and storage. Beiwe currently supports Amazon Web Services (AWS) cloud computing infrastructure and provides tools to assist in deploying and managing an instance of the Beiwe Platform. Data analysis is increasingly identified as the main bottleneck in digital phonotyping research; our data analysis platform, [Forest](https://github.com/onnela-lab/forest), makes sense of the data collected by Beiwe.
 
 Beiwe can collect active data (participant input required) and passive data collected while the app is in the background. Currently supported active data types for both Android and iOS include textual surveys, audio recordings, and their associated metadata. The questions, answers, and skip logic can be configured on the website. Passive data include phone sensor data ([e.g., GPS, Accelerometer, etc.](https://github.com/onnela-lab/beiwe-backend/wiki/%5BResearchers%5D-Supported-Data-Streams)) and phone logs (e.g., communication logs). Beiwe collects raw sensor data and phone logs, which is crucial in scientific research settings. Beiwe has two participant frontend apps, one [for Android](https://github.com/onnela-lab/beiwe-android) (written in Java and Kotlin) and another [for iOS](https://github.com/onnela-lab/beiwe-ios) (written in Swift). The Beiwe back-end and runs on Python 3.8, and uses the Django webserver and ORM framework. The Platform uses several AWS services: primary S3 (for flat file storage), EC2 (servers), Elastic Beanstalk (load scaling), and RDS (PostgreSQL).
 
@@ -42,9 +42,9 @@ Please see the [this section Beiwe Backend Wiki landing page](https://github.com
 
 ### Expectations for System Administrators
 
-This is an actively maintained but under-development platform with live applications that may evolve over the course of a study or backend instance. No features are expected to be removed, unless they never worked to begin with. The Backend is a rolling release, the apps have semantic version numbers.
+This is an actively maintained but under-development platform with live applications that may evolve over the course of a study or Beiwe Backend instance. No features are expected to be removed, unless they never worked to begin with. The Backend is a rolling release, the apps have semantic version numbers. 
 
-*The Beiwe Platform is low-code, but not no-code.* The platform contains a launch script, and we push out periodic updates to the launch script when there are platform-level infrastructure updates or major changes. The launch script manages initial deployment of Elastic Beanstalk environments, major EB platform-level updates, and basic data processing server management.
+<b>The Beiwe Platform is low-code, but not no-code.</b> The platform contains a launch script, and we push out periodic updates to the launch script when there are platform-level infrastructure updates or major changes. The launch script manages initial deployment of Elastic Beanstalk environments, major EB platform-level updates, and basic data processing and push notification server management.
 
 If you are running in a context where you have to add additional at-deployment-time software, for instance you are part of an institution that requires intrusion and malware detection software, we have a hook for you to accomplish this, but you will have to provide your own script, and we cannot provide direct support for that.
 
@@ -63,34 +63,37 @@ Your intended pattern-of-work for maintaining an actual deployment is:
 When there are major technical and migration operations _we provide a command in the launch script and detailed step-by-step instructions on the wiki_. For example the Python 3.6->3.8 Elastic Beanstalk platform update had a `-clone-environment` command a dedicated wiki page.
 
 > [!TIP]
-> When these items are under development there will be a GitHub issue on our issues page with an `Infrastructure` tag and you are welcomed and encouraged to ask questions or assist us. Upon completion a *new* issue will be created with an `ANNOUNCEMENT` tag. Due to space limitations _only the most recent critical Announcement issue can be pinned to the top of the issues page - but it will be pinned!_
-> We recommend any system administrator either subscribe to the GitHub issues page for this repository, or set a periodic reminder to check in and manually then watch any active Announcement or Infrastructure issues. Infrastructure issues will be closed when the details are completed, announcements will be closed only after an extended amount of time has passed (months+).
+> When these items are under development there will be an open issue with the `Infrastructure` tag, you are welcomed and encouraged to ask questions and participate. Upon completion a *new* issue will be created with an `ANNOUNCEMENT` tag referencing the earlier issue.
+> _Due to space limitations only the most recent critical Announcement issue can be pinned to the top of the issues page - but it will be pinned!_
+> We recommend any system administrator either subscribe to the GitHub issues page for this repository, or set a periodic reminder to check in and manually watch any active Announcement or Infrastructure issues. Infrastructure issues will be closed when details are completed, announcements will be closed only after an extended amount of time has passed +).
 
 
-### Configuring SSL/TL
+### Configuring SSL/TLS
 > [!IMPORTANT]
-> Because Beiwe deals with sensitive data covered under laws like that of HIPAA in the United States, the platform makes it a _fundamental requirement_ that you to add an SSL certificate so that web traffic is encrypted. The platform will not be visible or available in any way without that SSL certificate. Please look through the existing issues if you run into problems with this, they should be easily discoverable via your search engine of choice.
+> Because Beiwe collects sensitive data that may interact with laws covering [PII](https://en.wikipedia.org/wiki/Personal_data) or [PHI](https://en.wikipedia.org/wiki/Protected_health_information) like [HIPAA](https://en.wikipedia.org/wiki/Health_Insurance_Portability_and_Accountability_Act) in the United States, the platform makes it a <b>fundamental requirement</b> that you to add an SSL certificate so that web traffic is encrypted. The platform will not be visible or accessible in any way without that SSL certificate. Please look through the [existing issues relating to SSL](https://github.com/onnela-lab/beiwe-backend/issues?q=is%3Aissue+ssl) while troubleshooting.
 
-We recommend using [the AWS Certificate Manager] (http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request.html) service as that will integrate with AWS' Route53 service and centralize your domain management. The AWS Certificate Manager [will check that you control the domain by sending verification emails](http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-validate.html) to the email addresses in the domain's WHOIS listing.
+We recommend using [the AWS Certificate Manager] (http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request.html) service as that will integrate with AWS' Route53 service and centralize your domain management. The AWS Certificate Manager [will check that you control the domain by sending verification emails](http://docs.aws.amazon.com/acm/latest/userguide/gs-acm-validate.html) to the email addresses in the domain's WHOIS listing. If you are using an external certificate you will need to provide it to AWS' key management service, and then associate it with your Elastic Load Balancer.
 
-After deployment is successful you will need to enable the port 443 forwarding on the Elastic Load Balancer for your Elastic Beanstalk environment. This is done in the AWS console, under the EC2 service, in the Load Balancers section. You will need to add a listener for port 443, and then add a rule to forward traffic from port 443 to port 80 on the instances in your Elastic Beanstalk environment.
-
-
-> [!TIP]
-> ### Configuring Push Notification
-> Push notifications are currently *required* for the iOS platform for survey notifications, but they also unlock additional scheduling features for surveys on Android. Some other (obvious) features of the platform expect or require push notifications credentials be present.
-> Due to technical limitations Onnela Lab must provide push notification credentials directly, but cannot post them inside this repository. You can find our platform maintainer's email address on this github issue: https://github.com/onnela-lab/beiwe-backend/issues/100
-> Participant Devices send Push notification _tokens_ to your Beiwe Backend instance only, no other Beiwe Backend instance can send push notifications to your study participants.
+After deployment is completed you will need to enable the port 443 forwarding on the Elastic Load Balancer for your Elastic Beanstalk environment. This is done in the AWS online console, in the EC2 service, in the Load Balancers section. You will need to add a listener for port 443, and then add a rule to forward traffic from port 443 to port 80 on the instances in your Elastic Beanstalk environment.
 
 
-*** 
+### Configuring Push Notifications
+> [!WARNING]
+> Push Notifications Credentials are currently <b>required</b> for the iOS app to have functional survey notifications, but they also unlock additional scheduling features for surveys on Android. Some other features of the platform require push notification credentials be present.
+
+Due to technical limitations Onnela Lab must provide Push Notification Credentials directly, but cannot post them inside this repository. [You can find our platform maintainer's email address on this github issue](https://github.com/onnela-lab/beiwe-backend/issues/100), please email them to request push notification credentials and include with some basic contact information.
+
+The apps send unique push notification "tokens" to your Beiwe Backend instance and _only_ your instance, these tokens are required in order to send out push notifications. No other Beiwe Backend instance can send push notifications to your study participants.
+
+
+***
 
 ### Configuration And Settings
 
 > [!IMPORTANT]
 > ### Required Settings
-> If any of these environment options are not provided, Beiwe will not run.
-> Empty strings and None are considered invalid.
+> If any of these environment options are not provided Beiwe will not run.
+> Empty strings and `None` considered invalid.
 
 ```
 FLASK_SECRET_KEY - a unique, cryptographically secure string
@@ -107,19 +110,23 @@ SYSADMIN_EMAILS - (This item is in the process of being deprecated and has no ef
 ```
 
 ### Optional Settings
-There are additional settings that you will find documented in the [config/settings.py](https://github.com/onnela-lab/beiwe-backend/blob/main/config/settings.py) file.
+There are additional settings that you will find documented directly in the [`config/settings.py`](config/settings.py) file.
+
+If you find an issue in the [`config/django_settings.py`](config/django_settings.py) file or need to customize a variable that is not currently exposed, please open an issue on this repository.
 
 > [!TIP]
-> We _strongly_ recommend making a Sentry.io account and adding Sentry DSNs to all your Beiwe servers.  Without these there is very little data to work with when something goes wrong, and we won't be able to assist you in the issue forum.
+> We _strongly_ recommend making a Sentry.io account and adding Sentry DSNs to all your Beiwe servers.  Without these, or at least a Python stack trace, there is very little data to work with when something goes wrong.
 
-***
 
 # Development setup
 How to set up beiwe-backend running on a development machine (NOT a production instance!  For a production instance,
 see https://github.com/onnela-lab/beiwe-backend/wiki/Deployment-Instructions---Scalable-Deployment)
 
 #### Before starting:
-While it is possible to run your development environment inside of the system Python environment, this practice is _strongly discouraged_.  We recommend familiarizing yourself with one of the following: Python's [venv](https://docs.python.org/3/tutorial/venv.html) library (basic virtual environments), [Pyenv](https://github.com/pyenv/pyenv) (allows for compiling particular target versions of Python, plus some quality-of-life command-line shell integrations), or [Conda](https://docs.conda.io/en/latest/) (another option, includes integrations with non-Python libraries).  Note also that the codebase expects at least Python version 3.8.
+While it is possible to run your development environment inside of the system Python environment, this practice is _generally strongly discouraged_. Please familiarize yourself with one of the following: Python's [venv](https://docs.python.org/3/tutorial/venv.html) library (basic virtual environments), [Pyenv](https://github.com/pyenv/pyenv) (allows for compiling particular target versions of Python, plus some quality-of-life command-line shell integrations), or [Conda](https://docs.conda.io/en/latest/) (another option, includes integrations with non-Python libraries).  Note also that the codebase requires at least Python version 3.8, with an upgrade planned for python 3.11 as 3.8 reaches end-of-life.
+
+#### Instructions assuming an Ubuntu platform:
+Summary: the Beiwe Backend requires a PostgreSQL database, 
 
 1. `sudo apt-get update; sudo apt-get install postgresql libpq-dev`
 2. `pip install --upgrade pip setuptools wheel`
@@ -131,23 +138,25 @@ While it is possible to run your development environment inside of the system Py
     export S3_BUCKET="a"
     export SYSADMIN_EMAILS="sysadmin@localhost"
     ```
-    I usually store it at `private/environment.sh`.  Load up these environment variables by running `source private/environment.sh` at the Bash prompt.
+I usually store it at `private/environment.sh`.  Load up these environment variables by running `source private/environment.sh` at the Bash prompt.
 
-For additional tips on running a local development enironment please see [this wiki page](https://github.com/onnela-lab/beiwe-backend/wiki/Tips-For-Local-Beiwe-Development).  If you are having difficulty getting started, or believe you could assist with any issues of documentation, please [post an issue with a documentation tag](https://github.com/onnela-lab/beiwe-backend/labels/documentation).
+For additional tips on running a local development enironment please see the [Tips For Local Development](https://github.com/onnela-lab/beiwe-backend/wiki/Tips-For-Local-Beiwe-Development) wiki page.  If you are having difficulty getting started, or believe you could assist with any issues of documentation, please post an issue with a `documentation` tag.
 
 ### Local Celery setup
-**Update**: it is no longer necessary to use Celery for local testing, though you still need it to be installed in your Python environment in order to avoid import errors.  A full test of Celery requires the full setup below, including installing `rabbitmq`, but as long as the file for the rabbitmq host server IP and password (`manager_ip` in the root of the repository) is missing you will instead be presented with output similar to the example shell session below, indicating a that you are running in a _much_ more convenient single-threaded local testing mode:
+**Update**: it is no longer necessary to use Celery for local testing, though you still need it to be installed in your Python environment in order to avoid import errors.  A full test of Celery requires the full setup below, including installing `rabbitmq`, but as long as the file for the rabbitmq host server IP and password (declared in a `manager_ip` in the root of the repository) is missing you will instead be presented with output similar to the example shell session below. indicating a that you are running in a _much_ more convenient single-threaded local testing mode:
 
-```
+``` ipython
 In [1]: from services.celery_data_processing import *
 task declared, args: (), kwargs:{'queue': 'data_processing'}
 Instantiating a FalseCeleryApp for celery_process_file_chunks.
 ```
 
-For those souls brave enough to run the entire broker queue and Celery task dispatch machinery locally, here are our best instructions.  Caveat: this configuration is based on a one that is known to work on Ubuntu 18.04, and is potentially incompatible with the version of RabbitMQ provided in Ubuntu 20.04. Also, due to the use of the system `service` command it is incompatible with the varient of Ubuntu for use on the Windows Subsystem for Linux.  Have at:
+The [Tips For Local Development](https://github.com/onnela-lab/beiwe-backend/wiki/Tips-For-Local-Beiwe-Development) page contains info on running the iPython Django database shell.
+
+For those souls brave enough to run the entire broker queue and Celery task dispatch machinery locally, here are our best instructions. Also, due to the use of the system's `service` command it is incompatible with the varient of Ubuntu for use on the Windows Subsystem for Linux.  Have at:
 
 1. Install RabbitMQ (https://docs.celeryproject.org/en/latest/getting-started/backends-and-brokers/rabbitmq.html#broker-rabbitmq)
-    1. Edit `/etc/rabbitmq/rabbitmq-env.conf` and add the line `NODE_PORT=50000`
+    1. Edit `/etc/rabbitmq/rabbitmq-env.conf` and add the line `NODE_PORT=50000` and then a `RABBITMQ_DIST_PORT=50002`
     2. Restart RabbitMQ like this in the Bash shell: `time sudo service rabbitmq-server restart` (`time` isn't necessary, but it tells you that the command has finished, and how long the command took to execute... which can be... random and excessive?)
 2. Create a file called `manager_ip` in the top level of your `beiwe-backend` repo, and enter these two lines in it.  Do not provide a trailing new-line character.
     ```
@@ -167,4 +176,7 @@ For those souls brave enough to run the entire broker queue and Celery task disp
 
 ### Forest
 
-Warning: The Forest integration is still in beta; running Forest may cause significant data processing costs.
+> [!IMPORTANT]
+> The Forest integration is still in active development and may require hands-on additions particularly in drive storage to servers to run on studies that recorded substantial amounts of per-participant data. This difficulty results from the Accelerometer and Gyro data streams potentially collecting more data than there is available disk space on the data processing servers.
+>
+> We are working to reduce these requirements through various means.

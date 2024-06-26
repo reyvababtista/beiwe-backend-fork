@@ -1,7 +1,7 @@
-import orjson
 from datetime import datetime, timedelta
 from typing import Tuple
 
+import orjson
 from django.utils import timezone
 
 from constants.common_constants import API_DATE_FORMAT
@@ -10,6 +10,7 @@ from database.schedule_models import Intervention
 from database.study_models import StudyField
 from database.user_models_participant import Participant
 from tests.common import ResearcherSessionTest
+from tests.helpers import ParticipantTableHelperMixin
 
 
 # trunk-ignore-all(ruff/B018)
@@ -338,53 +339,34 @@ class TestEditStudyField(ResearcherSessionTest):
 
 
 # test download_participants_csv
-class TestDownloadParticipantsCsv(ResearcherSessionTest):
+class TestDownloadParticipantsCsv(ResearcherSessionTest, ParticipantTableHelperMixin):
     ENDPOINT_NAME = "study_api.download_participants_csv"
     JAN_1_2020 = datetime(2020, 1, 1, 12, tzinfo=timezone.utc)
-    NONES_STRING = ",None,None,None,None,None,None,None,None,None,None"
-    
-    THE_HEADER = (
-        "Created On,Patient ID,Status,OS Type,"
-        "default_intervention_name,default_study_field_name,"
-        "Last Upload,Last Survey Download,Last Registration,Last Set Password,"
-        "Last Push Token Update,Last Device Settings Update,Last OS Version,App Version Code,"
-        "App Version Name,Last Heartbeat"
-    )
-    
-    def header(self, intervention: bool = False, custom_field: bool = False) -> str:
-        ret = "Created On,Patient ID,Status,OS Type,"
-        if intervention:
-            ret += "default_intervention_name,"
-        if custom_field:
-            ret += "default_study_field_name,"
-        ret += "Last Upload,Last Survey Download,Last Registration,Last Set Password,"
-        ret += "Last Push Token Update,Last Device Settings Update,Last OS Version,App Version Code,"
-        ret += "App Version Name,Last Heartbeat\r\n"
-        return ret
+    ELEVEN_NONES_STRING = ",None" * 11  # One none for each field in EXTRA_TABLE_FIELDS
     
     @property
     def response_basic(self) -> bytes:
-        return (self.header() + f"2020-01-01,patient1,Inactive,ANDROID{self.NONES_STRING}\r\n" +
-                                f"2020-01-01,patient2,Inactive,ANDROID{self.NONES_STRING}\r\n")
+        return (self.header() + f"2020-01-01,patient1,Inactive,ANDROID{self.ELEVEN_NONES_STRING}\r\n" +
+                                f"2020-01-01,patient2,Inactive,ANDROID{self.ELEVEN_NONES_STRING}\r\n")
     
     @property
     def response_with_intervention(self) -> bytes:
         return (self.header(intervention=True) +
-                f"2020-01-01,patient1,Inactive,ANDROID,2020-01-01{self.NONES_STRING}\r\n" +
-                f"2020-01-01,patient2,Inactive,ANDROID,2020-01-01{self.NONES_STRING}\r\n")
+                f"2020-01-01,patient1,Inactive,ANDROID,2020-01-01{self.ELEVEN_NONES_STRING}\r\n" +
+                f"2020-01-01,patient2,Inactive,ANDROID,2020-01-01{self.ELEVEN_NONES_STRING}\r\n")
     
     @property
     def response_with_custom_field(self) -> bytes:
         return (self.header(custom_field=True) +
-                f"2020-01-01,patient1,Inactive,ANDROID,default_study_field_value{self.NONES_STRING}\r\n" +
-                f"2020-01-01,patient2,Inactive,ANDROID,default_study_field_value{self.NONES_STRING}\r\n")
+                f"2020-01-01,patient1,Inactive,ANDROID,default_study_field_value{self.ELEVEN_NONES_STRING}\r\n" +
+                f"2020-01-01,patient2,Inactive,ANDROID,default_study_field_value{self.ELEVEN_NONES_STRING}\r\n")
     
     @property
     def response_with_intervention_and_custom_field(self) -> bytes:
         return (
             self.header(intervention=True, custom_field=True) +
-            f"2020-01-01,patient1,Inactive,ANDROID,2020-01-01,default_study_field_value{self.NONES_STRING}\r\n" +
-            f"2020-01-01,patient2,Inactive,ANDROID,2020-01-01,default_study_field_value{self.NONES_STRING}\r\n"
+            f"2020-01-01,patient1,Inactive,ANDROID,2020-01-01,default_study_field_value{self.ELEVEN_NONES_STRING}\r\n" +
+            f"2020-01-01,patient2,Inactive,ANDROID,2020-01-01,default_study_field_value{self.ELEVEN_NONES_STRING}\r\n"
         )
     
     @property

@@ -14,8 +14,8 @@ from database.security_models import ApiKey
 from database.study_models import Study
 from database.survey_models import Survey, SurveyArchive
 from database.user_models_participant import AppHeartbeats
-from libs.participant_table_api import get_table_columns
 from tests.common import DataApiTest
+from tests.helpers import ParticipantTableHelperMixin
 
 
 # trunk-ignore-all(ruff/B018)
@@ -330,12 +330,8 @@ class TestStudySurveyHistory(DataApiTest):
         self.assertEqual(ret, should_be)
 
 
-class TestDownloadParticipantTableData(DataApiTest):
+class TestDownloadParticipantTableData(DataApiTest, ParticipantTableHelperMixin):
     ENDPOINT_NAME = "other_data_apis.get_participant_table_data"
-    json_table_default_columns = \
-    b'["Created On","Patient ID","Status","OS Type","Last Upload","Last Survey Download",' \
-        b'"Last Registration","Last Set Password","Last Push Token Update","Last Device Settings ' \
-        b'Update","Last OS Version","App Version Code","App Version Name","Last Heartbeat"]'
     
     def test_no_study_param(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -355,7 +351,7 @@ class TestDownloadParticipantTableData(DataApiTest):
         self.set_session_study_relation(ResearcherRole.researcher)
         resp = self.smart_post_status_code(200, study_id=self.session_study.object_id, data_format="csv")
         # its just the header row and a \r\n
-        self.assertEqual(resp.content, (",".join(get_table_columns(self.session_study)) + "\r\n").encode())
+        self.assertEqual(resp.content, self.header().encode())
     
     def test_no_data_json(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -369,7 +365,9 @@ class TestDownloadParticipantTableData(DataApiTest):
             200, study_id=self.session_study.object_id, data_format="json_table"
         )
         # results in a table with a first row of column names
-        row = ('[["' + '","'.join(get_table_columns(self.session_study)) + '"]]').encode()
+        # this looks like a string containing: [["Created On","Patient ID","Status"," .....
+        # strip() strips \r\n
+        row = ('[["' + '","'.join(self.header().strip().split(",")) + '"]]').encode()
         self.assertEqual(resp.content, row)
     
     def test_one_participant_csv(self):
@@ -377,99 +375,122 @@ class TestDownloadParticipantTableData(DataApiTest):
         # the header row and a row of data
         # b'Created On,Patient ID,Status,OS Type,Last Upload,Last Survey Download,Last Registration,Last Set Password,Last Push Token Update,Last Device Settings Update,Last OS Version,App Version Code,App Version Name,Last Heartbeat
         #2024-06-06,patient1,Inactive,ANDROID,None,None,None,None,None,None,None,None,None,None
-        row1 = ",".join(get_table_columns(self.session_study)) + "\r\n"
+        row1 = self.header()
         row2 = "2020-01-01,patient1,Inactive,ANDROID,"
-        row2 += "None,None,None,None,None,None,None,None,None,None\r\n"
+        row2 += "None,None,None,None,None,None,None,None,None,None,None\r\n"
         self.assertEqual(resp.content, (row1 + row2).encode())
         self.modify_participant()
-        row2_2 = "2020-01-01,patient1,Inactive,ANDROID,"
-        row2_2 += "2020-01-02 12:00:00 (UTC),2020-01-03 12:00:00 (UTC),2020-01-04 12:00:00 (UTC),"
-        row2_2 += "2020-01-05 12:00:00 (UTC),2020-01-06 12:00:00 (UTC),2020-01-07 12:00:00 (UTC),"
-        row2_2 += "1.0,6,six,2020-01-08 12:00:00 (UTC)\r\n"
+        
+        # this is a correct dictionary representation of the row
+        reference_output_populated = {
+            'Created On': '2020-01-01',
+            'Patient ID': 'patient1',
+            'Status': 'Inactive',
+            'OS Type': 'ANDROID',
+            'First Registration Date': 'None',
+            'Last Registration': '2020-01-04 12:00:00 (UTC)',
+            'Last Upload': '2020-01-02 12:00:00 (UTC)',
+            'Last Survey Download': '2020-01-03 12:00:00 (UTC)',
+            'Last Set Password': '2020-01-05 12:00:00 (UTC)',
+            'Last Push Token Update': '2020-01-06 12:00:00 (UTC)',
+            'Last Device Settings Update': '2020-01-07 12:00:00 (UTC)',
+            'Last OS Version': '1.0',
+            'App Version Code': '6',
+            'App Version Name': 'six',
+            'Last Heartbeat': '2020-01-08 12:00:00 (UTC)',
+        }
+        # sanity check that the keys here are the same as the header row...
+        self.assertEqual(row1, ",".join(reference_output_populated.keys()) + "\r\n" )
+        reference_content = (row1 + ",".join(reference_output_populated.values())).encode() + b"\r\n"
+        
         resp = self._do_one_participant("csv")
-        self.assertEqual(resp.content, (row1 + row2_2).encode())
+        self.assertEqual(resp.content, reference_content)
     
     def test_one_participant_json(self):
         resp = self._do_one_participant("json")
-        keys = get_table_columns(self.session_study)
+        keys = self.header().strip().split(",")  # strip() strips \r\n
         
         row = {
-            keys[0]: "2020-01-01",
-            keys[1]: "patient1",
-            keys[2]: "Inactive",
-            keys[3]: "ANDROID",
-            keys[4]: "None",
-            keys[5]: "None",
-            keys[6]: "None",
-            keys[7]: "None",
-            keys[8]: "None",
-            keys[9]: "None",
-            keys[10]: "None",
-            keys[11]: "None",
-            keys[12]: "None",
-            keys[13]: "None",
+            keys[0]: "2020-01-01",   # Created On
+            keys[1]: "patient1",     # Patient ID
+            keys[2]: "Inactive",     # Status
+            keys[3]: "ANDROID",      # OS Type
+            keys[4]: "None",         # First Registration Date
+            keys[5]: "None",         # Last Registration
+            keys[6]: "None",         # Last Upload
+            keys[7]: "None",         # Last Survey Download
+            keys[8]: "None",         # Last Set Password
+            keys[9]: "None",         # Last Push Token Update
+            keys[10]: "None",        # Last Device Settings Update
+            keys[11]: "None",        # Last OS Version
+            keys[12]: "None",        # App Version Code
+            keys[13]: "None",        # App Version Name
+            keys[14]: "None",        # Last Heartbeat
         }
         self.assertEqual(orjson.loads(resp.content), [row])
         
         self.modify_participant()
         resp = self._do_one_participant("json")
         row = {
-            keys[0]: "2020-01-01",
-            keys[1]: "patient1",
-            keys[2]: "Inactive",
-            keys[3]: "ANDROID",
-            keys[4]: "2020-01-02 12:00:00 (UTC)",
-            keys[5]: "2020-01-03 12:00:00 (UTC)",
-            keys[6]: "2020-01-04 12:00:00 (UTC)",
-            keys[7]: "2020-01-05 12:00:00 (UTC)",
-            keys[8]: "2020-01-06 12:00:00 (UTC)",
-            keys[9]: "2020-01-07 12:00:00 (UTC)",
-            keys[10]: "1.0",
-            keys[11]: "6",
-            keys[12]: "six",
-            keys[13]: "2020-01-08 12:00:00 (UTC)",
+            keys[0]: "2020-01-01",                  # Created On
+            keys[1]: "patient1",                    # Patient ID
+            keys[2]: "Inactive",                    # Status
+            keys[3]: "ANDROID",                     # OS Type
+            keys[4]: "None",                        # First Registration Date
+            keys[5]: "2020-01-04 12:00:00 (UTC)",   # Last Registration
+            keys[6]: "2020-01-02 12:00:00 (UTC)",   # Last Upload
+            keys[7]: "2020-01-03 12:00:00 (UTC)",   # Last Survey Download
+            keys[8]: "2020-01-05 12:00:00 (UTC)",   # Last Set Password
+            keys[9]: "2020-01-06 12:00:00 (UTC)",   # Last Push Token Update
+            keys[10]: "2020-01-07 12:00:00 (UTC)",  # Last Device Settings Update
+            keys[11]: "1.0",                        # Last OS Version
+            keys[12]: "6",                          # App Version Code
+            keys[13]: "six",                        # App Version Name
+            keys[14]: "2020-01-08 12:00:00 (UTC)",  # Last Heartbeat
         }
         self.assertEqual(orjson.loads(resp.content), [row])
     
     def test_one_participant_json_table(self):
         resp = self._do_one_participant("json_table")
-        keys = get_table_columns(self.session_study)
+        keys = self.header().strip().split(",")  # strip() strips \r\n
         
         row = [
-            "2020-01-01",
-            "patient1",
-            "Inactive",
-            "ANDROID",
-            "None",
-            "None",
-            "None",
-            "None",
-            "None",
-            "None",
-            "None",
-            "None",
-            "None",
-            "None",
+            "2020-01-01",  # Created On
+            "patient1",    # Patient ID
+            "Inactive",    # Status
+            "ANDROID",     # OS Type
+            "None",        # First Registration Date
+            "None",        # Last Registration
+            "None",        # Last Upload
+            "None",        # Last Survey Download
+            "None",        # Last Set Password
+            "None",        # Last Push Token Update
+            "None",        # Last Device Settings Update
+            "None",        # Last OS Version
+            "None",        # App Version Code
+            "None",        # App Version Name
+            "None",        # Last Heartbeat
         ]
         self.assertEqual(orjson.loads(resp.content), [keys, row])
         
         self.modify_participant()
         resp = self._do_one_participant("json_table")
         row = [
-            "2020-01-01",
-            "patient1",
-            "Inactive",
-            "ANDROID",
-            "2020-01-02 12:00:00 (UTC)",
-            "2020-01-03 12:00:00 (UTC)",
-            "2020-01-04 12:00:00 (UTC)",
-            "2020-01-05 12:00:00 (UTC)",
-            "2020-01-06 12:00:00 (UTC)",
-            "2020-01-07 12:00:00 (UTC)",
-            "1.0",
-            "6",
-            "six",
-            "2020-01-08 12:00:00 (UTC)",
+            "2020-01-01",                  # Created On
+            "patient1",                    # Patient ID
+            "Inactive",                    # Status
+            "ANDROID",                     # OS Type
+            "None",                        # First Registration Date
+            "2020-01-04 12:00:00 (UTC)",   # Last Registration
+            "2020-01-02 12:00:00 (UTC)",   # Last Upload
+            "2020-01-03 12:00:00 (UTC)",   # Last Survey Download
+            "2020-01-05 12:00:00 (UTC)",   # Last Set Password
+            "2020-01-06 12:00:00 (UTC)",   # Last Push Token Update
+            "2020-01-07 12:00:00 (UTC)",   # Last Device Settings Update
+            "1.0",                         # Last OS Version
+            "6",                           # App Version Code
+            "six",                         # App Version Name
+            "2020-01-08 12:00:00 (UTC)",   # Last Heartbeat
         ]
         self.assertEqual(orjson.loads(resp.content), [keys, row])
     

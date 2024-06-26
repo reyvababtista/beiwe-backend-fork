@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from constants.common_constants import API_DATE_FORMAT, LEGIBLE_TIME_FORMAT
 from constants.data_access_api_constants import (BASE_TABLE_FIELDS, EXTRA_TABLE_FIELDS,
-    INCONCEIVABLY_HUGE_NUMBER, TABLE_QUERY_FIELDS)
+    INCONCEIVABLY_HUGE_NUMBER, PARTICIPANT_STATUS_QUERY_FIELDS)
 from database.study_models import Study
 from database.user_models_participant import Participant
 from libs.internal_types import ParticipantQuerySet
@@ -30,6 +30,7 @@ def reference_field_and_interventions(study: Study) -> Tuple[List[str], List[str
 
 
 def get_table_columns(study: Study) -> List[str]:
+    """ Extended list of field names for the greater participant table. """
     field_names, intervention_names = reference_field_and_interventions(study)
     return BASE_TABLE_FIELDS + intervention_names + field_names + list(EXTRA_TABLE_FIELDS.values())
 
@@ -168,12 +169,12 @@ def get_values_for_participants_table(
     now = timezone.now()
     all_participants_data = []
     
-    created_on: datetime  # this is the only variable that creates any ide assistance
+    created_on: datetime  # this is the only variable that can use any ide assistance
     for (
         p_id, created_on, patient_id, registered, os_type, last_upload, last_get_latest_surveys,
         last_set_password, last_set_fcm_token, last_get_latest_device_settings, last_register_user,
         retired, last_heartbeat
-    ) in query.values_list(*TABLE_QUERY_FIELDS):
+    ) in query.values_list(*PARTICIPANT_STATUS_QUERY_FIELDS):
         created_on = created_on.strftime(API_DATE_FORMAT)
         participant_values = [created_on, patient_id, registered, os_type]
         

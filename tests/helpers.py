@@ -718,6 +718,37 @@ def compare_dictionaries(reference, comparee, ignore=None):
     return False
 
 
+class ParticipantTableHelperMixin:
+    """ We have 2 instances of tests needing this, purpose is as a hardcoded clone that of the
+    output of the participant_table_data.get_table_columns function. """
+    
+    HEADER_1 = ",".join(("Created On", "Patient ID", "Status", "OS Type")) + ","  # trailing comma
+    HEADER_2 = ",".join((
+        "First Registration Date",
+        "Last Registration",
+        "Last Upload",
+        "Last Survey Download",
+        "Last Set Password",
+        "Last Push Token Update",
+        "Last Device Settings Update",
+        "Last OS Version",
+        "App Version Code",
+        "App Version Name",
+        "Last Heartbeat"
+    )) + "\r\n"
+    
+    def header(self, intervention: bool = False, custom_field: bool = False) -> str:
+        ret = self.HEADER_1
+        
+        if intervention:
+            ret += "default_intervention_name,"
+        if custom_field:
+            ret += "default_study_field_name,"
+        
+        ret += self.HEADER_2
+        return ret
+
+
 class DummyThreadPool():
     """ a dummy threadpool object because the test suite has weird problems with ThreadPool """
     def __init__(self, *args, **kwargs) -> None:

@@ -22,28 +22,43 @@ from database.user_models_researcher import Researcher
 from libs.s3 import s3_list_files
 from libs.utils.dev_utils import disambiguate_participant_survey, TxtClr
 
+#
+## This file is referenced directly inside of developer documentation, keep it organized
+## and well commented.
+#
 
-# Some utility functions for a quality of life.
+# a timezone that is used in as_local and for general usage in the shell.
+# We should probably make this shell util configurable...
 THE_ONE_TRUE_TIMEZONE = gettz("America/New_York")
+EASTERN = THE_ONE_TRUE_TIMEZONE
+EST = THE_ONE_TRUE_TIMEZONE
+EDT = THE_ONE_TRUE_TIMEZONE
 
 
 def as_local(dt: datetime, tz=THE_ONE_TRUE_TIMEZONE):
+    """ Takes a datetime object and returns it in a useful timezone, defaults to THE_ONE_TRUE_TIMEZONE. """
     return localtime(dt, tz)
 
 
 def tformat(dt: datetime, tz=THE_ONE_TRUE_TIMEZONE):
+    """ Takes a datateme, returns a legible string representation using as_local. """
     return datetime.strftime(as_local(dt, tz), DEV_TIME_FORMAT3)
 
 
-def PARTICIPANT(patient_id: str or int):
+def PARTICIPANT(patient_id: Union[str, int]):
+    """ Get a Participant, may use a contains match, also supports primary key integers. """
     if isinstance(patient_id, int):
         return Participant.objects.get(pk=patient_id)
-    return Participant.objects.get(patient_id=patient_id)
+    try:
+        return Participant.objects.get(patient_id=patient_id)
+    except Participant.DoesNotExist:
+        return Participant.objects.filter(patient_id__icontains=patient_id).get()
 
-P = PARTICIPANT  # Pah, who has time for that.
+P = PARTICIPANT  # Shorthand for PARTICIPANT, just type p = P("someone") and you are done
 
 
-def RESEARCHER(username: str or int):
+def RESEARCHER(username: Union[str, int]):
+    """ Get a Researcher, may use a contains match, also supports primary key integers. """
     if isinstance(username, int):
         return Researcher.objects.get(pk=username)
     try:
@@ -51,11 +66,11 @@ def RESEARCHER(username: str or int):
     except Researcher.DoesNotExist:
         return Researcher.objects.get(username__icontains=username)
 
+R = RESEARCHER  # Shorthand for RESEARCHER, just type r = R("someone") and you are done
 
-R = RESEARCHER
 
-
-def SURVEY(id_or_name: str or int):
+def SURVEY(id_or_name: Union[str, int]):
+    """ Get a Survey, can be a website-style key, a primary key, or a name on a contains match. """
     if isinstance(id_or_name, int):
         return Survey.objects.get(pk=id_or_name)
     try:
@@ -64,7 +79,8 @@ def SURVEY(id_or_name: str or int):
         return Survey.objects.get(name__icontains=id_or_name)
 
 
-def STUDY(id_or_name: str or int):
+def STUDY(id_or_name: Union[str, int]):
+    """ Get a Study, can be a website-style key, a primary key, or a name on a contains match. """
     if isinstance(id_or_name, int):
         return Study.objects.get(pk=id_or_name)
     try:
@@ -73,11 +89,13 @@ def STUDY(id_or_name: str or int):
         return Study.objects.get(name__icontains=id_or_name)
 
 
-def count():
+def file_process_count():
+    """ Gets the number of files that are waiting to be processed. """
     return FileToProcess.objects.count()
 
 
-def status():
+def file_process_status():
+    """ provides a short summary of the number of files to process per participant. """
     pprint(
         sorted(Counter(FileToProcess.objects.values_list("participant__patient_id", flat=True))
                .most_common(), key=lambda x: x[1])
@@ -85,6 +103,10 @@ def status():
 
 
 def watch_processing():
+    """ Only works on data processing servers.
+    Runs a loop that prints out the number of files to process, and some information about the
+    current celery task queue for processing files. ctrl+c to stop. """
+    
     # cannot be imported on EB servers
     from libs.celery_control import (CeleryNotRunningException, get_processing_active_job_ids,
         get_processing_reserved_job_ids, get_processing_scheduled_job_ids)
@@ -126,6 +148,8 @@ def watch_processing():
             errors += 1
         
         if errors:
+            # if this is always happening it means the data processing servers are either totally
+            # overloaded, or there are no celery worker processes running.
             print(f"  (Couldn't connect to celery on {errors} attempt(s), data is slightly stale.)")
         
         print(a_now, "active tasks:", active)
@@ -144,6 +168,7 @@ def watch_processing():
 
 
 def watch_uploads():
+    """ Runs a loop that prints out the number of files uploaded in the past minute. ctrl+c to stop."""
     while True:
         start = localtime()
         data = list(UploadTracking.objects.filter(
@@ -160,11 +185,14 @@ def watch_uploads():
 
 
 def watch_celery():
+    """ Only works on data processing servers.
+    Runs a loop that prints out the number of active, scheduled, and reserved tasks in celery. """
     from libs.celery_control import (watch_celery as watch_celery2)
     watch_celery2()
 
 
 def get_and_summarize(patient_id: str):
+    """ Get a participant and summarize their data uploads and files to process. """
     p = Participant.objects.get(patient_id=patient_id)
     byte_sum = sum(UploadTracking.objects.filter(participant=p).values_list("file_size", flat=True))
     print(f"Total Data Uploaded: {byte_sum/1024/1024}MB")
@@ -184,7 +212,8 @@ def find_notification_events(
         tz: tzinfo = gettz('America/New_York'),
         flat=False
     ):
-    """ THIS FUNCTION IS FOR DEBUGGING PURPOSES ONLY
+    """ Provides a information about historical notification events for a participant or survey.
+    (largely superceded by the participant notifications page.
 
     Throw in a participant and or survey object, OR THEIR IDENTIFYING STRING and we make it work
 
@@ -250,7 +279,7 @@ def find_pending_events(
         participant: Participant = None, survey: Survey or str = None,
         tz: tzinfo = gettz('America/New_York'),
 ):
-    """ THIS FUNCTION IS FOR DEBUGGING PURPOSES ONLY
+    """ Provides a information about PENDING notification events for a participant or survey.
 
     Throw in a participant and or survey object, OR THEIR IDENTIFYING STRING and we make it work
     'tz' will normalize timestamps to that timezone, default is us east.
@@ -284,9 +313,9 @@ def find_pending_events(
 
 
 def heartbeat_summary(p: Participant, max_age: int = 12):
-    # Get the heartbeat timestamps and push notification events, print out all the timestamps in
-    # day-by-day and hour-by-hour sections print statements, and print time deltas since the
-    # previous received heartbeat event.
+    """ Get the heartbeat timestamps and push notification events, print out all the timestamps in
+    day-by-day and hour-by-hour sections print statements, and print time deltas since the
+    previous received heartbeat event. """
     # (this code quality is terrible becaus it was cobbled together as-needed.)
     max_age = (timezone.now() - timedelta(hours=max_age)).replace(minute=0, second=0, microsecond=0)
     
@@ -359,6 +388,7 @@ def heartbeat_summary(p: Participant, max_age: int = 12):
 
 
 def describe_problem_uploads():
+    """ To-be-removed see https://github.com/onnela-lab/beiwe-backend/issues/360 """
     # path is a string that looks like this, including those extra 10 characters at the end:
     #    PROBLEM_UPLOADS/5873fe38644ad7557b168e43/c3b7mk7j/gps/1664315342657.csvQWERTYUIOP
     participant_counts = defaultdict(int)
@@ -389,6 +419,9 @@ def describe_problem_uploads():
 
 
 def diff_strings(s1: str, s2: str):
+    """ A function for comparing two strings, it will print out the text to be compared up to the
+    first non-matching and then some characters on either side of it. Mostly useful in developing
+    tests. """
     if isinstance(s1, bytes):
         s1 = s1.decode("utf-8")
     if isinstance(s2, bytes):
@@ -410,3 +443,5 @@ def diff_strings(s1: str, s2: str):
         start = i - 20 if i - 20 > 0 else 0
         print(f"chars -20 to +20 of s1: '{s1[start:i+20].encode('unicode_escape').decode()}'")
         print(f"chars -20 to +20 of s2: '{s2[start:i+20].encode('unicode_escape').decode()}'")
+
+string_diff = diff_strings  # I have never once remembered which name I used.

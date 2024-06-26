@@ -5,7 +5,7 @@ CHUNK_FIELDS = (
     "participant__patient_id", "study_id", "survey_id", "survey__object_id"
 )
 
-TABLE_QUERY_FIELDS = (
+PARTICIPANT_STATUS_QUERY_FIELDS = (
     "id",
     "created_on",
     "patient_id",
@@ -22,9 +22,10 @@ TABLE_QUERY_FIELDS = (
 )
 
 EXTRA_TABLE_FIELDS = {
+    "first_register_user": "First Registration Date",
+    "last_register_user": "Last Registration",
     "last_upload": "Last Upload",
     "last_get_latest_surveys": "Last Survey Download",
-    "last_register_user": "Last Registration",
     "last_set_password": "Last Set Password",
     "last_set_fcm_token": "Last Push Token Update",
     "last_get_latest_device_settings": "Last Device Settings Update",

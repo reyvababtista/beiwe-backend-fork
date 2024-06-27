@@ -17,6 +17,7 @@ from database.user_models_researcher import StudyRelation
 from libs.internal_types import ApiResearcherRequest, ApiStudyResearcherRequest
 from libs.intervention_utils import intervention_survey_data, survey_history_export
 from libs.participant_table_api import common_data_extraction_for_apis, get_table_columns
+from libs.study_summaries import get_participant_data_upload_summary
 from libs.summary_statistic_api import summary_statistics_request_handler
 from libs.utils.effiicient_paginator import EfficientQueryPaginator
 from middleware.abort_middleware import abort
@@ -43,22 +44,33 @@ def get_studies(request: ApiResearcherRequest):
 
 @require_POST
 @api_study_credential_check()
-def get_users_in_study(request: ApiStudyResearcherRequest):
+def get_participant_ids_in_study(request: ApiStudyResearcherRequest):
+    """ Returns a JSON response of the participant IDs in the study."""
     # json can't operate on queryset, need as list.
-    return HttpResponse(
-        orjson.dumps(list(request.api_study.participants.values_list('patient_id', flat=True)), 200)
-    )
+    participants = list(request.api_study.participants.values_list('patient_id', flat=True))
+    return HttpResponse(orjson.dumps(participants), status=200, content_type="application/json")
+
+
+@require_POST
+@api_study_credential_check()
+def get_participant_data_info(request: ApiStudyResearcherRequest, study_id: str = None):
+    """ Returns a JSON response of the participant data upload summaries. """
+    summary_data = get_participant_data_upload_summary(request.api_study)
+    return HttpResponse(orjson.dumps(summary_data), status=200, content_type="application/json")
 
 
 @require_POST
 @api_study_credential_check()
 def download_study_interventions(request: ApiStudyResearcherRequest):
-    return HttpResponse(orjson.dumps(intervention_survey_data(request.api_study)), 200)
+    """ Returns a JSON response of the intervention data for a study. """
+    data = intervention_survey_data(request.api_study)
+    return HttpResponse(orjson.dumps(data), status=200, content_type="application/json")
 
 
 @require_POST
 @api_study_credential_check()
 def download_study_survey_history(request: ApiStudyResearcherRequest):
+    """ Returns a JSON response of the history of survey edits for a study."""
     study = request.api_study
     fr = FileResponse(
         survey_history_export(study).decode(),  # okay, whatever, it needs to be a string, not bytes
@@ -102,7 +114,7 @@ def get_participant_table_data(request: ApiStudyResearcherRequest):
     if data_format == "json_table":
         # just return the table data as a json list of lists, but insert a first row of table names.
         table_data.insert(0, column_names)
-        return HttpResponse(orjson.dumps(table_data), content_type="application/json")
+        return HttpResponse(orjson.dumps(table_data), status=200, content_type="application/json")
     
     assert False, "unreachable code."
 
@@ -110,8 +122,9 @@ def get_participant_table_data(request: ApiStudyResearcherRequest):
 @require_POST
 @api_study_credential_check()
 def get_summary_statistics(request: ApiStudyResearcherRequest, study_id: str = None):
+    """ Endpoint that duplicates the Tableau API endpoint for summary statistics using data api
+    credentialling details. """
     return summary_statistics_request_handler(request, request.api_study.object_id)
-
 
 
 ## New api endpoints for participant metadata
@@ -150,14 +163,14 @@ def get_participant_upload_history(request: ApiStudyResearcherRequest):
     # OPT_UTC_Z - UTC timezone serialized to Z instead of +00:00
     options = orjson.OPT_OMIT_MICROSECONDS | orjson.OPT_UTC_Z
     return StreamingHttpResponse(
-        paginator.stream_orjson_paginate(option=options), content_type="application/json"
+        paginator.stream_orjson_paginate(option=options), status=200, content_type="application/json"
     )
 
 
 @require_POST
 @api_credential_check
 def get_participant_heartbeat_history(request: ApiStudyResearcherRequest):
-    """ Returns a streaming JSON response of the heartbeat history of a participant."""
+    """ Returns a streaming JSON response of the heartbeat history of a participant. """
     
     participant = get_validate_participant_from_request(request)
     omit_keys = check_request_for_omit_keys_param(request)
@@ -177,13 +190,14 @@ def get_participant_heartbeat_history(request: ApiStudyResearcherRequest):
     # OPT_UTC_Z - UTC timezone serialized to Z instead of +00:00
     options = orjson.OPT_OMIT_MICROSECONDS | orjson.OPT_UTC_Z
     return StreamingHttpResponse(
-        paginator.stream_orjson_paginate(option=options), content_type="application/json"
+        paginator.stream_orjson_paginate(option=options), status=200, content_type="application/json"
     )
 
 
 @require_POST
 @api_credential_check
 def get_participant_version_history(request: ApiStudyResearcherRequest):
+    """ Returns a streaming JSON response of the app and os version history of a participant. """
     participant = get_validate_participant_from_request(request)
     omit_keys = check_request_for_omit_keys_param(request)
     FIELDS_TO_SERIALIZE = ["app_version_code", "app_version_name", "os_version"]
@@ -199,13 +213,16 @@ def get_participant_version_history(request: ApiStudyResearcherRequest):
     # OPT_UTC_Z - UTC timezone serialized to Z instead of +00:00
     options = orjson.OPT_OMIT_MICROSECONDS | orjson.OPT_UTC_Z
     return StreamingHttpResponse(
-        paginator.stream_orjson_paginate(option=options), content_type="application/json"
+        paginator.stream_orjson_paginate(option=options), status=200, content_type="application/json"
     )
 
 
 @require_POST
 @api_credential_check
 def get_participant_device_status_report_history(request: ApiStudyResearcherRequest):
+    """ Returns a streaming JSON response of the device status report history of a participant.
+    This endpoint is only for debugging and development purposes, it requires a participant
+    have the enable_extensive_device_info_tracking experiment enabled. """
     participant = get_validate_participant_from_request(request)
     
     if not participant.device_status_reports.exists():
@@ -227,7 +244,7 @@ def get_participant_device_status_report_history(request: ApiStudyResearcherRequ
     # OPT_UTC_Z - UTC timezone serialized to Z instead of +00:00
     options = orjson.OPT_OMIT_MICROSECONDS | orjson.OPT_UTC_Z
     return StreamingHttpResponse(
-        paginator.stream_orjson_paginate(option=options), content_type="application/json"
+        paginator.stream_orjson_paginate(option=options), status=200, content_type="application/json"
     )
 
 

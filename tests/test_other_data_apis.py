@@ -1,13 +1,13 @@
-import zstd
 import json
-from datetime import datetime
+from datetime import date, datetime
 
 import orjson
+import zstd
 from dateutil.tz import UTC
 from django.core.exceptions import ValidationError
 
 from constants.data_access_api_constants import MISSING_JSON_CSV_MESSAGE
-from constants.tableau_api_constants import SERIALIZABLE_FIELD_NAMES
+from constants.tableau_api_constants import DATA_QUANTITY_FIELD_NAMES, SERIALIZABLE_FIELD_NAMES
 from constants.user_constants import ResearcherRole
 from database.profiling_models import UploadTracking
 from database.security_models import ApiKey
@@ -154,7 +154,7 @@ class TestApiCredentialCheck(DataApiTest):
 
 
 class TestAPIStudyUserAccess(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_users_in_study"
+    ENDPOINT_NAME = "other_data_apis.get_participant_ids_in_study"
     
     def test_missing_all_parameters(self):
         # self.set_session_study_relation(ResearcherRole)
@@ -236,7 +236,7 @@ class TestAPIStudyUserAccess(DataApiTest):
 
 
 class TestGetUsersInStudy(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_users_in_study"
+    ENDPOINT_NAME = "other_data_apis.get_participant_ids_in_study"
     
     def test_no_participants(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -258,6 +258,110 @@ class TestGetUsersInStudy(DataApiTest):
         match = f'["{self.default_participant.patient_id}","{p2.patient_id}"]'
         self.assertEqual(resp.content, match.encode())
 
+
+class TestGetParticipantDataInfo(DataApiTest):
+    ENDPOINT_NAME = "other_data_apis.get_participant_data_info"
+    
+    @property
+    def ref_zero_row_output(self):
+        # this is manual so that if you change the fields in the future we will get a failure
+        return {
+            'accelerometer_bytes': 0,
+            'ambient_audio_bytes': 0,
+            'app_log_bytes': 0,
+            'bluetooth_bytes': 0,
+            'calls_bytes': 0,
+            'devicemotion_bytes': 0,
+            'gps_bytes': 0,
+            'gyro_bytes': 0,
+            'identifiers_bytes': 0,
+            'ios_log_bytes': 0,
+            'magnetometer_bytes': 0,
+            'power_state_bytes': 0,
+            'proximity_bytes': 0,
+            'reachability_bytes': 0,
+            'survey_answers_bytes': 0,
+            'survey_timings_bytes': 0,
+            'texts_bytes': 0,
+            'audio_recordings_bytes': 0,
+            'wifi_bytes': 0,
+        }
+    
+    def test_no_participants(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
+        self.assertEqual(resp.content, b"{}")
+    
+    def test_one_empty_participant(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.using_default_participant()
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
+        self.assertEqual(orjson.loads(resp.content), {self.default_participant.patient_id: self.ref_zero_row_output})
+    
+    def test_two_empty_participants(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.using_default_participant()
+        p2 = self.generate_participant(self.session_study)
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
+        self.assertEqual(
+            orjson.loads(resp.content),
+            {
+                self.default_participant.patient_id: self.ref_zero_row_output,
+                p2.patient_id: self.ref_zero_row_output,
+            }
+        )
+    
+    def test_one_participant_with_data_1(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.default_summary_statistic_daily.update(**{k: 1 for k in DATA_QUANTITY_FIELD_NAMES})
+        ref_out = self.ref_zero_row_output
+        for k in ref_out:
+            ref_out[k] = 1
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
+        self.assertEqual(orjson.loads(resp.content), {self.default_participant.patient_id: ref_out})
+    
+    def test_one_participant_with_each_field_incrementing(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        # depends on row order in DATA_QUANTITY_FIELD_NAMES
+        self.default_summary_statistic_daily.update(**{k: i for i, k in enumerate(DATA_QUANTITY_FIELD_NAMES)})
+        ref_out = self.ref_zero_row_output
+        for i, k in enumerate(ref_out):
+            ref_out[k] = i
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
+        self.assertEqual(orjson.loads(resp.content), {self.default_participant.patient_id: ref_out})
+    
+    def test_three_participants_with_data(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        
+        p1 = self.default_participant
+        self.default_summary_statistic_daily.update(**{k: 10 for k in DATA_QUANTITY_FIELD_NAMES})
+        # patient0 would be an invalid patient id because it has a 0 in it, we just need something
+        # that sorts before patient1
+        p0 = self.generate_participant(self.session_study, "atient11")  
+        self.generate_summary_statistic_daily(date.today(), p0).update(**{k: 100 for k in DATA_QUANTITY_FIELD_NAMES})
+        p2 = self.generate_participant(self.session_study, "patient2")
+        self.generate_summary_statistic_daily(date.today(), p2).update(**{k: 1000 for k in DATA_QUANTITY_FIELD_NAMES})
+        
+        # setup unique rows
+        ref_row_out_p1 = self.ref_zero_row_output
+        for k in ref_row_out_p1:
+            ref_row_out_p1[k] = 10
+        ref_row_out_p0 = self.ref_zero_row_output
+        for k in ref_row_out_p0:
+            ref_row_out_p0[k] = 100
+        ref_row_out_p2 = self.ref_zero_row_output
+        for k in ref_row_out_p2:
+            ref_row_out_p2[k] = 1000
+        
+        resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
+        self.assertEqual(
+            orjson.loads(resp.content),
+            {
+                p0.patient_id: ref_row_out_p0,
+                p1.patient_id: ref_row_out_p1,
+                p2.patient_id: ref_row_out_p2,
+            }
+        )
 
 class TestDownloadStudyInterventions(DataApiTest):
     ENDPOINT_NAME = "other_data_apis.download_study_interventions"

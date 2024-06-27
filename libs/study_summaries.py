@@ -8,35 +8,29 @@ from database.forest_models import SummaryStatisticDaily
 from database.study_models import Study
 
 
-""" THIS FILE IS NO LONGER USED, IT WAS BUILT DUE TO A MISUNDERSTANDING OF THE REQUIREMENTS. """
+# a lookup for the field names generated here (ending in "_total") to stripped down field names
+# (we don't want the super nice names with title casing and spaces, this is API output)
+NICE_FIELD_NAME_CONVERSION = dict(zip(
+    [name.replace("beiwe_", "") + "_total" for name in DATA_QUANTITY_FIELD_NAMES],
+    [name.replace("beiwe_", "") for name in DATA_QUANTITY_FIELD_NAMES],
+))
 
 
-def reference_summary_csv_columns():
-    """ The reference for the columns that are generated for the summary statistics CSV file. """
-    return [
-        v.replace("beiwe_", "").replace("_", " ").title()
-        for v in (["patient_id"] + reference_key_ordering_for_summary())
-    ]
-
-
-def reference_key_ordering_for_summary():
-    """ If we need to reorder stuff do it here, this should be the canonical ordering. """
-    return DATA_QUANTITY_FIELD_NAMES
-
-
-def get_summary_statistics_summary_in_one_database_query(study: Study):
+def get_participant_data_upload_summary(study: Study) -> Dict[str, Dict[str, int]]:
+    """ Returns per-participant-data of bytes for each summary statistic. """
     raw_data = query_for_summed_data_summaries(study)
-    participant_data, grand_totals = clean_summed_data_query_and_get_grand_totals(raw_data)
+    participant_data = sum_participant_data_query(raw_data)
     insert_missing_empty_participants(study, participant_data)
-    return participant_data, grand_totals
+    return participant_data
 
 
-def clean_summed_data_query_and_get_grand_totals(data: List[Dict[str, int]]):
+def sum_participant_data_query(participant_summation_query: List[Dict[str, int]]) -> Dict[str, Dict[str, int]]:
+    """ The database query can return multiple rows for each participant, it is unclear why, we 
+    suspect it is something to do with internal database ordering. """
     per_participant_data = {}
-    grand_totals = defaultdict(int)
     
     # sum up all the values for each participant using a defaultdict
-    for participant_data in data:
+    for participant_data in participant_summation_query:
         patient_id = participant_data.pop("patient_id")
         
         # first time encountering a participant, create a defaultdict for them
@@ -46,35 +40,35 @@ def clean_summed_data_query_and_get_grand_totals(data: List[Dict[str, int]]):
         # for each value in the participant's data, add it to the defaultdict, transform None to 0,
         # and separate and title case the keys
         for key, value in participant_data.items():
-            key = key.replace("_", " ").title()
+            key = NICE_FIELD_NAME_CONVERSION[key]
             value = value if value else 0  # force numeric
             per_participant_data[patient_id][key] += value  # increment participant value
-            grand_totals[key] += value  # increment grand total
     
-    # convert the defaultdicts to dictionaries
-    grand_totals = dict(grand_totals)
+    # convert the defaultdicts to dictionaries for safety
     for patient_id in per_participant_data.keys():
         per_participant_data[patient_id] = dict(per_participant_data[patient_id])
     
-    return per_participant_data, grand_totals
+    return per_participant_data
 
 
 def insert_missing_empty_participants(study: Study, participant_data: Dict[str, Dict[str, int]]):
     """ Ensure that there is an entry for every participant in the study, even if they have no data."""
-    for patient_id in study.participants.values_list("patient_id", flat=True):
+    for patient_id in study.participants.order_by("patient_id").values_list("patient_id", flat=True):
         if patient_id not in participant_data:
             # to save us from our future selves we will make these unique dictionaries
-            participant_data[patient_id] = {k: 0 for k in reference_key_ordering_for_summary()}
+            participant_data[patient_id] = {
+                k: 0 for k in NICE_FIELD_NAME_CONVERSION.values()
+            }
 
 
 def query_for_summed_data_summaries(study: Study) -> List[Dict[str, Union[int, str]]]:
     """ For every field name in DATA_QUANTITY_FIELD_NAMES, generate an annotated field that sums all
     values of that field for each participant. """
     
-    # Critical Detail - the reason this query magically works is due to a difference between these
+    # The reason this query magically works is due to a difference between these
     # two ways to add an annotation to a query:
-    #   1) query_annotation_params[pseudofield_name] = Func(field_name, function='SUM')
-    #   2) query_annotation_params[pseudofield_name] = Sum(field_name)
+    #   1) query_annotation_params[summation_field_name] = Func(field_name, function='SUM')
+    #   2) query_annotation_params[summation_field_name] = Sum(field_name)
     # The first one must be used from a participant.summarystatisticdaily_set query, otherwise
     # you get a SQL "column "database_participant.patient_id" must appear in the GROUP BY clause
     #   or be used in an aggregate function" error.
@@ -85,13 +79,14 @@ def query_for_summed_data_summaries(study: Study) -> List[Dict[str, Union[int, s
     
     query_annotation_params = {"patient_id": F("participant__patient_id")}
     for field_name in DATA_QUANTITY_FIELD_NAMES:
-        pseudofield_name = f"{field_name.replace('beiwe_', '')}_total"
-        query_annotation_params[pseudofield_name] = Sum(field_name)
+        summation_field_name = f"{field_name.replace('beiwe_', '')}_total"
+        query_annotation_params[summation_field_name] = Sum(field_name)
     
     # single query for sum of all data quantity fields
     participant_summation: Dict[str, int] = list(
-        SummaryStatisticDaily.objects 
-        .filter(participant__study=study) 
+        SummaryStatisticDaily.objects
+        .filter(participant__study=study)
+        .order_by("participant__patient_id")
         .annotate(**query_annotation_params)
         .values(*query_annotation_params.keys())
     )
@@ -104,8 +99,7 @@ def reference_summarize_data_summaries(study: Study) -> Generator[Dict[str, int]
     
     The equivalence of these two implementations was exhaustedly tested, could not work out how
     to group the data in the single-query version ... chunks? tegether into individual "rows"
-    of annotated participant fields.
-    """
+    of annotated participant fields. """
     
     # For every field name in DATA_QUANTITY_FIELD_NAMES, generate an annotated field that sums all
     # values of that field for each participant. Structure is a dict every line that looks like this:
@@ -131,16 +125,16 @@ def reference_summarize_data_summaries(study: Study) -> Generator[Dict[str, int]
     
     for participant in study.participants.all():
         query_annotation_params = {}
-        for field_name in reference_key_ordering_for_summary:
-            pseudofield_name = f"{field_name.replace('beiwe_', '')}_total"
-            query_annotation_params[pseudofield_name] = Func(field_name, function='SUM')
+        for field_name in DATA_QUANTITY_FIELD_NAMES:
+            summation_field_name = f"{field_name.replace('beiwe_', '')}_total"
+            query_annotation_params[summation_field_name] = Func(field_name, function='SUM')
         
         # single query for sum of all data quantity fields
         participant_summation: Dict[str, int] = participant.summarystatisticdaily_set \
             .annotate(**query_annotation_params).values(*query_annotation_params.keys()).get()
         
         final_dict = {
-            k.replace("_", " ").title(): v if v else 0 for k, v in participant_summation.items()
+            NICE_FIELD_NAME_CONVERSION[k]: v if v else 0 for k, v in participant_summation.items()
         }
         final_dict["Patient Id"] = participant.patient_id
         yield final_dict

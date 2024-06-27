@@ -216,7 +216,9 @@ path(
 # data access api and other researcher apis
 path("get-data/v1", data_access_api.get_data)
 path("get-studies/v1", other_data_apis.get_studies)
-path("get-users/v1", other_data_apis.get_users_in_study)
+path("get-users/v1", other_data_apis.get_participant_ids_in_study)  # deprecated June 2024
+path("get-participant-ids/v1", other_data_apis.get_participant_ids_in_study)
+path("get-participant-data-info/v1", other_data_apis.get_participant_data_info)
 path("get-interventions/v1", other_data_apis.download_study_interventions)
 path("get-survey-history/v1", other_data_apis.download_study_survey_history)
 path("get-participant-upload-history/v1", other_data_apis.get_participant_upload_history)

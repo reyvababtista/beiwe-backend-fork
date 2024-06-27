@@ -2,13 +2,15 @@ import json
 from os import path
 from typing import Dict, List, Union
 
+import orjson
+
 from constants.copy_study_constants import (ABSOLUTE_SCHEDULE_KEY, DEVICE_SETTINGS_KEY,
     INTERVENTIONS_KEY, NEVER_EXPORT_THESE, RELATIVE_SCHEDULE_KEY, STUDY_KEY, SURVEY_CONTENT_KEY,
     SURVEYS_KEY, WEEKLY_SCHEDULE_KEY)
 from database.common_models import JSONTextField
 from database.schedule_models import (AbsoluteSchedule, Intervention, RelativeSchedule,
     WeeklySchedule)
-from database.study_models import DeviceSettings, Study
+from database.study_models import Study
 from database.survey_models import Survey
 from libs.schedules import repopulate_all_survey_scheduled_events
 
@@ -25,11 +27,11 @@ def unpack_json_study(json_string: str) -> Union[dict, List[str], List[dict]]:
     return device_settings, surveys, interventions
 
 
-def format_study(study: Study) -> str:
+def format_study(study: Study) -> bytes:
     """ Serializes a study, including surveys, their schedules, device settings, and interventions. """
     device_settings = study.device_settings.export()
     purge_unnecessary_fields(device_settings)
-    return json.dumps(
+    return orjson.dumps(
         {
             SURVEYS_KEY: format_surveys(study),
             DEVICE_SETTINGS_KEY: device_settings,
@@ -53,7 +55,7 @@ def format_surveys(study: Study) -> List[dict]:
 
 
 def purge_unnecessary_fields(d: dict):
-    """ removes fields that we don't want re-imported, does so silently. """
+    """ Removes fields that we don't want re-imported, does so silently. """
     for field in NEVER_EXPORT_THESE:
         d.pop(field, None)
 

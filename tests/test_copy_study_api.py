@@ -75,7 +75,7 @@ class TestImportStudySettingsFile(ResearcherSessionTest):
         self.session_device_settings.update(gps=False)
         
         # this is the function that creates the canonical study representation wrapped in a burrito
-        survey_json_file = BytesIO(format_study(self.session_study).encode())
+        survey_json_file = BytesIO(format_study(self.session_study))
         survey_json_file.name = f"something.{extension}"  # ayup, that's how you add a name...
         
         self.smart_post_redirect(

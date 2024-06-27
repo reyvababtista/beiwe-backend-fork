@@ -30,7 +30,7 @@ def export_study_settings_file(request: ResearcherRequest, study_id):
     study = Study.objects.get(pk=study_id)
     filename = study.name.replace(' ', '_') + "_surveys_and_settings.json"
     f = FileResponse(
-        BytesIO(format_study(study).encode()),  # this is particularly stupid.
+        BytesIO(format_study(study)),
         content_type="application/json",
         as_attachment=True,
         filename=filename,

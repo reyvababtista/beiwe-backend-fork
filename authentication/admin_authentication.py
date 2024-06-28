@@ -141,9 +141,22 @@ def assert_admin(request: ResearcherRequest, study_id: int):
         directly raises the 403 error, if we don't hit that return True. """
     session_researcher = request.session_researcher
     if not session_researcher.site_admin and not session_researcher.check_study_admin(study_id):
-        messages.warning("This user does not have admin privilages on this study.")
+        # messages.warning("This user does not have admin privilages on this study.")
         log("no admin privilages")
         return abort(403)
+    
+    # allow usage in if statements
+    return True
+
+
+def assert_site_admin(request: ResearcherRequest):
+    """ This function will throw a 403 forbidden error and stop execution.  Note that the abort
+        directly raises the 403 error, if we don't hit that return True. """
+    if not request.session_researcher.site_admin:
+        # messages.warning("This user is not a site administrator.")
+        log("not a site admin")
+        return abort(403)
+    
     # allow usage in if statements
     return True
 

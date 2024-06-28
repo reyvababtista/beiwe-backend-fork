@@ -279,18 +279,39 @@ class TestToggleForest(ResearcherSessionTest):
         return self.client.get(redirect_endpoint)
 
 
-# FIXME: this test has the annoying un-factored url with post params and url params
-class TestDeleteStudy(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.delete_study"
+class TestHideStudy(ResearcherSessionTest):
+    ENDPOINT_NAME = "system_admin_pages.hide_study"
     REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_studies"
     
-    def test_success(self):
+    def test_site_admin(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
         resp = self.smart_post(self.session_study.id, confirmation="true")
         self.session_study.refresh_from_db()
         self.assertTrue(self.session_study.deleted)
         self.assertEqual(resp.url, easy_url(self.REDIRECT_ENDPOINT_NAME))
-        self.assert_present("Deleted study ", self.redirect_get_contents())
+        self.assert_present("has been hidden", self.redirect_get_contents())
+    
+    def test_confirmation_must_be_true(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        resp = self.smart_post_status_code(400, self.session_study.id, confirmation="false")
+        self.session_study.refresh_from_db()
+        self.assertFalse(self.session_study.deleted)
+    
+    def test_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_role_fail()
+    
+    def test_researcher(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_role_fail()
+    
+    def _test_role_fail(self):
+        self.smart_post_status_code(403, self.session_study.id)
+        self.session_study.refresh_from_db()
+        self.assertFalse(self.session_study.deleted)
+        self.smart_post(self.session_study.id, confirmation="true")
+        self.session_study.refresh_from_db()
+        self.assertFalse(self.session_study.deleted)
 
 
 class TestDeviceSettings(ResearcherSessionTest):

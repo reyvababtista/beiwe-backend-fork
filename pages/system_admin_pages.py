@@ -3,6 +3,7 @@ import plistlib
 from collections import defaultdict
 from typing import Any, Dict, List
 
+import bleach
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import F, Func, QuerySet
@@ -11,7 +12,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from markupsafe import escape, Markup
 
 from authentication.admin_authentication import (abort, assert_admin, assert_researcher_under_admin,
-    authenticate_admin, authenticate_researcher_study_access)
+    assert_site_admin, authenticate_admin, authenticate_researcher_study_access)
 from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
     IOS_FIREBASE_CREDENTIALS)
 from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
@@ -419,15 +420,18 @@ def toggle_study_forest_enabled(request: ResearcherRequest, study_id=None):
 # TODO: move to api
 @require_POST
 @authenticate_admin
-def delete_study(request: ResearcherRequest, study_id=None):
+def hide_study(request: ResearcherRequest, study_id=None):
     # Site admins and study admins can delete studies.
-    assert_admin(request, study_id)
+    assert_site_admin(request)
     
     if request.POST.get('confirmation', 'false') == 'true':
         study = Study.objects.get(pk=study_id)
         study.deleted = True
         study.save()
-        messages.success(request, f"Deleted study '{study.name}'")
+        study_name = bleach.clean(study.name)  # very redundant
+        messages.success(request, f"Study '{study_name}' has been hidden.")
+    else:
+        abort(400)
     
     return redirect("system_admin_pages.manage_studies")
 

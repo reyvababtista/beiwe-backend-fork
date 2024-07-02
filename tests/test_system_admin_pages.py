@@ -244,8 +244,10 @@ class TestHideStudy(ResearcherSessionTest):
         resp = self.smart_post(self.session_study.id, confirmation="true")
         self.session_study.refresh_from_db()
         self.assertTrue(self.session_study.deleted)
+        self.assertTrue(self.session_study.manually_stopped)
         self.assertEqual(resp.url, easy_url(self.REDIRECT_ENDPOINT_NAME))
         self.assert_present("has been hidden", self.redirect_get_contents())
+        self.assert_message_fragment("has been hidden")
     
     def test_confirmation_must_be_true(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
@@ -265,6 +267,7 @@ class TestHideStudy(ResearcherSessionTest):
         self.smart_post_status_code(403, self.session_study.id)
         self.session_study.refresh_from_db()
         self.assertFalse(self.session_study.deleted)
+        self.assertFalse(self.session_study.manually_stopped)
         self.smart_post(self.session_study.id, confirmation="true")
         self.session_study.refresh_from_db()
         self.assertFalse(self.session_study.deleted)

@@ -425,6 +425,7 @@ def hide_study(request: ResearcherRequest, study_id=None):
     
     if request.POST.get('confirmation', 'false') == 'true':
         study = Study.objects.get(pk=study_id)
+        study.manually_stopped = True
         study.deleted = True
         study.save()
         study_name = bleach.clean(study.name)  # very redundant

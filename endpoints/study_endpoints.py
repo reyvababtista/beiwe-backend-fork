@@ -1,15 +1,17 @@
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET
 
-from authentication.admin_authentication import (authenticate_researcher_login,
+from authentication.admin_authentication import (authenticate_admin, authenticate_researcher_login,
     authenticate_researcher_study_access, get_researcher_allowed_studies_as_query_set)
 from constants.common_constants import DISPLAY_TIME_FORMAT
 from constants.user_constants import ResearcherRole
+from database.data_access_models import FileToProcess
 from database.study_models import Study
 from database.user_models_researcher import StudyRelation
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import ResearcherRequest
 from pages.admin_pages import conditionally_display_study_status_warnings
+from pages.system_admin_pages import get_administerable_studies_by_name
 
 
 @require_GET
@@ -68,5 +70,18 @@ def view_study_page(request: ResearcherRequest, study_id=None):
             is_study_admin=is_study_admin,
             push_notifications_enabled=check_firebase_instance(require_android=True) or
                                        check_firebase_instance(require_ios=True),
+        )
+    )
+
+
+@require_GET
+@authenticate_admin
+def manage_studies(request: ResearcherRequest):
+    return render(
+        request,
+        'manage_studies.html',
+        context=dict(
+            studies=list(get_administerable_studies_by_name(request).values("id", "name")),
+            unprocessed_files_count=FileToProcess.objects.count(),
         )
     )

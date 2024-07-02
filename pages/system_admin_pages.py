@@ -23,7 +23,6 @@ from constants.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID
     ALERT_IOS_VALIDATION_FAILED_TEXT, ALERT_MISC_ERROR_TEXT, ALERT_SPECIFIC_ERROR_TEXT,
     ALERT_SUCCESS_TEXT, MFA_RESET_BAD_PERMISSIONS, NEW_PASSWORD_N_LONG)
 from constants.user_constants import ResearcherRole
-from database.data_access_models import FileToProcess
 from database.study_models import DeviceSettings, Study
 from database.survey_models import Survey
 from database.system_models import FileAsText
@@ -281,19 +280,6 @@ def create_new_researcher(request: ResearcherRequest):
 
 @require_GET
 @authenticate_admin
-def manage_studies(request: ResearcherRequest):
-    return render(
-        request,
-        'manage_studies.html',
-        context=dict(
-            studies=list(get_administerable_studies_by_name(request).values("id", "name")),
-            unprocessed_files_count=FileToProcess.objects.count(),
-        )
-    )
-
-
-@require_GET
-@authenticate_admin
 def edit_study(request, study_id=None):
     study = Study.objects.get(pk=study_id)  # already validated by the decorator
     
@@ -482,7 +468,7 @@ def hide_study(request: ResearcherRequest, study_id=None):
     else:
         abort(400)
     
-    return redirect("system_admin_pages.manage_studies")
+    return redirect("study_endpoints.manage_studies")
 
 
 @require_GET

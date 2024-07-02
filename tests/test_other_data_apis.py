@@ -254,9 +254,12 @@ class TestGetUsersInStudy(DataApiTest):
         self.using_default_participant()
         p2 = self.generate_participant(self.session_study)
         resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
-        # ordering here is random because generate_participant is random, so we will just test both.
-        match = f'["{self.default_participant.patient_id}","{p2.patient_id}"]'
-        self.assertEqual(resp.content, match.encode())
+        # ordering here is random because because generate_participant is random, need to handle it.
+        match = [self.default_participant.patient_id, p2.patient_id]
+        match.sort()     
+        from_json = orjson.loads(resp.content)
+        from_json.sort()
+        self.assertEqual(from_json, match)
 
 
 class TestGetParticipantDataInfo(DataApiTest):

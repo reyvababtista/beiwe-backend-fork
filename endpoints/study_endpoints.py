@@ -7,11 +7,13 @@ from constants.common_constants import DISPLAY_TIME_FORMAT
 from constants.user_constants import ResearcherRole
 from database.data_access_models import FileToProcess
 from database.study_models import Study
-from database.user_models_researcher import StudyRelation
+from database.user_models_researcher import Researcher, StudyRelation
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import ResearcherRequest
+from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
 from pages.admin_pages import conditionally_display_study_status_warnings
-from pages.system_admin_pages import get_administerable_studies_by_name
+from pages.system_admin_pages import (get_administerable_researchers,
+    get_administerable_studies_by_name)
 
 
 @require_GET
@@ -83,5 +85,41 @@ def manage_studies(request: ResearcherRequest):
         context=dict(
             studies=list(get_administerable_studies_by_name(request).values("id", "name")),
             unprocessed_files_count=FileToProcess.objects.count(),
+        )
+    )
+
+
+@require_GET
+@authenticate_admin
+def edit_study(request, study_id=None):
+    study = Study.objects.get(pk=study_id)  # already validated by the decorator
+
+    # get the data points for display for all researchers in this study
+    query = Researcher.filter_alphabetical(study_relations__study_id=study_id).values_list(
+        "id", "username", "study_relations__relationship", "site_admin"
+    )
+
+    # transform raw query data as needed
+    listed_researchers = []
+    for pk, username, relationship, site_admin in query:
+        listed_researchers.append((
+            pk,
+            username,
+            "Site Admin" if site_admin else relationship.replace("_", " ").title(),
+            site_admin
+        ))
+
+    conditionally_display_study_status_warnings(request, study)
+
+    return render(
+        request,
+        'edit_study.html',
+        context=dict(
+            study=study,
+            administerable_researchers=get_administerable_researchers(request),
+            listed_researchers=listed_researchers,
+            redirect_url=f'/edit_study/{study_id}',
+            timezones=ALL_TIMEZONES_DROPDOWN,
+            page_location="edit_study",
         )
     )

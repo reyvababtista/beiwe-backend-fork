@@ -100,35 +100,6 @@ class TestCreateNewResearcher(ResearcherSessionTest):
                 self.assertEqual(prior_researcher_count, Researcher.objects.count())
 
 
-class TestEditStudy(ResearcherSessionTest):
-    """ Test basics of permissions, test details of the study are appropriately present on page... """
-    ENDPOINT_NAME = "system_admin_pages.edit_study"
-    
-    def test_only_admins_allowed(self):
-        for user_role in ALL_TESTING_ROLES:
-            self.assign_role(self.session_researcher, user_role)
-            self.smart_get_status_code(
-                200 if user_role in ADMIN_ROLES else 403, self.session_study.id
-            )
-    
-    def test_content_study_admin(self):
-        """ tests that various important pieces of information are present """
-        self.set_session_study_relation(ResearcherRole.study_admin)
-        self.session_study.update(forest_enabled=False)
-        resp1 = self.smart_get_status_code(200, self.session_study.id)
-        self.assert_present("Enable Forest", resp1.content)
-        self.assert_not_present("Disable Forest", resp1.content)
-        self.assert_present(self.session_researcher.username, resp1.content)
-        
-        self.session_study.update(forest_enabled=True)
-        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.researcher)
-        
-        # tests for presence of own username and other researcher's username in the html
-        resp2 = self.smart_get_status_code(200, self.session_study.id)
-        self.assert_present(self.session_researcher.username, resp2.content)
-        self.assert_present(r2.username, resp2.content)
-
-
 # FIXME: need to implement tests for copy study.
 # FIXME: this test is not well factored, it doesn't follow a common pattern.
 class TestCreateStudy(ResearcherSessionTest):
@@ -239,7 +210,7 @@ class TestCreateStudy(ResearcherSessionTest):
 # FIXME: this test has the annoying un-factored url with post params and url params
 class TestToggleForest(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.toggle_study_forest_enabled"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test_toggle_on(self):
         resp = self._do_test_toggle(True)
@@ -489,7 +460,7 @@ class TestChangeSurveySecuritySettings(ResearcherSessionTest):
         # setup and do post
         self.set_session_study_relation(ResearcherRole.study_admin)
         ret = self.smart_post_status_code(302, self.session_study.id, **self.DEFAULTS)
-        self.assertEqual(ret.url, easy_url("system_admin_pages.edit_study", self.session_study.id))
+        self.assertEqual(ret.url, easy_url("study_endpoints.edit_study", self.session_study.id))
         self.session_study.refresh_from_db()
         # assert changes
         self.assertEqual(self.session_study.password_max_age_enabled, True)
@@ -835,7 +806,7 @@ class TestElevateResearcher(ResearcherSessionTest):
 # update_end_date
 class TestUpdateEndDate(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.update_end_date"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     invalid_message = "Invalid date format, expected YYYY-MM-DD."
     
@@ -929,7 +900,7 @@ class TestUpdateEndDate(ResearcherSessionTest):
 
 class TestToggleManuallyEndStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.toggle_end_study"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test_researcher(self):
         self.set_session_study_relation(ResearcherRole.researcher)

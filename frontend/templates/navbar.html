@@ -40,7 +40,7 @@
         {% if study and request.session_researcher %}
           {% if page_location != 'edit_study' and request.session_researcher.is_site_admin_or_study_admin(study.id) %}
             <li role="presentation">
-              <a href="{{ easy_url('system_admin_pages.edit_study', study_id=study.id) }}">Edit Study</a>
+              <a href="{{ easy_url('study_endpoints.edit_study', study_id=study.id) }}">Edit Study</a>
             </li>
           {% endif %}
 

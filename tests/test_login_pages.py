@@ -503,7 +503,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             "survey_designer.render_edit_survey",
             "system_admin_pages.device_settings",
             "system_admin_pages.edit_researcher",
-            "system_admin_pages.edit_study",
+            "study_endpoints.edit_study",
             "system_admin_pages.manage_firebase_credentials",
             "system_admin_pages.manage_researchers",
             "study_endpoints.manage_studies",

@@ -101,7 +101,7 @@ path(
 path("elevate_researcher", system_admin_pages.elevate_researcher)
 path("demote_researcher", system_admin_pages.demote_study_admin)
 path("create_new_researcher", system_admin_pages.create_new_researcher)
-path("manage_studies", system_admin_pages.manage_studies, login_redirect=SAFE)
+path("manage_studies", study_endpoints.manage_studies, login_redirect=SAFE)
 path("edit_study/<int:study_id>", system_admin_pages.edit_study, login_redirect=SAFE)
 path("reset_researcher_mfa/<int:researcher_id>", system_admin_pages.reset_researcher_mfa)
 

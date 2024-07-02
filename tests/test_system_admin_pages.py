@@ -100,22 +100,6 @@ class TestCreateNewResearcher(ResearcherSessionTest):
                 self.assertEqual(prior_researcher_count, Researcher.objects.count())
 
 
-class TestManageStudies(ResearcherSessionTest):
-    """ All we do with this page is make sure it loads... there isn't much to hook onto and
-    determine a failure or a success... the study names are always present in the json on the
-    html... """
-    ENDPOINT_NAME = "system_admin_pages.manage_studies"
-    
-    def test(self):
-        for user_role in ALL_TESTING_ROLES:
-            self.assign_role(self.session_researcher, user_role)
-            resp = self.smart_get()
-            if user_role in ADMIN_ROLES:
-                self.assertEqual(resp.status_code, 200)
-            else:
-                self.assertEqual(resp.status_code, 403)
-
-
 class TestEditStudy(ResearcherSessionTest):
     """ Test basics of permissions, test details of the study are appropriately present on page... """
     ENDPOINT_NAME = "system_admin_pages.edit_study"
@@ -282,7 +266,7 @@ class TestToggleForest(ResearcherSessionTest):
 
 class TestHideStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "system_admin_pages.hide_study"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_studies"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.manage_studies"
     
     def test_site_admin(self):
         self.set_session_study_relation(ResearcherRole.site_admin)

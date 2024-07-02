@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import time_machine
+from dateutil import tz
 from django.utils import timezone
 
 from constants.common_constants import BEIWE_PROJECT_ROOT
@@ -596,7 +597,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.smart_post_status_code(200, file_name="whatever.csv")
         self.assert_no_files_to_process
     
-    def test_study_setting_upload_blocks(self):
+    def test_study_settings_block_uploads(self):
         # manual blocks
         self.default_study.update_only(manually_stopped=True)
         self.smart_post_status_code(200, file_name="whatever.csv")
@@ -634,6 +635,73 @@ class TestMobileUpload(ParticipantSessionTest):
         self.default_study.update_only(manually_stopped=True)
         self.smart_post_status_code(200, file_name="whatever.csv")
         self.assert_no_files_to_process
+    
+    def test_end_study_time_zone_blocks_at_correct_time_of_day(self):
+        target_stop_date = date(2020, 1, 31)
+        time_zone_name = "Africa/Monrovia"  # literally any random timezone
+        target_time_zone = tz.gettz(time_zone_name)
+        self.default_study.update_only(end_date=target_stop_date, timezone_name=target_time_zone)
+        
+        # 8pm
+        time_of_day = datetime(2020, 1, 31, 8, 0, 0, tzinfo=target_time_zone)
+        # "file not present" is the correct response here , the code to block based on the end time
+        # isn't running, so it catches the error.
+        with time_machine.travel(time_of_day):
+            # 400 code because it is missing the file
+            resp = self.smart_post_status_code(400, file_name="whatever.csv")
+            self.assert_no_files_to_process
+            # It is not blocked by the timezone / end date.
+            self.assertEqual(b"file not present", resp.content)
+        
+        # 9pm
+        time_of_day = datetime(2020, 1, 31, 9, 0, 0, tzinfo=target_time_zone)
+        with time_machine.travel(time_of_day):
+            resp = self.smart_post_status_code(400, file_name="whatever.csv")
+            self.assert_no_files_to_process
+            # It is not blocked by the timezone / end date.
+            self.assertEqual(b"file not present", resp.content)
+        
+        #10pm
+        time_of_day = datetime(2020, 1, 31, 10, 0, 0, tzinfo=target_time_zone)
+        with time_machine.travel(time_of_day):
+            resp = self.smart_post_status_code(400, file_name="whatever.csv")
+            self.assert_no_files_to_process
+            # It is not blocked by the timezone / end date.
+            self.assertEqual(b"file not present", resp.content)
+        
+        # 11pm
+        time_of_day = datetime(2020, 1, 31, 11, 0, 0, tzinfo=target_time_zone)
+        with time_machine.travel(time_of_day):
+            resp = self.smart_post_status_code(400, file_name="whatever.csv")
+            self.assert_no_files_to_process
+            # It is not blocked by the timezone / end date.
+            self.assertEqual(b"file not present", resp.content)
+        
+        # 11:59pm
+        time_of_day = datetime(2020, 1, 31, 23, 59, 0, tzinfo=target_time_zone)
+        with time_machine.travel(time_of_day):
+            resp = self.smart_post_status_code(400, file_name="whatever.csv")
+            self.assert_no_files_to_process
+            # It is not blocked by the timezone / end date.
+            self.assertEqual(b"file not present", resp.content)
+        
+        # 12am
+        time_of_day = datetime(2020, 2, 1, 0, 0, 0, tzinfo=target_time_zone)
+        with time_machine.travel(time_of_day):
+            # 200 code because it isn't even checking to delete the file, it just tells the device
+            # to delete it.
+            resp = self.smart_post_status_code(200, file_name="whatever.csv")
+            self.assert_no_files_to_process
+            # It is blocked by the timezone / end date.
+            self.assertEqual(b'study is deleted, stopped, or ended.', resp.content)
+        
+        # 1am
+        time_of_day = datetime(2020, 2, 1, 1, 0, 0, tzinfo=target_time_zone)
+        with time_machine.travel(time_of_day):
+            resp = self.smart_post_status_code(200, file_name="whatever.csv")
+            self.assert_no_files_to_process
+            # It is blocked by the timezone / end date.
+            self.assertEqual(b'study is deleted, stopped, or ended.', resp.content)
     
     def test_file_already_present_as_ftp(self):
         # there is a ~complex file name test, this value will match and cause that test to succeed,

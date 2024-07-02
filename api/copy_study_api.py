@@ -51,7 +51,7 @@ def import_study_settings_file(request: ResearcherRequest, study_id: int):
     
     if not allowed_file_extension(file.name):
         messages.warning(request, "You can only upload .json files!")
-        return redirect(easy_url("system_admin_pages.edit_study", study_id=study_id))
+        return redirect(easy_url("study_endpoints.edit_study", study_id=study_id))
     
     copy_device_settings = request.POST.get('device_settings', None) == 'true'
     copy_surveys = request.POST.get('surveys', None) == 'true'

@@ -34,7 +34,6 @@ from libs.http_utils import checkbox_to_boolean, easy_url, string_to_int
 from libs.internal_types import ResearcherRequest
 from libs.password_validation import get_min_password_requirement
 from libs.sentry import make_error_sentry, SentryTypes
-from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
 from pages.admin_pages import conditionally_display_study_status_warnings
 
 
@@ -278,41 +277,6 @@ def create_new_researcher(request: ResearcherRequest):
 
 """########################### Study Pages ##################################"""
 
-@require_GET
-@authenticate_admin
-def edit_study(request, study_id=None):
-    study = Study.objects.get(pk=study_id)  # already validated by the decorator
-    
-    # get the data points for display for all researchers in this study
-    query = Researcher.filter_alphabetical(study_relations__study_id=study_id).values_list(
-        "id", "username", "study_relations__relationship", "site_admin"
-    )
-    
-    # transform raw query data as needed
-    listed_researchers = []
-    for pk, username, relationship, site_admin in query:
-        listed_researchers.append((
-            pk,
-            username,
-            "Site Admin" if site_admin else relationship.replace("_", " ").title(),
-            site_admin
-        ))
-    
-    conditionally_display_study_status_warnings(request, study)
-    
-    return render(
-        request,
-        'edit_study.html',
-        context=dict(
-            study=study,
-            administerable_researchers=get_administerable_researchers(request),
-            listed_researchers=listed_researchers,
-            redirect_url=f'/edit_study/{study_id}',
-            timezones=ALL_TIMEZONES_DROPDOWN,
-            page_location="edit_study",
-        )
-    )
-
 @require_POST
 @authenticate_admin
 def update_end_date(request: ResearcherRequest, study_id=None):
@@ -321,12 +285,12 @@ def update_end_date(request: ResearcherRequest, study_id=None):
     
     if "end_date" not in request.POST:
         messages.error(request, "No date provided.")
-        return redirect("system_admin_pages.edit_study", study_id=study.id)
+        return redirect("study_endpoints.edit_study", study_id=study.id)
     
     form = StudyEndDateForm(request.POST)
     if not form.is_valid():
         messages.error(request, "Invalid date format, expected YYYY-MM-DD.")
-        return redirect("system_admin_pages.edit_study", study_id=study.id)
+        return redirect("study_endpoints.edit_study", study_id=study.id)
     
     study.end_date = form.cleaned_data["end_date"]    
     study.save()
@@ -339,7 +303,7 @@ def update_end_date(request: ResearcherRequest, study_id=None):
     else:
         messages.success(request, f"Study '{study.name}' has had its End Date removed.")
     
-    return redirect("system_admin_pages.edit_study", study_id=study.id)
+    return redirect("study_endpoints.edit_study", study_id=study.id)
 
 
 @require_POST
@@ -355,7 +319,7 @@ def toggle_end_study(request: ResearcherRequest, study_id=None):
     else:
         messages.success(request, f"Study '{study.name}' has been manually re-opened.")
     
-    return redirect("system_admin_pages.edit_study", study_id=study.id)
+    return redirect("study_endpoints.edit_study", study_id=study.id)
 
 
 @require_http_methods(['GET', 'POST'])
@@ -513,7 +477,7 @@ def change_study_security_settings(request: ResearcherRequest, study_id=None):
         messages.success(
             request, f"Updated {nice_names.get(field_name, field_name)} to {getattr(study, field_name)}"
         )
-    return redirect(easy_url("system_admin_pages.edit_study", study.pk))
+    return redirect(easy_url("study_endpoints.edit_study", study.pk))
 
 
 @require_http_methods(['GET', 'POST'])

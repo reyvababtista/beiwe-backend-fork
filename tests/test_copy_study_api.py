@@ -38,7 +38,7 @@ class TestExportStudySettingsFile(ResearcherSessionTest):
 # FIXME: add interventions and surveys to the import tests
 class TestImportStudySettingsFile(ResearcherSessionTest):
     ENDPOINT_NAME = "copy_study_api.import_study_settings_file"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     # other post params: device_settings, surveys
     

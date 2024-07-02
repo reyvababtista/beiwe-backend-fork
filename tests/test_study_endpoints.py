@@ -91,5 +91,34 @@ class TestManageStudies(ResearcherSessionTest):
                 self.assertEqual(resp.status_code, 200)
             else:
                 self.assertEqual(resp.status_code, 403)
+
+
+class TestEditStudy(ResearcherSessionTest):
+    """ Test basics of permissions, test details of the study are appropriately present on page... """
+    ENDPOINT_NAME = "study_endpoints.edit_study"
+
+    def test_only_admins_allowed(self):
+        for user_role in ALL_TESTING_ROLES:
+            self.assign_role(self.session_researcher, user_role)
+            self.smart_get_status_code(
+                200 if user_role in ADMIN_ROLES else 403, self.session_study.id
+            )
+
+    def test_content_study_admin(self):
+        """ tests that various important pieces of information are present """
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.session_study.update(forest_enabled=False)
+        resp1 = self.smart_get_status_code(200, self.session_study.id)
+        self.assert_present("Enable Forest", resp1.content)
+        self.assert_not_present("Disable Forest", resp1.content)
+        self.assert_present(self.session_researcher.username, resp1.content)
+
+        self.session_study.update(forest_enabled=True)
+        r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.researcher)
+
+        # tests for presence of own username and other researcher's username in the html
+        resp2 = self.smart_get_status_code(200, self.session_study.id)
+        self.assert_present(self.session_researcher.username, resp2.content)
+        self.assert_present(r2.username, resp2.content)
         # assertInHTML is several hundred times slower but has much better output when it fails...
         # self.assertInHTML("Configure Interventions for use with Relative survey schedules", response.content.decode())

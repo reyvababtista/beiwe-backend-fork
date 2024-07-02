@@ -16,7 +16,7 @@ from tests.common import ResearcherSessionTest
 #
 class TestRemoveResearcherFromStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.remove_researcher_from_study"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test_site_admin(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
@@ -181,7 +181,7 @@ class TestSetResearcherPassword(ResearcherSessionTest):
 
 class TestToggleStudyEasyEnrollment(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.toggle_easy_enrollment_study"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test_site_admin(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
@@ -215,7 +215,7 @@ class TestToggleStudyEasyEnrollment(ResearcherSessionTest):
 # fixme: add user type tests
 class TestRenameStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.rename_study"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
@@ -236,7 +236,7 @@ class TestPrivacyPolicy(ResearcherSessionTest):
 # FIXME: add error cases to this test
 class TestSetStudyTimezone(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.set_study_timezone"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test_study_admin(self):
         self.set_session_study_relation(ResearcherRole.study_admin)
@@ -254,7 +254,7 @@ class TestSetStudyTimezone(ResearcherSessionTest):
 
 class TestAddResearcherToStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_api.add_researcher_to_study"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_study"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test_site_admin(self):
         self.set_session_study_relation(ResearcherRole.site_admin)

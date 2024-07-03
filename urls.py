@@ -65,7 +65,7 @@ def path(
 path("", login_endpoints.login_page)  # apparently don't need login_redirect=IGNORE...
 path("validate_login", login_endpoints.validate_login)  # and same here.
 path("choose_study", study_endpoints.choose_study_page)
-path("logout", admin_pages.logout_admin, login_redirect=IGNORE)
+path("logout", login_endpoints.logout_page, login_redirect=IGNORE)
 
 # Researcher self administration
 path("manage_credentials", admin_pages.manage_credentials, login_redirect=IGNORE)

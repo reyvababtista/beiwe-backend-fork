@@ -260,7 +260,7 @@ class BasicSessionTestCase(CommonTestCase):
         return self.client.post(url, data={"username": username, "password": password, **post_params})
     
     def do_researcher_logout(self):
-        return self.client.get(self.smart_reverse("admin_pages.logout_admin"))
+        return self.client.get(self.smart_reverse("login_endpoints.logout_page"))
 
 
 class SmartRequestsTestCase(BasicSessionTestCase):

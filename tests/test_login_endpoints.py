@@ -70,7 +70,7 @@ class TestLoginPages(BasicSessionTestCase):
         # create the default researcher, login, logout, attempt going to main page,
         self.session_researcher
         self.do_default_login()
-        self.client.get(reverse("admin_pages.logout_admin"))
+        self.client.get(reverse("login_endpoints.logout_page"))
         r = self.client.get(reverse("study_endpoints.choose_study_page"))
         self.assertEqual(r.status_code, 302)
         self.assert_response_url_equal(r.url, reverse("login_endpoints.login_page"))
@@ -239,7 +239,7 @@ class TestLoginPages(BasicSessionTestCase):
         self.session_researcher
         self.do_default_login()
         self.session_researcher.update(password_force_reset=True)
-        resp = self.client.get(reverse("admin_pages.logout_admin"))
+        resp = self.client.get(reverse("login_endpoints.logout_page"))
         self.assertIsInstance(resp, HttpResponseRedirect)
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp.url, reverse("login_endpoints.login_page"))  # that's the / endpoint

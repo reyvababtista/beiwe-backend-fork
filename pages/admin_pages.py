@@ -3,10 +3,10 @@ from datetime import datetime, timedelta
 from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_POST
 from markupsafe import Markup
 
-from authentication.admin_authentication import authenticate_researcher_login, logout_researcher
+from authentication.admin_authentication import authenticate_researcher_login
 from config.settings import DOMAIN_NAME
 from constants.message_strings import (API_KEY_IS_DISABLED, API_KEY_NOW_DISABLED,
     ENDED_STUDY_MESSAGE, HIDDEN_STUDY_MESSAGE, MANUALLY_STOPPED_STUDY_MESSAGE, MFA_CODE_6_DIGITS,
@@ -25,21 +25,6 @@ from libs.internal_types import ResearcherRequest
 from libs.password_validation import check_password_requirements, get_min_password_requirement
 from libs.security import create_mfa_object, qrcode_bas64_png, verify_mfa
 from middleware.abort_middleware import abort
-
-
-####################################################################################################
-############################################# Basics ###############################################
-####################################################################################################
-
-@require_GET
-def logout_admin(request: ResearcherRequest):
-    """ clear session information for a researcher """
-    logout_researcher(request)
-    return redirect("/")
-
-####################################################################################################
-###################################### Endpoints ###################################################
-####################################################################################################
 
 
 @require_POST

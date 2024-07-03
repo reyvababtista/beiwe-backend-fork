@@ -44,7 +44,7 @@ class TestAllEndpoints(CommonTestCase):
         # special case, these are manually tested
         "login_endpoints.validate_login",
         "login_endpoints.login_page",
-        "admin_pages.logout_admin",
+        "login_endpoints.logout_page",
     ]
     
     EXCEPTIONS_TESTS = []

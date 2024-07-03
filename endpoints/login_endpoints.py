@@ -9,6 +9,7 @@ from authentication import admin_authentication
 from constants.message_strings import (MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, MFA_CODE_MISSING,
     MFA_CODE_WRONG)
 from database.user_models_researcher import Researcher
+from libs.internal_types import ResearcherRequest
 from libs.security import verify_mfa
 
 
@@ -32,6 +33,13 @@ def login_page(request: HttpRequest):
     # and finally, final_referrer is then also passed through the global sanitization filter when
     # embedded as the hidden value on the page.
     return render(request, 'admin_login.html', context={"redirect_page": final_referrer})
+
+
+@require_GET
+def logout_page(request: ResearcherRequest):
+    """ Technically not a page, but its a url target that clears session information for a researcher. """
+    admin_authentication.logout_researcher(request)
+    return redirect("/")
 
 
 @require_POST

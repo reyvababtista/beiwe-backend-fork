@@ -17,7 +17,7 @@ class TestDemoteStudyAdmin(ResearcherSessionTest):
     # FIXME: this endpoint does not test for site admin cases correctly, the test passes but is
     # wrong. Behavior is fine because it has no relevant side effects except for the know bug where
     # site admins need to be manually added to a study before being able to download data.
-    ENDPOINT_NAME = "system_admin_pages.demote_study_admin"
+    ENDPOINT_NAME = "system_admin_pages.demote_study_admin_to_researcher"
     
     def test_researcher_as_researcher(self):
         r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.researcher)
@@ -177,7 +177,7 @@ class TestDeleteFirebaseAndroidCert(ResearcherSessionTest):
 
 
 class TestManageResearchers(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.manage_researchers"
+    ENDPOINT_NAME = "system_admin_pages.manage_researchers_page"
     
     def test_researcher(self):
         self.smart_get_status_code(403)
@@ -230,8 +230,8 @@ class TestManageResearchers(ResearcherSessionTest):
 
 
 class TestResetResearcherMFA(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.reset_researcher_mfa"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.edit_researcher"
+    ENDPOINT_NAME = "system_admin_pages.administrator_reset_researcher_mfa"
+    REDIRECT_ENDPOINT_NAME = "system_admin_pages.administrator_edit_researcher_page"
     
     def test_reset_as_site_admin(self):
         self._test_reset(self.generate_researcher(), ResearcherRole.site_admin)
@@ -292,7 +292,7 @@ class TestResetResearcherMFA(ResearcherSessionTest):
 
 
 class TestEditResearcher(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.edit_researcher"
+    ENDPOINT_NAME = "system_admin_pages.administrator_edit_researcher_page"
     
     # render self
     def test_render_for_self_as_researcher(self):
@@ -352,7 +352,7 @@ class TestEditResearcher(ResearcherSessionTest):
 
 
 class TestElevateResearcher(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.elevate_researcher"
+    ENDPOINT_NAME = "system_admin_pages.elevate_researcher_to_study_admin"
     
     # (this one is tedious.)
     

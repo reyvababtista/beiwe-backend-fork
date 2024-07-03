@@ -10,7 +10,7 @@ class TestDemoteStudyAdmin(ResearcherSessionTest):
     # FIXME: this endpoint does not test for site admin cases correctly, the test passes but is
     # wrong. Behavior is fine because it has no relevant side effects except for the know bug where
     # site admins need to be manually added to a study before being able to download data.
-    ENDPOINT_NAME = "researcher_administration_endpoints.demote_study_admin_to_researcher"
+    ENDPOINT_NAME = "manage_researcher_endpoints.demote_study_admin_to_researcher"
     
     def test_researcher_as_researcher(self):
         r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.researcher)
@@ -48,7 +48,7 @@ class TestDemoteStudyAdmin(ResearcherSessionTest):
 
 class TestCreateNewResearcher(ResearcherSessionTest):
     """ Admins should be able to create and load the page. """
-    ENDPOINT_NAME = "researcher_administration_endpoints.create_new_researcher"
+    ENDPOINT_NAME = "manage_researcher_endpoints.create_new_researcher"
     
     def test_load_page_at_endpoint(self):
         # This test should be transformed into a separate endpoint
@@ -80,7 +80,7 @@ class TestCreateNewResearcher(ResearcherSessionTest):
 
 
 class TestManageResearchers(ResearcherSessionTest):
-    ENDPOINT_NAME = "researcher_administration_endpoints.manage_researchers_page"
+    ENDPOINT_NAME = "manage_researcher_endpoints.manage_researchers_page"
     
     def test_researcher(self):
         self.smart_get_status_code(403)
@@ -133,8 +133,8 @@ class TestManageResearchers(ResearcherSessionTest):
 
 
 class TestResetResearcherMFA(ResearcherSessionTest):
-    ENDPOINT_NAME = "researcher_administration_endpoints.administrator_reset_researcher_mfa"
-    REDIRECT_ENDPOINT_NAME = "researcher_administration_endpoints.administrator_edit_researcher_page"
+    ENDPOINT_NAME = "manage_researcher_endpoints.administrator_reset_researcher_mfa"
+    REDIRECT_ENDPOINT_NAME = "manage_researcher_endpoints.administrator_edit_researcher_page"
     
     def test_reset_as_site_admin(self):
         self._test_reset(self.generate_researcher(), ResearcherRole.site_admin)
@@ -195,7 +195,7 @@ class TestResetResearcherMFA(ResearcherSessionTest):
 
 
 class TestEditResearcher(ResearcherSessionTest):
-    ENDPOINT_NAME = "researcher_administration_endpoints.administrator_edit_researcher_page"
+    ENDPOINT_NAME = "manage_researcher_endpoints.administrator_edit_researcher_page"
     
     # render self
     def test_render_for_self_as_researcher(self):
@@ -255,7 +255,7 @@ class TestEditResearcher(ResearcherSessionTest):
 
 
 class TestElevateResearcher(ResearcherSessionTest):
-    ENDPOINT_NAME = "researcher_administration_endpoints.elevate_researcher_to_study_admin"
+    ENDPOINT_NAME = "manage_researcher_endpoints.elevate_researcher_to_study_admin"
     
     # (this one is tedious.)
     

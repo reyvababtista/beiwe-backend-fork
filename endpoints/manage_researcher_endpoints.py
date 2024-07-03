@@ -85,7 +85,7 @@ def administrator_edit_researcher_page(request: ResearcherRequest, researcher_pk
             all_studies=get_administerable_studies_by_name(request),
             editable_password=editable_password,
             editable_mfa=mfa_clear_allowed(session_researcher, edit_researcher),
-            redirect_url=easy_url('researcher_administration_endpoints.administrator_edit_researcher_page', researcher_pk),
+            redirect_url=easy_url('manage_researcher_endpoints.administrator_edit_researcher_page', researcher_pk),
             is_self=edit_researcher.id == session_researcher.id,
         )
     )
@@ -103,7 +103,7 @@ def administrator_reset_researcher_mfa(request: ResearcherRequest, researcher_id
     else:
         messages.warning(request, MFA_RESET_BAD_PERMISSIONS)
         return abort(403)
-    return redirect(easy_url('researcher_administration_endpoints.administrator_edit_researcher_page', researcher_id))
+    return redirect(easy_url('manage_researcher_endpoints.administrator_edit_researcher_page', researcher_id))
 
 
 @require_POST

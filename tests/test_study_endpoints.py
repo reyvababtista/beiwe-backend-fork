@@ -398,3 +398,19 @@ class TestHideStudy(ResearcherSessionTest):
         self.smart_post(self.session_study.id, confirmation="true")
         self.session_study.refresh_from_db()
         self.assertFalse(self.session_study.deleted)
+
+
+class TestEditStudySecuritySettings(ResearcherSessionTest):
+    ENDPOINT_NAME = "study_endpoints.study_security_page"
+
+    def test_researcher(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_get_status_code(403, self.session_study.id)
+
+    def test_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.smart_get_status_code(200, self.session_study.id)
+
+    def test_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.smart_get_status_code(200, self.session_study.id)

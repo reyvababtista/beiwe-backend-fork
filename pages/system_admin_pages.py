@@ -30,7 +30,6 @@ from libs.copy_study import copy_study_from_json, format_study, unpack_json_stud
 from libs.firebase_config import get_firebase_credential_errors, update_firebase_instance
 from libs.http_utils import checkbox_to_boolean, easy_url, string_to_int
 from libs.internal_types import ResearcherRequest
-from libs.password_validation import get_min_password_requirement
 from pages.admin_pages import conditionally_display_study_status_warnings
 
 
@@ -320,21 +319,6 @@ def toggle_study_forest_enabled(request: ResearcherRequest, study_id=None):
     return redirect(f'/edit_study/{study_id}')
 
 
-@require_GET
-@authenticate_admin
-def study_security_page(request: ResearcherRequest, study_id: int):
-    study = Study.objects.get(id=study_id)
-    assert_admin(request, study_id)
-    return render(
-        request,
-        'study_security_settings.html',
-        context=dict(
-            study=study,
-            min_password_length=get_min_password_requirement(request.session_researcher),
-        )
-    )
-
-
 @require_POST
 @authenticate_admin
 def change_study_security_settings(request: ResearcherRequest, study_id=None):
@@ -354,7 +338,7 @@ def change_study_security_settings(request: ResearcherRequest, study_id=None):
             for error in errors:
                 # make field names nicer for the error message
                 messages.warning(request, f"{nice_names.get(field, field)}: {error}")
-        return redirect(easy_url("system_admin_pages.study_security_page", study_id=study.pk))
+        return redirect(easy_url("study_endpoints.study_security_page", study_id=study.pk))
     
     # success: save and display changes, redirect to edit study
     form.save()

@@ -27,7 +27,7 @@ from database.study_models import DeviceSettings, Study
 from database.survey_models import Survey
 from database.system_models import FileAsText
 from database.user_models_researcher import Researcher, StudyRelation
-from forms.django_forms import StudyEndDateForm, StudySecuritySettingsForm
+from forms.django_forms import StudySecuritySettingsForm
 from libs.copy_study import copy_study_from_json, format_study, unpack_json_study
 from libs.firebase_config import get_firebase_credential_errors, update_firebase_instance
 from libs.http_utils import checkbox_to_boolean, easy_url, string_to_int
@@ -276,35 +276,6 @@ def create_new_researcher(request: ResearcherRequest):
 
 
 """########################### Study Pages ##################################"""
-
-@require_POST
-@authenticate_admin
-def update_end_date(request: ResearcherRequest, study_id=None):
-    assert_site_admin(request)
-    study = Study.objects.get(pk=study_id)  # already validated by the decorator
-    
-    if "end_date" not in request.POST:
-        messages.error(request, "No date provided.")
-        return redirect("study_endpoints.edit_study", study_id=study.id)
-    
-    form = StudyEndDateForm(request.POST)
-    if not form.is_valid():
-        messages.error(request, "Invalid date format, expected YYYY-MM-DD.")
-        return redirect("study_endpoints.edit_study", study_id=study.id)
-    
-    study.end_date = form.cleaned_data["end_date"]    
-    study.save()
-    
-    if study.end_date:
-        messages.success(
-            request,
-            f"Study '{study.name}' has had its End Date updated to {study.end_date.isoformat()}."
-        )
-    else:
-        messages.success(request, f"Study '{study.name}' has had its End Date removed.")
-    
-    return redirect("study_endpoints.edit_study", study_id=study.id)
-
 
 @require_POST
 @authenticate_admin

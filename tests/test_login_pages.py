@@ -504,7 +504,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             "study_endpoints.device_settings",
             "manage_researcher_endpoints.administrator_edit_researcher_page",
             "study_endpoints.edit_study",
-            "system_admin_pages.manage_firebase_credentials",
+            "system_admin_endpoints.manage_firebase_credentials",
             "manage_researcher_endpoints.manage_researchers_page",
             "study_endpoints.manage_studies",
             "study_endpoints.study_security_page",

@@ -11,7 +11,7 @@ from tests.common import ResearcherSessionTest
 
 
 class TestManageFirebaseCredentials(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
+    ENDPOINT_NAME = "system_admin_endpoints.manage_firebase_credentials"
     
     def test(self):
         # just test that the page loads, I guess
@@ -21,11 +21,11 @@ class TestManageFirebaseCredentials(ResearcherSessionTest):
 
 # FIXME: implement tests for error cases
 class TestUploadBackendFirebaseCert(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.upload_backend_firebase_cert"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
+    ENDPOINT_NAME = "system_admin_endpoints.upload_backend_firebase_cert"
+    REDIRECT_ENDPOINT_NAME = "system_admin_endpoints.manage_firebase_credentials"
     
-    @patch("pages.system_admin_pages.update_firebase_instance")
-    @patch("pages.system_admin_pages.get_firebase_credential_errors")
+    @patch("endpoints.system_admin_endpoints.update_firebase_instance")
+    @patch("endpoints.system_admin_endpoints.get_firebase_credential_errors")
     def test(self, get_firebase_credential_errors: MagicMock, update_firebase_instance: MagicMock):
         # test that the data makes it to the backend, patch out the errors that are sourced from the
         # firbase admin lbrary
@@ -41,8 +41,8 @@ class TestUploadBackendFirebaseCert(ResearcherSessionTest):
 
 # FIXME: implement tests for error cases
 class TestUploadIosFirebaseCert(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.upload_ios_firebase_cert"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
+    ENDPOINT_NAME = "system_admin_endpoints.upload_ios_firebase_cert"
+    REDIRECT_ENDPOINT_NAME = "system_admin_endpoints.manage_firebase_credentials"
     
     def test(self):
         # test upload as site admin
@@ -55,8 +55,8 @@ class TestUploadIosFirebaseCert(ResearcherSessionTest):
 
 # FIXME: implement tests for error cases
 class TestUploadAndroidFirebaseCert(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.upload_android_firebase_cert"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
+    ENDPOINT_NAME = "system_admin_endpoints.upload_android_firebase_cert"
+    REDIRECT_ENDPOINT_NAME = "system_admin_endpoints.manage_firebase_credentials"
     
     def test(self):
         # test upload as site admin
@@ -68,8 +68,8 @@ class TestUploadAndroidFirebaseCert(ResearcherSessionTest):
 
 
 class TestDeleteFirebaseBackendCert(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.delete_backend_firebase_cert"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
+    ENDPOINT_NAME = "system_admin_endpoints.delete_backend_firebase_cert"
+    REDIRECT_ENDPOINT_NAME = "system_admin_endpoints.manage_firebase_credentials"
     
     def test(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
@@ -79,8 +79,8 @@ class TestDeleteFirebaseBackendCert(ResearcherSessionTest):
 
 
 class TestDeleteFirebaseIosCert(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.delete_ios_firebase_cert"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
+    ENDPOINT_NAME = "system_admin_endpoints.delete_ios_firebase_cert"
+    REDIRECT_ENDPOINT_NAME = "system_admin_endpoints.manage_firebase_credentials"
     
     def test(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
@@ -90,8 +90,8 @@ class TestDeleteFirebaseIosCert(ResearcherSessionTest):
 
 
 class TestDeleteFirebaseAndroidCert(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.delete_android_firebase_cert"
-    REDIRECT_ENDPOINT_NAME = "system_admin_pages.manage_firebase_credentials"
+    ENDPOINT_NAME = "system_admin_endpoints.delete_android_firebase_cert"
+    REDIRECT_ENDPOINT_NAME = "system_admin_endpoints.manage_firebase_credentials"
     
     def test(self):
         self.set_session_study_relation(ResearcherRole.site_admin)

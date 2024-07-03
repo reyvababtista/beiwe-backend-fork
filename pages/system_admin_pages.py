@@ -3,7 +3,6 @@ import plistlib
 from collections import defaultdict
 from typing import Any, Dict, List
 
-import bleach
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import F, Func, QuerySet
@@ -12,7 +11,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from markupsafe import Markup
 
 from authentication.admin_authentication import (abort, assert_admin, assert_researcher_under_admin,
-    assert_site_admin, authenticate_admin, authenticate_researcher_study_access)
+    authenticate_admin, authenticate_researcher_study_access)
 from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
     IOS_FIREBASE_CREDENTIALS)
 from constants.html_constants import CHECKBOX_TOGGLES, TIMER_VALUES
@@ -319,26 +318,6 @@ def toggle_study_forest_enabled(request: ResearcherRequest, study_id=None):
     else:
         messages.success(request, f"Disabled Forest on '{study.name}'")
     return redirect(f'/edit_study/{study_id}')
-
-
-# TODO: move to api
-@require_POST
-@authenticate_admin
-def hide_study(request: ResearcherRequest, study_id=None):
-    # Site admins and study admins can delete studies.
-    assert_site_admin(request)
-    
-    if request.POST.get('confirmation', 'false') == 'true':
-        study = Study.objects.get(pk=study_id)
-        study.manually_stopped = True
-        study.deleted = True
-        study.save()
-        study_name = bleach.clean(study.name)  # very redundant
-        messages.success(request, f"Study '{study_name}' has been hidden.")
-    else:
-        abort(400)
-    
-    return redirect("study_endpoints.manage_studies")
 
 
 @require_GET

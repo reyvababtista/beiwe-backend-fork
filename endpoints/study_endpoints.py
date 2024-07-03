@@ -1,3 +1,4 @@
+import bleach
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.shortcuts import redirect, render
@@ -222,3 +223,22 @@ def create_study(request: ResearcherRequest):
         for field, message in ve.message_dict.items():
             messages.error(request, f'{field}: {message[0]}')
         return redirect('/create_study')
+
+
+@require_POST
+@authenticate_admin
+def hide_study(request: ResearcherRequest, study_id=None):
+    # Site admins and study admins can delete studies.
+    assert_site_admin(request)
+
+    if request.POST.get('confirmation', 'false') == 'true':
+        study = Study.objects.get(pk=study_id)
+        study.manually_stopped = True
+        study.deleted = True
+        study.save()
+        study_name = bleach.clean(study.name)  # very redundant
+        messages.success(request, f"Study '{study_name}' has been hidden.")
+    else:
+        abort(400)
+
+    return redirect("study_endpoints.manage_studies")

@@ -2,10 +2,15 @@
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
+from django.http.response import HttpResponse, HttpResponseRedirect
+
 from constants.testing_constants import ADMIN_ROLES, ALL_TESTING_ROLES
 from constants.user_constants import ResearcherRole
+from database.study_models import DeviceSettings, Study
 from libs.http_utils import easy_url
 from tests.common import ResearcherSessionTest
+
+
 
 
 class TestChooseStudy(ResearcherSessionTest):                     
@@ -76,6 +81,8 @@ class TestViewStudy(ResearcherSessionTest):
             b"Configure Interventions for use with Relative survey schedules", response.content
         )
         self.assertIn(b"View Forest Task Log", response.content)
+        # assertInHTML is several hundred times slower but has much better output when it fails...
+        # self.assertInHTML("Configure Interventions for use with Relative survey schedules", response.content.decode())
 
 
 class TestManageStudies(ResearcherSessionTest):
@@ -214,5 +221,142 @@ class TestUpdateEndDate(ResearcherSessionTest):
         self.assert_message("No date provided.")
         self.session_study.refresh_from_db()
         self.assertEqual(self.session_study.end_date, date(2020, 1, 1))
-        # assertInHTML is several hundred times slower but has much better output when it fails...
-        # self.assertInHTML("Configure Interventions for use with Relative survey schedules", response.content.decode())
+
+
+class TestToggleManuallyEndStudy(ResearcherSessionTest):
+    ENDPOINT_NAME = "study_endpoints.toggle_end_study"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
+
+    def test_researcher(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.smart_post_status_code(403, self.session_study.id)
+        self.assertFalse(self.session_study.manually_stopped)
+
+    def test_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.smart_post_status_code(403, self.session_study.id)
+        self.assertFalse(self.session_study.manually_stopped)
+
+    def test_site_admin_end_study(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.assertFalse(self.session_study.manually_stopped)
+        self.smart_post_redirect(self.session_study.id)
+        self.session_study.refresh_from_db()
+        self.assertTrue(self.session_study.manually_stopped)
+        self.assert_message_fragment("has been manually stopped")
+
+    def test_site_admin_unend_study(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.assertFalse(self.session_study.manually_stopped)
+        self.session_study.update_only(manually_stopped=True)
+        self.smart_post_redirect(self.session_study.id)
+        self.session_study.refresh_from_db()
+        self.assertFalse(self.session_study.manually_stopped)
+        self.assert_message_fragment("has been manually re-opened")
+
+
+# FIXME: need to implement tests for copy study.
+# FIXME: this test is not well factored, it doesn't follow a common pattern.
+class TestCreateStudy(ResearcherSessionTest):
+    ENDPOINT_NAME = "study_endpoints.create_study"
+    NEW_STUDY_NAME = "something anything"
+
+    @property
+    def get_the_new_study(self):
+        return Study.objects.get(name=self.NEW_STUDY_NAME)
+
+    @property
+    def assert_no_new_study(self):
+        self.assertFalse(Study.objects.filter(name=self.NEW_STUDY_NAME).exists())
+
+    def create_study_params(self):
+        """ keys are: name, encryption_key, copy_existing_study, forest_enabled """
+        params = dict(
+            name=self.NEW_STUDY_NAME,
+            encryption_key="a" * 32,
+            copy_existing_study="",
+            forest_enabled="false",
+        )
+        return params
+
+    def test_load_page(self):
+        # only site admins can load the page
+        for user_role in ALL_TESTING_ROLES:
+            self.assign_role(self.session_researcher, user_role)
+            self.smart_get_status_code(200 if user_role == ResearcherRole.site_admin else 403)
+
+    def test_posts_redirect(self):
+        # only site admins can load the page
+        for user_role in ALL_TESTING_ROLES:
+            self.assign_role(self.session_researcher, user_role)
+            self.smart_post_status_code(
+                302 if user_role == ResearcherRole.site_admin else 403, **self.create_study_params()
+            )
+
+    def test_create_study_researcher(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self._test_create_study(False)
+
+    def test_create_study_study_admin(self):
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self._test_create_study(False)
+
+    def test_create_study_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self._test_create_study(True)
+
+    def test_create_study_researcher_and_site_admin(self):
+        # unable to replicate hassan's bug - he must have his the special characters bug
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.session_researcher.update(site_admin=True)
+        self._test_create_study(True)
+
+    def test_create_study_study_admin_and_site_admin(self):
+        # unable to replicate hassan's bug - he must have his the special characters bug
+        self.set_session_study_relation(ResearcherRole.study_admin)
+        self.session_researcher.update(site_admin=True)
+        self._test_create_study(True)
+
+    def _test_create_study(self, success):
+        study_count = Study.objects.count()
+        device_settings_count = DeviceSettings.objects.count()
+        resp = self.smart_post_status_code(302 if success else 403, **self.create_study_params())
+        if success:
+            self.assertIsInstance(resp, HttpResponseRedirect)
+            target_url = easy_url(
+                "system_admin_pages.device_settings", study_id=self.get_the_new_study.id
+            )
+            self.assert_response_url_equal(resp.url, target_url)
+            resp = self.client.get(target_url)
+            self.assertEqual(resp.status_code, 200)
+            self.assert_present(
+                f"Successfully created study {self.get_the_new_study.name}.", resp.content
+            )
+            self.assertEqual(study_count + 1, Study.objects.count())
+            self.assertEqual(device_settings_count + 1, DeviceSettings.objects.count())
+        else:
+            self.assertIsInstance(resp, HttpResponse)
+            self.assertEqual(study_count, Study.objects.count())
+            self.assertEqual(device_settings_count, DeviceSettings.objects.count())
+            self.assert_no_new_study
+
+    def test_create_study_long_name(self):
+        # this situation reports to sentry manually, the response is a hard 400, no calls to messages
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        params = self.create_study_params()
+        params["name"] = "a" * 10000
+        resp = self.smart_post_status_code(302, **params)
+        self.assertEqual(resp.url, easy_url("study_endpoints.create_study"))
+        self.assert_present(
+            resp.content, b"the study name you provided was too long and was rejected"
+        )
+        self.assert_no_new_study
+
+    def test_create_study_bad_name(self):
+        # this situation reports to sentry manually, the response is a hard 400, no calls to messages
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        params = self.create_study_params()
+        params["name"] = "&" * 50
+        resp = self.smart_post_status_code(302, **params)
+        self.assert_present(resp.content, b"you provided contained unsafe characters")
+        self.assert_no_new_study

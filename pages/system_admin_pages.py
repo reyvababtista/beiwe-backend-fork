@@ -9,13 +9,12 @@ from django.core.exceptions import ValidationError
 from django.db.models import F, Func, QuerySet
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
-from markupsafe import escape, Markup
+from markupsafe import Markup
 
 from authentication.admin_authentication import (abort, assert_admin, assert_researcher_under_admin,
     assert_site_admin, authenticate_admin, authenticate_researcher_study_access)
 from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
     IOS_FIREBASE_CREDENTIALS)
-from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
 from constants.html_constants import CHECKBOX_TOGGLES, TIMER_VALUES
 from constants.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID_SUCCESS_TEXT,
     ALERT_ANDROID_VALIDATION_FAILED_TEXT, ALERT_DECODE_ERROR_TEXT, ALERT_EMPTY_TEXT,
@@ -33,7 +32,6 @@ from libs.firebase_config import get_firebase_credential_errors, update_firebase
 from libs.http_utils import checkbox_to_boolean, easy_url, string_to_int
 from libs.internal_types import ResearcherRequest
 from libs.password_validation import get_min_password_requirement
-from libs.sentry import make_error_sentry, SentryTypes
 from pages.admin_pages import conditionally_display_study_status_warnings
 
 
@@ -276,70 +274,6 @@ def create_new_researcher(request: ResearcherRequest):
 
 
 """########################### Study Pages ##################################"""
-
-@require_POST
-@authenticate_admin
-def toggle_end_study(request: ResearcherRequest, study_id=None):
-    assert_site_admin(request)
-    study = Study.objects.get(pk=study_id)  # already validated by the decorator
-    
-    study.manually_stopped = not study.manually_stopped
-    study.save()
-    if study.manually_stopped:
-        messages.success(request, f"Study '{study.name}' has been manually stopped.")
-    else:
-        messages.success(request, f"Study '{study.name}' has been manually re-opened.")
-    
-    return redirect("study_endpoints.edit_study", study_id=study.id)
-
-
-@require_http_methods(['GET', 'POST'])
-@authenticate_admin
-def create_study(request: ResearcherRequest):
-    # Only a SITE admin can create new studies.
-    if not request.session_researcher.site_admin:
-        return abort(403)
-    
-    # FIXME: get rid of dual endpoint pattern, it is a bad idea.
-    
-    if request.method == 'GET':
-        studies = list(Study.get_all_studies_by_name().values("name", "id"))
-        return render(request, 'create_study.html', context=dict(studies=studies))
-    
-    name = request.POST.get('name', '')
-    encryption_key = request.POST.get('encryption_key', '')
-    duplicate_existing_study = request.POST.get('copy_existing_study', None) == 'true'
-    forest_enabled = request.POST.get('forest_enabled', "").lower() == 'true'
-    
-    if len(name) > 5000:
-        if not RUNNING_TEST_OR_IN_A_SHELL:
-            with make_error_sentry(SentryTypes.elastic_beanstalk):
-                raise Exception("Someone tried to create a study with a suspiciously long name.")
-        messages.error(request, 'the study name you provided was too long and was rejected, please try again.')
-        return redirect('/create_study')
-    
-    if escape(name) != name:
-        if not RUNNING_TEST_OR_IN_A_SHELL:
-            with make_error_sentry(SentryTypes.elastic_beanstalk):
-                raise Exception("Someone tried to create a study with unsafe characters in its name.")
-        messages.error(request, 'the study name you provided contained unsafe characters and was rejected, please try again.')
-        return redirect('/create_study')
-    
-    try:
-        new_study = Study.create_with_object_id(
-            name=name, encryption_key=encryption_key, forest_enabled=forest_enabled
-        )
-        if duplicate_existing_study:
-            do_duplicate_step(request, new_study)
-        messages.success(request, f'Successfully created study {name}.')
-        return redirect(f'/device_settings/{new_study.pk}')
-    
-    except ValidationError as ve:
-        # display message describing failure based on the validation error (hacky, but works.)
-        for field, message in ve.message_dict.items():
-            messages.error(request, f'{field}: {message[0]}')
-        return redirect('/create_study')
-
 
 def do_duplicate_step(request: ResearcherRequest, new_study: Study):
     """ Everything you need to copy a study. """

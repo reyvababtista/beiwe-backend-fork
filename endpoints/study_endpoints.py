@@ -1,13 +1,16 @@
+from django.contrib import messages
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
-from authentication.admin_authentication import (authenticate_admin, authenticate_researcher_login,
-    authenticate_researcher_study_access, get_researcher_allowed_studies_as_query_set)
+from authentication.admin_authentication import (assert_site_admin, authenticate_admin,
+    authenticate_researcher_login, authenticate_researcher_study_access,
+    get_researcher_allowed_studies_as_query_set)
 from constants.common_constants import DISPLAY_TIME_FORMAT
 from constants.user_constants import ResearcherRole
 from database.data_access_models import FileToProcess
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
+from forms.django_forms import StudyEndDateForm
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import ResearcherRequest
 from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
@@ -123,3 +126,32 @@ def edit_study(request, study_id=None):
             page_location="edit_study",
         )
     )
+
+
+@require_POST
+@authenticate_admin
+def update_end_date(request: ResearcherRequest, study_id=None):
+    assert_site_admin(request)
+    study = Study.objects.get(pk=study_id)  # already validated by the decorator
+
+    if "end_date" not in request.POST:
+        messages.error(request, "No date provided.")
+        return redirect("study_endpoints.edit_study", study_id=study.id)
+
+    form = StudyEndDateForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Invalid date format, expected YYYY-MM-DD.")
+        return redirect("study_endpoints.edit_study", study_id=study.id)
+
+    study.end_date = form.cleaned_data["end_date"]
+    study.save()
+
+    if study.end_date:
+        messages.success(
+            request,
+            f"Study '{study.name}' has had its End Date updated to {study.end_date.isoformat()}."
+        )
+    else:
+        messages.success(request, f"Study '{study.name}' has had its End Date removed.")
+
+    return redirect("study_endpoints.edit_study", study_id=study.id)

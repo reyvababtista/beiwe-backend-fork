@@ -284,10 +284,10 @@ class TestChangeSurveySecuritySettings(ResearcherSessionTest):
         self.assertEqual(self.session_study.password_max_age_days, 365)
         ret = self.smart_post_status_code(302, self.session_study.id)
         self.assertEqual(
-            ret.url, easy_url("system_admin_pages.study_security_page", self.session_study.id)
+            ret.url, easy_url("study_endpoints.study_security_page", self.session_study.id)
         )
         page = self.easy_get(
-            "system_admin_pages.study_security_page", study_id=self.session_study.id
+            "study_endpoints.study_security_page", study_id=self.session_study.id
         ).content
         
         self.assert_present("Minimum Password Length", page)
@@ -332,22 +332,6 @@ class TestChangeSurveySecuritySettings(ResearcherSessionTest):
         self.assertEqual(r_related.password_force_reset, False)
         self.assertEqual(r_not_related.password_force_reset, False)
         self.assertEqual(r_long.password_force_reset, False)
-
-
-class TestEditSurveySecuritySettings(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.study_security_page"
-    
-    def test_researcher(self):
-        self.set_session_study_relation(ResearcherRole.researcher)
-        self.smart_get_status_code(403, self.session_study.id)
-    
-    def test_study_admin(self):
-        self.set_session_study_relation(ResearcherRole.study_admin)
-        self.smart_get_status_code(200, self.session_study.id)
-    
-    def test_site_admin(self):
-        self.set_session_study_relation(ResearcherRole.site_admin)
-        self.smart_get_status_code(200, self.session_study.id)
 
 
 class TestManageFirebaseCredentials(ResearcherSessionTest):

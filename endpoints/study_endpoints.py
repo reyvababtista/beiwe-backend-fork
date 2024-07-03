@@ -5,8 +5,8 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from markupsafe import escape
 
-from authentication.admin_authentication import (abort, assert_site_admin, authenticate_admin,
-    authenticate_researcher_login, authenticate_researcher_study_access,
+from authentication.admin_authentication import (abort, assert_admin, assert_site_admin,
+    authenticate_admin, authenticate_researcher_login, authenticate_researcher_study_access,
     get_researcher_allowed_studies_as_query_set)
 from constants.common_constants import DISPLAY_TIME_FORMAT, RUNNING_TEST_OR_IN_A_SHELL
 from constants.user_constants import ResearcherRole
@@ -16,6 +16,7 @@ from database.user_models_researcher import Researcher, StudyRelation
 from forms.django_forms import StudyEndDateForm
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import ResearcherRequest
+from libs.password_validation import get_min_password_requirement
 from libs.sentry import make_error_sentry, SentryTypes
 from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
 from pages.admin_pages import conditionally_display_study_status_warnings
@@ -242,3 +243,18 @@ def hide_study(request: ResearcherRequest, study_id=None):
         abort(400)
 
     return redirect("study_endpoints.manage_studies")
+
+
+@require_GET
+@authenticate_admin
+def study_security_page(request: ResearcherRequest, study_id: int):
+    study = Study.objects.get(id=study_id)
+    assert_admin(request, study_id)
+    return render(
+        request,
+        'study_security_settings.html',
+        context=dict(
+            study=study,
+            min_password_length=get_min_password_requirement(request.session_researcher),
+        )
+    )

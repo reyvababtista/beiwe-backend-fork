@@ -106,14 +106,14 @@ path("edit_study/<int:study_id>", study_endpoints.edit_study, login_redirect=SAF
 path("reset_researcher_mfa/<int:researcher_id>", system_admin_pages.reset_researcher_mfa)
 
 # study management
-path("create_study", system_admin_pages.create_study)
+path("create_study", study_endpoints.create_study)
 path("toggle_study_forest_enabled/<int:study_id>", system_admin_pages.toggle_study_forest_enabled)
 path("hide_study/<int:study_id>", system_admin_pages.hide_study)
 path("edit_study_security/<int:study_id>", system_admin_pages.study_security_page, login_redirect=SAFE)
 path("change_study_security_settings/<int:study_id>", system_admin_pages.change_study_security_settings)
 path("device_settings/<int:study_id>", system_admin_pages.device_settings, login_redirect=SAFE)
 path("update_end_date/<int:study_id>", study_endpoints.update_end_date)
-path("toggle_end_study/<int:study_id>", system_admin_pages.toggle_end_study)
+path("toggle_end_study/<int:study_id>", study_endpoints.toggle_end_study)
 
 # firebase credentials
 path("manage_firebase_credentials", system_admin_pages.manage_firebase_credentials, login_redirect=SAFE)

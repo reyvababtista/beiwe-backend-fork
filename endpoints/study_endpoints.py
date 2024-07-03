@@ -1,3 +1,5 @@
+import json
+
 import bleach
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -9,20 +11,22 @@ from authentication.admin_authentication import (abort, assert_admin, assert_sit
     authenticate_admin, authenticate_researcher_login, authenticate_researcher_study_access,
     get_researcher_allowed_studies_as_query_set)
 from constants.common_constants import DISPLAY_TIME_FORMAT, RUNNING_TEST_OR_IN_A_SHELL
+from constants.html_constants import CHECKBOX_TOGGLES, TIMER_VALUES
 from constants.user_constants import ResearcherRole
 from database.data_access_models import FileToProcess
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
 from forms.django_forms import StudyEndDateForm, StudySecuritySettingsForm
+from libs.endpoint_helpers.researcher_helpers import get_administerable_researchers
+from libs.endpoint_helpers.study_helpers import (get_administerable_studies_by_name, notify_changes, trim_whitespace, try_update_device_settings,
+    unflatten_consent_sections)
 from libs.firebase_config import check_firebase_instance
-from libs.http_utils import easy_url
+from libs.http_utils import checkbox_to_boolean, easy_url, string_to_int
 from libs.internal_types import ResearcherRequest
 from libs.password_validation import get_min_password_requirement
 from libs.sentry import make_error_sentry, SentryTypes
 from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
 from pages.admin_pages import conditionally_display_study_status_warnings
-from pages.system_admin_pages import (do_duplicate_step, get_administerable_researchers,
-    get_administerable_studies_by_name)
 
 
 @require_GET
@@ -33,7 +37,7 @@ def choose_study_page(request: ResearcherRequest):
     # Otherwise, show the "Choose Study" page
     if allowed_studies.count() == 1:
         return redirect('/view_study/{:d}'.format(allowed_studies.values_list('pk', flat=True).get()))
-
+    
     return render(
         request,
         'choose_study.html',
@@ -48,7 +52,7 @@ def choose_study_page(request: ResearcherRequest):
 @authenticate_researcher_study_access
 def view_study_page(request: ResearcherRequest, study_id=None):
     study: Study = Study.objects.get(pk=study_id)
-
+    
     def get_survey_info(survey_type: str):
         survey_info = list(
             study.surveys.filter(survey_type=survey_type, deleted=False)
@@ -58,13 +62,13 @@ def view_study_page(request: ResearcherRequest, study_id=None):
             info["last_updated"] = \
                  info["last_updated"].astimezone(study.timezone).strftime(DISPLAY_TIME_FORMAT)
         return survey_info
-
+    
     is_study_admin = StudyRelation.objects.filter(
         researcher=request.session_researcher, study=study, relationship=ResearcherRole.study_admin
     ).exists()
-
+    
     conditionally_display_study_status_warnings(request, study)
-
+    
     return render(
         request,
         template_name='view_study.html',
@@ -102,12 +106,12 @@ def manage_studies(request: ResearcherRequest):
 @authenticate_admin
 def edit_study(request, study_id=None):
     study = Study.objects.get(pk=study_id)  # already validated by the decorator
-
+    
     # get the data points for display for all researchers in this study
     query = Researcher.filter_alphabetical(study_relations__study_id=study_id).values_list(
         "id", "username", "study_relations__relationship", "site_admin"
     )
-
+    
     # transform raw query data as needed
     listed_researchers = []
     for pk, username, relationship, site_admin in query:
@@ -117,9 +121,9 @@ def edit_study(request, study_id=None):
             "Site Admin" if site_admin else relationship.replace("_", " ").title(),
             site_admin
         ))
-
+    
     conditionally_display_study_status_warnings(request, study)
-
+    
     return render(
         request,
         'edit_study.html',
@@ -139,19 +143,19 @@ def edit_study(request, study_id=None):
 def update_end_date(request: ResearcherRequest, study_id=None):
     assert_site_admin(request)
     study = Study.objects.get(pk=study_id)  # already validated by the decorator
-
+    
     if "end_date" not in request.POST:
         messages.error(request, "No date provided.")
         return redirect("study_endpoints.edit_study", study_id=study.id)
-
+    
     form = StudyEndDateForm(request.POST)
     if not form.is_valid():
         messages.error(request, "Invalid date format, expected YYYY-MM-DD.")
         return redirect("study_endpoints.edit_study", study_id=study.id)
-
+    
     study.end_date = form.cleaned_data["end_date"]
     study.save()
-
+    
     if study.end_date:
         messages.success(
             request,
@@ -159,7 +163,7 @@ def update_end_date(request: ResearcherRequest, study_id=None):
         )
     else:
         messages.success(request, f"Study '{study.name}' has had its End Date removed.")
-
+    
     return redirect("study_endpoints.edit_study", study_id=study.id)
 
 
@@ -168,14 +172,14 @@ def update_end_date(request: ResearcherRequest, study_id=None):
 def toggle_end_study(request: ResearcherRequest, study_id=None):
     assert_site_admin(request)
     study = Study.objects.get(pk=study_id)  # already validated by the decorator
-
+    
     study.manually_stopped = not study.manually_stopped
     study.save()
     if study.manually_stopped:
         messages.success(request, f"Study '{study.name}' has been manually stopped.")
     else:
         messages.success(request, f"Study '{study.name}' has been manually re-opened.")
-
+    
     return redirect("study_endpoints.edit_study", study_id=study.id)
 
 
@@ -185,32 +189,32 @@ def create_study(request: ResearcherRequest):
     # Only a SITE admin can create new studies.
     if not request.session_researcher.site_admin:
         return abort(403)
-
+    
     # FIXME: get rid of dual endpoint pattern, it is a bad idea.
-
+    
     if request.method == 'GET':
         studies = list(Study.get_all_studies_by_name().values("name", "id"))
         return render(request, 'create_study.html', context=dict(studies=studies))
-
+    
     name = request.POST.get('name', '')
     encryption_key = request.POST.get('encryption_key', '')
     duplicate_existing_study = request.POST.get('copy_existing_study', None) == 'true'
     forest_enabled = request.POST.get('forest_enabled', "").lower() == 'true'
-
+    
     if len(name) > 5000:
         if not RUNNING_TEST_OR_IN_A_SHELL:
             with make_error_sentry(SentryTypes.elastic_beanstalk):
                 raise Exception("Someone tried to create a study with a suspiciously long name.")
         messages.error(request, 'the study name you provided was too long and was rejected, please try again.')
         return redirect('/create_study')
-
+    
     if escape(name) != name:
         if not RUNNING_TEST_OR_IN_A_SHELL:
             with make_error_sentry(SentryTypes.elastic_beanstalk):
                 raise Exception("Someone tried to create a study with unsafe characters in its name.")
         messages.error(request, 'the study name you provided contained unsafe characters and was rejected, please try again.')
         return redirect('/create_study')
-
+    
     try:
         new_study = Study.create_with_object_id(
             name=name, encryption_key=encryption_key, forest_enabled=forest_enabled
@@ -219,7 +223,7 @@ def create_study(request: ResearcherRequest):
             do_duplicate_step(request, new_study)
         messages.success(request, f'Successfully created study {name}.')
         return redirect(f'/device_settings/{new_study.pk}')
-
+    
     except ValidationError as ve:
         # display message describing failure based on the validation error (hacky, but works.)
         for field, message in ve.message_dict.items():
@@ -232,7 +236,7 @@ def create_study(request: ResearcherRequest):
 def hide_study(request: ResearcherRequest, study_id=None):
     # Site admins and study admins can delete studies.
     assert_site_admin(request)
-
+    
     if request.POST.get('confirmation', 'false') == 'true':
         study = Study.objects.get(pk=study_id)
         study.manually_stopped = True
@@ -242,7 +246,7 @@ def hide_study(request: ResearcherRequest, study_id=None):
         messages.success(request, f"Study '{study_name}' has been hidden.")
     else:
         abort(400)
-
+    
     return redirect("study_endpoints.manage_studies")
 
 
@@ -272,7 +276,7 @@ def change_study_security_settings(request: ResearcherRequest, study_id=None):
         "password_max_age_days": "Maximum Password Age (days)",
         "mfa_required": "Require Multi-Factor Authentication",
     }
-
+    
     form = StudySecuritySettingsForm(request.POST, instance=study)
     if not form.is_valid():
         # extract errors from the django form and display them using django messages
@@ -281,7 +285,7 @@ def change_study_security_settings(request: ResearcherRequest, study_id=None):
                 # make field names nicer for the error message
                 messages.warning(request, f"{nice_names.get(field, field)}: {error}")
         return redirect(easy_url("study_endpoints.study_security_page", study_id=study.pk))
-
+    
     # success: save and display changes, redirect to edit study
     form.save()
     for field_name in form.changed_data:
@@ -289,3 +293,74 @@ def change_study_security_settings(request: ResearcherRequest, study_id=None):
             request, f"Updated {nice_names.get(field_name, field_name)} to {getattr(study, field_name)}"
         )
     return redirect(easy_url("study_endpoints.edit_study", study.pk))
+
+
+@require_http_methods(['GET', 'POST'])
+@authenticate_researcher_study_access
+def device_settings(request: ResearcherRequest, study_id=None):
+    # TODO: probably rewrite this entire endpoint with django forms....
+    study = Study.objects.get(pk=study_id)
+    researcher = request.session_researcher
+    readonly = not researcher.check_study_admin(study_id) and not researcher.site_admin
+    
+    # FIXME: get rid of dual endpoint pattern, it is a bad idea.
+    if request.method == 'GET':
+        conditionally_display_study_status_warnings(request, study)
+        return render(
+            request,
+            "study_device_settings.html",
+            context=dict(
+                study=study.as_unpacked_native_python(Study.STUDY_EXPORT_FIELDS),
+                settings=study.device_settings.export(),
+                readonly=readonly,
+            )
+        )
+    if readonly:
+        abort(403)
+    
+    # the ios consent sections are a json field but the frontend returns something weird,
+    # see the documentation in unflatten_consent_sections for details
+    consent_sections = unflatten_consent_sections(
+        {k: v for k, v in request.POST.items() if k.startswith("consent_section")}
+    )
+    params = {
+        k: v for k, v in request.POST.items()
+        if not k.startswith("consent_section") and hasattr(study.device_settings, k)
+    }
+    
+    # numerous data fixes
+    checkbox_to_boolean(CHECKBOX_TOGGLES, params)
+    string_to_int(TIMER_VALUES, params)
+    trim_whitespace(request, params)  # there's a frontend bug where whitespace can get inserted.
+    trim_whitespace(request, consent_sections)
+    
+    # logic to display changes to the user
+    notify_changes(request, params, study.device_settings.as_dict(), "Settings for ")
+    try:
+        # can't be 100% sure that this data is safe to deserialize
+        current_consents = json.loads(study.device_settings.consent_sections)
+        notify_changes(request, consent_sections, current_consents, "iOS Consent Section ")
+    except json.JSONDecodeError:
+        pass
+    
+    # final params setup, attempt db update, redirect to edit study page
+    params["consent_sections"] = json.dumps(consent_sections)
+    try_update_device_settings(request, params, study)
+    return redirect(f'/edit_study/{study.id}')
+
+
+# FIXME: this should take a post parameter, not a url endpoint.
+@require_POST
+@authenticate_admin
+def toggle_study_forest_enabled(request: ResearcherRequest, study_id=None):
+    # Only a SITE admin can toggle forest on a study
+    if not request.session_researcher.site_admin:
+        return abort(403)
+    study = Study.objects.get(pk=study_id)
+    study.forest_enabled = not study.forest_enabled
+    study.save()
+    if study.forest_enabled:
+        messages.success(request, f"Enabled Forest on '{study.name}'")
+    else:
+        messages.success(request, f"Disabled Forest on '{study.name}'")
+    return redirect(f'/edit_study/{study_id}')

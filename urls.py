@@ -12,7 +12,7 @@ from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
-from endpoints import study_endpoints
+from endpoints import researcher_administration_endpoints, study_endpoints
 from pages import (admin_pages, data_access_web_form, forest_pages, login_pages, mobile_pages,
     participant_pages, survey_designer, system_admin_pages)
 
@@ -91,19 +91,19 @@ path(
 )
 
 # system admin pages
-path("manage_researchers", system_admin_pages.manage_researchers_page, login_redirect=SAFE)
+path("manage_researchers", researcher_administration_endpoints.manage_researchers_page, login_redirect=SAFE)
 path(
     "edit_researcher/<int:researcher_pk>",
-    system_admin_pages.administrator_edit_researcher_page,
-    name="system_admin_pages.administrator_edit_researcher_page",
+    researcher_administration_endpoints.administrator_edit_researcher_page,
+    name="researcher_administration_endpoints.administrator_edit_researcher_page",
     login_redirect=SAFE,
 )
-path("elevate_researcher", system_admin_pages.elevate_researcher_to_study_admin)
-path("demote_researcher", system_admin_pages.demote_study_admin_to_researcher)
-path("create_new_researcher", system_admin_pages.create_new_researcher)
+path("elevate_researcher", researcher_administration_endpoints.elevate_researcher_to_study_admin)
+path("demote_researcher", researcher_administration_endpoints.demote_study_admin_to_researcher)
+path("create_new_researcher", researcher_administration_endpoints.create_new_researcher)
 path("manage_studies", study_endpoints.manage_studies, login_redirect=SAFE)
 path("edit_study/<int:study_id>", study_endpoints.edit_study, login_redirect=SAFE)
-path("reset_researcher_mfa/<int:researcher_id>", system_admin_pages.administrator_reset_researcher_mfa)
+path("reset_researcher_mfa/<int:researcher_id>", researcher_administration_endpoints.administrator_reset_researcher_mfa)
 
 # study management
 path("create_study", study_endpoints.create_study)

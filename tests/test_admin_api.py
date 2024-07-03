@@ -168,7 +168,7 @@ class TestSetResearcherPassword(ResearcherSessionTest):
         )
         if message:
             content = self.easy_get(
-                "system_admin_pages.administrator_edit_researcher_page", researcher_pk=r2.id
+                "researcher_administration_endpoints.administrator_edit_researcher_page", researcher_pk=r2.id
             ).content
             self.assert_present(message, content)
         r2.refresh_from_db()

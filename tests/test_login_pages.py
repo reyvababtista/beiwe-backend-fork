@@ -501,7 +501,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             "study_api.interventions_page",
             "study_api.study_fields",
             "survey_designer.render_edit_survey",
-            "system_admin_pages.device_settings",
+            "study_endpoints.device_settings",
             "system_admin_pages.edit_researcher",
             "study_endpoints.edit_study",
             "system_admin_pages.manage_firebase_credentials",

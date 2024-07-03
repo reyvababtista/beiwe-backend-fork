@@ -1,29 +1,16 @@
-from copy import copy
 from unittest.mock import MagicMock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import models
-from django.forms.fields import NullBooleanField
 
 from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
     IOS_FIREBASE_CREDENTIALS)
 from constants.message_strings import MFA_RESET_BAD_PERMISSIONS
-from constants.testing_constants import (ADMIN_ROLES, ALL_TESTING_ROLES, ANDROID_CERT, BACKEND_CERT,
-    IOS_CERT)
+from constants.testing_constants import (ADMIN_ROLES, ANDROID_CERT, BACKEND_CERT, IOS_CERT)
 from constants.user_constants import ALL_RESEARCHER_TYPES, ResearcherRole
-from database.study_models import DeviceSettings
 from database.system_models import FileAsText
 from database.user_models_researcher import Researcher
-from libs.http_utils import easy_url
 from libs.security import generate_easy_alphanumeric_string
 from tests.common import ResearcherSessionTest
-
-
-# trunk-ignore-all(ruff/B018)
-
-#
-## system_admin_pages
-#
 
 
 class TestDemoteStudyAdmin(ResearcherSessionTest):
@@ -97,138 +84,6 @@ class TestCreateNewResearcher(ResearcherSessionTest):
             else:
                 self.assertEqual(resp.status_code, 403)
                 self.assertEqual(prior_researcher_count, Researcher.objects.count())
-
-
-class TestToggleForest(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.toggle_study_forest_enabled"
-    REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
-    
-    def test_toggle_on(self):
-        resp = self._do_test_toggle(True)
-        self.assert_present("Enabled Forest on", resp.content)
-    
-    def test_toggle_off(self):
-        resp = self._do_test_toggle(False)
-        self.assert_present("Disabled Forest on", resp.content)
-    
-    def _do_test_toggle(self, enable: bool):
-        redirect_endpoint = easy_url(self.REDIRECT_ENDPOINT_NAME, study_id=self.session_study.id)
-        self.set_session_study_relation(ResearcherRole.site_admin)
-        self.session_study.update(forest_enabled=not enable)  # directly mutate the database.
-        # resp = self.smart_post(study_id=self.session_study.id)  # nope this does not follow the normal pattern
-        resp = self.smart_post(self.session_study.id)
-        self.assert_response_url_equal(resp.url, redirect_endpoint)
-        self.session_study.refresh_from_db()
-        if enable:
-            self.assertTrue(self.session_study.forest_enabled)
-        else:
-            self.assertFalse(self.session_study.forest_enabled)
-        return self.client.get(redirect_endpoint)
-
-
-class TestDeviceSettings(ResearcherSessionTest):
-    ENDPOINT_NAME = "system_admin_pages.device_settings"
-    
-    CONSENT_SECTIONS = {
-        'consent_sections.data_gathering.more': 'a',
-        'consent_sections.data_gathering.text': 'b',
-        'consent_sections.privacy.more': 'c',
-        'consent_sections.privacy.text': 'd',
-        'consent_sections.study_survey.more': 'e',
-        'consent_sections.study_survey.text': 'f',
-        'consent_sections.study_tasks.more': 'g',
-        'consent_sections.study_tasks.text': 'h',
-        'consent_sections.time_commitment.more': 'i',
-        'consent_sections.time_commitment.text': 'j',
-        'consent_sections.welcome.more': 'k',
-        'consent_sections.welcome.text': 'l',
-        'consent_sections.withdrawing.more': 'm',
-        'consent_sections.withdrawing.text': 'n',
-    }
-    
-    BOOLEAN_FIELD_NAMES = [
-        field.name
-        for field in DeviceSettings._meta.fields
-        if isinstance(field, (models.BooleanField, NullBooleanField))
-    ]
-    
-    def invert_boolean_checkbox_fields(self, some_dict):
-        for field in self.BOOLEAN_FIELD_NAMES:
-            if field in some_dict and bool(some_dict[field]):
-                some_dict.pop(field)
-            else:
-                some_dict[field] = "true"
-    
-    def test_get(self):
-        for role in ALL_TESTING_ROLES:
-            self.assign_role(self.session_researcher, role)
-            resp = self.smart_get(self.session_study.id)
-            self.assertEqual(resp.status_code, 200 if role is not None else 403)
-    
-    def test_study_admin(self):
-        self.set_session_study_relation(ResearcherRole.study_admin)
-        self.do_test_update()
-    
-    def test_site_admin(self):
-        self.set_session_study_relation(ResearcherRole.site_admin)
-        self.do_test_update()
-    
-    def do_test_update(self):
-        """ This test mimics the frontend input (checkboxes are a little strange and require setup).
-        The test mutates all fields in the input that is sent to the backend, and confirms that every
-        field pushed changed. """
-        
-        # extract data from database (it is all default values, unpacking jsonstrings)
-        # created_on and last_updated are already absent
-        post_params = self.session_device_settings.export()
-        old_device_settings = copy(post_params)
-        post_params.pop("id")
-        post_params.pop("consent_sections")  # this is not present in the form
-        post_params.update(**self.CONSENT_SECTIONS)
-        
-        # mutate everything
-        post_params = {
-            k: self.mutate_variable(v, ignore_bools=True) for k, v in post_params.items()
-        }
-        self.invert_boolean_checkbox_fields(post_params)
-        
-        # Hit endpoint
-        self.smart_post_status_code(302, self.session_study.id, **post_params)
-        
-        # Test database update, get new data, extract consent sections.
-        self.assertEqual(DeviceSettings.objects.count(), 1)
-        new_device_settings = DeviceSettings.objects.first().export()
-        new_device_settings.pop("id")
-        old_consent_sections = old_device_settings.pop("consent_sections")
-        new_consent_sections = new_device_settings.pop("consent_sections")
-        
-        for k, v in new_device_settings.items():
-            # boolean values are set to true or false based on presence in the post request,
-            # that's how checkboxes work.
-            if k in self.BOOLEAN_FIELD_NAMES:
-                if k not in post_params:
-                    self.assertFalse(v)
-                    self.assertTrue(old_device_settings[k])
-                else:
-                    self.assertTrue(v)
-                    self.assertFalse(old_device_settings[k])
-                continue
-            
-            # print(f"key: '{k}', DB: {type(v)}'{v}', post param: {type(post_params[k])} '{post_params[k]}'")
-            self.assertEqual(v, post_params[k])
-            self.assertNotEqual(v, old_device_settings[k])
-        
-        # FIXME: why does this fail?
-        # Consent sections need to be unpacked, ensure they have the keys
-        # self.assertEqual(set(old_consent_sections.keys()), set(new_consent_sections.keys()))
-        
-        for outer_key, a_dict_of_two_values in new_consent_sections.items():
-            # this data structure is of the form:  {'more': 'aaaa', 'text': 'baaa'}
-            self.assertEqual(len(a_dict_of_two_values), 2)
-            
-            # compare the inner values of every key, make sure they differ
-            for inner_key, v2 in a_dict_of_two_values.items():
-                self.assertNotEqual(old_consent_sections[outer_key][inner_key], v2)
 
 
 class TestManageFirebaseCredentials(ResearcherSessionTest):
@@ -538,8 +393,3 @@ class TestElevateResearcher(ResearcherSessionTest):
         r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.site_admin)
         self.smart_post_status_code(403, researcher_id=r2.id, study_id=self.session_study.id)
         self.assertFalse(r2.study_relations.filter(study=self.session_study).exists())
-
-
-# toggle_end_study
-
-        

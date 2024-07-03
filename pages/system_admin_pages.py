@@ -1,102 +1,29 @@
-import json
-import plistlib
-from collections import defaultdict
-from typing import Any, Dict, List
-
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db.models import F, Func, QuerySet
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from markupsafe import Markup
 
 from authentication.admin_authentication import (abort, assert_admin, assert_researcher_under_admin,
-    authenticate_admin, authenticate_researcher_study_access)
+    authenticate_admin)
 from constants.celery_constants import (ANDROID_FIREBASE_CREDENTIALS, BACKEND_FIREBASE_CREDENTIALS,
     IOS_FIREBASE_CREDENTIALS)
-from constants.html_constants import CHECKBOX_TOGGLES, TIMER_VALUES
 from constants.message_strings import (ALERT_ANDROID_DELETED_TEXT, ALERT_ANDROID_SUCCESS_TEXT,
     ALERT_ANDROID_VALIDATION_FAILED_TEXT, ALERT_DECODE_ERROR_TEXT, ALERT_EMPTY_TEXT,
     ALERT_FIREBASE_DELETED_TEXT, ALERT_IOS_DELETED_TEXT, ALERT_IOS_SUCCESS_TEXT,
     ALERT_IOS_VALIDATION_FAILED_TEXT, ALERT_MISC_ERROR_TEXT, ALERT_SPECIFIC_ERROR_TEXT,
     ALERT_SUCCESS_TEXT, MFA_RESET_BAD_PERMISSIONS, NEW_PASSWORD_N_LONG)
 from constants.user_constants import ResearcherRole
-from database.study_models import DeviceSettings, Study
-from database.survey_models import Survey
+from database.study_models import Study
 from database.system_models import FileAsText
 from database.user_models_researcher import Researcher, StudyRelation
-from libs.copy_study import copy_study_from_json, format_study, unpack_json_study
+from libs.endpoint_helpers.researcher_helpers import get_administerable_researchers
+from libs.endpoint_helpers.study_helpers import get_administerable_studies_by_name
+from libs.endpoint_helpers.system_admin_helpers import (mfa_clear_allowed,
+    validate_android_credentials, validate_ios_credentials)
 from libs.firebase_config import get_firebase_credential_errors, update_firebase_instance
-from libs.http_utils import checkbox_to_boolean, easy_url, string_to_int
+from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
-from pages.admin_pages import conditionally_display_study_status_warnings
-
-
-####################################################################################################
-###################################### Helpers #####################################################
-####################################################################################################
-
-
-def get_administerable_studies_by_name(request: ResearcherRequest) -> QuerySet[Study]:
-    """ Site admins see all studies, study admins see only studies they are admins on. """
-    if request.session_researcher.site_admin:
-        return Study.get_all_studies_by_name()
-    else:
-        return request.session_researcher.get_administered_studies_by_name()
-
-
-def get_administerable_researchers(request: ResearcherRequest) -> List[Researcher]:
-    """ Site admins see all researchers, study admins see researchers on their studies. """
-    if request.session_researcher.site_admin:
-        return Researcher.filter_alphabetical()
-    else:
-        return request.session_researcher.get_administered_researchers() \
-                .annotate(username_lower=Func(F('username'), function='LOWER')) \
-                .order_by('username_lower')
-
-
-def unflatten_consent_sections(consent_sections_dict: dict):
-    # consent_sections is a flat structure with structure like this:
-    # { 'label_ending_in.text': 'text content',  'label_ending_in.more': 'more content' }
-    # we need to transform it into a nested structure like this:
-    # { 'label': {'text':'text content',  'more':'more content' }
-    refactored_consent_sections = defaultdict(dict)
-    for key, content in consent_sections_dict.items():
-        _, label, content_type = key.split(".")
-        refactored_consent_sections[label][content_type] = content
-    return dict(refactored_consent_sections)
-
-
-def validate_android_credentials(credentials: str) -> bool:
-    """Ensure basic formatting and field validation for android firebase credential json file uploads
-    the credentials argument should contain a decoded string of such a file"""
-    try:
-        json_obj = json.dumps(credentials)
-        # keys are inconsistent in presence, but these should be present in all.  (one is structure,
-        # one is a critical data point.)
-        if "project_info" not in json_obj or "project_id" not in json_obj:
-            return False
-    except Exception:
-        return False
-    return True
-
-
-def validate_ios_credentials(credentials: str) -> bool:
-    """Ensure basic formatting and field validation for ios firebase credential plist file uploads
-    the credentials argument should contain a decoded string of such a file"""
-    try:
-        plist_obj = plistlib.loads(str.encode(credentials))
-        # ios has different key values than android, and they are somewhat opaque and inconsistently
-        # present when generated. Just test for API_KEY
-        if "API_KEY" not in plist_obj:
-            return False
-    except Exception:
-        return False
-    return True
-
-####################################################################################################
-######################################## Pages #####################################################
-####################################################################################################
 
 
 @require_GET
@@ -190,19 +117,6 @@ def reset_researcher_mfa(request: ResearcherRequest, researcher_id: int):
     return redirect(easy_url('system_admin_pages.edit_researcher', researcher_id))
 
 
-def mfa_clear_allowed(session_researcher: Researcher, edit_researcher: Researcher):
-    # we allow site admins to reset mfa for anyone, including other site admins. (for that to be a
-    # security risk the current site admin must already be compromised.)
-    if session_researcher.site_admin:
-        return True
-    # have to use a custom way of determining whether a researcher is on a study the admin can
-    # administrate, and we study allow admins to reset study admins.
-    # only allow the action if there are any studies that overlap between these two sets
-    administerable_studies = set(session_researcher.get_admin_study_relations().values_list("study_id", flat=True))
-    researcher_studies = set(edit_researcher.study_relations.values_list("study_id", flat=True))
-    return bool(administerable_studies.intersection(researcher_studies))
-
-
 @require_POST
 @authenticate_admin
 def elevate_researcher(request: ResearcherRequest):
@@ -268,154 +182,6 @@ def create_new_researcher(request: ResearcherRequest):
     else:
         researcher = Researcher.create_with_password(username, password)
     return redirect(f'/edit_researcher/{researcher.pk}')
-
-
-"""########################### Study Pages ##################################"""
-
-def do_duplicate_step(request: ResearcherRequest, new_study: Study):
-    """ Everything you need to copy a study. """
-    # surveys are always provided, there is a checkbox about whether to import them
-    copy_device_settings = request.POST.get('device_settings', None) == 'true'
-    copy_surveys = request.POST.get('surveys', None) == 'true'
-    old_study = Study.objects.get(pk=request.POST.get('existing_study_id', None))
-    device_settings, surveys, interventions = unpack_json_study(format_study(old_study))
-    
-    copy_study_from_json(
-        new_study,
-        device_settings if copy_device_settings else {},
-        surveys if copy_surveys else [],
-        interventions,
-    )
-    tracking_surveys_added = new_study.surveys.filter(survey_type=Survey.TRACKING_SURVEY).count()
-    audio_surveys_added = new_study.surveys.filter(survey_type=Survey.AUDIO_SURVEY).count()
-    messages.success(
-        request,
-        f"Copied {tracking_surveys_added} Surveys and {audio_surveys_added} "
-        f"Audio Surveys from {old_study.name} to {new_study.name}.",
-    )
-    if copy_device_settings:
-        messages.success(
-            request, f"Overwrote {new_study.name}'s App Settings with custom values."
-        )
-    else:
-        messages.success(request, f"Did not alter {new_study.name}'s App Settings.")
-
-
-# FIXME: this should take a post parameter, not a url endpoint.
-@require_POST
-@authenticate_admin
-def toggle_study_forest_enabled(request: ResearcherRequest, study_id=None):
-    # Only a SITE admin can toggle forest on a study
-    if not request.session_researcher.site_admin:
-        return abort(403)
-    study = Study.objects.get(pk=study_id)
-    study.forest_enabled = not study.forest_enabled
-    study.save()
-    if study.forest_enabled:
-        messages.success(request, f"Enabled Forest on '{study.name}'")
-    else:
-        messages.success(request, f"Disabled Forest on '{study.name}'")
-    return redirect(f'/edit_study/{study_id}')
-
-
-@require_http_methods(['GET', 'POST'])
-@authenticate_researcher_study_access
-def device_settings(request: ResearcherRequest, study_id=None):
-    # TODO: probably rewrite this entire endpoint with django forms....
-    study = Study.objects.get(pk=study_id)
-    researcher = request.session_researcher
-    readonly = not researcher.check_study_admin(study_id) and not researcher.site_admin
-    
-    # FIXME: get rid of dual endpoint pattern, it is a bad idea.
-    if request.method == 'GET':
-        conditionally_display_study_status_warnings(request, study)
-        return render(
-            request,
-            "study_device_settings.html",
-            context=dict(
-                study=study.as_unpacked_native_python(Study.STUDY_EXPORT_FIELDS),
-                settings=study.device_settings.export(),
-                readonly=readonly,
-            )
-        )
-    if readonly:
-        abort(403)
-    
-    # the ios consent sections are a json field but the frontend returns something weird,
-    # see the documentation in unflatten_consent_sections for details
-    consent_sections = unflatten_consent_sections(
-        {k: v for k, v in request.POST.items() if k.startswith("consent_section")}
-    )
-    params = {
-        k: v for k, v in request.POST.items()
-        if not k.startswith("consent_section") and hasattr(study.device_settings, k)
-    }
-    
-    # numerous data fixes
-    checkbox_to_boolean(CHECKBOX_TOGGLES, params)
-    string_to_int(TIMER_VALUES, params)
-    trim_whitespace(request, params)  # there's a frontend bug where whitespace can get inserted.
-    trim_whitespace(request, consent_sections)
-    
-    # logic to display changes to the user
-    notify_changes(request, params, study.device_settings.as_dict(), "Settings for ")
-    try:
-        # can't be 100% sure that this data is safe to deserialize
-        current_consents = json.loads(study.device_settings.consent_sections)
-        notify_changes(request, consent_sections, current_consents, "iOS Consent Section ")
-    except json.JSONDecodeError:
-        pass
-    
-    # final params setup, attempt db update, redirect to edit study page
-    params["consent_sections"] = json.dumps(consent_sections)
-    try_update_device_settings(request, params, study)
-    return redirect(f'/edit_study/{study.id}')
-
-
-def try_update_device_settings(request: ResearcherRequest, params: Dict[str, Any], study: Study):
-    # attempts to update, backs off if there were any failures, notifies users of bad fields.
-    # (finally a situation where django forms would be better, sorta, I don't think it allows
-    # partial updates without mucking around.)
-    try:
-        study.device_settings.update(**params)
-    except ValidationError as validation_errors:
-        old_device_settings = DeviceSettings.objects.get(study=study)
-        
-        # ValidationError.message_dict is the least obtuse way to do this
-        for field, field_messages in validation_errors.message_dict.items():
-            # remove new value from device settings (ugly, whatever)
-            setattr(study.device_settings, field, getattr(old_device_settings, field))
-            for msg in field_messages:
-                messages.error(request, f"{field.replace('_', ' ').title()} wos NOT updated, '{msg}'")
-        
-        # save without the bad fields
-        study.device_settings.save()
-
-
-def trim_whitespace(request: ResearcherRequest, params: Dict[str, Any], notify: bool = False):
-    """ trims whitespace from all dictionary values """
-    for k, v in params.items():
-        if isinstance(v, str):
-            v_trimmed = v.strip()
-            if v_trimmed != v:
-                params[k] = v_trimmed
-                if notify:
-                    messages.info(request, message=f"whitespace was trimmed on {k.replace('_', ' ')}")
-
-
-def notify_changes(
-    request: ResearcherRequest, params: Dict[str, Any], comparee: Dict[str, Any], message_prefix: str = ""
-):
-    """ Determines differences between 2 dictionaries and notifies the user based on key name values. """
-    # convert to string to compare value representations (assumes type conversion is already handled)
-    updated = [k.replace("_", " ").title() for k, v in params.items() if str(comparee[k]) != str(v)]
-    updated.sort()
-    if len(updated) == 1:
-        messages.info(request, message_prefix + f"{updated[0]} was updated.")
-    elif len(updated) > 1:
-        start, end = f"{', '.join(updated)} were all updated.".rsplit(",", 1)
-        end = ", and" + end
-        messages.info(request, message_prefix + start + end)
 
 
 ########################## FIREBASE CREDENTIALS ENDPOINTS ##################################

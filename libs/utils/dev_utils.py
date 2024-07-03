@@ -296,7 +296,7 @@ def p(timer_label=0, outer_caller=False, quiet=False):
         amount of time since the function was last called.
         If you provide a label (anything with a string representation) that will be printed
         along with the time information.
-
+    
     Examples:
          No parameters (source line numbers present for clarity):
             [app.py:65] p()
@@ -305,10 +305,10 @@ def p(timer_label=0, outer_caller=False, quiet=False):
          This example's output:
             app.py:65 -- 0 -- profiling start...
             app.py:67 -- 0 -- 0.405514
-
+        
          The second statement shows that it took just over the 0.403 time of the sleep statement
          to process between the two p calls.
-
+        
          With parameters (source line numbers present for clarity):
              [app.py:65] p()
              [app.py:66] sleep(0.403)

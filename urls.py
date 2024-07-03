@@ -12,9 +12,9 @@ from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
-from endpoints import manage_researcher_endpoints, study_endpoints
+from endpoints import manage_researcher_endpoints, study_endpoints, system_admin_endpoints
 from pages import (admin_pages, data_access_web_form, forest_pages, login_pages, mobile_pages,
-    participant_pages, survey_designer, system_admin_pages)
+    participant_pages, survey_designer)
 
 
 def path(
@@ -116,13 +116,13 @@ path("update_end_date/<int:study_id>", study_endpoints.update_end_date)
 path("toggle_end_study/<int:study_id>", study_endpoints.toggle_end_study)
 
 # firebase credentials
-path("manage_firebase_credentials", system_admin_pages.manage_firebase_credentials, login_redirect=SAFE)
-path("upload_backend_firebase_cert", system_admin_pages.upload_backend_firebase_cert)
-path("upload_android_firebase_cert", system_admin_pages.upload_android_firebase_cert)
-path("upload_ios_firebase_cert", system_admin_pages.upload_ios_firebase_cert)
-path("delete_backend_firebase_cert", system_admin_pages.delete_backend_firebase_cert)
-path("delete_android_firebase_cert", system_admin_pages.delete_android_firebase_cert)
-path("delete_ios_firebase_cert", system_admin_pages.delete_ios_firebase_cert)
+path("manage_firebase_credentials", system_admin_endpoints.manage_firebase_credentials, login_redirect=SAFE)
+path("upload_backend_firebase_cert", system_admin_endpoints.upload_backend_firebase_cert)
+path("upload_android_firebase_cert", system_admin_endpoints.upload_android_firebase_cert)
+path("upload_ios_firebase_cert", system_admin_endpoints.upload_ios_firebase_cert)
+path("delete_backend_firebase_cert", system_admin_endpoints.delete_backend_firebase_cert)
+path("delete_android_firebase_cert", system_admin_endpoints.delete_android_firebase_cert)
+path("delete_ios_firebase_cert", system_admin_endpoints.delete_ios_firebase_cert)
 
 # data access web form
 path("data_access_web_form", data_access_web_form.data_api_web_form_page, login_redirect=SAFE)

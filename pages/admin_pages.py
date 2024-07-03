@@ -29,17 +29,17 @@ from middleware.abort_middleware import abort
 
 @require_POST
 @authenticate_researcher_login
-def reset_mfa_self(request: ResearcherRequest):
+def self_reset_mfa(request: ResearcherRequest):
     """ Endpoint either enables and creates a new, or clears the MFA toke for the researcher. 
     Sets a MFA_CREATED value in the session to force the QR code to be visible for one minute. """
     # requires a password to change the mfa setting, basic error checking.
     password = request.POST.get("mfa_password", None)
     if not password:
         messages.error(request, MFA_SELF_NO_PASSWORD)
-        return redirect(easy_url("admin_pages.manage_credentials"))
+        return redirect(easy_url("admin_pages.self_manage_credentials"))
     if not request.session_researcher.validate_password(password):
         messages.error(request, MFA_SELF_BAD_PASSWORD)
-        return redirect(easy_url("admin_pages.manage_credentials"))
+        return redirect(easy_url("admin_pages.self_manage_credentials"))
     
     # presence of a "disable" key in the post data to distinguish between setting and clearing.
     # manage adding to or removing MFA_CREATED from the session data.
@@ -52,16 +52,16 @@ def reset_mfa_self(request: ResearcherRequest):
         messages.warning(request, MFA_SELF_SUCCESS)
         request.session[MFA_CREATED] = timezone.now()
         request.session_researcher.reset_mfa()
-    return redirect(easy_url("admin_pages.manage_credentials"))
+    return redirect(easy_url("admin_pages.self_manage_credentials"))
 
 
 @require_POST
 @authenticate_researcher_login
-def test_mfa(request: ResearcherRequest):
+def self_test_mfa(request: ResearcherRequest):
     """ endpoint to test your mfa code without accidentally locking yourself out. """
     if not request.session_researcher.mfa_token:
         messages.error(request, MFA_TEST_DISABLED)
-        return redirect(easy_url("admin_pages.manage_credentials"))
+        return redirect(easy_url("admin_pages.self_manage_credentials"))
     
     mfa_code = request.POST.get("mfa_code", None)
     if mfa_code and len(mfa_code) != 6:
@@ -77,11 +77,11 @@ def test_mfa(request: ResearcherRequest):
     else:
         messages.error(request, MFA_TEST_FAIL)
     
-    return redirect(easy_url("admin_pages.manage_credentials"))
+    return redirect(easy_url("admin_pages.self_manage_credentials"))
 
 
 @authenticate_researcher_login
-def manage_credentials(request: ResearcherRequest):
+def self_manage_credentials(request: ResearcherRequest):
     """ The manage credentials page has two modes of access, one with a password and one without.
     When loaded with the password the MFA code's image is visible. There is also a special
     MFA_CREATED value in the session that forces the QR code to be visible without a password for
@@ -122,7 +122,7 @@ def manage_credentials(request: ResearcherRequest):
         context=dict(
             is_admin=request.session_researcher.is_an_admin(),
             api_keys=api_keys,
-            new_api_access_key=request.session.pop("new_api_key_id", None),
+            new_api_access_key=request.session.pop("generate_api_key_id", None),
             new_api_secret_key=request.session.pop("new_api_secret_key", None),
             min_password_length=get_min_password_requirement(request.session_researcher),
             mfa_png=mfa_png,
@@ -135,7 +135,7 @@ def manage_credentials(request: ResearcherRequest):
 
 @require_POST
 @authenticate_researcher_login
-def researcher_change_my_password(request: ResearcherRequest):
+def self_change_password(request: ResearcherRequest):
     try:
         current_password = request.POST['current_password']
         new_password = request.POST['new_password']
@@ -145,16 +145,16 @@ def researcher_change_my_password(request: ResearcherRequest):
     
     if not Researcher.check_password(request.session_researcher.username, current_password):
         messages.warning(request, WRONG_CURRENT_PASSWORD)
-        return redirect('admin_pages.manage_credentials')
+        return redirect('admin_pages.self_manage_credentials')
     
     success, msg = check_password_requirements(request.session_researcher, new_password)
     if msg:
         messages.warning(request, msg)
     if not success:
-        return redirect("admin_pages.manage_credentials")
+        return redirect("admin_pages.self_manage_credentials")
     if new_password != confirm_new_password:
         messages.warning(request, NEW_PASSWORD_MISMATCH)
-        return redirect('admin_pages.manage_credentials')
+        return redirect('admin_pages.self_manage_credentials')
     
     # this is effectively sanitized by the hash operation
     request.session_researcher.set_password(new_password)
@@ -164,24 +164,24 @@ def researcher_change_my_password(request: ResearcherRequest):
     # feature over in handle_session_expiry in admin_authentication that will block the session
     # period from being extended again if the timeout is within 10 seconds of expiring.)
     request.session[EXPIRY_NAME] = timezone.now() + timedelta(seconds=5)
-    return redirect('admin_pages.manage_credentials')
+    return redirect('admin_pages.self_manage_credentials')
 
 
 @require_POST
 @authenticate_researcher_login
-def new_api_key(request: ResearcherRequest):
+def generate_api_key(request: ResearcherRequest):
     form = NewApiKeyForm(request.POST)
     if not form.is_valid():
-        return redirect("admin_pages.manage_credentials")
+        return redirect("admin_pages.self_manage_credentials")
     
     api_key = ApiKey.generate(
         researcher=request.session_researcher,
         readable_name=form.cleaned_data['readable_name'],
     )
-    request.session["new_api_key_id"] = api_key.access_key_id
+    request.session["generate_api_key_id"] = api_key.access_key_id
     request.session["new_api_secret_key"] = api_key.access_key_secret_plaintext
     messages.warning(request, Markup(NEW_API_KEY_MESSAGE))
-    return redirect("admin_pages.manage_credentials")
+    return redirect("admin_pages.self_manage_credentials")
 
 
 @require_POST
@@ -189,24 +189,24 @@ def new_api_key(request: ResearcherRequest):
 def disable_api_key(request: ResearcherRequest):
     form = DisableApiKeyForm(request.POST)
     if not form.is_valid():
-        return redirect("admin_pages.manage_credentials")
+        return redirect("admin_pages.self_manage_credentials")
     api_key_id = request.POST["api_key_id"]
     api_key_query = ApiKey.objects.filter(access_key_id=api_key_id) \
         .filter(researcher=request.session_researcher)
     
     if not api_key_query.exists():
         messages.warning(request, Markup(NO_MATCHING_API_KEY))
-        return redirect("admin_pages.manage_credentials")
+        return redirect("admin_pages.self_manage_credentials")
     
     api_key = api_key_query[0]
     if not api_key.is_active:
         messages.warning(request, API_KEY_IS_DISABLED + f" {api_key_id}")
-        return redirect("admin_pages.manage_credentials")
+        return redirect("admin_pages.self_manage_credentials")
     
     api_key.is_active = False
     api_key.save()
     messages.success(request, API_KEY_NOW_DISABLED.format(key=api_key.access_key_id))
-    return redirect("admin_pages.manage_credentials")
+    return redirect("admin_pages.self_manage_credentials")
 
 
 def conditionally_display_study_status_warnings(request: ResearcherRequest, study: Study):

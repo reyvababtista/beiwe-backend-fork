@@ -23,7 +23,7 @@ from tests.common import BasicSessionTestCase
 # trunk-ignore-all(ruff/B018,bandit/B101)
 
 #
-## login_pages
+## login_endpoints
 #
 
 
@@ -36,7 +36,7 @@ class TestLoginPages(BasicSessionTestCase):
     
     def test_load_login_page_while_not_logged_in(self):
         # make sure the login page loads without logging you in when it should not
-        response = self.client.get(reverse("login_pages.login_page"))
+        response = self.client.get(reverse("login_endpoints.login_page"))
         self.assertEqual(response.status_code, 200)
         # this should uniquely identify the login page
         self.assertIn(b'<form method="POST" action="/validate_login">', response.content)
@@ -45,7 +45,7 @@ class TestLoginPages(BasicSessionTestCase):
         # make sure the login page loads without logging you in when it should not
         self.session_researcher  # create the default researcher
         self.do_default_login()
-        response = self.client.get(reverse("login_pages.login_page"))
+        response = self.client.get(reverse("login_endpoints.login_page"))
         self.assertEqual(response.status_code, 302)
         self.assert_response_url_equal(response.url, reverse("study_endpoints.choose_study_page"))
         # this should uniquely identify the login page
@@ -64,7 +64,7 @@ class TestLoginPages(BasicSessionTestCase):
     def test_logging_in_fail(self):
         r = self.do_default_login()
         self.assertEqual(r.status_code, 302)
-        self.assert_response_url_equal(r.url, reverse("login_pages.login_page"))
+        self.assert_response_url_equal(r.url, reverse("login_endpoints.login_page"))
     
     def test_logging_out(self):
         # create the default researcher, login, logout, attempt going to main page,
@@ -73,7 +73,7 @@ class TestLoginPages(BasicSessionTestCase):
         self.client.get(reverse("admin_pages.logout_admin"))
         r = self.client.get(reverse("study_endpoints.choose_study_page"))
         self.assertEqual(r.status_code, 302)
-        self.assert_response_url_equal(r.url, reverse("login_pages.login_page"))
+        self.assert_response_url_equal(r.url, reverse("login_endpoints.login_page"))
     
     # tests for different combinations of conditions to redirect someone to the password reset page
     # when a condition has been matched
@@ -242,7 +242,7 @@ class TestLoginPages(BasicSessionTestCase):
         resp = self.client.get(reverse("admin_pages.logout_admin"))
         self.assertIsInstance(resp, HttpResponseRedirect)
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp.url, reverse("login_pages.login_page"))  # that's the / endpoint
+        self.assertEqual(resp.url, reverse("login_endpoints.login_page"))  # that's the / endpoint
     
     def test_password_redirect_ignored_endpoint_reset_password(self):
         # test that the password redirect is ignored for the set password endpoint
@@ -286,7 +286,7 @@ class TestLoginPages(BasicSessionTestCase):
                 else:
                     resp = self.client.get(reverse("study_endpoints.choose_study_page"))
                     self.assertEqual(resp.status_code, 302, msg=f"hour={hour}")
-                    self.assertEqual(resp.url, reverse("login_pages.login_page"))
+                    self.assertEqual(resp.url, reverse("login_endpoints.login_page"))
                     check_2_happened = True
         # make sure we actually tested both cases
         self.assertTrue(check_1_happened)
@@ -321,7 +321,7 @@ class TestLoginPages(BasicSessionTestCase):
             # hit a page, confirm check expiry deleted
             resp: HttpResponseRedirect = self.easy_get("study_endpoints.choose_study_page")
             self.assertEqual(resp.status_code, 302)
-            self.assertEqual(resp.url, easy_url("login_pages.login_page"))
+            self.assertEqual(resp.url, easy_url("login_endpoints.login_page"))
             try:
                 self.client.session[EXPIRY_NAME]
                 self.fail("session expiry should have been deleted")
@@ -391,7 +391,7 @@ class TestLoginPages(BasicSessionTestCase):
         resp = self.simple_get(resp.url, status_code=302)  # page redirects to login
         self.session_researcher.refresh_from_db()
         self.assertEqual(self.session_researcher.web_sessions.count(), 0)
-        self.assertEqual(resp.url, reverse("login_pages.login_page"))
+        self.assertEqual(resp.url, reverse("login_endpoints.login_page"))
     
     def test_mfa_login(self):
         self.session_researcher.reset_mfa()  # enable mfa
@@ -473,11 +473,11 @@ class TestDowntime(BasicSessionTestCase):
         try:
             logging.getLogger("django.request").setLevel(logging.CRITICAL)
             GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
-            self.easy_get("login_pages.login_page", status_code=200)
+            self.easy_get("login_endpoints.login_page", status_code=200)
             GlobalSettings.get_singleton_instance().update(downtime_enabled=True)
-            self.easy_get("login_pages.login_page", status_code=503)
+            self.easy_get("login_endpoints.login_page", status_code=503)
             GlobalSettings.get_singleton_instance().update(downtime_enabled=False)
-            self.easy_get("login_pages.login_page", status_code=200)
+            self.easy_get("login_endpoints.login_page", status_code=200)
         except Exception:
             raise
         finally:

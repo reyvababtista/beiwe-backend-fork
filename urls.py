@@ -91,19 +91,19 @@ path(
 )
 
 # system admin pages
-path("manage_researchers", system_admin_pages.manage_researchers, login_redirect=SAFE)
+path("manage_researchers", system_admin_pages.manage_researchers_page, login_redirect=SAFE)
 path(
     "edit_researcher/<int:researcher_pk>",
-    system_admin_pages.edit_researcher_page,
-    name="system_admin_pages.edit_researcher",
+    system_admin_pages.administrator_edit_researcher_page,
+    name="system_admin_pages.administrator_edit_researcher_page",
     login_redirect=SAFE,
 )
-path("elevate_researcher", system_admin_pages.elevate_researcher)
-path("demote_researcher", system_admin_pages.demote_study_admin)
+path("elevate_researcher", system_admin_pages.elevate_researcher_to_study_admin)
+path("demote_researcher", system_admin_pages.demote_study_admin_to_researcher)
 path("create_new_researcher", system_admin_pages.create_new_researcher)
 path("manage_studies", study_endpoints.manage_studies, login_redirect=SAFE)
 path("edit_study/<int:study_id>", study_endpoints.edit_study, login_redirect=SAFE)
-path("reset_researcher_mfa/<int:researcher_id>", system_admin_pages.reset_researcher_mfa)
+path("reset_researcher_mfa/<int:researcher_id>", system_admin_pages.administrator_reset_researcher_mfa)
 
 # study management
 path("create_study", study_endpoints.create_study)

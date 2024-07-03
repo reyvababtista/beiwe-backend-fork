@@ -28,7 +28,7 @@ from libs.internal_types import ResearcherRequest
 
 @require_GET
 @authenticate_admin
-def manage_researchers(request: ResearcherRequest):
+def manage_researchers_page(request: ResearcherRequest):
     # get the study names that each user has access to, but only those that the current admin  also
     # has access to.
     if request.session_researcher.site_admin:
@@ -50,7 +50,7 @@ def manage_researchers(request: ResearcherRequest):
 
 @require_http_methods(['GET', 'POST'])
 @authenticate_admin
-def edit_researcher_page(request: ResearcherRequest, researcher_pk: int):
+def administrator_edit_researcher_page(request: ResearcherRequest, researcher_pk: int):
     """ The page and various permissions logic for the edit researcher page. """
     session_researcher = request.session_researcher
     edit_researcher = Researcher.objects.get(pk=researcher_pk)
@@ -96,7 +96,7 @@ def edit_researcher_page(request: ResearcherRequest, researcher_pk: int):
             all_studies=get_administerable_studies_by_name(request),
             editable_password=editable_password,
             editable_mfa=mfa_clear_allowed(session_researcher, edit_researcher),
-            redirect_url=easy_url('system_admin_pages.edit_researcher', researcher_pk),
+            redirect_url=easy_url('system_admin_pages.administrator_edit_researcher_page', researcher_pk),
             is_self=edit_researcher.id == session_researcher.id,
         )
     )
@@ -104,7 +104,7 @@ def edit_researcher_page(request: ResearcherRequest, researcher_pk: int):
 
 @require_POST
 @authenticate_admin
-def reset_researcher_mfa(request: ResearcherRequest, researcher_id: int):
+def administrator_reset_researcher_mfa(request: ResearcherRequest, researcher_id: int):
     # TODO: actually build and test this
     researcher = get_object_or_404(Researcher, pk=researcher_id)
     
@@ -114,12 +114,12 @@ def reset_researcher_mfa(request: ResearcherRequest, researcher_id: int):
     else:
         messages.warning(request, MFA_RESET_BAD_PERMISSIONS)
         return abort(403)
-    return redirect(easy_url('system_admin_pages.edit_researcher', researcher_id))
+    return redirect(easy_url('system_admin_pages.administrator_edit_researcher_page', researcher_id))
 
 
 @require_POST
 @authenticate_admin
-def elevate_researcher(request: ResearcherRequest):
+def elevate_researcher_to_study_admin(request: ResearcherRequest):
     researcher_pk = request.POST.get("researcher_id", None)
     # some extra validation on the researcher id
     try:
@@ -144,7 +144,7 @@ def elevate_researcher(request: ResearcherRequest):
 
 @require_POST
 @authenticate_admin
-def demote_study_admin(request: ResearcherRequest):
+def demote_study_admin_to_researcher(request: ResearcherRequest):
     # FIXME: this endpoint does not test for site admin cases correctly, the test passes but is
     # wrong. Behavior is fine because it has no relevant side effects except for the know bug where
     # site admins need to be manually added to a study before being able to download data.

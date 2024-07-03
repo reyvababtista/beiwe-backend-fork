@@ -17,7 +17,7 @@ from tests.common import ResearcherSessionTest, TableauAPITest
 
 
 class TestManageCredentials(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.manage_credentials"
+    ENDPOINT_NAME = "admin_pages.self_manage_credentials"
     
     def test_manage_credentials(self):
         self.session_study
@@ -55,10 +55,10 @@ class TestManageCredentials(ResearcherSessionTest):
 
 class TestResetAdminPassword(ResearcherSessionTest):
     # test for every case and messages present on the page
-    ENDPOINT_NAME = "admin_pages.researcher_change_my_password"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    ENDPOINT_NAME = "admin_pages.self_change_password"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials"
     
-    def test_researcher_change_my_password_success(self):
+    def test_self_change_password_success(self):
         resp = self.smart_post_status_code(
             302,
             current_password=self.DEFAULT_RESEARCHER_PASSWORD,
@@ -94,7 +94,7 @@ class TestResetAdminPassword(ResearcherSessionTest):
             except KeyError as e:
                 self.assertEqual(e.args[0], EXPIRY_NAME)
     
-    def test_researcher_change_my_password_wrong(self):
+    def test_self_change_password_wrong(self):
         self.smart_post(
             current_password=self.DEFAULT_RESEARCHER_PASSWORD + "1",
             new_password=self.DEFAULT_RESEARCHER_PASSWORD + "1",
@@ -105,7 +105,7 @@ class TestResetAdminPassword(ResearcherSessionTest):
         self.assertFalse(r.check_password(r.username, self.DEFAULT_RESEARCHER_PASSWORD + "1"))
         self.assert_present(WRONG_CURRENT_PASSWORD, self.redirect_get_contents())
     
-    def test_researcher_change_my_password_rules_fail(self):
+    def test_self_change_password_rules_fail(self):
         non_default = "abcdefghijklmnop"
         self.smart_post(
             current_password=self.DEFAULT_RESEARCHER_PASSWORD,
@@ -117,7 +117,7 @@ class TestResetAdminPassword(ResearcherSessionTest):
         self.assertFalse(r.check_password(r.username, non_default))
         self.assert_present(NEW_PASSWORD_RULES_FAIL, self.redirect_get_contents())
     
-    def test_researcher_change_my_password_too_short(self):
+    def test_self_change_password_too_short(self):
         non_default = "a1#"
         self.smart_post(
             current_password=self.DEFAULT_RESEARCHER_PASSWORD,
@@ -129,7 +129,7 @@ class TestResetAdminPassword(ResearcherSessionTest):
         self.assertFalse(r.check_password(r.username, non_default))
         self.assert_present(NEW_PASSWORD_N_LONG.format(length=8), self.redirect_get_contents())
     
-    def test_researcher_change_my_password_too_short_study_setting(self):
+    def test_self_change_password_too_short_study_setting(self):
         self.session_study.update(password_minimum_length=20)
         self.set_session_study_relation(ResearcherRole.researcher)
         non_default = "aA1#aA1#aA1#aA1#"  # 10 chars
@@ -143,7 +143,7 @@ class TestResetAdminPassword(ResearcherSessionTest):
         self.assertFalse(r.check_password(r.username, non_default))
         self.assert_present(NEW_PASSWORD_N_LONG.format(length=20), self.redirect_get_contents())
     
-    def test_researcher_change_my_password_too_short_site_admin(self):
+    def test_self_change_password_too_short_site_admin(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
         non_default = "aA1#aA1#aA1#aA1#"  # 10 chars
         self.smart_post(
@@ -156,7 +156,7 @@ class TestResetAdminPassword(ResearcherSessionTest):
         self.assertFalse(r.check_password(r.username, non_default))
         self.assert_present(NEW_PASSWORD_N_LONG.format(length=20), self.redirect_get_contents())
     
-    def test_researcher_change_my_password_mismatch(self):
+    def test_self_change_password_mismatch(self):
         # has to pass the length and character checks
         self.smart_post(
             current_password=self.DEFAULT_RESEARCHER_PASSWORD,
@@ -173,8 +173,8 @@ class TestResetAdminPassword(ResearcherSessionTest):
 
 
 class TestResetMFASelf(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.reset_mfa_self"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    ENDPOINT_NAME = "admin_pages.self_reset_mfa"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials"
     
     def test_no_password(self):
         session = self.client.session
@@ -242,8 +242,8 @@ class TestResetMFASelf(ResearcherSessionTest):
 
 
 class TestTestMFA(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.test_mfa"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    ENDPOINT_NAME = "admin_pages.self_test_mfa"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials"
     
     def test_mfa_working_fails(self):
         self.session_researcher.reset_mfa()  # enable mfa
@@ -251,28 +251,28 @@ class TestTestMFA(ResearcherSessionTest):
             self.session_researcher.reset_mfa()  # ensure mfa code is not 123456
         
         self.smart_post()  # magic redirect smart post
-        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
         self.assert_present(MFA_CODE_MISSING, page)  # missing mfa code
         
         self.smart_post(mfa_code="123456")  # wrong mfa code
-        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
         self.assert_present(MFA_TEST_FAIL, page)
         
         self.smart_post(mfa_code="1234567")  # too long mfa code
-        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
         self.assert_present(MFA_CODE_6_DIGITS, page)
         
         self.smart_post(mfa_code="abcdef")  # non-numeric mfa code
-        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
         self.assert_present(MFA_CODE_DIGITS_ONLY, page)
         
         self.smart_post(mfa_code=self.session_researcher._mfa_now)  # correct mfa code
-        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
         self.assert_present(MFA_TEST_SUCCESS, page)
         
         self.session_researcher.clear_mfa()  # disabled mfa
         self.smart_post(mfa_code="abcdef")
-        page = self.simple_get(easy_url("admin_pages.manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
         self.assert_present(MFA_TEST_DISABLED, page)
 
 
@@ -283,9 +283,9 @@ class TestTestMFA(ResearcherSessionTest):
 
 
 class TestNewAPIKeyTableau(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.new_api_key"
+    ENDPOINT_NAME = "admin_pages.generate_api_key"
     
-    def test_new_api_key(self):
+    def test_generate_api_key(self):
         """ Asserts that:
             -one new api key is added to the database
             -that api key is linked to the logged in researcher
@@ -314,8 +314,8 @@ class TestDisableAPIKeyTableau(TableauAPITest):
 
 
 class TestNewApiKey(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.new_api_key"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    ENDPOINT_NAME = "admin_pages.generate_api_key"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials"
     
     # FIXME: add tests for sanitization of the input name
     def test_reset(self):
@@ -334,7 +334,7 @@ class TestNewApiKey(ResearcherSessionTest):
 # admin_pages.disable_api_key
 class TestDisableTableauApiKey(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.disable_api_key"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.manage_credentials"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials"
     
     def test_disable_success(self):
         # basic test

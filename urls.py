@@ -68,12 +68,12 @@ path("choose_study", study_endpoints.choose_study_page)
 path("logout", login_endpoints.logout_page, login_redirect=IGNORE)
 
 # Researcher self administration
-path("manage_credentials", admin_pages.manage_credentials, login_redirect=IGNORE)
-path("researcher_change_my_password", admin_pages.researcher_change_my_password, login_redirect=IGNORE)
-path("new_api_key", admin_pages.new_api_key)
+path("manage_credentials", admin_pages.self_manage_credentials, login_redirect=IGNORE)
+path("self_change_password", admin_pages.self_change_password, login_redirect=IGNORE)
+path("generate_api_key", admin_pages.generate_api_key)
 path("disable_api_key", admin_pages.disable_api_key)
-path("reset_mfa_self", admin_pages.reset_mfa_self, login_redirect=IGNORE)
-path("test_mfa", admin_pages.test_mfa)
+path("self_reset_mfa", admin_pages.self_reset_mfa, login_redirect=IGNORE)
+path("test_mfa", admin_pages.self_test_mfa)
 
 # The point of the thing
 path("view_study/<int:study_id>", study_endpoints.view_study_page, login_redirect=SAFE)

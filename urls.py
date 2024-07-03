@@ -12,9 +12,10 @@ from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
-from endpoints import manage_researcher_endpoints, study_endpoints, system_admin_endpoints
-from pages import (admin_pages, data_access_web_form, forest_pages, login_pages, mobile_pages,
-    participant_pages, survey_designer)
+from endpoints import (login_endpoints, manage_researcher_endpoints, study_endpoints,
+    system_admin_endpoints)
+from pages import (admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages,
+    survey_designer)
 
 
 def path(
@@ -25,7 +26,7 @@ def path(
     We want to automatically append a "/" to all urlpatterns.
     
     If no name is provided we insert the module and function name as the name, e.g.
-    "module_name.function_name" like "login_pages.login_page"
+    "module_name.function_name" like "login_endpoints.login_page"
     
     login_redirect can be None, IGNORE, or SAFE.
     IGNORE means that the user will never be redirected AWAY from that page (except to the login page).
@@ -61,8 +62,8 @@ def path(
 # researcher user activity.
 
 # session and login
-path("", login_pages.login_page)  # apparently don't need login_redirect=IGNORE...
-path("validate_login", login_pages.validate_login)  # and same here.
+path("", login_endpoints.login_page)  # apparently don't need login_redirect=IGNORE...
+path("validate_login", login_endpoints.validate_login)  # and same here.
 path("choose_study", study_endpoints.choose_study_page)
 path("logout", admin_pages.logout_admin, login_redirect=IGNORE)
 

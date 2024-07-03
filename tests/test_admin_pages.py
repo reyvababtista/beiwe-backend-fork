@@ -75,8 +75,8 @@ class TestResetAdminPassword(ResearcherSessionTest):
         r.force_global_logout()
         self.assertEqual(self.session_researcher.web_sessions.count(), 0)
         resp = self.easy_get(self.REDIRECT_ENDPOINT_NAME, 302)
-        self.assertEqual(resp.url, easy_url("login_pages.login_page"))
-        resp = self.easy_get("login_pages.login_page", 200)
+        self.assertEqual(resp.url, easy_url("login_endpoints.login_page"))
+        resp = self.easy_get("login_endpoints.login_page", 200)
         self.assert_present(PASSWORD_RESET_SUCCESS, resp.content)
         
         # and in december 2023 added the auto logout.
@@ -87,7 +87,7 @@ class TestResetAdminPassword(ResearcherSessionTest):
             # hit a page, confirm check expiry deleted
             resp: HttpResponseRedirect = self.easy_get("study_endpoints.choose_study_page")
             self.assertEqual(resp.status_code, 302)
-            self.assertEqual(resp.url, easy_url("login_pages.login_page"))
+            self.assertEqual(resp.url, easy_url("login_endpoints.login_page"))
             try:
                 final_expiry = self.client.session[EXPIRY_NAME]
                 self.fail("session expiry should have been deleted")

@@ -49,7 +49,7 @@ def validate_login(request: HttpRequest):
     # successful password challenge with that state, but does not trigger such an error.
     if not (username and password and Researcher.check_password(username, password)):
         messages.warning(request, "Incorrect username & password combination; try again.")
-        return redirect(reverse("login_pages.login_page"))
+        return redirect(reverse("login_endpoints.login_page"))
     
     # login has succeeded, researcher is safe to get
     researcher = Researcher.objects.get(username=username)
@@ -66,12 +66,12 @@ def validate_login(request: HttpRequest):
         messages.warning(request, MFA_CODE_DIGITS_ONLY)
     if researcher.mfa_token and not mfa_code:
         messages.error(request, MFA_CODE_MISSING)
-        return redirect(reverse("login_pages.login_page"))
+        return redirect(reverse("login_endpoints.login_page"))
     
     # case: mfa is required, was provided, but was incorrect.
     if researcher.mfa_token and mfa_code and not verify_mfa(researcher.mfa_token, mfa_code):
         messages.error(request, MFA_CODE_WRONG)
-        return redirect(reverse("login_pages.login_page"))
+        return redirect(reverse("login_endpoints.login_page"))
     
     # case: mfa is required, was provided, and was correct.
     # The redirect happens even when credentials need to be updated, any further levels of

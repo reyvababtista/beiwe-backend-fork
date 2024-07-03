@@ -256,7 +256,7 @@ class BasicSessionTestCase(CommonTestCase):
         post_params = {} if post_params is None else post_params
         if mfa_code:
             post_params["mfa_code"] = mfa_code
-        url = path_join(self.smart_reverse("login_pages.validate_login"))
+        url = path_join(self.smart_reverse("login_endpoints.validate_login"))
         return self.client.post(url, data={"username": username, "password": password, **post_params})
     
     def do_researcher_logout(self):
@@ -265,8 +265,8 @@ class BasicSessionTestCase(CommonTestCase):
 
 class SmartRequestsTestCase(BasicSessionTestCase):
     """ An ENDPOINT_NAME is a string of the form "file_endpoint_is_in.view_name", for example
-    "login_pages.validate_login" or "participant_pages.participant_page". These tests must also be
-    in a test file that mimics the endpoint name, for example test_login_pages.py or
+    "login_endpoints.validate_login" or "participant_pages.participant_page". These tests must also be
+    in a test file that mimics the endpoint name, for example test_login_endpoints.py or
     test_participant_pages.py. These rules are enforced enforced by the test class as two #
     automatic tests that are tacked on to the end of every test class implemented below.
     

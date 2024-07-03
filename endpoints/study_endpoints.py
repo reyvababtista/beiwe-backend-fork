@@ -18,8 +18,8 @@ from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
 from forms.django_forms import StudyEndDateForm, StudySecuritySettingsForm
 from libs.endpoint_helpers.researcher_helpers import get_administerable_researchers
-from libs.endpoint_helpers.study_helpers import (get_administerable_studies_by_name, notify_changes, trim_whitespace, try_update_device_settings,
-    unflatten_consent_sections)
+from libs.endpoint_helpers.study_helpers import (get_administerable_studies_by_name, notify_changes,
+    trim_whitespace, try_update_device_settings, unflatten_consent_sections)
 from libs.firebase_config import check_firebase_instance
 from libs.http_utils import checkbox_to_boolean, easy_url, string_to_int
 from libs.internal_types import ResearcherRequest

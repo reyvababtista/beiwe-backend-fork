@@ -13,8 +13,9 @@ from constants.user_constants import ResearcherRole
 from database.data_access_models import FileToProcess
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
-from forms.django_forms import StudyEndDateForm
+from forms.django_forms import StudyEndDateForm, StudySecuritySettingsForm
 from libs.firebase_config import check_firebase_instance
+from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
 from libs.password_validation import get_min_password_requirement
 from libs.sentry import make_error_sentry, SentryTypes
@@ -258,3 +259,33 @@ def study_security_page(request: ResearcherRequest, study_id: int):
             min_password_length=get_min_password_requirement(request.session_researcher),
         )
     )
+
+
+@require_POST
+@authenticate_admin
+def change_study_security_settings(request: ResearcherRequest, study_id=None):
+    study = Study.objects.get(pk=study_id)
+    assert_admin(request, study_id)
+    nice_names = {
+        "password_minimum_length": "Minimum Password Length",
+        "password_max_age_enabled": "Enable Maximum Password Age",
+        "password_max_age_days": "Maximum Password Age (days)",
+        "mfa_required": "Require Multi-Factor Authentication",
+    }
+
+    form = StudySecuritySettingsForm(request.POST, instance=study)
+    if not form.is_valid():
+        # extract errors from the django form and display them using django messages
+        for field, errors in form.errors.items():
+            for error in errors:
+                # make field names nicer for the error message
+                messages.warning(request, f"{nice_names.get(field, field)}: {error}")
+        return redirect(easy_url("study_endpoints.study_security_page", study_id=study.pk))
+
+    # success: save and display changes, redirect to edit study
+    form.save()
+    for field_name in form.changed_data:
+        messages.success(
+            request, f"Updated {nice_names.get(field_name, field_name)} to {getattr(study, field_name)}"
+        )
+    return redirect(easy_url("study_endpoints.edit_study", study.pk))

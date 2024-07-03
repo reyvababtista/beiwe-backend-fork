@@ -108,7 +108,7 @@ path("reset_researcher_mfa/<int:researcher_id>", system_admin_pages.reset_resear
 # study management
 path("create_study", study_endpoints.create_study)
 path("toggle_study_forest_enabled/<int:study_id>", system_admin_pages.toggle_study_forest_enabled)
-path("hide_study/<int:study_id>", system_admin_pages.hide_study)
+path("hide_study/<int:study_id>", study_endpoints.hide_study)
 path("edit_study_security/<int:study_id>", system_admin_pages.study_security_page, login_redirect=SAFE)
 path("change_study_security_settings/<int:study_id>", system_admin_pages.change_study_security_settings)
 path("device_settings/<int:study_id>", system_admin_pages.device_settings, login_redirect=SAFE)

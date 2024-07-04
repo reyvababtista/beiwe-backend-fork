@@ -3,6 +3,7 @@ from os import path
 from typing import Dict, List, Union
 
 import orjson
+from django.contrib import messages
 
 from constants.copy_study_constants import (ABSOLUTE_SCHEDULE_KEY, DEVICE_SETTINGS_KEY,
     INTERVENTIONS_KEY, NEVER_EXPORT_THESE, RELATIVE_SCHEDULE_KEY, STUDY_KEY, SURVEY_CONTENT_KEY,
@@ -12,6 +13,7 @@ from database.schedule_models import (AbsoluteSchedule, Intervention, RelativeSc
     WeeklySchedule)
 from database.study_models import Study
 from database.survey_models import Survey
+from libs.internal_types import ResearcherRequest
 from libs.schedules import repopulate_all_survey_scheduled_events
 
 
@@ -172,3 +174,35 @@ def create_relative_schedules_by_name(timings: List[List[int]], survey: Survey) 
             hour=num_seconds // 3600,
             minute=num_seconds % 3600 // 60,
         )
+
+
+## Duplicate Study (at creation time) helper
+
+
+def do_duplicate_step(request: ResearcherRequest, new_study: Study):
+    """ Everything you need to copy a study directly - used in study creation, not json upload. """
+    # surveys are always provided, there is a checkbox about whether to import them
+    copy_device_settings = request.POST.get('device_settings', None) == 'true'
+    copy_surveys = request.POST.get('surveys', None) == 'true'
+    old_study = Study.objects.get(pk=request.POST.get('existing_study_id', None))
+    device_settings, surveys, interventions = unpack_json_study(format_study(old_study))
+    
+    copy_study_from_json(
+        new_study,
+        device_settings if copy_device_settings else {},
+        surveys if copy_surveys else [],
+        interventions,
+    )
+    tracking_surveys_added = new_study.surveys.filter(survey_type=Survey.TRACKING_SURVEY).count()
+    audio_surveys_added = new_study.surveys.filter(survey_type=Survey.AUDIO_SURVEY).count()
+    messages.success(
+        request,
+        f"Copied {tracking_surveys_added} Surveys and {audio_surveys_added} "
+        f"Audio Surveys from {old_study.name} to {new_study.name}.",
+    )
+    if copy_device_settings:
+        messages.success(
+            request, f"Overwrote {new_study.name}'s App Settings with custom values."
+        )
+    else:
+        messages.success(request, f"Did not alter {new_study.name}'s App Settings.")

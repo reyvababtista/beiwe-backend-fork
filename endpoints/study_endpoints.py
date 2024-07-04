@@ -17,6 +17,7 @@ from database.data_access_models import FileToProcess
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
 from forms.django_forms import StudyEndDateForm, StudySecuritySettingsForm
+from libs.copy_study import do_duplicate_step
 from libs.endpoint_helpers.researcher_helpers import get_administerable_researchers
 from libs.endpoint_helpers.study_helpers import (get_administerable_studies_by_name, notify_changes,
     trim_whitespace, try_update_device_settings, unflatten_consent_sections)

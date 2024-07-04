@@ -5,21 +5,40 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 
+from constants.message_strings import (ENDED_STUDY_MESSAGE, HIDDEN_STUDY_MESSAGE,
+    MANUALLY_STOPPED_STUDY_MESSAGE)
 from database.study_models import DeviceSettings, Study
-from database.survey_models import Survey
-from libs.copy_study import copy_study_from_json, format_study, unpack_json_study
 from libs.internal_types import ResearcherRequest
 
 
+## Utils, really
+
 def get_administerable_studies_by_name(request: ResearcherRequest) -> QuerySet[Study]:
-    """ Site admins see all studies, study admins see only studies they are admins on. """
+    """ Gets Studies ordered by name. site admins see all studies, study admins see only studies
+    they are admins on. """
     if request.session_researcher.site_admin:
         return Study.get_all_studies_by_name()
     else:
         return request.session_researcher.get_administered_studies_by_name()
 
 
+def conditionally_display_study_status_warnings(request: ResearcherRequest, study: Study):
+    """ Display warnings to the user about the status of a study, used on several pages. """
+    # deleted means hidden. This weird detail is because we never want to delete an encryption key.
+    # some pages simply will not load if the study is deleted.
+    if study.deleted:
+        messages.warning(request, HIDDEN_STUDY_MESSAGE)
+    if study.manually_stopped:
+        messages.warning(request, MANUALLY_STOPPED_STUDY_MESSAGE)
+    if study.end_date_is_in_the_past:
+        messages.warning(request, ENDED_STUDY_MESSAGE.format(study.end_date.isoformat()))
+
+
+## Update Study Device Settings helpers
+
+
 def unflatten_consent_sections(consent_sections_dict: dict):
+    """ "unflattens" a dictionary of consent sections (study device settings) into a nested structure. """
     # consent_sections is a flat structure with structure like this:
     # { 'label_ending_in.text': 'text content',  'label_ending_in.more': 'more content' }
     # we need to transform it into a nested structure like this:
@@ -31,41 +50,10 @@ def unflatten_consent_sections(consent_sections_dict: dict):
     return dict(refactored_consent_sections)
 
 
-"""########################### Study Pages ##################################"""
-
-def do_duplicate_step(request: ResearcherRequest, new_study: Study):
-    """ Everything you need to copy a study. """
-    # surveys are always provided, there is a checkbox about whether to import them
-    copy_device_settings = request.POST.get('device_settings', None) == 'true'
-    copy_surveys = request.POST.get('surveys', None) == 'true'
-    old_study = Study.objects.get(pk=request.POST.get('existing_study_id', None))
-    device_settings, surveys, interventions = unpack_json_study(format_study(old_study))
-    
-    copy_study_from_json(
-        new_study,
-        device_settings if copy_device_settings else {},
-        surveys if copy_surveys else [],
-        interventions,
-    )
-    tracking_surveys_added = new_study.surveys.filter(survey_type=Survey.TRACKING_SURVEY).count()
-    audio_surveys_added = new_study.surveys.filter(survey_type=Survey.AUDIO_SURVEY).count()
-    messages.success(
-        request,
-        f"Copied {tracking_surveys_added} Surveys and {audio_surveys_added} "
-        f"Audio Surveys from {old_study.name} to {new_study.name}.",
-    )
-    if copy_device_settings:
-        messages.success(
-            request, f"Overwrote {new_study.name}'s App Settings with custom values."
-        )
-    else:
-        messages.success(request, f"Did not alter {new_study.name}'s App Settings.")
-
-
 def try_update_device_settings(request: ResearcherRequest, params: Dict[str, Any], study: Study):
-    # attempts to update, backs off if there were any failures, notifies users of bad fields.
-    # (finally a situation where django forms would be better, sorta, I don't think it allows
-    # partial updates without mucking around.)
+    """ Attempts to update, backs off if there were any failures, notifies users of bad fields.
+    (finally a situation where django forms would be better, sorta, I don't think it allows partial
+    updates without mucking around.) """
     try:
         study.device_settings.update(**params)
     except ValidationError as validation_errors:
@@ -83,7 +71,7 @@ def try_update_device_settings(request: ResearcherRequest, params: Dict[str, Any
 
 
 def trim_whitespace(request: ResearcherRequest, params: Dict[str, Any], notify: bool = False):
-    """ trims whitespace from all dictionary values """
+    """ Trims whitespace from all dictionary values, used when updating study device settings. """
     for k, v in params.items():
         if isinstance(v, str):
             v_trimmed = v.strip()
@@ -96,7 +84,8 @@ def trim_whitespace(request: ResearcherRequest, params: Dict[str, Any], notify: 
 def notify_changes(
     request: ResearcherRequest, params: Dict[str, Any], comparee: Dict[str, Any], message_prefix: str = ""
 ):
-    """ Determines differences between 2 dictionaries and notifies the user based on key name values. """
+    """ Determines differences between 2 dictionaries and notifies the user based on key name values.
+    Used when making changes to study settings. """
     # convert to string to compare value representations (assumes type conversion is already handled)
     updated = [k.replace("_", " ").title() for k, v in params.items() if str(comparee[k]) != str(v)]
     updated.sort()

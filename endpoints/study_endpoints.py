@@ -33,6 +33,9 @@ from pages.admin_pages import conditionally_display_study_status_warnings
 @require_GET
 @authenticate_researcher_login
 def choose_study_page(request: ResearcherRequest):
+    """ The page where a researcher lands by default (without a history) that prompts them to pice
+    the study they want to view. If a researcher is only allowed to view one study, they are
+    redirected to that study. """
     allowed_studies = get_researcher_allowed_studies_as_query_set(request)
     # If the admin is authorized to view exactly 1 study, redirect to that study,
     # Otherwise, show the "Choose Study" page
@@ -50,8 +53,23 @@ def choose_study_page(request: ResearcherRequest):
 
 
 @require_GET
+@authenticate_admin
+def manage_studies_page(request: ResearcherRequest):
+    """ Site and study admin only page, shows a list of studies they can _edit_. """
+    return render(
+        request,
+        'manage_studies.html',
+        context=dict(
+            studies=list(get_administerable_studies_by_name(request).values("id", "name")),
+            unprocessed_files_count=FileToProcess.objects.count(),
+        )
+    )
+
+
+@require_GET
 @authenticate_researcher_study_access
 def view_study_page(request: ResearcherRequest, study_id=None):
+    """ The main view page for a study. """
     study: Study = Study.objects.get(pk=study_id)
     
     def get_survey_info(survey_type: str):
@@ -64,7 +82,8 @@ def view_study_page(request: ResearcherRequest, study_id=None):
                  info["last_updated"].astimezone(study.timezone).strftime(DISPLAY_TIME_FORMAT)
         return survey_info
     
-    is_study_admin = StudyRelation.objects.filter(
+    # unavoidable query, used to populate the edit study button
+    is_study_admin_on_this_study = StudyRelation.objects.filter(
         researcher=request.session_researcher, study=study, relationship=ResearcherRole.study_admin
     ).exists()
     
@@ -83,24 +102,14 @@ def view_study_page(request: ResearcherRequest, study_id=None):
             interventions=list(study.interventions.all().values_list("name", flat=True)),
             page_location='view_study',
             study_id=study_id,
-            is_study_admin=is_study_admin,
+            is_study_admin=is_study_admin_on_this_study,
             push_notifications_enabled=check_firebase_instance(require_android=True) or
                                        check_firebase_instance(require_ios=True),
         )
     )
 
 
-@require_GET
-@authenticate_admin
-def manage_studies(request: ResearcherRequest):
-    return render(
-        request,
-        'manage_studies.html',
-        context=dict(
-            studies=list(get_administerable_studies_by_name(request).values("id", "name")),
-            unprocessed_files_count=FileToProcess.objects.count(),
-        )
-    )
+## Study Edit Endpoints
 
 
 @require_GET
@@ -187,6 +196,8 @@ def toggle_end_study(request: ResearcherRequest, study_id=None):
 @require_http_methods(['GET', 'POST'])
 @authenticate_admin
 def create_study(request: ResearcherRequest):
+    """ Bad Dual Endpoint Pattern - displays the page for submitting details for and the logic that
+    does the action for creating a new study.  Site Admin only. """
     # Only a SITE admin can create new studies.
     if not request.session_researcher.site_admin:
         return abort(403)
@@ -235,7 +246,10 @@ def create_study(request: ResearcherRequest):
 @require_POST
 @authenticate_admin
 def hide_study(request: ResearcherRequest, study_id=None):
-    # Site admins and study admins can delete studies.
+    """ formerly delete study, underlying database field is "deleted", it just hides the study.
+    (We never want to delete a study because that deletes the decryption key. If we want to delete
+    a study, we need to remove all data from S3 first.)
+    Site admin only. """
     assert_site_admin(request)
     
     if request.POST.get('confirmation', 'false') == 'true':
@@ -248,12 +262,14 @@ def hide_study(request: ResearcherRequest, study_id=None):
     else:
         abort(400)
     
-    return redirect("study_endpoints.manage_studies")
+    return redirect("study_endpoints.manage_studies_page")
 
 
 @require_GET
 @authenticate_admin
 def study_security_page(request: ResearcherRequest, study_id: int):
+    """ Page with details about the security settings applied to a study, requires site admin or
+    study admin. """
     study = Study.objects.get(id=study_id)
     assert_admin(request, study_id)
     return render(
@@ -269,6 +285,7 @@ def study_security_page(request: ResearcherRequest, study_id: int):
 @require_POST
 @authenticate_admin
 def change_study_security_settings(request: ResearcherRequest, study_id=None):
+    """ Updates the study security settings. """
     study = Study.objects.get(pk=study_id)
     assert_admin(request, study_id)
     nice_names = {
@@ -296,10 +313,33 @@ def change_study_security_settings(request: ResearcherRequest, study_id=None):
     return redirect(easy_url("study_endpoints.edit_study", study.pk))
 
 
+# FIXME: this should take a post parameter, not a url endpoint.
+@require_POST
+@authenticate_admin
+def toggle_study_forest_enabled(request: ResearcherRequest, study_id=None):
+    """ Enables/Disables Forest Tasks on the study - site admin only. """
+    if not request.session_researcher.site_admin:
+        return abort(403)
+    study = Study.objects.get(pk=study_id)
+    study.forest_enabled = not study.forest_enabled
+    study.save()
+    if study.forest_enabled:
+        messages.success(request, f"Enabled Forest on '{study.name}'")
+    else:
+        messages.success(request, f"Disabled Forest on '{study.name}'")
+    return redirect(f'/edit_study/{study_id}')
+
+
+## Study device settings is complex, there are a bunch of helpers in study_helpers.py
+
+
 @require_http_methods(['GET', 'POST'])
 @authenticate_researcher_study_access
 def device_settings(request: ResearcherRequest, study_id=None):
+    """ Bad Dual Endpoint Pattern - displays page for and handles post operations for updating a
+    Study's Device Settings. """
     # TODO: probably rewrite this entire endpoint with django forms....
+    
     study = Study.objects.get(pk=study_id)
     researcher = request.session_researcher
     readonly = not researcher.check_study_admin(study_id) and not researcher.site_admin
@@ -348,20 +388,3 @@ def device_settings(request: ResearcherRequest, study_id=None):
     params["consent_sections"] = json.dumps(consent_sections)
     try_update_device_settings(request, params, study)
     return redirect(f'/edit_study/{study.id}')
-
-
-# FIXME: this should take a post parameter, not a url endpoint.
-@require_POST
-@authenticate_admin
-def toggle_study_forest_enabled(request: ResearcherRequest, study_id=None):
-    # Only a SITE admin can toggle forest on a study
-    if not request.session_researcher.site_admin:
-        return abort(403)
-    study = Study.objects.get(pk=study_id)
-    study.forest_enabled = not study.forest_enabled
-    study.save()
-    if study.forest_enabled:
-        messages.success(request, f"Enabled Forest on '{study.name}'")
-    else:
-        messages.success(request, f"Disabled Forest on '{study.name}'")
-    return redirect(f'/edit_study/{study_id}')

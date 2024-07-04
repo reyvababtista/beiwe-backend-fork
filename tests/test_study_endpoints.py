@@ -89,7 +89,7 @@ class TestManageStudies(ResearcherSessionTest):
     """ All we do with this page is make sure it loads... there isn't much to hook onto and
     determine a failure or a success... the study names are always present in the json on the
     html... """
-    ENDPOINT_NAME = "study_endpoints.manage_studies"
+    ENDPOINT_NAME = "study_endpoints.manage_studies_page"
     
     def test(self):
         for user_role in ALL_TESTING_ROLES:
@@ -364,7 +364,7 @@ class TestCreateStudy(ResearcherSessionTest):
 
 class TestHideStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "study_endpoints.hide_study"
-    REDIRECT_ENDPOINT_NAME = "study_endpoints.manage_studies"
+    REDIRECT_ENDPOINT_NAME = "study_endpoints.manage_studies_page"
     
     def test_site_admin(self):
         self.set_session_study_relation(ResearcherRole.site_admin)

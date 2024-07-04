@@ -102,7 +102,7 @@ path(
 path("elevate_researcher", manage_researcher_endpoints.elevate_researcher_to_study_admin)
 path("demote_researcher", manage_researcher_endpoints.demote_study_admin_to_researcher)
 path("create_new_researcher", manage_researcher_endpoints.create_new_researcher)
-path("manage_studies", study_endpoints.manage_studies, login_redirect=SAFE)
+path("manage_studies", study_endpoints.manage_studies_page, login_redirect=SAFE)
 path("edit_study/<int:study_id>", study_endpoints.edit_study, login_redirect=SAFE)
 path("reset_researcher_mfa/<int:researcher_id>", manage_researcher_endpoints.administrator_reset_researcher_mfa)
 

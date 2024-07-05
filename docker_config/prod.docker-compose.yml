@@ -3,6 +3,8 @@ services:
     build:
       context: ..
       dockerfile: docker_config/postgres/prod.Dockerfile
+      args:
+        - PUBLIC_DOMAIN_NAME=${PUBLIC_DOMAIN_NAME}
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}

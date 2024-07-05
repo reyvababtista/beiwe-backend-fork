@@ -1,6 +1,8 @@
 services:
   postgres:
-    image: postgres
+    build:
+      context: ..
+      dockerfile: docker_config/postgres/prod.Dockerfile
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -9,6 +11,7 @@ services:
       - ../.env.prod
     volumes:
       - postgres_data:/var/lib/postgresql/data/
+      - /etc/letsencrypt/:/cert/
     ports:
       - 5432:5432
     healthcheck:

@@ -86,6 +86,7 @@ def get_data_for_dashboard_datastream_display(
         )
     )
 
+
 @require_http_methods(["GET", "POST"])
 @authenticate_researcher_study_access
 def dashboard_participant_page(request: ResearcherRequest, study_id, patient_id):

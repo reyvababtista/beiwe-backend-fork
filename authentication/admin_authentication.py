@@ -215,7 +215,7 @@ def authenticate_researcher_study_access(some_function):
     return authenticate_and_call
 
 
-# we need to be able to import this for a special case in the study_api.py file
+# we need to be able to import this for a special case in the manage_study_endpoints.py
 def authenticate_researcher_study_access_and_call(some_function, *args, **kwargs):
     # Check for regular login requirement
     request: ResearcherRequest = args[0]

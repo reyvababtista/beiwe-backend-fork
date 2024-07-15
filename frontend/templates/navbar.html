@@ -52,7 +52,7 @@
 
           {% if page_location != 'dashboard_landing' %}
             <li role="presentation">
-              <a href="{{ easy_url('dashboard_api.dashboard_page', study_id=study.id) }}">Dashboard</a>
+              <a href="{{ easy_url('data_pages_endpoints.dashboard_page', study_id=study.id) }}">Dashboard</a>
             </li>
           {% endif %}
           

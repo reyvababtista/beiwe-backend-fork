@@ -490,9 +490,9 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
     LOCAL_COPY_WHITELIST = set(
         [
             "study_endpoints.view_study_page",
-            "dashboard_api.dashboard_page",
-            "dashboard_api.get_data_for_dashboard_datastream_display",
-            "dashboard_api.dashboard_participant_page",
+            "data_pages_endpoints.dashboard_page",
+            "data_pages_endpoints.get_data_for_dashboard_datastream_display",
+            "data_pages_endpoints.dashboard_participant_page",
             "data_access_web_form.data_api_web_form_page",
             "forest_pages.forest_tasks_progress",
             "forest_pages.task_log",

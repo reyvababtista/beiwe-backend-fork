@@ -160,3 +160,5 @@ DEFAULT_HEARTBEAT_MESSAGE = "Beiwe may not be running correctly, please open the
 HIDDEN_STUDY_MESSAGE = "This study is hidden. It should not show up anywhere on the website."
 MANUALLY_STOPPED_STUDY_MESSAGE = "This study has been manually stopped. No further data uploaded by participants in this study will be stored."
 ENDED_STUDY_MESSAGE = "This study ended at the end of the day on {}. No further data uploaded by participants in this study will be stored."
+
+MISSING_JSON_CSV_MESSAGE = b"Invalid required data_format parameter, only 'csv' and 'json' supported"

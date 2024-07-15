@@ -11,7 +11,7 @@ from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
-from endpoints import (data_apis, data_page_endpoints, login_endpoints,
+from endpoints import (data_api_endpoints, data_page_endpoints, login_endpoints,
     manage_researcher_endpoints, raw_data_api, study_endpoints, system_admin_endpoints)
 from pages import (admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages,
     survey_designer)
@@ -218,27 +218,27 @@ path(
 
 # data access api and other researcher apis
 path("get-data/v1", raw_data_api.get_data)
-path("get-studies/v1", data_apis.get_studies)
-path("get-users/v1", data_apis.get_participant_ids_in_study)  # deprecated June 2024
-path("get-participant-ids/v1", data_apis.get_participant_ids_in_study)
-path("get-participant-data-info/v1", data_apis.get_participant_data_info)
-path("get-interventions/v1", data_apis.download_study_interventions)
-path("get-survey-history/v1", data_apis.download_study_survey_history)
-path("get-participant-upload-history/v1", data_apis.get_participant_upload_history)
-path("get-participant-heartbeat-history/v1", data_apis.get_participant_heartbeat_history)
-path("get-participant-version-history/v1", data_apis.get_participant_version_history)
-path("get-participant-table-data/v1", data_apis.get_participant_table_data)
-path("get-summary-statistics/v1", data_apis.get_summary_statistics)
-path("get-participant-device-status-history/v1", data_apis.get_participant_device_status_report_history)
+path("get-studies/v1", data_api_endpoints.get_studies)
+path("get-users/v1", data_api_endpoints.get_participant_ids_in_study)  # deprecated June 2024
+path("get-participant-ids/v1", data_api_endpoints.get_participant_ids_in_study)
+path("get-participant-data-info/v1", data_api_endpoints.get_participant_data_info)
+path("get-interventions/v1", data_api_endpoints.download_study_interventions)
+path("get-survey-history/v1", data_api_endpoints.download_study_survey_history)
+path("get-participant-upload-history/v1", data_api_endpoints.get_participant_upload_history)
+path("get-participant-heartbeat-history/v1", data_api_endpoints.get_participant_heartbeat_history)
+path("get-participant-version-history/v1", data_api_endpoints.get_participant_version_history)
+path("get-participant-table-data/v1", data_api_endpoints.get_participant_table_data)
+path("get-summary-statistics/v1", data_api_endpoints.get_summary_statistics)
+path("get-participant-device-status-history/v1", data_api_endpoints.get_participant_device_status_report_history)
 
 # tableau
 path(
     "api/v0/studies/<str:study_object_id>/summary-statistics/daily",
-    data_apis.get_tableau_daily
+    data_api_endpoints.get_tableau_daily
 )
 path(
     'api/v0/studies/<str:study_object_id>/summary-statistics/daily/wdc',
-    data_apis.web_data_connector
+    data_api_endpoints.web_data_connector
 )
 
 # forest pages

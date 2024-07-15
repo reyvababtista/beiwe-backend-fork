@@ -51,7 +51,7 @@
       When Easy Enrollment is enabled for a study or a participant the Temporary Password that is otherwised required at registration is ignored.  Any value that passes any validation performed by the app is allowed.
       <i>(You will be presented with a list of patient ids where Easy Enrollment is manually enabled whenever you disable a study's Easy Enrollment policy.) </i>
     </div>
-    <form action="{{ easy_url('admin_api.toggle_easy_enrollment_study', study.id) }}" method="get">
+    <form action="{{ easy_url('manage_study_endpoints.toggle_easy_enrollment_study', study.id) }}" method="get">
       <button type="submit"
       {% if study.easy_enrollment %}
         class="btn btn-warning large-font-size pull-right h2-margins-vertical"

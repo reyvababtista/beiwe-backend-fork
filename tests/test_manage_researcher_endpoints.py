@@ -360,7 +360,7 @@ class TestAddResearcherToStudy(ResearcherSessionTest):
 # trunk-ignore-all(ruff/B018)
 
 #
-## admin_api
+## manage_study_endpoints
 #
 class TestRemoveResearcherFromStudy(ResearcherSessionTest):
     ENDPOINT_NAME = "manage_researcher_endpoints.remove_researcher_from_study"

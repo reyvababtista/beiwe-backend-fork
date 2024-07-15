@@ -3,7 +3,7 @@ from tests.common import ResearcherSessionTest
 
 
 class TestToggleStudyEasyEnrollment(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_api.toggle_easy_enrollment_study"
+    ENDPOINT_NAME = "manage_study_endpoints.toggle_easy_enrollment_study"
     REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test_site_admin(self):
@@ -37,7 +37,7 @@ class TestToggleStudyEasyEnrollment(ResearcherSessionTest):
 
 # fixme: add user type tests
 class TestRenameStudy(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_api.rename_study"
+    ENDPOINT_NAME = "manage_study_endpoints.rename_study"
     REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test(self):
@@ -49,7 +49,7 @@ class TestRenameStudy(ResearcherSessionTest):
 
 # FIXME: add error cases to this test
 class TestSetStudyTimezone(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_api.set_study_timezone"
+    ENDPOINT_NAME = "manage_study_endpoints.set_study_timezone"
     REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test_study_admin(self):

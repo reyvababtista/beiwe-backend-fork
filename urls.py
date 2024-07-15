@@ -5,15 +5,15 @@ from django.conf.urls.static import static
 from django.core.exceptions import ImproperlyConfigured
 from django.urls import path as simplepath
 
-from api import (admin_api, copy_study_api, mobile_api, participant_administration,
-    push_notifications_api, study_api, survey_api)
+from api import (copy_study_api, mobile_api, participant_administration, push_notifications_api,
+    study_api, survey_api)
 from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
 from endpoints import (data_api_endpoints, data_page_endpoints, login_endpoints,
-    manage_researcher_endpoints, misc_download_endpoints, raw_data_api, study_endpoints,
-    system_admin_endpoints)
+    manage_researcher_endpoints, manage_study_endpoints, misc_download_endpoints, raw_data_api,
+    study_endpoints, system_admin_endpoints)
 from pages import (admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages,
     survey_designer)
 
@@ -129,13 +129,13 @@ path("delete_ios_firebase_cert", system_admin_endpoints.delete_ios_firebase_cert
 path("data_access_web_form", data_access_web_form.data_api_web_form_page, login_redirect=SAFE)
 
 # admin api
-path('set_study_timezone/<str:study_id>', admin_api.set_study_timezone)
+path('set_study_timezone/<str:study_id>', manage_study_endpoints.set_study_timezone)
 path('add_researcher_to_study', manage_researcher_endpoints.add_researcher_to_study)
 path('remove_researcher_from_study', manage_researcher_endpoints.remove_researcher_from_study)
 path('delete_researcher/<str:researcher_id>', manage_researcher_endpoints.administrator_delete_researcher)
 path('set_researcher_password', manage_researcher_endpoints.administrator_set_researcher_password)
-path('rename_study/<str:study_id>', admin_api.rename_study)
-path("toggle_easy_enrollment_study/<int:study_id>", admin_api.toggle_easy_enrollment_study)
+path('rename_study/<str:study_id>', manage_study_endpoints.rename_study)
+path("toggle_easy_enrollment_study/<int:study_id>", manage_study_endpoints.toggle_easy_enrollment_study)
 
 # app download
 path("download", misc_download_endpoints.download_current)

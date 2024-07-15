@@ -11,7 +11,7 @@ from authentication.admin_authentication import (abort, assert_admin, assert_sit
     authenticate_admin, authenticate_researcher_login, authenticate_researcher_study_access,
     get_researcher_allowed_studies_as_query_set)
 from constants.common_constants import DISPLAY_TIME_FORMAT, RUNNING_TEST_OR_IN_A_SHELL
-from constants.html_constants import CHECKBOX_TOGGLES, TIMER_VALUES
+from constants.study_constants import CHECKBOX_TOGGLES, TIMER_VALUES
 from constants.user_constants import ResearcherRole
 from database.data_access_models import FileToProcess
 from database.study_models import Study

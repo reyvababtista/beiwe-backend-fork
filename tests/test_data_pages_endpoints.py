@@ -18,7 +18,7 @@ from tests.common import ResearcherSessionTest
 
 
 class TestDashboard(ResearcherSessionTest):
-    ENDPOINT_NAME = "data_pages_endpoints.dashboard_page"
+    ENDPOINT_NAME = "data_page_endpoints.dashboard_page"
     
     def assert_data_streams_present(self, resp: HttpResponse):
         for data_stream_text in COMPLETE_DATA_STREAM_DICT.values():
@@ -53,7 +53,7 @@ class TestDashboard(ResearcherSessionTest):
 
 # FIXME: dashboard is going to require a fixture to populate data.
 class TestDashboardStream(ResearcherSessionTest):
-    ENDPOINT_NAME = "data_pages_endpoints.get_data_for_dashboard_datastream_display"
+    ENDPOINT_NAME = "data_page_endpoints.get_data_for_dashboard_datastream_display"
     
     def test_no_participant(self):
         self.do_data_stream_test(create_chunkregistries=False, number_participants=0)
@@ -116,7 +116,7 @@ class TestDashboardStream(ResearcherSessionTest):
 
 # FIXME: this page renders with almost no data
 class TestDashboardPatientDisplay(ResearcherSessionTest):
-    ENDPOINT_NAME = "data_pages_endpoints.dashboard_participant_page"
+    ENDPOINT_NAME = "data_page_endpoints.dashboard_participant_page"
     
     def test_patient_display_no_data(self):
         self.set_session_study_relation()

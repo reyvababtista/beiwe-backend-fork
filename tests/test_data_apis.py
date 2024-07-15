@@ -1,32 +1,37 @@
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import orjson
 import zstd
 from dateutil.tz import UTC
 from django.core.exceptions import ValidationError
+from django.http import StreamingHttpResponse
 
+from authentication.tableau_authentication import (check_tableau_permissions,
+    TableauAuthenticationFailed, TableauPermissionDenied)
 from constants.data_access_api_constants import MISSING_JSON_CSV_MESSAGE
-from constants.tableau_api_constants import DATA_QUANTITY_FIELD_NAMES, SERIALIZABLE_FIELD_NAMES
+from constants.tableau_api_constants import (DATA_QUANTITY_FIELD_NAMES, SERIALIZABLE_FIELD_NAMES,
+    X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET)
 from constants.user_constants import ResearcherRole
 from database.profiling_models import UploadTracking
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.survey_models import Survey, SurveyArchive
 from database.user_models_participant import AppHeartbeats
-from tests.common import DataApiTest
-from tests.helpers import ParticipantTableHelperMixin
+from database.user_models_researcher import StudyRelation
+from tests.common import DataApiTest, SmartRequestsTestCase, TableauAPITest
+from tests.helpers import compare_dictionaries, ParticipantTableHelperMixin
 
 
 # trunk-ignore-all(ruff/B018)
 
 #
-## other_data_apis
+## Data Apis
 #
 
 
 class TestAPIGetStudies(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_studies"
+    ENDPOINT_NAME = "data_apis.get_studies"
     
     def test_inactive_credentials(self):
         """ this test serves as a test of authentication database details. """
@@ -82,7 +87,7 @@ class TestAPIGetStudies(DataApiTest):
 
 
 class TestApiCredentialCheck(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_studies"
+    ENDPOINT_NAME = "data_apis.get_studies"
     
     def test_missing_all_parameters(self):
         # use _smart_post
@@ -154,7 +159,7 @@ class TestApiCredentialCheck(DataApiTest):
 
 
 class TestAPIStudyUserAccess(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_participant_ids_in_study"
+    ENDPOINT_NAME = "data_apis.get_participant_ids_in_study"
     
     def test_missing_all_parameters(self):
         # self.set_session_study_relation(ResearcherRole)
@@ -236,7 +241,7 @@ class TestAPIStudyUserAccess(DataApiTest):
 
 
 class TestGetUsersInStudy(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_participant_ids_in_study"
+    ENDPOINT_NAME = "data_apis.get_participant_ids_in_study"
     
     def test_no_participants(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -263,7 +268,7 @@ class TestGetUsersInStudy(DataApiTest):
 
 
 class TestGetParticipantDataInfo(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_participant_data_info"
+    ENDPOINT_NAME = "data_apis.get_participant_data_info"
     
     @property
     def ref_zero_row_output(self):
@@ -367,7 +372,7 @@ class TestGetParticipantDataInfo(DataApiTest):
         )
 
 class TestDownloadStudyInterventions(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.download_study_interventions"
+    ENDPOINT_NAME = "data_apis.download_study_interventions"
     
     def test_no_interventions(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -393,7 +398,7 @@ class TestDownloadStudyInterventions(DataApiTest):
 
 
 class TestStudySurveyHistory(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.download_study_survey_history"
+    ENDPOINT_NAME = "data_apis.download_study_survey_history"
     
     def test_no_surveys(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -438,7 +443,7 @@ class TestStudySurveyHistory(DataApiTest):
 
 
 class TestDownloadParticipantTableData(DataApiTest, ParticipantTableHelperMixin):
-    ENDPOINT_NAME = "other_data_apis.get_participant_table_data"
+    ENDPOINT_NAME = "data_apis.get_participant_table_data"
     
     def test_no_study_param(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -629,7 +634,7 @@ class TestDownloadParticipantTableData(DataApiTest, ParticipantTableHelperMixin)
 
 
 class TestGetParticipantUploadHistory(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_participant_upload_history"
+    ENDPOINT_NAME = "data_apis.get_participant_upload_history"
     
     def create_an_upload(self):
         # file name has a transformation applied to it, the patient id is stripped
@@ -726,7 +731,7 @@ class TestGetParticipantUploadHistory(DataApiTest):
 
 
 class TestParticipantHeartbeatHistory(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_participant_heartbeat_history"
+    ENDPOINT_NAME = "data_apis.get_participant_heartbeat_history"
     
     def create_a_heartbeat(self):
         AppHeartbeats.objects.create(
@@ -815,7 +820,7 @@ class TestParticipantHeartbeatHistory(DataApiTest):
 
 
 class TestParticipantVersionHistory(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_participant_version_history"
+    ENDPOINT_NAME = "data_apis.get_participant_version_history"
     
     def create_a_version(self):
         self.default_participant.app_version_history.create(
@@ -879,12 +884,12 @@ class TestParticipantVersionHistory(DataApiTest):
     def test_ten_versions_values(self):
         self.set_session_study_relation(ResearcherRole.researcher)
         self.using_default_participant()
-        for i in range(10):
+        for _ in range(10):
             self.create_a_version()
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
         content = b"".join(resp.streaming_content)
         text = b'{"app_version_code":"1","app_version_name":"1.0","os_version":"1.0"}'
-        for i in range(9):
+        for _ in range(9):
             text += b',{"app_version_code":"1","app_version_name":"1.0","os_version":"1.0"}'
         text = b"[" + text + b"]"
         self.assertEqual(content, text)
@@ -892,25 +897,25 @@ class TestParticipantVersionHistory(DataApiTest):
     def test_ten_versions_values_list(self):
         self.set_session_study_relation(ResearcherRole.researcher)
         self.using_default_participant()
-        for i in range(10):
+        for _ in range(10):
             self.create_a_version()
         resp = self.smart_post_status_code(
             200, participant_id=self.default_participant.patient_id, omit_keys="true"
         )
         content = b"".join(resp.streaming_content)
         text = b'["1","1.0","1.0"]'
-        for i in range(9):
+        for _ in range(9):
             text += b',["1","1.0","1.0"]'
         text = b"[" + text + b"]"
         self.assertEqual(content, text)
 
 
-# other_data_apis.get_summary_statistics is identical to the tableau_api.get_tableau_daily, which is
+# data_apis.get_summary_statistics is identical to the tableau_api.get_tableau_daily, which is
 # tested extensively in test_tableau_api.py. The difference is that this endpoint uses the data
 # access api decorator for authentication and the other is explicitly for tableau integration.
 # All we need to test is that this works at all.
 class TestGetSummaryStatistics(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_summary_statistics"
+    ENDPOINT_NAME = "data_apis.get_summary_statistics"
     
     def test_no_study_param(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -947,7 +952,7 @@ class TestGetSummaryStatistics(DataApiTest):
 
 
 class TestGetParticipantDeviceStatusHistory(DataApiTest):
-    ENDPOINT_NAME = "other_data_apis.get_participant_device_status_report_history"
+    ENDPOINT_NAME = "data_apis.get_participant_device_status_report_history"
     COLUMNS = ["created_on", "endpoint", "app_os", "os_version", "app_version", "device_status"]
     
     def test_no_participant_parameter(self):
@@ -1010,3 +1015,397 @@ class TestGetParticipantDeviceStatusHistory(DataApiTest):
             'device_status': obj,
         }
         self.assertDictEqual(out_dict, reference_out_dict)
+
+
+#
+## Tableau API
+#
+
+class TestGetTableauDaily(TableauAPITest):
+    ENDPOINT_NAME = "data_apis.get_tableau_daily"
+    today = date.today()
+    yesterday = date.today() - timedelta(days=1)
+    tomorrow = date.today() + timedelta(days=-1)
+    # parameters are
+    # end_date, start_date, limit, order_by, order_direction, participant_ids, fields
+    
+    # helpers
+    @property
+    def params_all_fields(self):
+        return {"fields": ",".join(SERIALIZABLE_FIELD_NAMES)}
+    
+    @property
+    def params_all_defaults(self):
+        return {'participant_ids': self.default_participant.patient_id, **self.params_all_fields}
+    
+    @property
+    def full_response_dict(self):
+        defaults = self.default_summary_statistic_daily_cheatsheet()
+        defaults["date"] = date.today().isoformat()
+        defaults["participant_id"] = self.default_participant.patient_id
+        defaults["study_id"] = self.session_study.object_id
+        return defaults
+    
+    def smart_get_200_auto_headers(self, **kwargs) -> StreamingHttpResponse:
+        return self.smart_get_status_code(
+            200, self.session_study.object_id, data=kwargs, **self.raw_headers
+        )
+    
+    def test_tableau_api_credential_upgrade(self, **kwargs) -> StreamingHttpResponse:
+        self.assertEqual(ApiKey.DESIRED_ALGORITHM, "sha256")
+        self.assertEqual(ApiKey.DESIRED_ITERATIONS, 2)
+        ApiKey.objects.all().delete()  # clear the autogenerated test key
+        # generate a new key with the sha1 (copying TableauAPITest)
+        ApiKey.DESIRED_ALGORITHM = "sha1"
+        self.api_key = ApiKey.generate(self.session_researcher)
+        ApiKey.DESIRED_ALGORITHM = "sha256"
+        self.api_key_public = self.api_key.access_key_id
+        self.api_key_private = self.api_key.access_key_secret_plaintext
+        original_secret = self.api_key.access_key_secret
+        # run the test_summary_statistics_daily_no_params_empty_db test to make sure it works at all
+        self.test_summary_statistics_daily_no_params_empty_db()
+        self.api_key.refresh_from_db()
+        self.assertNotEqual(original_secret, self.api_key.access_key_secret)
+        self.assertIn("sha256", self.api_key.access_key_secret)
+        self.assertIn("sha1", original_secret)
+        # and run the test again to make sure the new db entry continues to work.
+        self.test_summary_statistics_daily_no_params_empty_db()
+    
+    def test_bad_field_name(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params["fields"] = params["fields"].replace("accelerometer", "accellerometer")
+        resp = self.smart_get_status_code(
+            400, self.session_study.object_id, data=params, **self.raw_headers
+        )
+        self.assertEqual(
+            resp.content, b'{"errors": ["beiwe_accellerometer_bytes is not a valid field"]}'
+        )
+    
+    def test_summary_statistics_daily_no_params_empty_db(self):
+        # unpack the raw headers like this, they magically just work because http language is weird
+        resp = self.smart_get_200_auto_headers()
+        response_content = b"".join(resp.streaming_content)
+        self.assertEqual(response_content, b'[]')
+    
+    def test_summary_statistics_daily_all_params_empty_db(self):
+        resp = self.smart_get_200_auto_headers(**self.params_all_fields)
+        response_content = b"".join(resp.streaming_content)
+        self.assertEqual(response_content, b'[]')
+    
+    def test_summary_statistics_daily_all_params_all_populated(self):
+        self.generate_summary_statistic_daily()
+        resp = self.smart_get_200_auto_headers(**self.params_all_defaults)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 1)
+        assert compare_dictionaries(response_object[0], self.full_response_dict)
+    
+    def test_summary_statistics_daily_all_params_dates_all_populated(self):
+        self.generate_summary_statistic_daily()
+        params = {"end_date": date.today(), "start_date": date.today(), **self.params_all_defaults}
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 1)
+        assert compare_dictionaries(response_object[0], self.full_response_dict)
+    
+    def test_summary_statistics_daily_all_fields_one_at_a_time(self):
+        today = date.today()
+        self.generate_summary_statistic_daily()
+        cheat_sheet = self.default_summary_statistic_daily_cheatsheet()
+        cheat_sheet["date"] = today.isoformat()
+        cheat_sheet["participant_id"] = self.default_participant.patient_id
+        cheat_sheet["study_id"] = self.session_study.object_id
+        normal_params = self.params_all_defaults
+        normal_params.pop("fields")
+        for field in SERIALIZABLE_FIELD_NAMES:
+            params = {"end_date": today, "start_date": today, "fields": field, **normal_params}
+            resp = self.smart_get_200_auto_headers(**params)
+            response_object = orjson.loads(b"".join(resp.streaming_content))
+            self.assertEqual(len(response_object), 1)
+            assert compare_dictionaries(response_object[0], {field: cheat_sheet[field]})
+    
+    def test_summary_statistics_daily_all_params_2_results_all_populated(self):
+        self.generate_summary_statistic_daily()
+        self.generate_summary_statistic_daily(a_date=self.yesterday)
+        resp = self.smart_get_200_auto_headers(**self.params_all_defaults)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        compare_me = self.full_response_dict
+        assert compare_dictionaries(response_object[0], compare_me)
+        compare_me['date'] = self.yesterday.isoformat()
+        assert compare_dictionaries(response_object[1], compare_me)
+    
+    def test_summary_statistics_daily_limit_param(self):
+        self.generate_summary_statistic_daily()
+        self.generate_summary_statistic_daily(a_date=self.yesterday)
+        params = {"limit": 1, **self.params_all_defaults}
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 1)
+        assert compare_dictionaries(response_object[0], self.full_response_dict)
+    
+    def test_summary_statistics_daily_date_ordering(self):
+        self.generate_summary_statistic_daily()
+        self.generate_summary_statistic_daily(a_date=self.yesterday)
+        # the default ordering is ascending
+        params = {"order_direction": "descending", **self.params_all_defaults}
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        compare_me = self.full_response_dict
+        assert compare_dictionaries(response_object[0], compare_me)
+        compare_me['date'] = self.yesterday.isoformat()  # set to yesterday
+        assert compare_dictionaries(response_object[1], compare_me)
+        
+        # assert that ascending is correct
+        params = {"order_direction": "ascending", **self.params_all_defaults}
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        assert compare_dictionaries(response_object[0], compare_me)
+        compare_me['date'] = self.today.isoformat()  # revert to today
+        assert compare_dictionaries(response_object[1], compare_me)
+        
+        # assert that empty ordering is the default
+        params = {"order_direction": "", **self.params_all_defaults}
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        assert compare_dictionaries(response_object[0], compare_me)
+        compare_me['date'] = self.yesterday.isoformat()  # set to yesterday
+        assert compare_dictionaries(response_object[1], compare_me)
+    
+    def test_summary_statistics_daily_participant_ordering(self):
+        self.generate_summary_statistic_daily()
+        self.generate_summary_statistic_daily(participant=self.generate_participant(
+            study=self.session_study, patient_id="22222222",
+        ))
+        # the default ordering is ascending
+        params = {
+            **self.params_all_defaults,
+            # "order_direction": "ascending",
+            "ordered_by": "participant_id",
+            "participant_ids": self.default_participant.patient_id + ",22222222",
+        }
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        compare_me = self.full_response_dict
+        assert compare_dictionaries(response_object[1], compare_me)
+        compare_me['participant_id'] = "22222222"  # set to participant 2
+        assert compare_dictionaries(response_object[0], compare_me)
+        
+        params["order_direction"] = "descending"
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(len(response_object), 2)
+        assert compare_dictionaries(response_object[1], compare_me)
+        compare_me['participant_id'] = self.default_participant.patient_id  # revert to participant 1
+        assert compare_dictionaries(response_object[0], compare_me)
+    
+    def test_summary_statistics_daily_wrong_date(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params["end_date"] = self.tomorrow
+        params["start_date"] = self.tomorrow
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(response_object, [])
+    
+    def test_summary_statistics_daily_wrong_future_date(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params["end_date"] = self.tomorrow
+        params["start_date"] = self.tomorrow
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(response_object, [])
+    
+    def test_summary_statistics_daily_wrong_past_date(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params["end_date"] = self.yesterday
+        params["start_date"] = self.yesterday
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(response_object, [])
+    
+    def test_summary_statistics_daily_bad_participant(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params["participant_ids"] = "bad_id"
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        self.assertEqual(response_object, [])
+    
+    def test_summary_statistics_daily_no_participant(self):
+        self.generate_summary_statistic_daily()
+        params = self.params_all_defaults
+        params.pop("participant_ids")
+        resp = self.smart_get_200_auto_headers(**params)
+        response_object = orjson.loads(b"".join(resp.streaming_content))
+        # self.assertEqual(response_object, [])
+        assert compare_dictionaries(response_object[0], self.full_response_dict)
+
+
+class TableauApiAuthTests(TableauAPITest):
+    """ Test methods of the api authentication system """
+    ENDPOINT_NAME = TableauAPITest.IGNORE_THIS_ENDPOINT
+    
+    def test_check_permissions_working(self):
+        # if this doesn't raise an error it has succeeded
+        check_tableau_permissions(self.default_header, study_object_id=self.session_study.object_id)
+    
+    def test_check_permissions_none(self):
+        ApiKey.objects.all().delete()
+        with self.assertRaises(TableauAuthenticationFailed) as cm:
+            check_tableau_permissions(
+                self.default_header, study_object_id=self.session_study.object_id
+            )
+    
+    def test_check_permissions_inactive(self):
+        self.api_key.update(is_active=False)
+        with self.assertRaises(TableauAuthenticationFailed) as cm:
+            check_tableau_permissions(
+                self.default_header, study_object_id=self.session_study.object_id
+            )
+    
+    def test_check_permissions_bad_secret(self):
+        # note that ':' does not appear in base64 encoding, preventing any collision errors based on
+        # the current implementation.
+        class NotRequest:
+            headers = {
+                X_ACCESS_KEY_ID: self.api_key_public,
+                X_ACCESS_KEY_SECRET: ":::" + self.api_key_private[3:],
+            }
+        with self.assertRaises(TableauAuthenticationFailed) as cm:
+            check_tableau_permissions(
+                NotRequest, study_object_id=self.session_study.object_id
+            )
+    
+    def test_check_permissions_forest_disabled(self):
+        # forest_enabled should have no effect on the permissions check
+        self.session_study.update(forest_enabled=False)
+        check_tableau_permissions(self.default_header, study_object_id=self.session_study.object_id)
+        self.session_study.update(forest_enabled=True)
+        check_tableau_permissions(self.default_header, study_object_id=self.session_study.object_id)
+    
+    def test_check_permissions_bad_study(self):
+        self.assertFalse(ApiKey.objects.filter(access_key_id=" bad study id ").exists())
+        with self.assertRaises(TableauPermissionDenied) as cm:
+            check_tableau_permissions(
+                self.default_header, study_object_id=" bad study id "
+            )
+    
+    def test_check_permissions_no_study_permission(self):
+        StudyRelation.objects.filter(
+            study=self.session_study, researcher=self.session_researcher).delete()
+        with self.assertRaises(TableauPermissionDenied) as cm:
+            check_tableau_permissions(
+                self.default_header, study_object_id=self.session_study.object_id
+            )
+
+
+class TestWebDataConnector(SmartRequestsTestCase):
+    ENDPOINT_NAME = "data_apis.web_data_connector"
+    
+    LOCAL_COPY_SERIALIZABLE_FIELD_NAMES = [
+        # Metadata
+        "date",
+        "participant_id",
+        "study_id",
+        "timezone",
+        
+        # Data quantities
+        "beiwe_accelerometer_bytes",
+        "beiwe_ambient_audio_bytes",
+        "beiwe_app_log_bytes",
+        "beiwe_bluetooth_bytes",
+        "beiwe_calls_bytes",
+        "beiwe_devicemotion_bytes",
+        "beiwe_gps_bytes",
+        "beiwe_gyro_bytes",
+        "beiwe_identifiers_bytes",
+        "beiwe_ios_log_bytes",
+        "beiwe_magnetometer_bytes",
+        "beiwe_power_state_bytes",
+        "beiwe_proximity_bytes",
+        "beiwe_reachability_bytes",
+        "beiwe_survey_answers_bytes",
+        "beiwe_survey_timings_bytes",
+        "beiwe_texts_bytes",
+        "beiwe_audio_recordings_bytes",
+        "beiwe_wifi_bytes",
+        
+        # GPS
+        "jasmine_distance_diameter",
+        "jasmine_distance_from_home",
+        "jasmine_distance_traveled",
+        "jasmine_flight_distance_average",
+        "jasmine_flight_distance_stddev",
+        "jasmine_flight_duration_average",
+        "jasmine_flight_duration_stddev",
+        "jasmine_gps_data_missing_duration",
+        "jasmine_home_duration",
+        "jasmine_gyration_radius",
+        "jasmine_significant_location_count",
+        "jasmine_significant_location_entropy",
+        "jasmine_pause_time",
+        "jasmine_obs_duration",
+        "jasmine_obs_day",
+        "jasmine_obs_night",
+        "jasmine_total_flight_time",
+        "jasmine_av_pause_duration",
+        "jasmine_sd_pause_duration",
+        
+        # Willow, Texts
+        "willow_incoming_text_count",
+        "willow_incoming_text_degree",
+        "willow_incoming_text_length",
+        "willow_outgoing_text_count",
+        "willow_outgoing_text_degree",
+        "willow_outgoing_text_length",
+        "willow_incoming_text_reciprocity",
+        "willow_outgoing_text_reciprocity",
+        "willow_outgoing_MMS_count",
+        "willow_incoming_MMS_count",
+        
+        # Willow, Calls
+        "willow_incoming_call_count",
+        "willow_incoming_call_degree",
+        "willow_incoming_call_duration",
+        "willow_outgoing_call_count",
+        "willow_outgoing_call_degree",
+        "willow_outgoing_call_duration",
+        "willow_missed_call_count",
+        "willow_missed_callers",
+        "willow_uniq_individual_call_or_text_count",
+        
+        # Sycamore, Survey Frequency
+        "sycamore_total_surveys",
+        "sycamore_total_completed_surveys",
+        "sycamore_total_opened_surveys",
+        "sycamore_average_time_to_submit",
+        "sycamore_average_time_to_open",
+        "sycamore_average_duration",
+        
+        # Oak, walking statistics
+        "oak_walking_time",
+        "oak_steps",
+        "oak_cadence",
+    ]
+    
+    # This is a very bad test. `content` is actually an html page (because tableau is strange)
+    def test_page_content(self):
+        resp = self.smart_get(self.session_study.object_id)
+        content = resp.content.decode()
+        
+        # test that someone has updated this test if the fields ever change
+        for field in self.LOCAL_COPY_SERIALIZABLE_FIELD_NAMES:
+            self.assert_present(field, content)
+    
+    def test_all_fields_present_in_test(self):
+        # sanity check that the fields are present in both copies of this list - yes you have to
+        # update the copy of the list whenever you change the list.
+        for field in self.LOCAL_COPY_SERIALIZABLE_FIELD_NAMES:
+            self.assertIn(field, SERIALIZABLE_FIELD_NAMES)

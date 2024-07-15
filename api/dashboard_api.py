@@ -8,7 +8,7 @@ from django.utils.timezone import make_aware
 
 from authentication.admin_authentication import authenticate_researcher_study_access
 from constants.common_constants import API_DATE_FORMAT, EARLIEST_POSSIBLE_DATA_DATETIME
-from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_DATA_STREAMS
+from constants.data_stream_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_DATA_STREAMS
 from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
 from database.data_access_models import ChunkRegistry
 from database.study_models import Study

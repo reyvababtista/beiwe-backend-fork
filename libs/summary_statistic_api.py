@@ -5,9 +5,8 @@ from typing import List, Union
 
 from django.db.models import F
 from django.http import HttpResponse, StreamingHttpResponse
-from orjson import dumps as orjson_dumps
 
-from constants.tableau_api_constants import SERIALIZABLE_FIELD_NAMES
+from constants.forest_constants import SERIALIZABLE_FIELD_NAMES
 from database.forest_models import SummaryStatisticDaily
 from forms.django_forms import ApiQueryForm
 from libs.internal_types import ResearcherRequest, TableauRequest

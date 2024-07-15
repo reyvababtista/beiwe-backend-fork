@@ -1,10 +1,9 @@
 import bleach
 from django import forms
 
+from constants.forest_constants import (SERIALIZABLE_FIELD_NAMES,
+    SERIALIZABLE_FIELD_NAMES_DROPDOWN, VALID_QUERY_PARAMETERS, ForestTree)
 from constants.celery_constants import ForestTaskStatus
-from constants.forest_constants import ForestTree
-from constants.tableau_api_constants import (HEADER_IS_REQUIRED, SERIALIZABLE_FIELD_NAMES,
-    SERIALIZABLE_FIELD_NAMES_DROPDOWN, VALID_QUERY_PARAMETERS, X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET)
 from database.forest_models import ForestTask
 from database.study_models import Study
 from database.user_models_participant import Participant
@@ -23,21 +22,6 @@ class NewApiKeyForm(forms.Form):
 
 class DisableApiKeyForm(forms.Form):
     api_key_id = forms.CharField()
-
-
-class TableauAuthenticationForm(forms.Form):
-    """ Form for fetching request headers """
-    
-    def __init__(self, *args, **kwargs):
-        """ Define authentication form fields since the keys contain illegal characters for variable
-        names. """
-        super().__init__(*args, **kwargs)
-        self.fields[X_ACCESS_KEY_ID] = forms.CharField(
-            error_messages={"required": HEADER_IS_REQUIRED}
-        )
-        self.fields[X_ACCESS_KEY_SECRET] = forms.CharField(
-            error_messages={"required": HEADER_IS_REQUIRED}
-        )
 
 
 class CreateTasksForm(forms.Form):

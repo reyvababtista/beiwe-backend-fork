@@ -3,7 +3,7 @@ from typing import Dict, Generator, List, Union
 
 from django.db.models import F, Func, Sum
 
-from constants.tableau_api_constants import DATA_QUANTITY_FIELD_NAMES
+from constants.forest_constants import DATA_QUANTITY_FIELD_NAMES
 from database.forest_models import SummaryStatisticDaily
 from database.study_models import Study
 

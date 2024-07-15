@@ -10,11 +10,9 @@ from django.http.response import FileResponse
 from constants.celery_constants import ForestTaskStatus
 from constants.data_stream_constants import GPS
 from constants.forest_constants import FOREST_NO_TASK, FOREST_TASK_CANCELLED, ForestTree
-from constants.tableau_api_constants import DATA_QUANTITY_FIELD_NAMES, SERIALIZABLE_FIELD_NAMES
 from constants.testing_constants import EMPTY_ZIP, SIMPLE_FILE_CONTENTS
 from constants.user_constants import ResearcherRole
 from database.forest_models import ForestTask, SummaryStatisticDaily
-from libs.utils.shell_utils import diff_strings
 from tests.common import ResearcherSessionTest
 from tests.helpers import CURRENT_TEST_DATE_BYTES, DummyThreadPool
 
@@ -456,7 +454,6 @@ class TestDownloadParticipantTreeData(ResearcherSessionTest):
     }
     
     # hardcode these, but generate with
-    # from constants.tableau_api_constants import *
     # b"Date," + ",".join(JASMINE_FIELDS).replace("jasmine_", "").replace("_", " ").title().encode()
     # b"Date," + ",".join(OAK_FIELDS).replace("oak_", "").replace("_", " ").title().encode()
     # b"Date," + ",".join(SYCAMORE_FIELDS).replace("sycamore_", "").replace("_", " ").title().encode()

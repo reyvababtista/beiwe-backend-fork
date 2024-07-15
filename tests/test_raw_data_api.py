@@ -34,8 +34,7 @@ class TestGetData(DataApiTest):
         from libs import s3
         self.assertIs(s3.S3_BUCKET, Exception)
     
-    ENDPOINT_NAME = "data_access_api.get_data"
-    
+    ENDPOINT_NAME = "raw_data_api.get_data"
     REGISTRY_HASH = "registry_hash"
     
     # retain and usethis structure in order to force a test addition on a new file type.

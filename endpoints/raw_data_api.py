@@ -12,8 +12,8 @@ from django.views.decorators.http import require_http_methods
 
 from authentication.data_access_authentication import api_study_credential_check
 from constants.common_constants import API_TIME_FORMAT
-from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.data_stream_constants import ALL_DATA_STREAMS
+from constants.raw_data_constants import CHUNK_FIELDS
 from database.data_access_models import ChunkRegistry
 from database.profiling_models import DataAccessRecord
 from database.user_models_participant import Participant
@@ -180,6 +180,7 @@ def determine_time_range_for_db_query(request: ApiStudyResearcherRequest, query:
 
 def handle_database_query(study_id: int, query_dict: dict, registry_dict: dict = None) -> QuerySet:
     """ Runs the database query and returns a QuerySet. """
+    
     chunks = ChunkRegistry.get_chunks_time_range(study_id, **query_dict)
     # the simple case where there isn't a registry uploaded
     if not registry_dict:

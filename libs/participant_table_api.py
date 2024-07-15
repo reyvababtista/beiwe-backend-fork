@@ -9,11 +9,13 @@ from django.db.models.query_utils import Q
 from django.utils import timezone
 
 from constants.common_constants import API_DATE_FORMAT, LEGIBLE_TIME_FORMAT
-from constants.data_access_api_constants import (BASE_TABLE_FIELDS, EXTRA_TABLE_FIELDS,
-    INCONCEIVABLY_HUGE_NUMBER, PARTICIPANT_STATUS_QUERY_FIELDS)
+from constants.user_constants import BASE_TABLE_FIELDS, EXTRA_TABLE_FIELDS, PARTICIPANT_STATUS_QUERY_FIELDS
 from database.study_models import Study
 from database.user_models_participant import Participant
 from libs.internal_types import ParticipantQuerySet
+
+
+INCONCEIVABLY_HUGE_NUMBER = 2**64  # literally what it says it is, don't clutter in constants.
 
 
 def reference_field_and_interventions(study: Study) -> Tuple[List[str], List[str]]:

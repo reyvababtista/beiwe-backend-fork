@@ -19,7 +19,7 @@ from pkg_resources import DistributionNotFound, get_distribution
 
 from constants.celery_constants import FOREST_QUEUE, ForestTaskStatus
 from constants.common_constants import API_TIME_FORMAT, BEIWE_PROJECT_ROOT, RUNNING_TESTS
-from constants.data_access_api_constants import CHUNK_FIELDS
+from constants.raw_data_constants import CHUNK_FIELDS
 from constants.forest_constants import (CLEANUP_ERROR as CLN_ERR, FOREST_TREE_REQUIRED_DATA_STREAMS,
     ForestTree, NO_DATA_ERROR, ROOT_FOREST_TASK_PATH, TREE_COLUMN_NAMES_TO_SUMMARY_STATISTICS,
     YEAR_MONTH_DAY)

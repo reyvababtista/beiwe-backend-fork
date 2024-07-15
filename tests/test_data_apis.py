@@ -9,7 +9,7 @@ from django.http import StreamingHttpResponse
 
 from authentication.tableau_authentication import (check_tableau_permissions,
     TableauAuthenticationFailed, TableauPermissionDenied)
-from constants.data_access_api_constants import MISSING_JSON_CSV_MESSAGE
+from constants.message_strings import MISSING_JSON_CSV_MESSAGE
 from constants.tableau_api_constants import (DATA_QUANTITY_FIELD_NAMES, SERIALIZABLE_FIELD_NAMES,
     X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET)
 from constants.user_constants import ResearcherRole

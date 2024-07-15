@@ -18,13 +18,13 @@ from authentication.admin_authentication import (assert_site_admin, authenticate
     authenticate_researcher_study_access, forest_enabled)
 from constants.celery_constants import ForestTaskStatus
 from constants.common_constants import DEV_TIME_FORMAT, EARLIEST_POSSIBLE_DATA_DATE, RUNNING_TESTS
-from constants.data_access_api_constants import CHUNK_FIELDS
 from constants.forest_constants import (FOREST_NO_TASK, FOREST_TASK_CANCELLED,
     FOREST_TASKVIEW_PICKLING_EMPTY, FOREST_TASKVIEW_PICKLING_ERROR,
     FOREST_TREE_REQUIRED_DATA_STREAMS, ForestTree)
+from constants.raw_data_constants import CHUNK_FIELDS
 from constants.tableau_api_constants import (FOREST_TREE_TO_SERIALIZABLE_FIELD_NAMES,
     NICE_SERIALIZABLE_FIELD_NAMES, SERIALIZABLE_FIELD_NAMES)
-from database.data_access_models import ChunkRegistry   
+from database.data_access_models import ChunkRegistry
 from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.study_models import Study
 from database.system_models import ForestVersion

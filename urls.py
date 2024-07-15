@@ -6,7 +6,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.urls import path as simplepath
 
 from api import (copy_study_api, mobile_api, participant_administration, push_notifications_api,
-    study_api, survey_api)
+    survey_api)
 from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
@@ -146,18 +146,18 @@ path("download_beta_release", misc_download_endpoints.download_beta_release)
 path("privacy_policy", misc_download_endpoints.download_privacy_policy)
 
 # study api
-path('study/<str:study_id>/get_participants_api', study_api.study_participants_api)
-path('study/<str:study_id>/download_participants_csv', study_api.download_participants_csv)
+path('study/<str:study_id>/get_participants_api', manage_study_endpoints.study_participants_api)
+path('study/<str:study_id>/download_participants_csv', manage_study_endpoints.download_participants_csv)
 # study actions
-path('interventions/<str:study_id>', study_api.interventions_page, login_redirect=SAFE)
-path('delete_intervention/<str:study_id>', study_api.delete_intervention)
-path('edit_intervention/<str:study_id>', study_api.edit_intervention)
-path('study_fields/<str:study_id>', study_api.study_fields, login_redirect=SAFE)
-path('delete_field/<str:study_id>', study_api.delete_field)
-path('edit_custom_field/<str:study_id>', study_api.edit_custom_field)
+path('interventions/<str:study_id>', manage_study_endpoints.interventions_page, login_redirect=SAFE)
+path('delete_intervention/<str:study_id>', manage_study_endpoints.delete_intervention)
+path('edit_intervention/<str:study_id>', manage_study_endpoints.edit_intervention)
+path('study_fields/<str:study_id>', manage_study_endpoints.study_fields, login_redirect=SAFE)
+path('delete_field/<str:study_id>', manage_study_endpoints.delete_field)
+path('edit_custom_field/<str:study_id>', manage_study_endpoints.edit_custom_field)
 # study data
-path('download_study_intervention_history/<str:study_id>', study_api.download_study_interventions)
-path('download_study_survey_history/<str:study_id>', study_api.download_study_survey_history)
+path('download_study_intervention_history/<str:study_id>', manage_study_endpoints.download_study_interventions)
+path('download_study_survey_history/<str:study_id>', manage_study_endpoints.download_study_survey_history)
 
 # participant pages
 path(

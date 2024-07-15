@@ -3,8 +3,8 @@ from typing import List
 from django.http.response import HttpResponse
 from django.utils import timezone
 
-from constants.dashboard_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_DATA_STREAMS
-from constants.data_stream_constants import ACCELEROMETER
+from constants.data_stream_constants import (ACCELEROMETER, COMPLETE_DATA_STREAM_DICT,
+    DASHBOARD_DATA_STREAMS)
 from constants.user_constants import ResearcherRole
 from database.data_access_models import ChunkRegistry
 from database.user_models_participant import Participant

@@ -13,8 +13,8 @@ from django.views.decorators.http import require_GET, require_POST
 from authentication.data_access_authentication import (api_credential_check,
     api_study_credential_check)
 from authentication.tableau_authentication import authenticate_tableau
+from constants.forest_constants import FIELD_TYPE_MAP, SERIALIZABLE_FIELD_NAMES
 from constants.message_strings import MISSING_JSON_CSV_MESSAGE
-from constants.tableau_api_constants import FIELD_TYPE_MAP, SERIALIZABLE_FIELD_NAMES
 from database.forest_models import SummaryStatisticDaily
 from database.user_models_researcher import StudyRelation
 from libs.endpoint_helpers.data_api_helpers import (check_request_for_omit_keys_param,

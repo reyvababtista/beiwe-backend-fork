@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.urls.base import resolve
 from django.urls.exceptions import NoReverseMatch
 
-from constants.tableau_api_constants import X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET
+from authentication.tableau_authentication import X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET
 from constants.testing_constants import ALL_ROLE_PERMUTATIONS, REAL_ROLES, ResearcherRole
 from database.security_models import ApiKey
 from database.study_models import Study

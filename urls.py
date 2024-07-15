@@ -99,7 +99,7 @@ path(
     login_redirect=SAFE,
 )
 path("elevate_researcher", manage_researcher_endpoints.elevate_researcher_to_study_admin)
-path("demote_researcher", manage_researcher_endpoints.demote_study_admin_to_researcher)
+path("demote_researcher", manage_researcher_endpoints.demote_study_administrator_to_researcher)
 path("create_new_researcher", manage_researcher_endpoints.create_new_researcher)
 path("manage_studies", study_endpoints.manage_studies_page, login_redirect=SAFE)
 path("edit_study/<int:study_id>", study_endpoints.edit_study, login_redirect=SAFE)
@@ -129,10 +129,10 @@ path("data_access_web_form", data_access_web_form.data_api_web_form_page, login_
 
 # admin api
 path('set_study_timezone/<str:study_id>', admin_api.set_study_timezone)
-path('add_researcher_to_study', admin_api.add_researcher_to_study)
-path('remove_researcher_from_study', admin_api.remove_researcher_from_study)
-path('delete_researcher/<str:researcher_id>', admin_api.delete_researcher)
-path('set_researcher_password', admin_api.set_researcher_password)
+path('add_researcher_to_study', manage_researcher_endpoints.add_researcher_to_study)
+path('remove_researcher_from_study', manage_researcher_endpoints.remove_researcher_from_study)
+path('delete_researcher/<str:researcher_id>', manage_researcher_endpoints.administrator_delete_researcher)
+path('set_researcher_password', manage_researcher_endpoints.administrator_set_researcher_password)
 path('rename_study/<str:study_id>', admin_api.rename_study)
 path("toggle_easy_enrollment_study/<int:study_id>", admin_api.toggle_easy_enrollment_study)
 

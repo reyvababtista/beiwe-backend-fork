@@ -1,10 +1,13 @@
 from django.contrib import messages
+from django.core.exceptions import ValidationError
+from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from authentication.admin_authentication import (abort, assert_admin, assert_researcher_under_admin,
     authenticate_admin)
-from constants.message_strings import MFA_RESET_BAD_PERMISSIONS, NEW_PASSWORD_N_LONG
+from constants.message_strings import (MFA_RESET_BAD_PERMISSIONS, NEW_PASSWORD_N_LONG,
+    PASSWORD_RESET_FAIL_SITE_ADMIN)
 from constants.user_constants import ResearcherRole
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
@@ -133,7 +136,7 @@ def elevate_researcher_to_study_admin(request: ResearcherRequest):
 
 @require_POST
 @authenticate_admin
-def demote_study_admin_to_researcher(request: ResearcherRequest):
+def demote_study_administrator_to_researcher(request: ResearcherRequest):
     # FIXME: this endpoint does not test for site admin cases correctly, the test passes but is
     # wrong. Behavior is fine because it has no relevant side effects except for the know bug where
     # site admins need to be manually added to a study before being able to download data.
@@ -168,4 +171,74 @@ def create_new_researcher(request: ResearcherRequest):
         return redirect('/create_new_researcher')
     else:
         researcher = Researcher.create_with_password(username, password)
+    return redirect(f'/edit_researcher/{researcher.pk}')
+
+
+@require_POST
+@authenticate_admin
+def add_researcher_to_study(request: ResearcherRequest):
+    researcher_id = request.POST['researcher_id']
+    study_id = request.POST['study_id']
+    assert_admin(request, study_id)
+    try:
+        StudyRelation.objects.get_or_create(
+            study_id=study_id, researcher_id=researcher_id, relationship=ResearcherRole.researcher
+        )
+    except ValidationError:
+        # handle case of the study id + researcher already existing
+        pass
+    
+    # This gets called by both edit_researcher and edit_study, so the POST request
+    # must contain which URL it came from.
+    # TODO: don't source the url from the page, give it a required post parameter for the redirect and check against that
+    return redirect(request.POST['redirect_url'])
+
+
+@require_POST
+@authenticate_admin
+def remove_researcher_from_study(request: ResearcherRequest):
+    researcher_id = request.POST['researcher_id']
+    study_id = request.POST['study_id']
+    try:
+        researcher = Researcher.objects.get(pk=researcher_id)
+    except Researcher.DoesNotExist:
+        return HttpResponse(content="", status=404)
+    assert_admin(request, study_id)
+    assert_researcher_under_admin(request, researcher, study_id)
+    StudyRelation.objects.filter(study_id=study_id, researcher_id=researcher_id).delete()
+    # TODO: don't source the url from the page, give it a required post parameter for the redirect and check against that
+    return redirect(request.POST['redirect_url'])
+
+
+@require_GET
+@authenticate_admin
+def administrator_delete_researcher(request: ResearcherRequest, researcher_id):
+    # only site admins can delete researchers from the system.
+    if not request.session_researcher.site_admin:
+        return HttpResponse(content="", status=403)
+    researcher = get_object_or_404(Researcher, pk=researcher_id)
+    
+    StudyRelation.objects.filter(researcher=researcher).delete()
+    researcher.delete()
+    return redirect('/manage_researchers')
+
+
+@require_POST
+@authenticate_admin
+def administrator_set_researcher_password(request: ResearcherRequest):
+    """ This is the endpoint that an admin uses to set another researcher's password.
+    This endpoint accepts any value as long as it is 8 characters, but puts the researcher into a
+    forced password reset state. """
+    researcher = Researcher.objects.get(pk=request.POST.get('researcher_id', None))
+    assert_researcher_under_admin(request, researcher)
+    if researcher.site_admin:
+        messages.warning(request, PASSWORD_RESET_FAIL_SITE_ADMIN)
+        return redirect(f'/edit_researcher/{researcher.pk}')
+    new_password = request.POST.get('password', '')
+    if len(new_password) < 8:
+        messages.warning(request, NEW_PASSWORD_N_LONG.format(length=8))
+    else:
+        researcher.set_password(new_password)
+        researcher.update(password_force_reset=True)
+        researcher.force_global_logout()
     return redirect(f'/edit_researcher/{researcher.pk}')

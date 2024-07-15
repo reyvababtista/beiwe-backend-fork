@@ -30,7 +30,7 @@ from tests.helpers import compare_dictionaries, ParticipantTableHelperMixin
 
 
 class TestAPIGetStudies(DataApiTest):
-    ENDPOINT_NAME = "data_apis.get_studies"
+    ENDPOINT_NAME = "data_api_endpoints.get_studies"
     
     def test_inactive_credentials(self):
         """ this test serves as a test of authentication database details. """
@@ -86,7 +86,7 @@ class TestAPIGetStudies(DataApiTest):
 
 
 class TestApiCredentialCheck(DataApiTest):
-    ENDPOINT_NAME = "data_apis.get_studies"
+    ENDPOINT_NAME = "data_api_endpoints.get_studies"
     
     def test_missing_all_parameters(self):
         # use _smart_post
@@ -158,7 +158,7 @@ class TestApiCredentialCheck(DataApiTest):
 
 
 class TestAPIStudyUserAccess(DataApiTest):
-    ENDPOINT_NAME = "data_apis.get_participant_ids_in_study"
+    ENDPOINT_NAME = "data_api_endpoints.get_participant_ids_in_study"
     
     def test_missing_all_parameters(self):
         # self.set_session_study_relation(ResearcherRole)
@@ -240,7 +240,7 @@ class TestAPIStudyUserAccess(DataApiTest):
 
 
 class TestGetUsersInStudy(DataApiTest):
-    ENDPOINT_NAME = "data_apis.get_participant_ids_in_study"
+    ENDPOINT_NAME = "data_api_endpoints.get_participant_ids_in_study"
     
     def test_no_participants(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -267,7 +267,7 @@ class TestGetUsersInStudy(DataApiTest):
 
 
 class TestGetParticipantDataInfo(DataApiTest):
-    ENDPOINT_NAME = "data_apis.get_participant_data_info"
+    ENDPOINT_NAME = "data_api_endpoints.get_participant_data_info"
     
     @property
     def ref_zero_row_output(self):
@@ -371,7 +371,7 @@ class TestGetParticipantDataInfo(DataApiTest):
         )
 
 class TestDownloadStudyInterventions(DataApiTest):
-    ENDPOINT_NAME = "data_apis.download_study_interventions"
+    ENDPOINT_NAME = "data_api_endpoints.download_study_interventions"
     
     def test_no_interventions(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -397,7 +397,7 @@ class TestDownloadStudyInterventions(DataApiTest):
 
 
 class TestStudySurveyHistory(DataApiTest):
-    ENDPOINT_NAME = "data_apis.download_study_survey_history"
+    ENDPOINT_NAME = "data_api_endpoints.download_study_survey_history"
     
     def test_no_surveys(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -442,7 +442,7 @@ class TestStudySurveyHistory(DataApiTest):
 
 
 class TestDownloadParticipantTableData(DataApiTest, ParticipantTableHelperMixin):
-    ENDPOINT_NAME = "data_apis.get_participant_table_data"
+    ENDPOINT_NAME = "data_api_endpoints.get_participant_table_data"
     
     def test_no_study_param(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -633,7 +633,7 @@ class TestDownloadParticipantTableData(DataApiTest, ParticipantTableHelperMixin)
 
 
 class TestGetParticipantUploadHistory(DataApiTest):
-    ENDPOINT_NAME = "data_apis.get_participant_upload_history"
+    ENDPOINT_NAME = "data_api_endpoints.get_participant_upload_history"
     
     def create_an_upload(self):
         # file name has a transformation applied to it, the patient id is stripped
@@ -730,7 +730,7 @@ class TestGetParticipantUploadHistory(DataApiTest):
 
 
 class TestParticipantHeartbeatHistory(DataApiTest):
-    ENDPOINT_NAME = "data_apis.get_participant_heartbeat_history"
+    ENDPOINT_NAME = "data_api_endpoints.get_participant_heartbeat_history"
     
     def create_a_heartbeat(self):
         AppHeartbeats.objects.create(
@@ -819,7 +819,7 @@ class TestParticipantHeartbeatHistory(DataApiTest):
 
 
 class TestParticipantVersionHistory(DataApiTest):
-    ENDPOINT_NAME = "data_apis.get_participant_version_history"
+    ENDPOINT_NAME = "data_api_endpoints.get_participant_version_history"
     
     def create_a_version(self):
         self.default_participant.app_version_history.create(
@@ -909,12 +909,12 @@ class TestParticipantVersionHistory(DataApiTest):
         self.assertEqual(content, text)
 
 
-# data_apis.get_summary_statistics is identical to the tableau_api.get_tableau_daily, which is
+# data_api_endpoints.get_summary_statistics is identical to the tableau_api.get_tableau_daily, which is
 # tested extensively in test_tableau_api.py. The difference is that this endpoint uses the data
 # access api decorator for authentication and the other is explicitly for tableau integration.
 # All we need to test is that this works at all.
 class TestGetSummaryStatistics(DataApiTest):
-    ENDPOINT_NAME = "data_apis.get_summary_statistics"
+    ENDPOINT_NAME = "data_api_endpoints.get_summary_statistics"
     
     def test_no_study_param(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -951,7 +951,7 @@ class TestGetSummaryStatistics(DataApiTest):
 
 
 class TestGetParticipantDeviceStatusHistory(DataApiTest):
-    ENDPOINT_NAME = "data_apis.get_participant_device_status_report_history"
+    ENDPOINT_NAME = "data_api_endpoints.get_participant_device_status_report_history"
     COLUMNS = ["created_on", "endpoint", "app_os", "os_version", "app_version", "device_status"]
     
     def test_no_participant_parameter(self):
@@ -1021,7 +1021,7 @@ class TestGetParticipantDeviceStatusHistory(DataApiTest):
 #
 
 class TestGetTableauDaily(TableauAPITest):
-    ENDPOINT_NAME = "data_apis.get_tableau_daily"
+    ENDPOINT_NAME = "data_api_endpoints.get_tableau_daily"
     today = date.today()
     yesterday = date.today() - timedelta(days=1)
     tomorrow = date.today() + timedelta(days=-1)
@@ -1306,7 +1306,7 @@ class TableauApiAuthTests(TableauAPITest):
 
 
 class TestWebDataConnector(SmartRequestsTestCase):
-    ENDPOINT_NAME = "data_apis.web_data_connector"
+    ENDPOINT_NAME = "data_api_endpoints.web_data_connector"
     
     LOCAL_COPY_SERIALIZABLE_FIELD_NAMES = [
         # Metadata

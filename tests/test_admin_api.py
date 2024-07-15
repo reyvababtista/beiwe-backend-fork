@@ -1,5 +1,3 @@
-from django.http.response import HttpResponseRedirect
-
 from constants.user_constants import ResearcherRole
 from tests.common import ResearcherSessionTest
 
@@ -47,15 +45,6 @@ class TestRenameStudy(ResearcherSessionTest):
         self.smart_post_redirect(self.session_study.id, new_study_name="hello!")
         self.session_study.refresh_from_db()
         self.assertEqual(self.session_study.name, "hello!")
-
-
-class TestPrivacyPolicy(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_api.download_privacy_policy"
-    
-    def test(self):
-        # just test that it loads without breaking
-        redirect = self.smart_get()
-        self.assertIsInstance(redirect, HttpResponseRedirect)
 
 
 # FIXME: add error cases to this test

@@ -12,7 +12,8 @@ from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
 from endpoints import (data_api_endpoints, data_page_endpoints, login_endpoints,
-    manage_researcher_endpoints, raw_data_api, study_endpoints, system_admin_endpoints)
+    manage_researcher_endpoints, misc_download_endpoints, raw_data_api, study_endpoints,
+    system_admin_endpoints)
 from pages import (admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages,
     survey_designer)
 
@@ -137,12 +138,12 @@ path('rename_study/<str:study_id>', admin_api.rename_study)
 path("toggle_easy_enrollment_study/<int:study_id>", admin_api.toggle_easy_enrollment_study)
 
 # app download
-path("download", admin_api.download_current)
-path("download_debug", admin_api.download_current_debug)
-path("download_beta", admin_api.download_beta)
-path("download_beta_debug", admin_api.download_beta_debug)
-path("download_beta_release", admin_api.download_beta_release)
-path("privacy_policy", admin_api.download_privacy_policy)
+path("download", misc_download_endpoints.download_current)
+path("download_debug", misc_download_endpoints.download_current_debug)
+path("download_beta", misc_download_endpoints.download_beta)
+path("download_beta_debug", misc_download_endpoints.download_beta_debug)
+path("download_beta_release", misc_download_endpoints.download_beta_release)
+path("privacy_policy", misc_download_endpoints.download_privacy_policy)
 
 # study api
 path('study/<str:study_id>/get_participants_api', study_api.study_participants_api)

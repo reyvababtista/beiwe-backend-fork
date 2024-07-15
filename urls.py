@@ -5,14 +5,14 @@ from django.conf.urls.static import static
 from django.core.exceptions import ImproperlyConfigured
 from django.urls import path as simplepath
 
-from api import (admin_api, copy_study_api, dashboard_api, mobile_api, participant_administration,
+from api import (admin_api, copy_study_api, mobile_api, participant_administration,
     push_notifications_api, study_api, survey_api)
 from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
-from endpoints import (data_apis, login_endpoints, manage_researcher_endpoints, raw_data_api,
-    study_endpoints, system_admin_endpoints)
+from endpoints import (data_apis, data_pages_endpoints, login_endpoints,
+    manage_researcher_endpoints, raw_data_api, study_endpoints, system_admin_endpoints)
 from pages import (admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages,
     survey_designer)
 
@@ -78,15 +78,15 @@ path("test_mfa", admin_pages.self_test_mfa)
 path("view_study/<int:study_id>", study_endpoints.view_study_page, login_redirect=SAFE)
 
 # Dashboard
-path("dashboard/<int:study_id>", dashboard_api.dashboard_page, login_redirect=SAFE)
+path("dashboard/<int:study_id>", data_pages_endpoints.dashboard_page, login_redirect=SAFE)
 path(
     "dashboard/<int:study_id>/data_stream/<str:data_stream>",
-    dashboard_api.get_data_for_dashboard_datastream_display,
+    data_pages_endpoints.get_data_for_dashboard_datastream_display,
     login_redirect=SAFE,
 )
 path(
     "dashboard/<int:study_id>/patient/<str:patient_id>",
-    dashboard_api.dashboard_participant_page,
+    data_pages_endpoints.dashboard_participant_page,
     login_redirect=SAFE,
 )
 

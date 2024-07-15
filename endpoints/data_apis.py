@@ -3,24 +3,28 @@ from io import StringIO
 from typing import List
 
 import orjson
-import zstd
+from django.db.models.fields import Field
 from django.db.models.functions import Substr
 from django.http import FileResponse, StreamingHttpResponse
 from django.http.response import HttpResponse
-from django.views.decorators.http import require_POST
+from django.shortcuts import render
+from django.views.decorators.http import require_GET, require_POST
 
 from authentication.data_access_authentication import (api_credential_check,
     api_study_credential_check)
+from authentication.tableau_authentication import authenticate_tableau
 from constants.data_access_api_constants import MISSING_JSON_CSV_MESSAGE
-from database.user_models_participant import Participant
+from constants.tableau_api_constants import FIELD_TYPE_MAP, SERIALIZABLE_FIELD_NAMES
+from database.forest_models import SummaryStatisticDaily
 from database.user_models_researcher import StudyRelation
-from libs.internal_types import ApiResearcherRequest, ApiStudyResearcherRequest
+from libs.endpoint_helpers.data_api_helpers import (check_request_for_omit_keys_param,
+    DeviceStatusHistoryPaginator, get_validate_participant_from_request)
+from libs.internal_types import ApiResearcherRequest, ApiStudyResearcherRequest, TableauRequest
 from libs.intervention_utils import intervention_survey_data, survey_history_export
 from libs.participant_table_api import common_data_extraction_for_apis, get_table_columns
 from libs.study_summaries import get_participant_data_upload_summary
 from libs.summary_statistic_api import summary_statistics_request_handler
 from libs.utils.effiicient_paginator import EfficientQueryPaginator
-from middleware.abort_middleware import abort
 
 
 @require_POST
@@ -119,12 +123,51 @@ def get_participant_table_data(request: ApiStudyResearcherRequest):
     assert False, "unreachable code."
 
 
+## Summary Statistics and Forest Output
+
 @require_POST
 @api_study_credential_check()
 def get_summary_statistics(request: ApiStudyResearcherRequest, study_id: str = None):
-    """ Endpoint that duplicates the Tableau API endpoint for summary statistics using data api
-    credentialling details. """
+    """ Endpoint for summary statistics and forest output using data api credentialing details. """
     return summary_statistics_request_handler(request, request.api_study.object_id)
+
+
+@require_GET
+@authenticate_tableau
+def get_tableau_daily(request: TableauRequest, study_object_id: str = None):
+    """ Endpoint for summary statistics and forest output using tableau api credentialing details. """
+    return summary_statistics_request_handler(request, study_object_id)
+
+
+@require_GET
+def web_data_connector(request: TableauRequest, study_object_id: str):
+    """ Build the "columns" data structure for tableau to enumerate the format of the API data.
+    This is an open endpoint, it does not require any authentication. """
+    # study_id and participant_id are not part of the SummaryStatisticDaily model, so they aren't
+    # populated. They are also related fields that both are proxies for a unique identifier field
+    # that has a different name, so we do it manually.
+    columns = [
+        '[\n',
+        "{id: 'study_id', dataType: tableau.dataTypeEnum.string,},\n",
+        "{id: 'participant_id', dataType: tableau.dataTypeEnum.string,},\n"
+    ]
+    
+    final_serializable_fields: List[Field] = [
+        f for f in SummaryStatisticDaily._meta.fields if f.name in SERIALIZABLE_FIELD_NAMES
+    ]
+    
+    for field in final_serializable_fields:
+        for (python_type, tableau_type) in FIELD_TYPE_MAP:
+            if isinstance(field, python_type):
+                columns.append(f"{{id: '{field.name}', dataType: {tableau_type},}},\n")
+                # example line: {id: 'participant_id', dataType: tableau.dataTypeEnum.int,},
+                break
+        else:
+            # if the field is not recognized, supply it to tableau as a string type
+            columns.append(f"{{id: '{field.name}', dataType: tableau.dataTypeEnum.string,}},\n")
+    
+    columns = "".join(columns) + '];'
+    return render(request, 'wdc.html', context=dict(study_object_id=study_object_id, cols=columns))
 
 
 ## New api endpoints for participant metadata
@@ -246,55 +289,3 @@ def get_participant_device_status_report_history(request: ApiStudyResearcherRequ
     return StreamingHttpResponse(
         paginator.stream_orjson_paginate(option=options), status=200, content_type="application/json"
     )
-
-
-class DeviceStatusHistoryPaginator(EfficientQueryPaginator):
-    
-    def mutate_query_results(self, page: List[dict]):
-        """ We need to decompress the json-encoded device status data field. """
-        for row in page:
-            device_status = row.pop("compressed_report")
-            if device_status == b"empty":
-                row["device_status"] = {}  # probably not reachable on real server
-            else:
-                # zstd compression is _very_ fast. A weak server processed 460,541 decompresses of
-                # device infos in 1.179045 seconds in a tight loop.
-                # orjson.Fragment is orjson's mechanism to pass ...subsegments? that are already
-                # json encoded. This causes the output json to be an object, not a json string,
-                # (And it's faster and avoids a bytes -> string -> bytes conversion.)
-                row["device_status"] = orjson.Fragment(zstd.decompress(device_status))
-
-
-# Helper functions for the participant metadata endpoints
-
-
-def get_validate_participant_from_request(request: ApiStudyResearcherRequest) -> Participant:
-    """ checks for a mandatory POST param participant_id, and returns the Participant object. 
-    If participant_id is not present raise a 400 error. If the participant is not found a 404 error."""
-    participant_id = request.POST.get('participant_id')
-    if not participant_id:
-        return abort(400)
-    
-    # raising a 404 on participant not found is not an information leak.
-    # get_object_or_404 renders the 404 page, which is not what we want.
-    try:
-        participant = Participant.objects.get(patient_id=participant_id)
-    except Participant.DoesNotExist:
-        return abort(404)
-    
-    # authentication is weird because these endpoint doesn't have the mandatory study so code
-    # patterns might change.
-    # if the researcher is not a site admin, they must have a relationship to the study.
-    if not request.api_researcher.site_admin:
-        if not StudyRelation.determine_relationship_exists(
-            study_pk=participant.study.pk, researcher_pk=request.api_researcher.pk
-        ):
-            return abort(403)
-    
-    return participant
-
-
-def check_request_for_omit_keys_param(request):
-    """ Returns true if the request has a POST param omit_keys set to case-insensitive "true". """
-    omit_keys = request.POST.get("omit_keys", "false")
-    return omit_keys.lower() == "true"

@@ -5,14 +5,13 @@ from django.conf.urls.static import static
 from django.core.exceptions import ImproperlyConfigured
 from django.urls import path as simplepath
 
-from api import (admin_api, copy_study_api, dashboard_api, data_access_api, mobile_api,
-    other_data_apis, participant_administration, push_notifications_api, study_api, survey_api,
-    tableau_api)
+from api import (admin_api, copy_study_api, dashboard_api, mobile_api, other_data_apis,
+    participant_administration, push_notifications_api, study_api, survey_api, tableau_api)
 from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
-from endpoints import (login_endpoints, manage_researcher_endpoints, study_endpoints,
+from endpoints import (login_endpoints, manage_researcher_endpoints, raw_data_api, study_endpoints,
     system_admin_endpoints)
 from pages import (admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages,
     survey_designer)
@@ -218,7 +217,7 @@ path(
 )
 
 # data access api and other researcher apis
-path("get-data/v1", data_access_api.get_data)
+path("get-data/v1", raw_data_api.get_data)
 path("get-studies/v1", other_data_apis.get_studies)
 path("get-users/v1", other_data_apis.get_participant_ids_in_study)  # deprecated June 2024
 path("get-participant-ids/v1", other_data_apis.get_participant_ids_in_study)

@@ -94,7 +94,7 @@ def check_tableau_permissions(request: HttpRequest, study_object_id=None):
         log("study_object_id was None")
         raise TableauPermissionDenied(NO_STUDY_PROVIDED_MESSAGE)
     
-    if not Study.objects.filter(object_id=study_object_id).exists():
+    if not Study.objects.filter(object_id=study_object_id, deleted=False).exists():
         log("no such study object id")
         raise TableauPermissionDenied(NO_STUDY_FOUND_MESSAGE)
     

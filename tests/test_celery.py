@@ -12,7 +12,7 @@ from constants.testing_constants import (THURS_OCT_6_NOON_2022_NY, THURS_OCT_13_
     THURS_OCT_20_NOON_2022_NY)
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS, ANDROID_API
 from database.schedule_models import ScheduledEvent
-from database.user_models_participant import AppHeartbeats, Participant, ParticipantFCMHistory
+from database.user_models_participant import Participant, ParticipantFCMHistory
 from services.celery_push_notifications import (create_heartbeat_tasks, get_surveys_and_schedules,
     heartbeat_query)
 from tests.common import CommonTestCase
@@ -21,7 +21,7 @@ from tests.common import CommonTestCase
 # trunk-ignore-all(ruff/B018)
 
 class TestCelery(CommonTestCase):
-    pass
+    """ We don't actually have anything custom here (yet). """
 
 
 class TestGetSurveysAndSchedules(TestCelery):
@@ -76,7 +76,6 @@ class TestGetSurveysAndSchedules(TestCelery):
     @time_machine.travel(THURS_OCT_6_NOON_2022_NY)
     def test_weekly_success(self):
         self.populate_default_fcm_token
-        # TODO: why is this passing
         # a weekly survey, on a friday, sunday is the zero-index; I hate it more than you.
         schedule, count_created = self.generate_a_real_weekly_schedule_event_with_schedule(5)
         self.assertEqual(count_created, 1)
@@ -86,7 +85,6 @@ class TestGetSurveysAndSchedules(TestCelery):
     @time_machine.travel(THURS_OCT_6_NOON_2022_NY)
     def test_weekly_in_future_fails(self):
         self.populate_default_fcm_token
-        # TODO: why is this passing
         # a weekly survey, on a friday, sunday is the zero-index; I hate it more than you.
         schedule, count_created = self.generate_a_real_weekly_schedule_event_with_schedule(5)
         self.assertEqual(count_created, 1)
@@ -128,6 +126,39 @@ class TestGetSurveysAndSchedules(TestCelery):
         # but if you set the time zone to New_York the push notification is calculated!
         self.default_participant.try_set_timezone('America/New_York')
         self.validate_basics(schedule)
+    
+    # using weekly as a base we now test situations where it shouldn't return schedules
+    @time_machine.travel(THURS_OCT_6_NOON_2022_NY)
+    def test_deleted_hidden_study(self):
+        self.populate_default_fcm_token
+        # a weekly survey, on a friday, sunday is the zero-index; I hate it more than you.
+        schedule, count_created = self.generate_a_real_weekly_schedule_event_with_schedule(5)
+        self.assertEqual(count_created, 1)
+        self.default_study.update(deleted=True)
+        with time_machine.travel(THURS_OCT_20_NOON_2022_NY):
+            self.validate_no_schedules()
+    
+    @time_machine.travel(THURS_OCT_6_NOON_2022_NY)
+    def test_manually_stopped_study(self):
+        self.populate_default_fcm_token
+        # a weekly survey, on a friday, sunday is the zero-index; I hate it more than you.
+        schedule, count_created = self.generate_a_real_weekly_schedule_event_with_schedule(5)
+        self.assertEqual(count_created, 1)
+        self.default_study.update(manually_stopped=True)
+        with time_machine.travel(THURS_OCT_20_NOON_2022_NY):
+            self.validate_no_schedules()
+    
+    @time_machine.travel(THURS_OCT_6_NOON_2022_NY)
+    def test_past_end_date(self):
+        self.populate_default_fcm_token
+        # a weekly survey, on a friday, sunday is the zero-index; I hate it more than you.
+        schedule, count_created = self.generate_a_real_weekly_schedule_event_with_schedule(5)
+        self.assertEqual(count_created, 1)
+        # not testing time zones, just testing end date
+        self.default_study.update(end_date=timezone.now().date() - timedelta(days=10))
+        with time_machine.travel(THURS_OCT_20_NOON_2022_NY):
+            self.validate_no_schedules()
+    
 
 
 class TestHeartbeatQuery(TestCelery):
@@ -138,9 +169,7 @@ class TestHeartbeatQuery(TestCelery):
     @property
     def set_working_heartbeat_notification_basics(self):
         # we are not testing fcm token details in these tests.
-        self.default_participant.update(
-            deleted=False, permanently_retired=False
-        )
+        self.default_participant.update(deleted=False, permanently_retired=False)
         self.populate_default_fcm_token
     
     @property
@@ -183,6 +212,22 @@ class TestHeartbeatQuery(TestCelery):
     def test_query_no_fcm_token(self):
         self.set_working_heartbeat_notification_fully_valid
         self.default_participant.fcm_tokens.all().delete()
+        self.assertEqual(len(heartbeat_query()), 0)
+    
+    def test_deleted_hidden_study(self):
+        self.set_working_heartbeat_notification_fully_valid
+        self.default_study.update(deleted=True)
+        self.assertEqual(len(heartbeat_query()), 0)
+    
+    def test_manually_stopped_study(self):
+        self.set_working_heartbeat_notification_fully_valid
+        self.default_study.update(manually_stopped=True)
+        self.assertEqual(len(heartbeat_query()), 0)
+    
+    def test_end_date_in_past(self):
+        self.set_working_heartbeat_notification_fully_valid
+        # we don't need to test exactly whether timezone crap is functional we already have tests for that.
+        self.default_study.update(end_date=timezone.now() - timedelta(days=10))
         self.assertEqual(len(heartbeat_query()), 0)
     
     def test_query_fully_valid(self):

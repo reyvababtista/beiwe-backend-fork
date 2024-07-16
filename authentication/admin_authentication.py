@@ -250,7 +250,11 @@ def authenticate_researcher_study_access_and_call(some_function, *args, **kwargs
         if survey_id is not None:
             survey_id = int(survey_id)
         if study_id is not None:
-            study_id = int(study_id)
+            temp_study_id = int(study_id)
+            if str(temp_study_id) != str(study_id):
+                log("study id was not an integer")
+                return abort(400)
+            study_id = temp_study_id
     except ValueError:
         log("survey or study id was not an integer")
         return abort(400)
@@ -269,9 +273,9 @@ def authenticate_researcher_study_access_and_call(some_function, *args, **kwargs
             log("study id mismatch")
             return abort(404)
     
-    # assert that such a study exists
+    # assert that such a study exists and is not deleted (hidden)
     if not Study.objects.filter(pk=study_id, deleted=False).exists():
-        log("no such study 2")
+        log("no such valid study 2")
         return abort(404)
     
     # always allow site admins, allow all types of study relations

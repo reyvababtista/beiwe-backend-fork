@@ -605,6 +605,7 @@ class TestParticipantActive(CommonTestCase):
 
 
 class TestForestHash(unittest.TestCase):
+    # todo: This is junk what even is this
     def test_get_forest_git_hash(self):
         hash = get_forest_git_hash()
         self.assertNotEqual(hash, "")

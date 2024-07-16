@@ -188,7 +188,6 @@ def api_get_study_confirm_exists(request: ResearcherRequest) -> Study:
         return abort(500)
     
     if study_object_id is not None:
-        
         # If the ID is incorrectly sized, we return a 400
         if not is_object_id(study_object_id):
             log("bad study obj id: ", study_object_id)
@@ -196,7 +195,7 @@ def api_get_study_confirm_exists(request: ResearcherRequest) -> Study:
         
         # If no Study with the given ID exists, we return a 404
         try:
-            return Study.objects.get(object_id=study_object_id)
+            return Study.objects.get(object_id=study_object_id, deleted=False)
         except Study.DoesNotExist:
             log(f"study '{study_object_id}' does not exist (obj id)")
             return abort(404)
@@ -211,7 +210,7 @@ def api_get_study_confirm_exists(request: ResearcherRequest) -> Study:
         
         # If no Study with the given ID exists, we return a 404
         try:
-            return Study.objects.get(pk=study_pk)
+            return Study.objects.get(pk=study_pk, deleted=False)
         except Study.DoesNotExist:
             log("study '%s' does not exist (study pk)" % study_object_id)
             return abort(404)

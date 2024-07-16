@@ -21,6 +21,7 @@ from constants.user_constants import ResearcherRole
 from database.common_models import ObjectIDModel, UtilityModel
 from database.models import JSONTextField, TimestampedModel
 from database.validators import LengthValidator
+from libs.utils.date_utils import date_is_in_the_past
 
 
 # this is an import hack to improve IDE assistance
@@ -193,16 +194,7 @@ class Study(TimestampedModel, ObjectIDModel):
     @property
     def end_date_is_in_the_past(self) -> bool:
         """ Returns True if the study end date is in the past. """
-        end_date = self.end_date
-        if end_date is None:
-            return False
-        
-        # actual_end is the start of the day after the end date
-        actual_end = (
-            datetime(end_date.year, end_date.month, end_date.day, tzinfo=self.timezone)
-            + timezone.timedelta(days=1)
-        )
-        return actual_end < timezone.now() 
+        return date_is_in_the_past(self.end_date, self.timezone_name)
     
     @property
     def data_quantity_metrics(self):

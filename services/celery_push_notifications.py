@@ -24,6 +24,7 @@ from constants.schedule_constants import ScheduleTypes
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API
 from database.schedule_models import ArchivedEvent, ScheduledEvent
+from database.study_models import Study
 from database.survey_models import Survey
 from database.user_models_participant import (Participant, ParticipantActionLog,
     ParticipantFCMHistory, PushNotificationDisabledEvent)
@@ -32,6 +33,7 @@ from libs.firebase_config import check_firebase_instance
 from libs.internal_types import DictOfStrStr, DictOfStrToListOfStr
 from libs.schedules import set_next_weekly
 from libs.sentry import make_error_sentry, SentryTypes
+from libs.utils.date_utils import date_is_in_the_past
 
 
 logger = logging.getLogger("push_notifications")
@@ -104,6 +106,22 @@ def _send_notification(fcm_token: str, os_type: str, message: str):
         )
     send_notification(message)
 
+
+def get_stopped_study_ids() -> List[int]:
+    """ Returns a list of study ids that are stopped or deleted (and should not have *stuff* happen.)"""
+    bad_study_ids = []
+    
+    # we don't really care about performance, there are AT MOST hundreds of studies.
+    query = Study.objects.values_list("id", "deleted", "manually_stopped", "end_date", "timezone_name")
+    for study_id, deleted, manually_stopped, end_date, timezone_name in query:
+        if deleted or manually_stopped:
+            bad_study_ids.append(study_id)
+            continue
+        if end_date:
+            if date_is_in_the_past(end_date, timezone_name):
+                bad_study_ids.append(study_id)
+    
+    return bad_study_ids
 
 
 # This feature is both not named well and not enabled or even tested.
@@ -190,6 +208,7 @@ def _send_notification(fcm_token: str, os_type: str, message: str):
 # the periodic checkin that the app makes to the backend.  The periodic checkin is app-code, it hits
 # the moblile_api.mobile_heartbeat endpoint.
 
+
 def heartbeat_query() -> List[Tuple[int, str, str, str]]:
     """ Handles logic of finding all active participants and providing the information required to
     send them all the "heartbeat" push notification to keep them up and running. """
@@ -225,8 +244,9 @@ def heartbeat_query() -> List[Tuple[int, str, str, str]]:
             participant__permanently_retired=False,    # should be rendundant with deleted.
             unregistered=None,                         # this is fcm-speak for non-retired fcm token
             participant__os_type__in=[ANDROID_API, IOS_API],  # participants need to _have an OS_.
-        )\
-        .values_list(
+        ).exclude(
+            participant__study_id__in=get_stopped_study_ids()  # no stopped studies
+        ).values_list(
             "participant_id",
             "token",
             "participant__os_type",
@@ -358,6 +378,9 @@ def get_surveys_and_schedules(now: datetime, **filter_kwargs) -> Tuple[DictOfStr
         deleted=False,
     ) \
     .filter(**filter_kwargs) \
+    .exclude(
+        survey__study_id__in=get_stopped_study_ids()  # no stopped studies
+    ) \
     .values_list(
         "scheduled_time",
         "survey__object_id",

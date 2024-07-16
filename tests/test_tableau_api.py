@@ -254,6 +254,13 @@ class TableauApiAuthTests(TableauAPITest):
         # if this doesn't raise an error it has succeeded
         check_tableau_permissions(self.default_header, study_object_id=self.session_study.object_id)
     
+    def test_deleted_study(self):
+        self.session_study.update(deleted=True)
+        with self.assertRaises(TableauPermissionDenied) as cm:
+            check_tableau_permissions(
+                self.default_header, study_object_id=self.session_study.object_id
+            )
+    
     def test_check_permissions_none(self):
         ApiKey.objects.all().delete()
         with self.assertRaises(TableauAuthenticationFailed) as cm:

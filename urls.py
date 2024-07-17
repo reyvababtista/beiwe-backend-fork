@@ -12,7 +12,7 @@ from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRE
 from endpoints import (data_api_endpoints, data_page_endpoints, login_endpoints,
     manage_researcher_endpoints, manage_study_endpoints, misc_download_endpoints, mobile_endpoints,
     participant_endpoints, raw_data_api, study_endpoints, survey_endpoints, system_admin_endpoints)
-from pages import admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages
+from pages import data_access_web_form, forest_pages, mobile_pages, participant_pages
 
 
 def path(
@@ -65,12 +65,12 @@ path("choose_study", study_endpoints.choose_study_page)
 path("logout", login_endpoints.logout_page, login_redirect=IGNORE)
 
 # Researcher self administration
-path("manage_credentials", admin_pages.self_manage_credentials_page, login_redirect=IGNORE)
-path("self_change_password", admin_pages.self_change_password, login_redirect=IGNORE)
-path("generate_api_key", admin_pages.self_generate_api_key)
-path("disable_api_key", admin_pages.self_disable_api_key)
-path("self_reset_mfa", admin_pages.self_reset_mfa, login_redirect=IGNORE)
-path("test_mfa", admin_pages.self_test_mfa)
+path("manage_credentials", manage_researcher_endpoints.self_manage_credentials_page, login_redirect=IGNORE)
+path("self_change_password", manage_researcher_endpoints.self_change_password, login_redirect=IGNORE)
+path("generate_api_key", manage_researcher_endpoints.self_generate_api_key)
+path("disable_api_key", manage_researcher_endpoints.self_disable_api_key)
+path("self_reset_mfa", manage_researcher_endpoints.self_reset_mfa, login_redirect=IGNORE)
+path("test_mfa", manage_researcher_endpoints.self_test_mfa)
 
 # The point of the thing
 path("view_study/<int:study_id>", study_endpoints.view_study_page, login_redirect=SAFE)

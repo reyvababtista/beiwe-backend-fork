@@ -403,14 +403,14 @@ def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponse
     if researcher.password_force_reset:
         log("password reset forced")
         messages.error(request, PASSWORD_RESET_FORCED)
-        return redirect(easy_url("admin_pages.self_manage_credentials_page"))
+        return redirect(easy_url("manage_researcher_endpoints.self_manage_credentials_page"))
     
     if researcher.password_min_length < get_min_password_requirement(researcher):
         log("password reset min length")
         messages.error(
             request, PASSWORD_RESET_SITE_ADMIN if researcher.site_admin else PASSWORD_RESET_TOO_SHORT
         )
-        return redirect(easy_url("admin_pages.self_manage_credentials_page"))
+        return redirect(easy_url("manage_researcher_endpoints.self_manage_credentials_page"))
     
     # get smallest password max age from studies the researcher is on
     max_age_days = researcher.study_relations \
@@ -427,7 +427,7 @@ def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponse
         if password_age_days > max_age_days:
             messages.error(request, PASSWORD_EXPIRED)
             log("password expired, redirecting")
-            return redirect(easy_url("admin_pages.self_manage_credentials_page"))
+            return redirect(easy_url("manage_researcher_endpoints.self_manage_credentials_page"))
         elif password_age_days > max_age_days - 7:
             messages.warning(request, PASSWORD_WILL_EXPIRE.format(days=max_age_days - password_age_days))
     
@@ -438,7 +438,7 @@ def determine_any_redirects(request: ResearcherRequest) -> Optional[HttpResponse
         messages.error(request, MFA_CONFIGURATION_REQUIRED)
         if researcher.site_admin and REQUIRE_SITE_ADMIN_MFA:
             messages.error(request, MFA_CONFIGURATION_SITE_ADMIN)
-        return redirect(easy_url("admin_pages.self_manage_credentials_page"))
+        return redirect(easy_url("manage_researcher_endpoints.self_manage_credentials_page"))
     
     # request.get_full_path() is always a valid url because this code only executes on pages that
     # were already validly resolved. (we need the slash at the beginning when storing to the db)

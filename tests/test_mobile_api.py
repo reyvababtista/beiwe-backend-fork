@@ -615,7 +615,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.smart_post_status_code(200, file_name="whatever.csv")
         self.assert_no_files_to_process
         
-        # test that an end datedate in the future fully works (errors with missing file is sufficient)
+        # test that an end date in the future fully works (errors with missing file is sufficient)
         self.skip_next_device_tracker_params
         self.default_study.update_only(end_date=date.today() + timedelta(days=1))
         resp = self.smart_post_status_code(400, file_name="whatever.csv")
@@ -640,8 +640,7 @@ class TestMobileUpload(ParticipantSessionTest):
         target_stop_date = date(2020, 1, 31)
         time_zone_name = "Africa/Monrovia"  # literally any random timezone
         target_time_zone = tz.gettz(time_zone_name)
-        self.default_study.update_only(end_date=target_stop_date, timezone_name=target_time_zone)
-        
+        self.default_study.update_only(end_date=target_stop_date, timezone_name=time_zone_name)
         # 8pm
         time_of_day = datetime(2020, 1, 31, 8, 0, 0, tzinfo=target_time_zone)
         # "file not present" is the correct response here , the code to block based on the end time

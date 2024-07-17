@@ -9,12 +9,12 @@ from tests.common import ResearcherSessionTest
 
 
 #
-## participant_administration
+## participant endpoints
 #
 
 
 class TestDeleteParticipant(ResearcherSessionTest):
-    ENDPOINT_NAME = "participant_administration.delete_participant"
+    ENDPOINT_NAME = "participant_endpoints.delete_participant"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
     # most of this was copy-pasted from TestUnregisterParticipant, which was copied from TestResetDevice
@@ -136,11 +136,11 @@ class TestDeleteParticipant(ResearcherSessionTest):
             self._test_success()
     
     def get_patches(self, the_patch):
-        from api import participant_administration
+        from endpoints import participant_endpoints
         from pages import participant_pages
         return (
             patch.object(participant_pages, "DATA_DELETION_ALLOWED_RELATIONS", the_patch),
-            patch.object(participant_administration, "DATA_DELETION_ALLOWED_RELATIONS", the_patch),
+            patch.object(participant_endpoints, "DATA_DELETION_ALLOWED_RELATIONS", the_patch),
         )
     
     def _test_relation_restriction_failure(self):
@@ -188,7 +188,7 @@ class TestDeleteParticipant(ResearcherSessionTest):
 # FIXME: this endpoint doesn't validate the researcher on the study
 # FIXME: redirect was based on referrer.
 class TestResetParticipantPassword(ResearcherSessionTest):
-    ENDPOINT_NAME = "participant_administration.reset_participant_password"
+    ENDPOINT_NAME = "participant_endpoints.reset_participant_password"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
     def test_success(self):
@@ -251,7 +251,7 @@ class TestResetParticipantPassword(ResearcherSessionTest):
 
 
 class TestResetDevice(ResearcherSessionTest):
-    ENDPOINT_NAME = "participant_administration.clear_device_id"
+    ENDPOINT_NAME = "participant_endpoints.clear_device_id"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
     def test_bad_study_id(self):
@@ -325,7 +325,7 @@ class TestResetDevice(ResearcherSessionTest):
 
 
 class TestToggleParticipantEasyEnrollment(ResearcherSessionTest):
-    ENDPOINT_NAME = "participant_administration.toggle_easy_enrollment"
+    ENDPOINT_NAME = "participant_endpoints.toggle_easy_enrollment"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
     def test_admin(self):
@@ -382,7 +382,7 @@ class TestToggleParticipantEasyEnrollment(ResearcherSessionTest):
 
 
 class TestUnregisterParticipant(ResearcherSessionTest):
-    ENDPOINT_NAME = "participant_administration.retire_participant"
+    ENDPOINT_NAME = "participant_endpoints.retire_participant"
     REDIRECT_ENDPOINT_NAME = "participant_pages.participant_page"
     
     # most of this was copy-pasted from TestResetDevice
@@ -476,11 +476,11 @@ class TestUnregisterParticipant(ResearcherSessionTest):
 
 # FIXME: test extended database effects of generating participants
 class CreateNewParticipant(ResearcherSessionTest):
-    ENDPOINT_NAME = "participant_administration.create_new_participant"
+    ENDPOINT_NAME = "participant_endpoints.create_new_participant"
     REDIRECT_ENDPOINT_NAME = "study_endpoints.view_study_page"
     
-    @patch("api.participant_administration.s3_upload")
-    @patch("api.participant_administration.create_client_key_pair")
+    @patch("endpoints.participant_endpoints.s3_upload")
+    @patch("endpoints.participant_endpoints.create_client_key_pair")
     def test(self, create_client_keypair: MagicMock, s3_upload: MagicMock):
         # this test does not make calls to S3
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -495,10 +495,10 @@ class CreateNewParticipant(ResearcherSessionTest):
 
 
 class CreateManyParticipant(ResearcherSessionTest):
-    ENDPOINT_NAME = "participant_administration.create_many_patients"
+    ENDPOINT_NAME = "participant_endpoints.create_many_patients"
     
-    @patch("api.participant_administration.s3_upload")
-    @patch("api.participant_administration.create_client_key_pair")
+    @patch("endpoints.participant_endpoints.s3_upload")
+    @patch("endpoints.participant_endpoints.create_client_key_pair")
     def test(self, create_client_keypair: MagicMock, s3_upload: MagicMock):
         # this test does not make calls to S3
         self.set_session_study_relation(ResearcherRole.researcher)

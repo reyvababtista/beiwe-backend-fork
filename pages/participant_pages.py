@@ -9,7 +9,7 @@ from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
 
-from api.participant_administration import add_fields_and_interventions
+from endpoints.participant_endpoints import add_fields_and_interventions
 from authentication.admin_authentication import authenticate_researcher_study_access
 from config.settings import ENABLE_EXPERIMENTS
 from constants.action_log_messages import HEARTBEAT_PUSH_NOTIFICATION_SENT

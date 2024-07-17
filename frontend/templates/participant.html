@@ -205,7 +205,7 @@
   <div class="col-md-12 well">
     <div class="col-md-5">
       <div class="h2-middle-margins-vertical text-center row">
-        <form action="{{ easy_url('participant_administration.clear_device_id') }}" method="post">
+        <form action="{{ easy_url('participant_endpoints.clear_device_id') }}" method="post">
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
           <button type="submit" class="btn btn-warning large-font-size"
@@ -230,7 +230,7 @@
   <div class="col-md-12 well">
     <div class="col-md-5">
       <div class="h2-middle-margins-vertical text-center row">
-        <form action="{{ easy_url('participant_administration.retire_participant') }}" method="post">
+        <form action="{{ easy_url('participant_endpoints.retire_participant') }}" method="post">
           <input type="hidden" name="patient_id" value="{{ participant.patient_id }}">
           <input type="hidden" name="study_id" value="{{ study.id }}">
           <button type="submit" class="btn btn-danger large-font-size"

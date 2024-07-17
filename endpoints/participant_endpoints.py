@@ -192,7 +192,6 @@ def delete_participant(request: ResearcherRequest):
     
     relation = request.session_researcher.get_study_relation(study_id)
     if request.session_researcher.site_admin or relation in DATA_DELETION_ALLOWED_RELATIONS:
-        print("yo is this happening")
         add_participant_for_deletion(participant)
     else:
         messages.error(request, NO_DELETION_PERMISSION.format(patient_id=patient_id))

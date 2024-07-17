@@ -236,7 +236,7 @@
 
           {% if site_admin %}
             <div class="col-xs-4">
-              <p><a class="btn btn-info" href="{{ easy_url('forest_pages.create_tasks', study_id=study.id) }}">
+              <p><a class="btn btn-info" href="{{ easy_url('forest_endpoints.create_tasks', study_id=study.id) }}">
                 Dispatch New Forest Tasks
               </a></p>
               Queue up new Forest analysis runs on participant data.
@@ -244,14 +244,14 @@
           {% endif %}
 
           <div class="col-xs-4">
-            <p><a class="btn btn-info" href="{{ easy_url('forest_pages.task_log', study_id=study.id) }}">
+            <p><a class="btn btn-info" href="{{ easy_url('forest_endpoints.task_log', study_id=study.id) }}">
               View Forest Task History
             </a></p>
             View the runtime history of all Forest analysis tasks that have run on data from this study.
           </div>
           
           <div class="col-xs-4">
-            <p><a class="btn btn-info" href="{{ easy_url('forest_pages.forest_tasks_progress', study_id=study.id) }}">
+            <p><a class="btn btn-info" href="{{ easy_url('forest_endpoints.forest_tasks_progress', study_id=study.id) }}">
               View Forest Task Summaries
             </a></p>
             View a high-level summary about the data that Forest analysis run on.

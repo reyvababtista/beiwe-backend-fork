@@ -9,10 +9,10 @@ from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
-from endpoints import (data_api_endpoints, data_page_endpoints, login_endpoints,
+from endpoints import (data_api_endpoints, data_page_endpoints, forest_endpoints, login_endpoints,
     manage_researcher_endpoints, manage_study_endpoints, misc_download_endpoints, mobile_endpoints,
     participant_endpoints, raw_data_api, study_endpoints, survey_endpoints, system_admin_endpoints)
-from pages import forest_pages, mobile_pages, participant_pages
+from pages import mobile_pages, participant_pages
 
 
 def path(
@@ -240,21 +240,21 @@ path(
 )
 
 # forest pages
-path('studies/<str:study_id>/forest/tasks/create', forest_pages.create_tasks)
-path('studies/<str:study_id>/forest/tasks/copy', forest_pages.copy_forest_task)
-path('studies/<str:study_id>/forest/progress', forest_pages.forest_tasks_progress, login_redirect=SAFE)
-path("studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/cancel", forest_pages.cancel_task)
-path('studies/<str:study_id>/forest/tasks', forest_pages.task_log, login_redirect=SAFE)
-path('studies/<str:study_id>/forest/tasks/download', forest_pages.download_task_log)
-path('studies/<str:study_id>/download_summary_statistics_csv/', forest_pages.download_summary_statistics_csv)
-path('studies/<str:study_id>/download_participant_tree_data/<str:forest_task_external_id>', forest_pages.download_participant_tree_data)
+path('studies/<str:study_id>/forest/tasks/create', forest_endpoints.create_tasks)
+path('studies/<str:study_id>/forest/tasks/copy', forest_endpoints.copy_forest_task)
+path('studies/<str:study_id>/forest/progress', forest_endpoints.forest_tasks_progress, login_redirect=SAFE)
+path("studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/cancel", forest_endpoints.cancel_task)
+path('studies/<str:study_id>/forest/tasks', forest_endpoints.task_log, login_redirect=SAFE)
+path('studies/<str:study_id>/forest/tasks/download', forest_endpoints.download_task_log)
+path('studies/<str:study_id>/download_summary_statistics_csv/', forest_endpoints.download_summary_statistics_csv)
+path('studies/<str:study_id>/download_participant_tree_data/<str:forest_task_external_id>', forest_endpoints.download_participant_tree_data)
 path(
     "studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/download_output",
-    forest_pages.download_output_data
+    forest_endpoints.download_output_data
 )
 path(
     "studies/<str:study_id>/forest/tasks/<str:forest_task_external_id>/download",
-    forest_pages.download_task_data
+    forest_endpoints.download_task_data
 )
 
 ## Endpoints related to the Apps

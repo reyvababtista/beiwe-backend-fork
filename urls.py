@@ -5,8 +5,7 @@ from django.conf.urls.static import static
 from django.core.exceptions import ImproperlyConfigured
 from django.urls import path as simplepath
 
-from api import (copy_study_api, mobile_api, participant_administration, push_notifications_api,
-    survey_api)
+from api import mobile_api, participant_administration, push_notifications_api, survey_api
 from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
@@ -183,8 +182,8 @@ if ENABLE_EXPERIMENTS or RUNNING_TESTS:
     )
 
 # copy study api
-path('export_study_settings_file/<str:study_id>', copy_study_api.export_study_settings_file)
-path('import_study_settings_file/<str:study_id>', copy_study_api.import_study_settings_file)
+path('export_study_settings_file/<str:study_id>', study_endpoints.export_study_settings_file)
+path('import_study_settings_file/<str:study_id>', study_endpoints.import_study_settings_file)
 
 # survey_api
 path('create_survey/<str:study_id>/<str:survey_type>', survey_api.create_survey)

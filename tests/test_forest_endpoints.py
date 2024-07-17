@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import dateutil
 from django.http import FileResponse
-from django.http.response import FileResponse
 
 from constants.celery_constants import ForestTaskStatus
 from constants.data_stream_constants import GPS
@@ -18,13 +17,13 @@ from tests.helpers import CURRENT_TEST_DATE_BYTES, DummyThreadPool
 
 
 #
-## forest_pages
+## forest endpoints
 #
 
 
 # FIXME: This endpoint is unusable, it is not a viable way to look at forest stuff.
 class TestForestAnalysisProgress(ResearcherSessionTest):
-    ENDPOINT_NAME = "forest_pages.forest_tasks_progress"
+    ENDPOINT_NAME = "forest_endpoints.forest_tasks_progress"
     
     def test(self):
         # hey it loads...
@@ -36,20 +35,20 @@ class TestForestAnalysisProgress(ResearcherSessionTest):
 
 
 # class TestForestCreateTasks(ResearcherSessionTest):
-#     ENDPOINT_NAME = "forest_pages.create_tasks"
+#     ENDPOINT_NAME = "forest_endpoints.create_tasks"
 #     def test(self):
 #         self.smart_get()
 
 
 # class TestForestTaskLog(ResearcherSessionTest):
-#     ENDPOINT_NAME = "forest_pages.task_log"
+#     ENDPOINT_NAME = "forest_endpoints.task_log"
 #     def test(self):
 #         self.smart_get()
 
 
 # TODO: make a test for whether a tsudy admin can hit this endpoint? I think there's a bug in the authenticate_admin decorator that allows that.....
 class TestForestDownloadTaskLog(ResearcherSessionTest):
-    ENDPOINT_NAME = "forest_pages.download_task_log"
+    ENDPOINT_NAME = "forest_endpoints.download_task_log"
     REDIRECT_ENDPOINT_NAME = ResearcherSessionTest.IGNORE_THIS_ENDPOINT
     
     header_row = "Created On,Data Date End,Data Date Start,Id,Forest Tree,"\
@@ -114,8 +113,8 @@ class TestForestDownloadTaskLog(ResearcherSessionTest):
 
 
 class TestForestCancelTask(ResearcherSessionTest):
-    ENDPOINT_NAME = "forest_pages.cancel_task"
-    REDIRECT_ENDPOINT_NAME = "forest_pages.task_log"
+    ENDPOINT_NAME = "forest_endpoints.cancel_task"
+    REDIRECT_ENDPOINT_NAME = "forest_endpoints.task_log"
     
     def test_no_relation_cannot(self):
         self.smart_post_status_code(403, self.session_study.id, self.default_forest_task.external_id)
@@ -153,7 +152,7 @@ class TestForestCancelTask(ResearcherSessionTest):
 
 
 class TestForestDownloadOutput(ResearcherSessionTest):
-    ENDPOINT_NAME = "forest_pages.download_output_data"
+    ENDPOINT_NAME = "forest_endpoints.download_output_data"
     REDIRECT_ENDPOINT_NAME = ResearcherSessionTest.IGNORE_THIS_ENDPOINT
     
     def test_no_relation_cannot(self):
@@ -189,7 +188,7 @@ class TestForestDownloadTaskData(ResearcherSessionTest):
     # you need to look at tests/test_data_access_api.py to understand the weird problems that can
     # happen with this use of the data access api code. I'm not redocumenting it.
     
-    ENDPOINT_NAME = "forest_pages.download_task_data"
+    ENDPOINT_NAME = "forest_endpoints.download_task_data"
     REDIRECT_ENDPOINT_NAME = ResearcherSessionTest.IGNORE_THIS_ENDPOINT
     
     def test_no_relation_cannot(self):
@@ -237,8 +236,8 @@ class TestForestDownloadTaskData(ResearcherSessionTest):
 
 
 class TestRerunForestTask(ResearcherSessionTest):
-    ENDPOINT_NAME = "forest_pages.copy_forest_task"
-    REDIRECT_ENDPOINT_NAME = "forest_pages.task_log"
+    ENDPOINT_NAME = "forest_endpoints.copy_forest_task"
+    REDIRECT_ENDPOINT_NAME = "forest_endpoints.task_log"
     
     def test_no_task_specified(self):
         self.set_session_study_relation(ResearcherRole.site_admin)
@@ -283,7 +282,7 @@ class TestRerunForestTask(ResearcherSessionTest):
 
 
 class TestDownloadSummaryStatisticsSummary(ResearcherSessionTest):
-    ENDPOINT_NAME = "forest_pages.download_summary_statistics_csv"
+    ENDPOINT_NAME = "forest_endpoints.download_summary_statistics_csv"
     
     # edit this to match the csv header if it is updated
     CSV_HEADER: bytes = ",".join((
@@ -444,7 +443,7 @@ class TestDownloadSummaryStatisticsSummary(ResearcherSessionTest):
 
 
 class TestDownloadParticipantTreeData(ResearcherSessionTest):
-    ENDPOINT_NAME = "forest_pages.download_participant_tree_data"
+    ENDPOINT_NAME = "forest_endpoints.download_participant_tree_data"
     
     summary_field_tree_map = {
         ForestTree.jasmine: "jasmine_task",

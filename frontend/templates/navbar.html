@@ -69,11 +69,11 @@
             Forest <span class="caret"></span>
           </a>
           <ul class="dropdown-menu">
-            <li><a href="{{ easy_url('forest_pages.create_tasks', study_id=study.id) }}">Create Forest Tasks</a></li>
-            <li><a href="{{ easy_url('forest_pages.task_log', study_id=study.id) }}">View Forest Task Log</a></li>
-            <li><a href="{{ easy_url('forest_pages.forest_tasks_progress', study_id=study.id) }}">View Forest Analysis Progress</a></li>
+            <li><a href="{{ easy_url('forest_endpoints.create_tasks', study_id=study.id) }}">Create Forest Tasks</a></li>
+            <li><a href="{{ easy_url('forest_endpoints.task_log', study_id=study.id) }}">View Forest Task Log</a></li>
+            <li><a href="{{ easy_url('forest_endpoints.forest_tasks_progress', study_id=study.id) }}">View Forest Analysis Progress</a></li>
             {% if site_admin %}
-            <li><a class="" href="{{ easy_url('forest_pages.download_task_log', study_id=study.id) }}">
+            <li><a class="" href="{{ easy_url('forest_endpoints.download_task_log', study_id=study.id) }}">
               <i>Download Forest Task Log As CSV</i>
             </a></li>
             {% endif %}

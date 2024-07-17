@@ -166,7 +166,7 @@ def create_tasks(request: ResearcherRequest, study_id=None):
     
     form.save()
     messages.success(request, "Forest tasks successfully queued!")
-    return redirect(easy_url("forest_pages.task_log", study_id=study_id))
+    return redirect(easy_url("forest_endpoints.task_log", study_id=study_id))
 
 
 @require_http_methods(['GET', 'POST'])
@@ -184,13 +184,13 @@ def copy_forest_task(request: ResearcherRequest, study_id=None):
     task_id = request.POST.get("external_id", None)
     if not task_id:
         messages.warning(request, FOREST_NO_TASK)
-        return redirect(easy_url("forest_pages.task_log", study_id=study_id))
+        return redirect(easy_url("forest_endpoints.task_log", study_id=study_id))
     
     try:
         task_to_copy = ForestTask.objects.get(external_id=task_id)
     except (ForestTask.DoesNotExist, ValidationError):
         messages.warning(request, FOREST_NO_TASK)
-        return redirect(easy_url("forest_pages.task_log", study_id=study_id))
+        return redirect(easy_url("forest_endpoints.task_log", study_id=study_id))
     
     new_task = ForestTask(
         participant=task_to_copy.participant,
@@ -203,7 +203,7 @@ def copy_forest_task(request: ResearcherRequest, study_id=None):
     messages.success(
         request, f"Made a copy of {task_to_copy.external_id} with id {new_task.external_id}."
     )
-    return redirect(easy_url("forest_pages.task_log", study_id=study_id))
+    return redirect(easy_url("forest_endpoints.task_log", study_id=study_id))
 
 
 @require_GET
@@ -227,7 +227,7 @@ def task_log(request: ResearcherRequest, study_id=None):
         # rename and transform
         task_dict["has_output_data"] = task_dict["forest_output_exists"]
         task_dict["download_participant_tree_data_url"] = easy_url(
-            "forest_pages.download_participant_tree_data", study_id=study_id, forest_task_external_id=extern_id,
+            "forest_endpoints.download_participant_tree_data", study_id=study_id, forest_task_external_id=extern_id,
         )
         task_dict["forest_tree_display"] = task_dict.pop("forest_tree").title()
         task_dict["created_on_display"] = task_dict.pop("created_on").strftime(DEV_TIME_FORMAT)
@@ -242,11 +242,11 @@ def task_log(request: ResearcherRequest, study_id=None):
         
         # urls
         task_dict["cancel_url"] = easy_url(
-            "forest_pages.cancel_task", study_id=study_id, forest_task_external_id=extern_id,
+            "forest_endpoints.cancel_task", study_id=study_id, forest_task_external_id=extern_id,
         )
-        task_dict["copy_url"] = easy_url("forest_pages.copy_forest_task", study_id=study_id)
+        task_dict["copy_url"] = easy_url("forest_endpoints.copy_forest_task", study_id=study_id)
         task_dict["download_url"] = easy_url(
-            "forest_pages.download_task_data", study_id=study_id, forest_task_external_id=extern_id,
+            "forest_endpoints.download_task_data", study_id=study_id, forest_task_external_id=extern_id,
         )
         
         # raw output data data is only available if the task has completed successfully, and not
@@ -254,7 +254,7 @@ def task_log(request: ResearcherRequest, study_id=None):
         if task_dict.pop("output_zip_s3_path"):
             task_dict["has_output_downloadable_data"] = True
             task_dict["download_output_url"] = easy_url(
-                "forest_pages.download_output_data", study_id=study_id, forest_task_external_id=extern_id,
+                "forest_endpoints.download_output_data", study_id=study_id, forest_task_external_id=extern_id,
             )
         
         # the pickled parameters have some error cases.
@@ -303,7 +303,7 @@ def cancel_task(request: ResearcherRequest, study_id: int, forest_task_external_
     else:
         messages.warning(request, FOREST_NO_TASK)
     
-    return redirect(easy_url("forest_pages.task_log", study_id=study_id))
+    return redirect(easy_url("forest_endpoints.task_log", study_id=study_id))
 
 
 @require_GET

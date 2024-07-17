@@ -20,7 +20,7 @@ from libs.internal_types import ResearcherRequest
 
 @require_GET
 @authenticate_admin
-def manage_researchers_page(request: ResearcherRequest):
+def administrator_manage_researchers_page(request: ResearcherRequest):
     # get the study names that each user has access to, but only those that the current admin  also
     # has access to.
     if request.session_researcher.site_admin:
@@ -111,7 +111,7 @@ def administrator_reset_researcher_mfa(request: ResearcherRequest, researcher_id
 
 @require_POST
 @authenticate_admin
-def elevate_researcher_to_study_admin(request: ResearcherRequest):
+def administrator_elevate_researcher_to_study_admin(request: ResearcherRequest):
     researcher_pk = request.POST.get("researcher_id", None)
     # some extra validation on the researcher id
     try:
@@ -136,7 +136,7 @@ def elevate_researcher_to_study_admin(request: ResearcherRequest):
 
 @require_POST
 @authenticate_admin
-def demote_study_administrator_to_researcher(request: ResearcherRequest):
+def administrator_demote_study_administrator_to_researcher(request: ResearcherRequest):
     # FIXME: this endpoint does not test for site admin cases correctly, the test passes but is
     # wrong. Behavior is fine because it has no relevant side effects except for the know bug where
     # site admins need to be manually added to a study before being able to download data.
@@ -153,7 +153,7 @@ def demote_study_administrator_to_researcher(request: ResearcherRequest):
 
 @require_http_methods(['GET', 'POST'])
 @authenticate_admin
-def create_new_researcher(request: ResearcherRequest):
+def administrator_create_new_researcher(request: ResearcherRequest):
     # FIXME: get rid of dual endpoint pattern, it is a bad idea.
     if request.method == 'GET':
         return render(request, 'create_new_researcher.html')
@@ -176,7 +176,7 @@ def create_new_researcher(request: ResearcherRequest):
 
 @require_POST
 @authenticate_admin
-def add_researcher_to_study(request: ResearcherRequest):
+def administrator_add_researcher_to_study(request: ResearcherRequest):
     researcher_id = request.POST['researcher_id']
     study_id = request.POST['study_id']
     assert_admin(request, study_id)
@@ -196,7 +196,7 @@ def add_researcher_to_study(request: ResearcherRequest):
 
 @require_POST
 @authenticate_admin
-def remove_researcher_from_study(request: ResearcherRequest):
+def administrator_remove_researcher_from_study(request: ResearcherRequest):
     researcher_id = request.POST['researcher_id']
     study_id = request.POST['study_id']
     try:

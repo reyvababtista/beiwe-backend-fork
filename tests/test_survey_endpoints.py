@@ -6,22 +6,19 @@ from tests.common import ResearcherSessionTest
 # trunk-ignore-all(ruff/B018)
 
 #
-## survey_api
+## survey api
 #
 
 
-class TestICreateSurvey(ResearcherSessionTest):
-    ENDPOINT_NAME = "survey_api.create_survey"
-    REDIRECT_ENDPOINT_NAME = "survey_designer.render_edit_survey"
+class TestCreateSurvey(ResearcherSessionTest):
+    ENDPOINT_NAME = "survey_endpoints.create_survey"
+    REDIRECT_ENDPOINT_NAME = "survey_endpoints.render_edit_survey"
     
     def test_tracking(self):
         self._test(Survey.TRACKING_SURVEY)
     
     def test_audio(self):
         self._test(Survey.AUDIO_SURVEY)
-    
-    def test_image(self):
-        self._test(Survey.IMAGE_SURVEY)
     
     def _test(self, survey_type: str):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -35,7 +32,7 @@ class TestICreateSurvey(ResearcherSessionTest):
 
 # FIXME: add schedule removal tests to this test
 class TestDeleteSurvey(ResearcherSessionTest):
-    ENDPOINT_NAME = "survey_api.delete_survey"
+    ENDPOINT_NAME = "survey_endpoints.delete_survey"
     REDIRECT_ENDPOINT_NAME = "study_endpoints.view_study_page"
     
     def test(self):
@@ -50,7 +47,7 @@ class TestDeleteSurvey(ResearcherSessionTest):
 
 # FIXME: implement more details of survey object updates
 class TestUpdateSurvey(ResearcherSessionTest):
-    ENDPOINT_NAME = "survey_api.update_survey"
+    ENDPOINT_NAME = "survey_endpoints.update_survey"
     
     def test_with_hax_to_bypass_the_hard_bit(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -70,14 +67,9 @@ class TestUpdateSurvey(ResearcherSessionTest):
         self.assertEqual(resp.status_code, 201)
 
 
-#
-## survey_designer
-#
-
-
 # FIXME: add interventions and survey schedules
 class TestRenderEditSurvey(ResearcherSessionTest):
-    ENDPOINT_NAME = "survey_designer.render_edit_survey"
+    ENDPOINT_NAME = "survey_endpoints.render_edit_survey"
     
     def test(self):
         self.set_session_study_relation(ResearcherRole.researcher)

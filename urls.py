@@ -5,16 +5,15 @@ from django.conf.urls.static import static
 from django.core.exceptions import ImproperlyConfigured
 from django.urls import path as simplepath
 
-from api import mobile_api, participant_administration, push_notifications_api, survey_api
+from api import mobile_api, participant_administration, push_notifications_api
 from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
 from endpoints import (data_api_endpoints, data_page_endpoints, login_endpoints,
     manage_researcher_endpoints, manage_study_endpoints, misc_download_endpoints, raw_data_api,
-    study_endpoints, system_admin_endpoints)
-from pages import (admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages,
-    survey_designer)
+    study_endpoints, survey_endpoints, system_admin_endpoints)
+from pages import (admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages)
 
 
 def path(
@@ -186,15 +185,15 @@ path('export_study_settings_file/<str:study_id>', study_endpoints.export_study_s
 path('import_study_settings_file/<str:study_id>', study_endpoints.import_study_settings_file)
 
 # survey_api
-path('create_survey/<str:study_id>/<str:survey_type>', survey_api.create_survey)
-path('delete_survey/<str:study_id>/<str:survey_id>', survey_api.delete_survey)
-path('update_survey/<str:study_id>/<str:survey_id>', survey_api.update_survey)
-path('rename_survey/<str:study_id>/<str:survey_id>', survey_api.rename_survey)
+path('create_survey/<str:study_id>/<str:survey_type>', survey_endpoints.create_survey)
+path('delete_survey/<str:study_id>/<str:survey_id>', survey_endpoints.delete_survey)
+path('update_survey/<str:study_id>/<str:survey_id>', survey_endpoints.update_survey)
+path('rename_survey/<str:study_id>/<str:survey_id>', survey_endpoints.rename_survey)
 
 # survey designer
 path(
     'edit_survey/<str:study_id>/<str:survey_id>',
-    survey_designer.render_edit_survey,
+    survey_endpoints.render_edit_survey,
     login_redirect=SAFE,
 )
 

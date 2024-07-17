@@ -500,7 +500,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             "participant_pages.participant_page",
             "manage_study_endpoints.interventions_page",
             "manage_study_endpoints.study_fields",
-            "survey_designer.render_edit_survey",
+            "survey_endpoints.render_edit_survey",
             "study_endpoints.device_settings",
             "manage_researcher_endpoints.administrator_edit_researcher_page",
             "study_endpoints.edit_study",

@@ -493,7 +493,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             "data_page_endpoints.dashboard_page",
             "data_page_endpoints.get_data_for_dashboard_datastream_display",
             "data_page_endpoints.dashboard_participant_page",
-            "data_access_web_form.data_api_web_form_page",
+            "data_page_endpoints.data_api_web_form_page",
             "forest_pages.forest_tasks_progress",
             "forest_pages.task_log",
             "participant_pages.notification_history",

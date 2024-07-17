@@ -496,8 +496,8 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             "data_page_endpoints.data_api_web_form_page",
             "forest_endpoints.forest_tasks_progress",
             "forest_endpoints.task_log",
-            "participant_pages.notification_history",
-            "participant_pages.participant_page",
+            "participant_endpoints.notification_history",
+            "participant_endpoints.participant_page",
             "manage_study_endpoints.interventions_page",
             "manage_study_endpoints.study_fields",
             "survey_endpoints.render_edit_survey",
@@ -508,7 +508,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             "manage_researcher_endpoints.administrator_manage_researchers_page",
             "study_endpoints.manage_studies_page",
             "study_endpoints.study_security_page",
-            "participant_pages.experiments_page",
+            "participant_endpoints.experiments_page",
         ]
     )
     

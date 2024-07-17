@@ -415,7 +415,7 @@ class Participant(AbstractPasswordUser):
         """ returns a url for the participant page for this user (debugging function) """
         from libs.http_utils import easy_url  # import triangle
         return f"https://{DOMAIN_NAME}" + easy_url(
-            "participant_pages.participant_page", self.study.id, self.patient_id
+            "participant_endpoints.participant_page", self.study.id, self.patient_id
         )
     
     @property

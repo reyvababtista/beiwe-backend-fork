@@ -12,7 +12,6 @@ from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRE
 from endpoints import (data_api_endpoints, data_page_endpoints, forest_endpoints, login_endpoints,
     manage_researcher_endpoints, manage_study_endpoints, misc_download_endpoints, mobile_endpoints,
     participant_endpoints, raw_data_api, study_endpoints, survey_endpoints, system_admin_endpoints)
-from pages import participant_pages
 
 
 def path(
@@ -159,24 +158,24 @@ path('download_study_survey_history/<str:study_id>', manage_study_endpoints.down
 # participant pages
 path(
     'view_study/<int:study_id>/participant/<str:patient_id>/notification_history',
-    participant_pages.notification_history,
+    participant_endpoints.notification_history,
     login_redirect=SAFE
 )
 path(
     'view_study/<int:study_id>/participant/<str:patient_id>',
-    participant_pages.participant_page,
+    participant_endpoints.participant_page,
     login_redirect=SAFE
 )
 # experiments pages for participants
 if ENABLE_EXPERIMENTS or RUNNING_TESTS:
     path(
         'view_study/<int:study_id>/participant/<str:patient_id>/experiments',
-        participant_pages.experiments_page,
+        participant_endpoints.experiments_page,
         login_redirect=SAFE
     )
     path(
         'view_study/<int:study_id>/participant/<str:patient_id>/update_experiments',
-        participant_pages.update_experiments,
+        participant_endpoints.update_experiments,
     )
 
 # copy study api

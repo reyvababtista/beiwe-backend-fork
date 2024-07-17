@@ -1,20 +1,24 @@
 import json
 import random
 from csv import writer
+from datetime import datetime
+from itertools import chain
 from re import sub
 
 import bleach
 from django.contrib import messages
+from django.core.paginator import EmptyPage, Paginator
 from django.http.response import FileResponse, HttpResponse
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from firebase_admin.exceptions import FirebaseError
 from firebase_admin.messaging import (AndroidConfig, Message, Notification,
     send as send_push_notification, UnregisteredError)
 
 from authentication.admin_authentication import authenticate_researcher_study_access
-from constants.common_constants import API_TIME_FORMAT, RUNNING_TEST_OR_IN_A_SHELL
+from config.settings import ENABLE_EXPERIMENTS
+from constants.common_constants import API_DATE_FORMAT, API_TIME_FORMAT, RUNNING_TEST_OR_IN_A_SHELL
 from constants.message_strings import (BAD_DEVICE_OS, BAD_PARTICIPANT_OS,
     DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_PREFIX, MESSAGE_SEND_FAILED_UNKNOWN,
     MESSAGE_SEND_SUCCESS, NO_DELETION_PERMISSION, NOT_IN_STUDY, PARTICIPANT_RETIRED_SUCCESS,
@@ -25,6 +29,10 @@ from database.schedule_models import ArchivedEvent, ScheduledEvent
 from database.study_models import Study
 from database.survey_models import Survey
 from database.user_models_participant import Participant
+from forms.django_forms import ParticipantExperimentForm
+from libs.endpoint_helpers.participant_helpers import (conditionally_display_locked_message,
+    get_heartbeats_query, get_survey_names_dict, notification_details_archived_event,
+    notification_details_heartbeat, query_values_for_notification_history, render_participant_page)
 from libs.firebase_config import check_firebase_instance
 from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
@@ -34,6 +42,7 @@ from libs.s3 import create_client_key_pair, s3_upload
 from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.sentry import make_error_sentry, SentryTypes
 from libs.streaming_io import StreamingStringsIO
+from middleware.abort_middleware import abort
 
 
 @require_POST
@@ -43,7 +52,7 @@ def reset_participant_password(request: ResearcherRequest):
     patient_id = request.POST.get('patient_id', None)
     study_id = request.POST.get('study_id', None)  # this is validated in the decorator
     participant_page = redirect(
-        easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id)
+        easy_url("participant_endpoints.participant_page", study_id=study_id, patient_id=patient_id)
     )
     
     try:
@@ -72,7 +81,7 @@ def clear_device_id(request: ResearcherRequest):
     patient_id = request.POST.get('patient_id', None)
     study_id = request.POST.get('study_id', None)
     participant_page = redirect(
-        easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id)
+        easy_url("participant_endpoints.participant_page", study_id=study_id, patient_id=patient_id)
     )
     
     try:
@@ -101,7 +110,7 @@ def toggle_easy_enrollment(request: ResearcherRequest):
     patient_id = request.POST.get('patient_id', None)
     study_id = request.POST.get('study_id', None)
     participant_page = redirect(
-        easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id)
+        easy_url("participant_endpoints.participant_page", study_id=study_id, patient_id=patient_id)
     )
     try:
         participant = Participant.objects.get(patient_id=patient_id)
@@ -132,7 +141,7 @@ def retire_participant(request: ResearcherRequest):
     patient_id = request.POST.get('patient_id', None)
     study_id = request.POST.get('study_id', None)
     participant_page = redirect(
-        easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id)
+        easy_url("participant_endpoints.participant_page", study_id=study_id, patient_id=patient_id)
     )
     
     try:
@@ -165,7 +174,7 @@ def delete_participant(request: ResearcherRequest):
     patient_id = request.POST.get('patient_id', None)
     study_id = request.POST.get('study_id', None)
     participant_page = redirect(
-        easy_url("participant_pages.participant_page", study_id=study_id, patient_id=patient_id)
+        easy_url("participant_endpoints.participant_page", study_id=study_id, patient_id=patient_id)
     )
     
     try:
@@ -183,6 +192,7 @@ def delete_participant(request: ResearcherRequest):
     
     relation = request.session_researcher.get_study_relation(study_id)
     if request.session_researcher.site_admin or relation in DATA_DELETION_ALLOWED_RELATIONS:
+        print("yo is this happening")
         add_participant_for_deletion(participant)
     else:
         messages.error(request, NO_DELETION_PERMISSION.format(patient_id=patient_id))
@@ -294,7 +304,7 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
     # setup exit details
     error_message = f'Could not send notification to {participant.patient_id}'
     return_redirect = redirect(
-        "participant_pages.participant_page", study_id=study_id, patient_id=participant.patient_id
+        "participant_endpoints.participant_page", study_id=study_id, patient_id=participant.patient_id
     )
     
     # create an event for this attempt, update it on all exit scenarios
@@ -381,3 +391,156 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
             with make_error_sentry(SentryTypes.elastic_beanstalk):
                 raise
     return return_redirect
+
+
+@require_GET
+@authenticate_researcher_study_access
+def notification_history(request: ResearcherRequest, study_id: int, patient_id: str):
+    page_number = request.GET.get('page', 1)
+    # blow up if the page number is not an integer or a (string) value that can be converted to an integer
+    try:
+        page_number = int(page_number)
+    except ValueError:
+        abort(400)
+    
+    # use the provided study id because authentication already validated it
+    study = get_object_or_404(Study, pk=study_id) 
+    participant = get_object_or_404(Participant, patient_id=patient_id)
+    
+    # defaults to false, looks for the string 'true'.
+    include_keepalive = request.GET.get('include_keepalive', "false").lower() == 'true'
+    
+    # archived events are survey notification events, we have logic that expects page size of 25.
+    archived_events = Paginator(query_values_for_notification_history(participant.id), 25)
+    try:
+        archived_events_page = archived_events.page(page_number)
+    except EmptyPage:
+        return HttpResponse(content="", status=404)
+    last_page_number = archived_events.page_range.stop - 1
+    
+    if include_keepalive:
+        # get the heartbeats that are relevant to this page
+        heartbeats_query = get_heartbeats_query(participant, archived_events_page, page_number)
+        # shove everything into one list.
+        all_notifications = list(
+            chain(archived_events_page, heartbeats_query.values_list("timestamp", flat=True))
+        )
+    else:
+        all_notifications = list(archived_events_page)
+    
+    # Sort by the datetime objects we have, using a dictionary to detect (gross but we need to
+    # interleave them) while we have datetime objects because we are using the super nice datetime
+    # string formatting that is not sortable.
+    all_notifications.sort(
+        key=lambda list_or_dict: list_or_dict["created_on"] if isinstance(list_or_dict, dict) else list_or_dict,
+        reverse=True,
+    )
+    
+    # again based on object type we can determine which dictionaryifier to call, and we're done with
+    # this INSANITY.
+    notification_attempts = []
+    survey_names = get_survey_names_dict(study)  # we need the survey names
+    for notification in all_notifications:
+        if isinstance(notification, dict):
+            notification_attempts.append(
+                notification_details_archived_event(notification, study.timezone, survey_names)
+            )
+        else:
+            notification_attempts.append(
+                notification_details_heartbeat(notification, study.timezone)
+            )
+    
+    # and then the conditional message
+    conditionally_display_locked_message(request, participant)
+    return render(
+        request,
+        'notification_history.html',
+        context=dict(
+            participant=participant,
+            page=archived_events_page,
+            notification_attempts=notification_attempts,
+            study=study,
+            last_page_number=last_page_number,
+            locked=participant.is_dead,
+            include_keepalive=include_keepalive,
+        )
+    )
+
+
+@require_http_methods(['GET', 'POST'])
+@authenticate_researcher_study_access
+def participant_page(request: ResearcherRequest, study_id: int, patient_id: str):
+    # use the provided study id because authentication already validated it
+    participant = get_object_or_404(Participant, patient_id=patient_id)
+    study = get_object_or_404(Study, pk=study_id)
+    
+    # safety check, enforce fields and interventions to be present for both page load and edit.
+    if not participant.deleted or participant.has_deletion_event:
+        add_fields_and_interventions(participant, study)
+    
+    # FIXME: get rid of dual endpoint pattern, it is a bad idea.
+    if request.method == 'GET':
+        return render_participant_page(request, participant, study)
+    
+    end_redirect = redirect(
+        easy_url("participant_endpoints.participant_page", study_id=study_id, patient_id=patient_id)
+    )
+    
+    # update intervention dates for participant
+    for intervention in study.interventions.all():
+        input_date = request.POST.get(f"intervention{intervention.id}", None)
+        intervention_date = participant.intervention_dates.get(intervention=intervention)
+        if input_date:
+            try:
+                intervention_date.update(date=datetime.strptime(input_date, API_DATE_FORMAT).date())
+            except ValueError:
+                messages.error(request, 'Invalid date format, please use the date selector or YYYY-MM-DD.')
+                return end_redirect
+    
+    # update custom fields dates for participant
+    for field in study.fields.all():
+        input_id = f"field{field.id}"
+        field_value = participant.field_values.get(field=field)
+        field_value.update(value=request.POST.get(input_id, None))
+    
+    # always call through the repopulate everything call, even though we only need to handle
+    # relative surveys, the function handles extra cases.
+    repopulate_all_survey_scheduled_events(study, participant)
+    
+    messages.success(request, f'Successfully edited participant {participant.patient_id}.')
+    return end_redirect
+
+
+@authenticate_researcher_study_access
+def experiments_page(request: ResearcherRequest, study_id: int, patient_id: str):
+    if not ENABLE_EXPERIMENTS and not RUNNING_TEST_OR_IN_A_SHELL:
+        raise Exception("YO EXPERIMENTS ARE DISABLED HOW IS THIS RUNNING 1")
+    participant = get_object_or_404(Participant, patient_id=patient_id)
+    # just render the page with the current state of the ParticipantExperimentForm.
+    # page is almost nothing but that form.
+    return render(
+        request,
+        'participant_experiments.html',
+        context=dict(
+            participant=participant,
+            form=ParticipantExperimentForm(instance=participant),
+        )
+    )
+
+
+@authenticate_researcher_study_access
+def update_experiments(request: ResearcherRequest, study_id: int, patient_id: str):
+    if not ENABLE_EXPERIMENTS and not RUNNING_TEST_OR_IN_A_SHELL:
+        raise Exception("YO EXPERIMENTS ARE DISABLED HOW IS THIS RUNNING 2")
+    # use the ParticipantExperimentForm to validate the input, update the participant
+    # and then redirect back to the participant page.
+    participant = get_object_or_404(Participant, patient_id=patient_id)
+    
+    form = ParticipantExperimentForm(request.POST)
+    if form.is_valid():
+        # form.save() doesn't tries to overwrite every field, which is stupid.
+        participant.update(**form.cleaned_data)
+        messages.success(request, f'Successfully updated participant {participant.patient_id}.')
+    else:
+        messages.error(request, 'Invalid form data, what are you doing?')
+    return redirect(easy_url("participant_endpoints.participant_page", study_id=study_id, patient_id=patient_id))

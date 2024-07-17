@@ -23,15 +23,15 @@ from forms.django_forms import StudyEndDateForm, StudySecuritySettingsForm
 from libs.copy_study import (allowed_file_extension, copy_study_from_json, do_duplicate_step,
     format_study, unpack_json_study)
 from libs.endpoint_helpers.researcher_helpers import get_administerable_researchers
-from libs.endpoint_helpers.study_helpers import (get_administerable_studies_by_name, notify_changes,
-    trim_whitespace, try_update_device_settings, unflatten_consent_sections)
+from libs.endpoint_helpers.study_helpers import (conditionally_display_study_status_warnings,
+    get_administerable_studies_by_name, notify_changes, trim_whitespace, try_update_device_settings,
+    unflatten_consent_sections)
 from libs.firebase_config import check_firebase_instance
 from libs.http_utils import checkbox_to_boolean, easy_url, string_to_int
 from libs.internal_types import ResearcherRequest
 from libs.password_validation import get_min_password_requirement
 from libs.sentry import make_error_sentry, SentryTypes
 from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
-from pages.admin_pages import conditionally_display_study_status_warnings
 
 
 @require_GET

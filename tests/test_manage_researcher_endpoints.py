@@ -10,11 +10,11 @@ from libs.security import generate_easy_alphanumeric_string
 from tests.common import ResearcherSessionTest
 
 
-class TestDemoteStudyAdmin(ResearcherSessionTest):
+class TestAdministratorDemoteStudyAdmin(ResearcherSessionTest):
     # FIXME: this endpoint does not test for site admin cases correctly, the test passes but is
     # wrong. Behavior is fine because it has no relevant side effects except for the know bug where
     # site admins need to be manually added to a study before being able to download data.
-    ENDPOINT_NAME = "manage_researcher_endpoints.demote_study_administrator_to_researcher"
+    ENDPOINT_NAME = "manage_researcher_endpoints.administrator_demote_study_administrator_to_researcher"
     
     def test_researcher_as_researcher(self):
         r2 = self.generate_researcher(relation_to_session_study=ResearcherRole.researcher)
@@ -50,9 +50,9 @@ class TestDemoteStudyAdmin(ResearcherSessionTest):
         self.assertTrue(r2.site_admin)
 
 
-class TestCreateNewResearcher(ResearcherSessionTest):
+class TestAdministratorCreateNewResearcher(ResearcherSessionTest):
     """ Admins should be able to create and load the page. """
-    ENDPOINT_NAME = "manage_researcher_endpoints.create_new_researcher"
+    ENDPOINT_NAME = "manage_researcher_endpoints.administrator_create_new_researcher"
     
     def test_load_page_at_endpoint(self):
         # This test should be transformed into a separate endpoint
@@ -83,8 +83,8 @@ class TestCreateNewResearcher(ResearcherSessionTest):
                 self.assertEqual(prior_researcher_count, Researcher.objects.count())
 
 
-class TestManageResearchers(ResearcherSessionTest):
-    ENDPOINT_NAME = "manage_researcher_endpoints.manage_researchers_page"
+class TestAdministratorManageResearchers(ResearcherSessionTest):
+    ENDPOINT_NAME = "manage_researcher_endpoints.administrator_manage_researchers_page"
     
     def test_researcher(self):
         self.smart_get_status_code(403)
@@ -136,7 +136,7 @@ class TestManageResearchers(ResearcherSessionTest):
         self.assert_present(r3.username, resp.content)
 
 
-class TestResetResearcherMFA(ResearcherSessionTest):
+class TestAdministratorResetResearcherMFA(ResearcherSessionTest):
     ENDPOINT_NAME = "manage_researcher_endpoints.administrator_reset_researcher_mfa"
     REDIRECT_ENDPOINT_NAME = "manage_researcher_endpoints.administrator_edit_researcher_page"
     
@@ -198,7 +198,7 @@ class TestResetResearcherMFA(ResearcherSessionTest):
             self.assert_present(MFA_RESET_BAD_PERMISSIONS, resp.content)
 
 
-class TestEditResearcher(ResearcherSessionTest):
+class TestAdministratorEditResearcher(ResearcherSessionTest):
     ENDPOINT_NAME = "manage_researcher_endpoints.administrator_edit_researcher_page"
     
     # render self
@@ -258,8 +258,8 @@ class TestEditResearcher(ResearcherSessionTest):
         self.assert_present(r2.username, resp.content)
 
 
-class TestElevateResearcher(ResearcherSessionTest):
-    ENDPOINT_NAME = "manage_researcher_endpoints.elevate_researcher_to_study_admin"
+class TestAdministratorElevateResearcher(ResearcherSessionTest):
+    ENDPOINT_NAME = "manage_researcher_endpoints.administrator_elevate_researcher_to_study_admin"
     
     # (this one is tedious.)
     
@@ -302,8 +302,8 @@ class TestElevateResearcher(ResearcherSessionTest):
         self.assertFalse(r2.study_relations.filter(study=self.session_study).exists())
 
 
-class TestAddResearcherToStudy(ResearcherSessionTest):
-    ENDPOINT_NAME = "manage_researcher_endpoints.add_researcher_to_study"
+class TestAdministratorAddResearcherToStudy(ResearcherSessionTest):
+    ENDPOINT_NAME = "manage_researcher_endpoints.administrator_add_researcher_to_study"
     REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test_site_admin(self):
@@ -362,8 +362,8 @@ class TestAddResearcherToStudy(ResearcherSessionTest):
 #
 ## manage_study_endpoints
 #
-class TestRemoveResearcherFromStudy(ResearcherSessionTest):
-    ENDPOINT_NAME = "manage_researcher_endpoints.remove_researcher_from_study"
+class TestAdministratorRemoveResearcherFromStudy(ResearcherSessionTest):
+    ENDPOINT_NAME = "manage_researcher_endpoints.administrator_remove_researcher_from_study"
     REDIRECT_ENDPOINT_NAME = "study_endpoints.edit_study"
     
     def test_site_admin(self):
@@ -407,7 +407,7 @@ class TestRemoveResearcherFromStudy(ResearcherSessionTest):
             self.assertEqual(redirect.url, f"/edit_study/{self.session_study.id}")
 
 
-class TestDeleteResearcher(ResearcherSessionTest):
+class TestAdministratorDeleteResearcher(ResearcherSessionTest):
     ENDPOINT_NAME = "manage_researcher_endpoints.administrator_delete_researcher"
     
     def test_site_admin(self):
@@ -471,7 +471,7 @@ class TestDeleteResearcher(ResearcherSessionTest):
         self.assertEqual(record.username, r2.username)
 
 
-class TestSetResearcherPassword(ResearcherSessionTest):
+class TestAdministratorSetResearcherPassword(ResearcherSessionTest):
     ENDPOINT_NAME = "manage_researcher_endpoints.administrator_set_researcher_password"
 
     def test_site_admin_on_a_null_user(self):

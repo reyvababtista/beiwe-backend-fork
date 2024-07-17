@@ -134,8 +134,8 @@ class TestLoginPages(BasicSessionTestCase):
         response = self.do_default_login()
         self.assert_response_url_equal(response.url, reverse("study_endpoints.choose_study_page"))
         response2 = self.client.get(response.url)
-        self.assert_response_url_equal(response2.url, reverse("admin_pages.self_manage_credentials"))
-        response3 = self.client.get(reverse("admin_pages.self_manage_credentials"))
+        self.assert_response_url_equal(response2.url, reverse("admin_pages.self_manage_credentials_page"))
+        response3 = self.client.get(reverse("admin_pages.self_manage_credentials_page"))
         self.assertEqual(response3.status_code, 200)
         self.assert_present(error_message, response3.content)
     
@@ -230,7 +230,7 @@ class TestLoginPages(BasicSessionTestCase):
         self.session_researcher
         self.do_default_login()
         self.session_researcher.update(password_force_reset=True)
-        resp = self.client.get(reverse("admin_pages.self_manage_credentials"))
+        resp = self.client.get(reverse("admin_pages.self_manage_credentials_page"))
         self.assertIsInstance(resp, HttpResponse)
         self.assertEqual(resp.status_code, 200)
     
@@ -263,7 +263,7 @@ class TestLoginPages(BasicSessionTestCase):
         name = self.session_study.name
         resp = self.client.post(easy_url("manage_study_endpoints.rename_study", study_id=self.session_study.id))
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp.url, reverse("admin_pages.self_manage_credentials"))
+        self.assertEqual(resp.url, reverse("admin_pages.self_manage_credentials_page"))
         self.session_study.refresh_from_db()
         self.assertEqual(self.session_study.name, name)  # assert name didn't change
     
@@ -339,7 +339,7 @@ class TestLoginPages(BasicSessionTestCase):
         # random endpoint that will trigger a redirect
         resp = self.client.post(easy_url("manage_study_endpoints.rename_study", study_id=self.session_study.id))
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp.url, reverse("admin_pages.self_manage_credentials"))
+        self.assertEqual(resp.url, reverse("admin_pages.self_manage_credentials_page"))
         page = self.simple_get(resp.url, status_code=200).content
         self.assert_present(PASSWORD_RESET_SITE_ADMIN, page)
         # assert that this behavior does not rely on the force reset flag
@@ -357,7 +357,7 @@ class TestLoginPages(BasicSessionTestCase):
         # random endpoint that will trigger a redirect
         resp = self.simple_get(easy_url("study_endpoints.choose_study_page"))
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp.url, reverse("admin_pages.self_manage_credentials"))
+        self.assertEqual(resp.url, reverse("admin_pages.self_manage_credentials_page"))
         page = self.simple_get(resp.url, status_code=200).content
         self.assert_present(PASSWORD_RESET_TOO_SHORT, page)
         # assert that this behavior does not rely on the force reset flag
@@ -375,7 +375,7 @@ class TestLoginPages(BasicSessionTestCase):
         # random endpoint that will trigger a redirect
         resp = self.simple_get(easy_url("study_endpoints.choose_study_page"))
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(resp.url, reverse("admin_pages.self_manage_credentials"))
+        self.assertEqual(resp.url, reverse("admin_pages.self_manage_credentials_page"))
         page = self.simple_get(resp.url, status_code=200).content
         self.assert_present(PASSWORD_RESET_TOO_SHORT, page)
         # assert that this behavior does not rely on the force reset flag
@@ -427,7 +427,7 @@ class TestLoginPages(BasicSessionTestCase):
         resp = self.simple_get(
             easy_url("study_endpoints.choose_study_page"), status_code=302
         )  # page redirects
-        self.assertEqual(resp.url, reverse("admin_pages.self_manage_credentials"))
+        self.assertEqual(resp.url, reverse("admin_pages.self_manage_credentials_page"))
         resp = self.simple_get(resp.url, status_code=200)  # page loads as normal
         self.assert_present(MFA_CONFIGURATION_REQUIRED, resp.content)
     
@@ -457,7 +457,7 @@ class TestLoginPages(BasicSessionTestCase):
         r2 = self.simple_get(
             easy_url("study_endpoints.choose_study_page"), status_code=302
         )  # page redirects
-        self.assertEqual(r2.url, reverse("admin_pages.self_manage_credentials"))  # correct redirect
+        self.assertEqual(r2.url, reverse("admin_pages.self_manage_credentials_page"))  # correct redirect
         r3 = self.simple_get(r2.url, status_code=200)  # page loads as normal
         self.assert_present(MFA_CONFIGURATION_REQUIRED, r3.content)
         self.assert_present(MFA_CONFIGURATION_SITE_ADMIN, r3.content)
@@ -505,7 +505,7 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
             "manage_researcher_endpoints.administrator_edit_researcher_page",
             "study_endpoints.edit_study",
             "system_admin_endpoints.manage_firebase_credentials",
-            "manage_researcher_endpoints.manage_researchers_page",
+            "manage_researcher_endpoints.administrator_manage_researchers_page",
             "study_endpoints.manage_studies_page",
             "study_endpoints.study_security_page",
             "participant_pages.experiments_page",

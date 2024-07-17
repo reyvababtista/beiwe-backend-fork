@@ -16,8 +16,8 @@ from libs.http_utils import easy_url
 from tests.common import ResearcherSessionTest, TableauAPITest
 
 
-class TestManageCredentials(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.self_manage_credentials"
+class TestSelfManageCredentials(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.self_manage_credentials_page"
     
     def test_manage_credentials(self):
         self.session_study
@@ -53,10 +53,10 @@ class TestManageCredentials(ResearcherSessionTest):
         self.assert_present('alt="MFA QR Code"', resp.content)
 
 
-class TestResetAdminPassword(ResearcherSessionTest):
+class TestSelfResetAdminPassword(ResearcherSessionTest):
     # test for every case and messages present on the page
     ENDPOINT_NAME = "admin_pages.self_change_password"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials_page"
     
     def test_self_change_password_success(self):
         resp = self.smart_post_status_code(
@@ -172,9 +172,9 @@ class TestResetAdminPassword(ResearcherSessionTest):
         self.assert_present(NEW_PASSWORD_MISMATCH, self.redirect_get_contents())
 
 
-class TestResetMFASelf(ResearcherSessionTest):
+class TestSelfResetMFASelf(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.self_reset_mfa"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials_page"
     
     def test_no_password(self):
         session = self.client.session
@@ -241,9 +241,9 @@ class TestResetMFASelf(ResearcherSessionTest):
         self.assertNotIn(MFA_CREATED, session)
 
 
-class TestTestMFA(ResearcherSessionTest):
+class TestSelfTestMFA(ResearcherSessionTest):
     ENDPOINT_NAME = "admin_pages.self_test_mfa"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials_page"
     
     def test_mfa_working_fails(self):
         self.session_researcher.reset_mfa()  # enable mfa
@@ -251,28 +251,28 @@ class TestTestMFA(ResearcherSessionTest):
             self.session_researcher.reset_mfa()  # ensure mfa code is not 123456
         
         self.smart_post()  # magic redirect smart post
-        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials_page"), status_code=200).content
         self.assert_present(MFA_CODE_MISSING, page)  # missing mfa code
         
         self.smart_post(mfa_code="123456")  # wrong mfa code
-        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials_page"), status_code=200).content
         self.assert_present(MFA_TEST_FAIL, page)
         
         self.smart_post(mfa_code="1234567")  # too long mfa code
-        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials_page"), status_code=200).content
         self.assert_present(MFA_CODE_6_DIGITS, page)
         
         self.smart_post(mfa_code="abcdef")  # non-numeric mfa code
-        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials_page"), status_code=200).content
         self.assert_present(MFA_CODE_DIGITS_ONLY, page)
         
         self.smart_post(mfa_code=self.session_researcher._mfa_now)  # correct mfa code
-        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials_page"), status_code=200).content
         self.assert_present(MFA_TEST_SUCCESS, page)
         
         self.session_researcher.clear_mfa()  # disabled mfa
         self.smart_post(mfa_code="abcdef")
-        page = self.simple_get(easy_url("admin_pages.self_manage_credentials"), status_code=200).content
+        page = self.simple_get(easy_url("admin_pages.self_manage_credentials_page"), status_code=200).content
         self.assert_present(MFA_TEST_DISABLED, page)
 
 
@@ -282,8 +282,8 @@ class TestTestMFA(ResearcherSessionTest):
 #  and data access api keys. Tests still pass, tests are different, but the endpoints are the same.
 
 
-class TestNewAPIKeyTableau(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.generate_api_key"
+class TestSelfNewAPIKeyTableau(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.self_generate_api_key"
     
     def test_generate_api_key(self):
         """ Asserts that:
@@ -300,8 +300,8 @@ class TestNewAPIKeyTableau(ResearcherSessionTest):
         self.assertTrue(api_key.is_active)
 
 
-class TestDisableAPIKeyTableau(TableauAPITest):
-    ENDPOINT_NAME = "admin_pages.disable_api_key"
+class TestSelfDisableAPIKeyTableau(TableauAPITest):
+    ENDPOINT_NAME = "admin_pages.self_disable_api_key"
     
     def test_disable_api_key(self):
         """ Asserts that:
@@ -313,9 +313,9 @@ class TestDisableAPIKeyTableau(TableauAPITest):
         self.assertFalse(ApiKey.objects.get(access_key_id=self.api_key_public).is_active)
 
 
-class TestNewApiKey(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.generate_api_key"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials"
+class TestSelfNewApiKey(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.self_generate_api_key"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials_page"
     
     # FIXME: add tests for sanitization of the input name
     def test_reset(self):
@@ -331,10 +331,9 @@ class TestNewApiKey(ResearcherSessionTest):
         )
 
 
-# admin_pages.disable_api_key
-class TestDisableTableauApiKey(ResearcherSessionTest):
-    ENDPOINT_NAME = "admin_pages.disable_api_key"
-    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials"
+class TestSelfDisableApiKey(ResearcherSessionTest):
+    ENDPOINT_NAME = "admin_pages.self_disable_api_key"
+    REDIRECT_ENDPOINT_NAME = "admin_pages.self_manage_credentials_page"
     
     def test_disable_success(self):
         # basic test

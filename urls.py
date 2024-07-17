@@ -65,10 +65,10 @@ path("choose_study", study_endpoints.choose_study_page)
 path("logout", login_endpoints.logout_page, login_redirect=IGNORE)
 
 # Researcher self administration
-path("manage_credentials", admin_pages.self_manage_credentials, login_redirect=IGNORE)
+path("manage_credentials", admin_pages.self_manage_credentials_page, login_redirect=IGNORE)
 path("self_change_password", admin_pages.self_change_password, login_redirect=IGNORE)
-path("generate_api_key", admin_pages.generate_api_key)
-path("disable_api_key", admin_pages.disable_api_key)
+path("generate_api_key", admin_pages.self_generate_api_key)
+path("disable_api_key", admin_pages.self_disable_api_key)
 path("self_reset_mfa", admin_pages.self_reset_mfa, login_redirect=IGNORE)
 path("test_mfa", admin_pages.self_test_mfa)
 
@@ -89,16 +89,16 @@ path(
 )
 
 # system admin pages
-path("manage_researchers", manage_researcher_endpoints.manage_researchers_page, login_redirect=SAFE)
+path("manage_researchers", manage_researcher_endpoints.administrator_manage_researchers_page, login_redirect=SAFE)
 path(
     "edit_researcher/<int:researcher_pk>",
     manage_researcher_endpoints.administrator_edit_researcher_page,
     name="manage_researcher_endpoints.administrator_edit_researcher_page",
     login_redirect=SAFE,
 )
-path("elevate_researcher", manage_researcher_endpoints.elevate_researcher_to_study_admin)
-path("demote_researcher", manage_researcher_endpoints.demote_study_administrator_to_researcher)
-path("create_new_researcher", manage_researcher_endpoints.create_new_researcher)
+path("elevate_researcher", manage_researcher_endpoints.administrator_elevate_researcher_to_study_admin)
+path("demote_researcher", manage_researcher_endpoints.administrator_demote_study_administrator_to_researcher)
+path("create_new_researcher", manage_researcher_endpoints.administrator_create_new_researcher)
 path("manage_studies", study_endpoints.manage_studies_page, login_redirect=SAFE)
 path("edit_study/<int:study_id>", study_endpoints.edit_study, login_redirect=SAFE)
 path("reset_researcher_mfa/<int:researcher_id>", manage_researcher_endpoints.administrator_reset_researcher_mfa)
@@ -127,8 +127,8 @@ path("data_access_web_form", data_access_web_form.data_api_web_form_page, login_
 
 # admin api
 path('set_study_timezone/<str:study_id>', manage_study_endpoints.set_study_timezone)
-path('add_researcher_to_study', manage_researcher_endpoints.add_researcher_to_study)
-path('remove_researcher_from_study', manage_researcher_endpoints.remove_researcher_from_study)
+path('add_researcher_to_study', manage_researcher_endpoints.administrator_add_researcher_to_study)
+path('remove_researcher_from_study', manage_researcher_endpoints.administrator_remove_researcher_from_study)
 path('delete_researcher/<str:researcher_id>', manage_researcher_endpoints.administrator_delete_researcher)
 path('set_researcher_password', manage_researcher_endpoints.administrator_set_researcher_password)
 path('rename_study/<str:study_id>', manage_study_endpoints.rename_study)

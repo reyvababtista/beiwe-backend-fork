@@ -12,7 +12,7 @@ from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRE
 from endpoints import (data_api_endpoints, data_page_endpoints, forest_endpoints, login_endpoints,
     manage_researcher_endpoints, manage_study_endpoints, misc_download_endpoints, mobile_endpoints,
     participant_endpoints, raw_data_api, study_endpoints, survey_endpoints, system_admin_endpoints)
-from pages import mobile_pages, participant_pages
+from pages import participant_pages
 
 
 def path(
@@ -274,7 +274,7 @@ path('mobile-heartbeat', mobile_endpoints.mobile_heartbeat)
 path('mobile-heartbeat/ios', mobile_endpoints.mobile_heartbeat, name="mobile_endpoints.mobile_heartbeat_ios")
 
 # mobile pages
-path('graph', mobile_pages.fetch_graph)
+path('graph', mobile_endpoints.fetch_graph)
 
 
 

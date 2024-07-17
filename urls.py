@@ -5,22 +5,22 @@ from django.conf.urls.static import static
 from django.core.exceptions import ImproperlyConfigured
 from django.urls import path as simplepath
 
-from api import mobile_api, participant_administration, push_notifications_api
+from api import participant_administration, push_notifications_api
 from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
 from endpoints import (data_api_endpoints, data_page_endpoints, login_endpoints,
-    manage_researcher_endpoints, manage_study_endpoints, misc_download_endpoints, raw_data_api,
-    study_endpoints, survey_endpoints, system_admin_endpoints)
-from pages import (admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages)
+    manage_researcher_endpoints, manage_study_endpoints, misc_download_endpoints, mobile_endpoints,
+    raw_data_api, study_endpoints, survey_endpoints, system_admin_endpoints)
+from pages import admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages
 
 
 def path(
     route: str, view: callable, name: str = None, kwargs: Dict = None, login_redirect: str = None
 ):
     """ Helper function, for creating url endpoints, automates our common logic across all urls.
-     
+    
     We want to automatically append a "/" to all urlpatterns.
     
     If no name is provided we insert the module and function name as the name, e.g.
@@ -261,18 +261,18 @@ path(
 ## Endpoints related to the Apps
 
 # Mobile api (includes ios targets, which require custom names)
-path('upload', mobile_api.upload)
-path('upload/ios', mobile_api.upload, name="mobile_api.upload_ios")
-path('register_user', mobile_api.register_user)
-path('register_user/ios', mobile_api.register_user, name="mobile_api.register_user_ios")
-path('set_password', mobile_api.set_password)
-path('set_password/ios', mobile_api.set_password, name="mobile_api.set_password_ios")
-path('download_surveys', mobile_api.get_latest_surveys)
-path('download_surveys/ios', mobile_api.get_latest_surveys, name="mobile_api.get_latest_surveys_ios")
-path('get_latest_device_settings', mobile_api.get_latest_device_settings)
-path('get_latest_device_settings/ios', mobile_api.get_latest_device_settings, name="mobile_api.get_latest_device_settings_ios")
-path('mobile-heartbeat', mobile_api.mobile_heartbeat)
-path('mobile-heartbeat/ios', mobile_api.mobile_heartbeat, name="mobile_api.mobile_heartbeat_ios")
+path('upload', mobile_endpoints.upload)
+path('upload/ios', mobile_endpoints.upload, name="mobile_endpoints.upload_ios")
+path('register_user', mobile_endpoints.register_user)
+path('register_user/ios', mobile_endpoints.register_user, name="mobile_endpoints.register_user_ios")
+path('set_password', mobile_endpoints.set_password)
+path('set_password/ios', mobile_endpoints.set_password, name="mobile_endpoints.set_password_ios")
+path('download_surveys', mobile_endpoints.get_latest_surveys)
+path('download_surveys/ios', mobile_endpoints.get_latest_surveys, name="mobile_endpoints.get_latest_surveys_ios")
+path('get_latest_device_settings', mobile_endpoints.get_latest_device_settings)
+path('get_latest_device_settings/ios', mobile_endpoints.get_latest_device_settings, name="mobile_endpoints.get_latest_device_settings_ios")
+path('mobile-heartbeat', mobile_endpoints.mobile_heartbeat)
+path('mobile-heartbeat/ios', mobile_endpoints.mobile_heartbeat, name="mobile_endpoints.mobile_heartbeat_ios")
 
 # mobile pages
 path('graph', mobile_pages.fetch_graph)

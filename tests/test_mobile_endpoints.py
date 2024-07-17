@@ -26,12 +26,12 @@ from tests.common import ParticipantSessionTest
 # trunk-ignore-all(ruff/B018)
 
 #
-## mobile_api
+## mobile endpoints
 #
 
 
 class TestParticipantSetPassword(ParticipantSessionTest):
-    ENDPOINT_NAME = "mobile_api.set_password"
+    ENDPOINT_NAME = "mobile_endpoints.set_password"
     
     def test_no_paramaters(self):
         self.smart_post_status_code(400)
@@ -62,7 +62,7 @@ class TestParticipantSetPassword(ParticipantSessionTest):
 
 
 class TestGetLatestSurveys(ParticipantSessionTest):
-    ENDPOINT_NAME = "mobile_api.get_latest_surveys"
+    ENDPOINT_NAME = "mobile_endpoints.get_latest_surveys"
     
     @property
     def BASIC_SURVEY_CONTENT(self):
@@ -250,7 +250,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
 
 
 class TestRegisterParticipant(ParticipantSessionTest):
-    ENDPOINT_NAME = "mobile_api.register_user"
+    ENDPOINT_NAME = "mobile_endpoints.register_user"
     DISABLE_CREDENTIALS = True
     NEW_PASSWORD = "something_new"
     NEW_PASSWORD_HASHED = device_hash(NEW_PASSWORD.encode()).decode()
@@ -279,8 +279,8 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertIsNone(self.default_participant.last_register_user)
         self.assertIsNone(self.default_participant.first_register_user)
     
-    @patch("api.mobile_api.s3_upload")
-    @patch("api.mobile_api.get_client_public_key_string")
+    @patch("endpoints.mobile_endpoints.s3_upload")
+    @patch("endpoints.mobile_endpoints.get_client_public_key_string")
     def test_first_register_only_triggers_once(
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
     ):
@@ -308,8 +308,8 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertGreaterEqual(self.default_participant.last_register_user,
                                 self.default_participant.first_register_user)
     
-    @patch("api.mobile_api.s3_upload")
-    @patch("api.mobile_api.get_client_public_key_string")
+    @patch("endpoints.mobile_endpoints.s3_upload")
+    @patch("endpoints.mobile_endpoints.get_client_public_key_string")
     def test_success_unregistered_ever(
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
     ):
@@ -333,8 +333,8 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertEqual(self.default_participant.last_register_user,
                          self.default_participant.first_register_user)
     
-    @patch("api.mobile_api.s3_upload")
-    @patch("api.mobile_api.get_client_public_key_string")
+    @patch("endpoints.mobile_endpoints.s3_upload")
+    @patch("endpoints.mobile_endpoints.get_client_public_key_string")
     def test_success_unregistered_complex_study(
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
     ):
@@ -364,8 +364,8 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertEqual(self.default_participant.last_register_user,
                          self.default_participant.first_register_user)
     
-    @patch("api.mobile_api.s3_upload")
-    @patch("api.mobile_api.get_client_public_key_string")
+    @patch("endpoints.mobile_endpoints.s3_upload")
+    @patch("endpoints.mobile_endpoints.get_client_public_key_string")
     def test_success_bad_device_id_still_works(
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
     ):
@@ -386,8 +386,8 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertEqual(self.default_participant.last_register_user,
                          self.default_participant.first_register_user)
     
-    @patch("api.mobile_api.s3_upload")
-    @patch("api.mobile_api.get_client_public_key_string")
+    @patch("endpoints.mobile_endpoints.s3_upload")
+    @patch("endpoints.mobile_endpoints.get_client_public_key_string")
     def test_bad_password(self, get_client_public_key_string: MagicMock, s3_upload: MagicMock):
         s3_upload.return_value = None
         get_client_public_key_string.return_value = "a_private_key"
@@ -401,8 +401,8 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertIsNone(self.default_participant.last_register_user)
         self.assertIsNone(self.default_participant.first_register_user)
     
-    @patch("api.mobile_api.s3_upload")
-    @patch("api.mobile_api.get_client_public_key_string")
+    @patch("endpoints.mobile_endpoints.s3_upload")
+    @patch("endpoints.mobile_endpoints.get_client_public_key_string")
     def test_study_easy_enrollment(
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
     ):
@@ -421,8 +421,8 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.assertEqual(self.default_participant.last_register_user,
                          self.default_participant.first_register_user)
     
-    @patch("api.mobile_api.s3_upload")
-    @patch("api.mobile_api.get_client_public_key_string")
+    @patch("endpoints.mobile_endpoints.s3_upload")
+    @patch("endpoints.mobile_endpoints.get_client_public_key_string")
     def test_participant_easy_enrollment(
         self, get_client_public_key_string: MagicMock, s3_upload: MagicMock
     ):
@@ -452,7 +452,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
 
 
 class TestGetLatestDeviceSettings(ParticipantSessionTest):
-    ENDPOINT_NAME = "mobile_api.get_latest_device_settings"
+    ENDPOINT_NAME = "mobile_endpoints.get_latest_device_settings"
     
     def test_success(self):
         p = self.default_participant
@@ -543,7 +543,7 @@ class TestGetLatestDeviceSettings(ParticipantSessionTest):
 #TODO: We don't have a success test because that is insanely complex. We should probably do that.
 class TestMobileUpload(ParticipantSessionTest):
     # FIXME: This test needs better coverage
-    ENDPOINT_NAME = "mobile_api.upload"
+    ENDPOINT_NAME = "mobile_endpoints.upload"
     
     @classmethod
     def setUpClass(cls) -> None:
@@ -772,7 +772,7 @@ class TestMobileUpload(ParticipantSessionTest):
 
 
 class TestHeartbeatEndpoint(ParticipantSessionTest):
-    ENDPOINT_NAME = "mobile_api.mobile_heartbeat"
+    ENDPOINT_NAME = "mobile_endpoints.mobile_heartbeat"
     
     # it does one thing
     def test_success(self):

@@ -12,7 +12,7 @@ from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRE
 from endpoints import (data_api_endpoints, data_page_endpoints, login_endpoints,
     manage_researcher_endpoints, manage_study_endpoints, misc_download_endpoints, mobile_endpoints,
     participant_endpoints, raw_data_api, study_endpoints, survey_endpoints, system_admin_endpoints)
-from pages import data_access_web_form, forest_pages, mobile_pages, participant_pages
+from pages import forest_pages, mobile_pages, participant_pages
 
 
 def path(
@@ -123,7 +123,7 @@ path("delete_android_firebase_cert", system_admin_endpoints.delete_android_fireb
 path("delete_ios_firebase_cert", system_admin_endpoints.delete_ios_firebase_cert)
 
 # data access web form
-path("data_access_web_form", data_access_web_form.data_api_web_form_page, login_redirect=SAFE)
+path("data_access_web_form", data_page_endpoints.data_api_web_form_page, login_redirect=SAFE)
 
 # admin api
 path('set_study_timezone/<str:study_id>', manage_study_endpoints.set_study_timezone)

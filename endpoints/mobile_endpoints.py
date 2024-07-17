@@ -9,8 +9,9 @@ from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
 from django.http.response import HttpResponse
+from django.shortcuts import render
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 from firebase_admin.messaging import Message, send as send_push_notification
 from sentry_sdk import set_tag
 
@@ -29,6 +30,7 @@ from database.user_models_participant import AppHeartbeats, Participant, Partici
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
     IosDecryptionKeyDuplicateError, IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
 from libs.firebase_config import check_firebase_instance
+from libs.graph_data import get_survey_results
 from libs.http_utils import determine_os_api
 from libs.internal_types import ParticipantRequest, ScheduledEventQuerySet
 from libs.participant_file_uploads import (upload_and_create_file_to_process_and_log,
@@ -520,3 +522,19 @@ def developer_send_survey_notification(request: ParticipantRequest):
     response = send_push_notification(message)
     print('Successfully sent survey message:', response)
     return HttpResponse(status=204)
+
+
+## The graph
+
+@require_http_methods(['GET', 'POST'])
+@authenticate_participant
+def fetch_graph(request: ParticipantRequest):
+    """ Fetches the patient's answers to the most recent survey, marked by survey ID. The results
+    are dumped into a jinja template and pushed to the device. """
+    participant = request.session_participant
+    study_object_id = participant.study.object_id
+    survey_object_id_set = participant.study.surveys.values_list('object_id', flat=True)
+    data = []
+    for survey_id in survey_object_id_set:
+        data.append(get_survey_results(study_object_id, participant.patient_id, survey_id, 7))
+    return render(request, "phone_graphs.html", context=dict(data=data))

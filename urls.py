@@ -5,14 +5,14 @@ from django.conf.urls.static import static
 from django.core.exceptions import ImproperlyConfigured
 from django.urls import path as simplepath
 
-from api import participant_administration, push_notifications_api
+from api import push_notifications_api
 from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
     urlpatterns)
 from endpoints import (data_api_endpoints, data_page_endpoints, login_endpoints,
     manage_researcher_endpoints, manage_study_endpoints, misc_download_endpoints, mobile_endpoints,
-    raw_data_api, study_endpoints, survey_endpoints, system_admin_endpoints)
+    participant_endpoints, raw_data_api, study_endpoints, survey_endpoints, system_admin_endpoints)
 from pages import admin_pages, data_access_web_form, forest_pages, mobile_pages, participant_pages
 
 
@@ -198,13 +198,13 @@ path(
 )
 
 # participant administration
-path('reset_participant_password', participant_administration.reset_participant_password)
-path('toggle_easy_enrollment', participant_administration.toggle_easy_enrollment)
-path('clear_device_id', participant_administration.clear_device_id)
-path('retire_participant', participant_administration.retire_participant)
-path('create_new_participant', participant_administration.create_new_participant)
-path('create_many_patients/<str:study_id>', participant_administration.create_many_patients)
-path('delete_participant', participant_administration.delete_participant)
+path('reset_participant_password', participant_endpoints.reset_participant_password)
+path('toggle_easy_enrollment', participant_endpoints.toggle_easy_enrollment)
+path('clear_device_id', participant_endpoints.clear_device_id)
+path('retire_participant', participant_endpoints.retire_participant)
+path('create_new_participant', participant_endpoints.create_new_participant)
+path('create_many_patients/<str:study_id>', participant_endpoints.create_many_patients)
+path('delete_participant', participant_endpoints.delete_participant)
 
 # push notification api
 path('set_fcm_token', push_notifications_api.set_fcm_token)

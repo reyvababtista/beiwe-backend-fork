@@ -1,3 +1,4 @@
+# trunk-ignore-all(bandit/B106)
 import json
 from datetime import date, datetime, timedelta
 from unittest.mock import MagicMock, patch
@@ -15,7 +16,7 @@ from constants.testing_constants import MIDNIGHT_EVERY_DAY, THURS_OCT_6_NOON_202
 from database.data_access_models import FileToProcess
 from database.schedule_models import AbsoluteSchedule, ScheduledEvent, WeeklySchedule
 from database.system_models import GenericEvent
-from database.user_models_participant import AppHeartbeats, AppVersionHistory
+from database.user_models_participant import AppHeartbeats, AppVersionHistory, ParticipantFCMHistory
 from libs.rsa import get_RSA_cipher
 from libs.schedules import (get_start_and_end_of_java_timings_week,
     repopulate_absolute_survey_schedule_events, repopulate_relative_survey_schedule_events)
@@ -33,7 +34,7 @@ from tests.common import ParticipantSessionTest
 class TestParticipantSetPassword(ParticipantSessionTest):
     ENDPOINT_NAME = "mobile_endpoints.set_password"
     
-    def test_no_paramaters(self):
+    def test_no_parameters(self):
         self.smart_post_status_code(400)
         self.session_participant.refresh_from_db()
         self.assertFalse(
@@ -43,7 +44,7 @@ class TestParticipantSetPassword(ParticipantSessionTest):
             self.session_participant.debug_validate_password(self.DEFAULT_PARTICIPANT_PASSWORD)
         )
     
-    def test_correct_paramater(self):
+    def test_correct_parameter(self):
         self.assertIsNone(self.default_participant.last_set_password)
         self.smart_post_status_code(200, new_password="jeff")
         self.session_participant.refresh_from_db()
@@ -789,3 +790,64 @@ class TestHeartbeatEndpoint(ParticipantSessionTest):
         self.assertEqual(AppHeartbeats.objects.count(), 2)
         t_foreign = AppHeartbeats.objects.last().timestamp
         self.assertIsInstance(t_foreign, datetime)
+
+
+class TestPushNotificationSetFCMToken(ParticipantSessionTest):
+    ENDPOINT_NAME = "mobile_endpoints.set_fcm_token"
+    
+    def test_no_params_bug(self):
+        # this was a 1 at start of writing tests due to a bad default value in the declaration.
+        self.assertEqual(ParticipantFCMHistory.objects.count(), 0)
+        
+        self.session_participant.update(push_notification_unreachable_count=1)
+        # FIXME: no parameters results in a 204, it should fail with a 400.
+        self.smart_post_status_code(204)
+        # FIXME: THIS ASSERT IS A BUG! it should be 1!
+        self.assertEqual(ParticipantFCMHistory.objects.count(), 0)
+    
+    def test_unregister_existing(self):
+        # create a new "valid" registration token (not unregistered)
+        token_1 = ParticipantFCMHistory(
+            participant=self.session_participant, token="some_value", unregistered=None
+        )
+        token_1.save()
+        self.smart_post(fcm_token="some_new_value")
+        token_1.refresh_from_db()
+        self.assertIsNotNone(token_1.unregistered)
+        token_2 = ParticipantFCMHistory.objects.last()
+        self.assertNotEqual(token_1.id, token_2.id)
+        self.assertIsNone(token_2.unregistered)
+    
+    def test_reregister_existing_valid(self):
+        self.assertIsNone(self.default_participant.last_set_fcm_token)
+        # create a new "valid" registration token (not unregistered)
+        token = ParticipantFCMHistory(
+            participant=self.session_participant, token="some_value", unregistered=None
+        )
+        token.save()
+        # test only the one token exists
+        first_time = token.last_updated
+        self.smart_post(fcm_token="some_value")
+        # test remains unregistered, but token still updated
+        token.refresh_from_db()
+        second_time = token.last_updated
+        self.assertIsNone(token.unregistered)
+        self.assertNotEqual(first_time, second_time)
+        # test last_set_fcm_token was set
+        self.session_participant.refresh_from_db()
+        self.assertIsInstance(self.default_participant.last_set_fcm_token, datetime)
+    
+    def test_reregister_existing_unregister(self):
+        # create a new "valid" registration token (not unregistered)
+        token = ParticipantFCMHistory(
+            participant=self.session_participant, token="some_value", unregistered=timezone.now()
+        )
+        token.save()
+        # test only the one token exists
+        first_time = token.last_updated
+        self.smart_post(fcm_token="some_value")
+        # test is to longer unregistered, and was updated
+        token.refresh_from_db()
+        second_time = token.last_updated
+        self.assertIsNone(token.unregistered)
+        self.assertNotEqual(first_time, second_time)

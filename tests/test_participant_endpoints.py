@@ -1,9 +1,13 @@
 from unittest.mock import MagicMock, patch
 
 from django.http.response import FileResponse
+from django.utils import timezone
 
-from constants.message_strings import NO_DELETION_PERMISSION, PARTICIPANT_LOCKED
-from constants.user_constants import ResearcherRole
+from constants.message_strings import (DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_UNKNOWN,
+    MESSAGE_SEND_SUCCESS, NO_DELETION_PERMISSION, PARTICIPANT_LOCKED,
+    PUSH_NOTIFICATIONS_NOT_CONFIGURED)
+from constants.user_constants import IOS_API, ResearcherRole
+from database.schedule_models import ArchivedEvent, ScheduledEvent
 from database.user_models_participant import Participant, ParticipantDeletionEvent
 from tests.common import ResearcherSessionTest
 
@@ -515,3 +519,143 @@ class CreateManyParticipant(ResearcherSessionTest):
         self.assertEqual(Participant.objects.count(), 10)
         for patient_id in Participant.objects.values_list("patient_id", flat=True):
             self.assert_present(patient_id, output_file)
+
+
+class TestResendPushNotifications(ResearcherSessionTest):
+    ENDPOINT_NAME = "participant_endpoints.resend_push_notification"
+    
+    def do_post(self):
+        # the post operation that all the tests use...
+        return self.smart_post_status_code(
+            302,
+            self.session_study.pk,
+            self.default_participant.patient_id,
+            survey_id=self.default_survey.pk
+        )
+    
+    def test_bad_fcm_token(self):  # check_firebase_instance: MagicMock):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        token = self.generate_fcm_token(self.default_participant)
+        token.update(unregistered=timezone.now())
+        self.assertEqual(self.default_participant.fcm_tokens.count(), 1)
+        self.do_post()
+        self.assertEqual(self.default_participant.fcm_tokens.count(), 1)
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertEqual(archived_event.status, DEVICE_HAS_NO_REGISTERED_TOKEN)
+        self.validate_scheduled_event(archived_event)
+    
+    def test_no_fcm_token(self):  # check_firebase_instance: MagicMock):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.assertEqual(self.default_participant.fcm_tokens.count(), 0)
+        self.do_post()
+        self.assertEqual(self.default_participant.fcm_tokens.count(), 0)
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertEqual(archived_event.status, DEVICE_HAS_NO_REGISTERED_TOKEN)
+        self.validate_scheduled_event(archived_event)
+    
+    def test_no_firebase_creds(self):  # check_firebase_instance: MagicMock):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertEqual(archived_event.status, PUSH_NOTIFICATIONS_NOT_CONFIGURED)
+        self.validate_scheduled_event(archived_event)
+    
+    def test_400(self):
+        # missing survey_id
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.smart_post_status_code(400, self.session_study.pk, self.default_participant.patient_id)
+    
+    @patch("endpoints.participant_endpoints.send_push_notification")
+    @patch("endpoints.participant_endpoints.check_firebase_instance")
+    def test_mocked_firebase_valueerror_error_1(
+        self, check_firebase_instance: MagicMock, send_push_notification: MagicMock
+    ):
+        # manually invoke some other ValueError to validate that dumb logic.
+        check_firebase_instance.return_value = True
+        send_push_notification.side_effect = ValueError('something exploded')
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertIn(MESSAGE_SEND_FAILED_UNKNOWN, archived_event.status)
+        self.validate_scheduled_event(archived_event)
+    
+    @patch("endpoints.participant_endpoints.check_firebase_instance")
+    def test_mocked_firebase_valueerror_2(self, check_firebase_instance: MagicMock):
+        # by failing to patch messages.send we trigger a valueerror because firebase creds aren't
+        #  present is not configured, it is passed to the weird firebase clause
+        check_firebase_instance.return_value = True
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertIn("The default Firebase app does not exist.", archived_event.status)
+        self.assertIn("Firebase Error,", archived_event.status)
+        self.validate_scheduled_event(archived_event)
+    
+    @patch("endpoints.participant_endpoints.send_push_notification")
+    @patch("endpoints.participant_endpoints.check_firebase_instance")
+    def test_mocked_firebase_unregistered_error(
+        self, check_firebase_instance: MagicMock, send_push_notification: MagicMock
+    ):
+        # manually invoke some other ValueError to validate that dumb logic.
+        check_firebase_instance.return_value = True
+        from firebase_admin.messaging import UnregisteredError
+        err_msg = 'UnregisteredError occurred'
+        send_push_notification.side_effect = UnregisteredError(err_msg)
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertIn("Firebase Error,", archived_event.status)
+        self.assertIn(err_msg, archived_event.status)
+        self.validate_scheduled_event(archived_event)
+    
+    @patch("endpoints.participant_endpoints.send_push_notification")
+    @patch("endpoints.participant_endpoints.check_firebase_instance")
+    def test_mocked_generic_error(
+        self, check_firebase_instance: MagicMock, send_push_notification: MagicMock
+    ):
+        # mock generic error on sending the notification
+        check_firebase_instance.return_value = True
+        send_push_notification.side_effect = Exception('something exploded')
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertEqual(MESSAGE_SEND_FAILED_UNKNOWN, archived_event.status)
+        self.validate_scheduled_event(archived_event)
+    
+    @patch("endpoints.participant_endpoints.check_firebase_instance")
+    @patch("endpoints.participant_endpoints.send_push_notification")
+    def test_mocked_success(self, check_firebase_instance: MagicMock, messaging: MagicMock):
+        check_firebase_instance.return_value = True
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertIn(MESSAGE_SEND_SUCCESS, archived_event.status)
+        self.validate_scheduled_event(archived_event)
+    
+    @patch("endpoints.participant_endpoints.check_firebase_instance")
+    @patch("endpoints.participant_endpoints.send_push_notification")
+    def test_mocked_success_ios(self, check_firebase_instance: MagicMock, messaging: MagicMock):
+        check_firebase_instance.return_value = True
+        self.default_participant.update(os_type=IOS_API)  # the default os type is android
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_fcm_token(self.default_participant)
+        self.do_post()
+        archived_event = self.default_participant.archived_events.latest("created_on")
+        self.assertIn(MESSAGE_SEND_SUCCESS, archived_event.status)
+        self.validate_scheduled_event(archived_event)
+    
+    def validate_scheduled_event(self, archived_event: ArchivedEvent):
+        # the scheduled event needs to have some specific qualities
+        self.assertEqual(ScheduledEvent.objects.count(), 1)
+        one_time_schedule = ScheduledEvent.objects.first()
+        self.assertEqual(one_time_schedule.survey_id, self.default_survey.id)
+        self.assertEqual(one_time_schedule.checkin_time, None)
+        self.assertEqual(one_time_schedule.deleted, True)  # important, don't resend
+        self.assertEqual(one_time_schedule.most_recent_event.id, archived_event.id)

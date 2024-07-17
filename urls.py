@@ -5,7 +5,6 @@ from django.conf.urls.static import static
 from django.core.exceptions import ImproperlyConfigured
 from django.urls import path as simplepath
 
-from api import push_notifications_api
 from config.settings import ENABLE_EXPERIMENTS
 from constants.common_constants import RUNNING_TESTS
 from constants.url_constants import (IGNORE, LOGIN_REDIRECT_IGNORE, LOGIN_REDIRECT_SAFE, SAFE,
@@ -207,12 +206,12 @@ path('create_many_patients/<str:study_id>', participant_endpoints.create_many_pa
 path('delete_participant', participant_endpoints.delete_participant)
 
 # push notification api
-path('set_fcm_token', push_notifications_api.set_fcm_token)
-path('test_notification', push_notifications_api.developer_send_test_notification)
-path('send_survey_notification', push_notifications_api.developer_send_survey_notification)
+path('set_fcm_token', mobile_endpoints.set_fcm_token)
+path('test_notification', mobile_endpoints.developer_send_test_notification)
+path('send_survey_notification', mobile_endpoints.developer_send_survey_notification)
 path(
     '<int:study_id>/send_survey_notification/<str:patient_id>',
-    push_notifications_api.resend_push_notification
+    participant_endpoints.resend_push_notification
 )
 
 # data access api and other researcher apis

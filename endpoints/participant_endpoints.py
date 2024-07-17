@@ -1,24 +1,38 @@
+import json
+import random
 from csv import writer
 from re import sub
 
 import bleach
 from django.contrib import messages
-from django.http.response import FileResponse
-from django.shortcuts import redirect
+from django.http.response import FileResponse, HttpResponse
+from django.shortcuts import get_object_or_404, redirect
+from django.utils import timezone
 from django.views.decorators.http import require_POST
+from firebase_admin.exceptions import FirebaseError
+from firebase_admin.messaging import (AndroidConfig, Message, Notification,
+    send as send_push_notification, UnregisteredError)
 
 from authentication.admin_authentication import authenticate_researcher_study_access
-from constants.message_strings import (NO_DELETION_PERMISSION, NOT_IN_STUDY,
-    PARTICIPANT_RETIRED_SUCCESS)
-from constants.user_constants import DATA_DELETION_ALLOWED_RELATIONS
+from constants.common_constants import API_TIME_FORMAT, RUNNING_TEST_OR_IN_A_SHELL
+from constants.message_strings import (BAD_DEVICE_OS, BAD_PARTICIPANT_OS,
+    DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_PREFIX, MESSAGE_SEND_FAILED_UNKNOWN,
+    MESSAGE_SEND_SUCCESS, NO_DELETION_PERMISSION, NOT_IN_STUDY, PARTICIPANT_RETIRED_SUCCESS,
+    PUSH_NOTIFICATIONS_NOT_CONFIGURED, RESEND_CLICKED, SUCCESSFULLY_SENT_NOTIFICATION_PREFIX)
+from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
+from constants.user_constants import ANDROID_API, DATA_DELETION_ALLOWED_RELATIONS, IOS_API
+from database.schedule_models import ArchivedEvent, ScheduledEvent
 from database.study_models import Study
+from database.survey_models import Survey
 from database.user_models_participant import Participant
+from libs.firebase_config import check_firebase_instance
 from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
 from libs.intervention_utils import add_fields_and_interventions
 from libs.participant_purge import add_participant_for_deletion
 from libs.s3 import create_client_key_pair, s3_upload
 from libs.schedules import repopulate_all_survey_scheduled_events
+from libs.sentry import make_error_sentry, SentryTypes
 from libs.streaming_io import StreamingStringsIO
 
 
@@ -250,3 +264,120 @@ def participant_not_in_study_message(request: ResearcherRequest, patient_id: str
         request,
         NOT_IN_STUDY.format(patient_id=patient_id, study_name=Study.objects.get(id=study_id).name)
     )
+
+
+@require_POST
+@authenticate_researcher_study_access
+def resend_push_notification(request: ResearcherRequest, study_id: int, patient_id: str):
+    """ Endpoint will resend a selected push notification.
+    Note regarding refactoring: there are exactly 2 parts of the codebase (unless messaging has been
+    merged that send push notifications: here, and celery push notification.  Due to the substantial
+    variation of needing to handle response details these simple don't overlap much.  If and when
+    messaging is merged in this should be revisited. """
+    
+    # 400 error if survey_id is not present
+    survey_id = request.POST.get("survey_id", None)
+    if not survey_id:
+        return HttpResponse(content="", status=400)
+    
+    # oodles of setup, 404 cases for db queries, the redirect action...
+    study = get_object_or_404(Study, pk=study_id)  # rejection should also be handled in decorator
+    survey = get_object_or_404(Survey, pk=survey_id, deleted=False)
+    participant = get_object_or_404(Participant, patient_id=patient_id, study=study)
+    fcm_token = participant.get_valid_fcm_token()
+    now = timezone.now()
+    firebase_check_kwargs = {
+        "require_android": participant.os_type == ANDROID_API,
+        "require_ios": participant.os_type == IOS_API,
+    }
+    
+    # setup exit details
+    error_message = f'Could not send notification to {participant.patient_id}'
+    return_redirect = redirect(
+        "participant_pages.participant_page", study_id=study_id, patient_id=participant.patient_id
+    )
+    
+    # create an event for this attempt, update it on all exit scenarios
+    unscheduled_archive = ArchivedEvent(
+        survey_archive=survey.most_recent_archive(),  # the current survey archive
+        participant=participant,
+        schedule_type=f"manual - {request.session_researcher.username}"[:32],  # max length of field
+        scheduled_time=now,
+        status=RESEND_CLICKED,
+    )
+    unscheduled_archive.save()
+    
+    # crete a scheduled event to point at, for records and checkin tracking.
+    unscheduled_event = ScheduledEvent.objects.create(
+        survey=survey,
+        participant=participant,
+        scheduled_time=now,
+        most_recent_event=unscheduled_archive,
+        deleted=True,  # don't continue to send this notification
+    )
+    
+    # failures
+    if fcm_token is None:
+        unscheduled_archive.update(status=DEVICE_HAS_NO_REGISTERED_TOKEN)
+        messages.error(request, error_message)
+        return return_redirect
+    
+    # "participant os"
+    if not check_firebase_instance(firebase_check_kwargs):
+        unscheduled_archive.update(status=PUSH_NOTIFICATIONS_NOT_CONFIGURED)
+        messages.error(request, error_message)
+        return return_redirect
+    
+    data_kwargs = {
+        'type': 'survey',
+        'survey_ids': json.dumps([survey.object_id]),
+        'sent_time': now.strftime(API_TIME_FORMAT),
+        'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32)),
+        'schedule_uuid': unscheduled_event.uuid or "",
+    }
+    
+    if participant.os_type == ANDROID_API:
+        message = Message(
+            android=AndroidConfig(data=data_kwargs, priority='high'), token=fcm_token.token,
+        )
+    elif participant.os_type == IOS_API:
+        message = Message(
+            data=data_kwargs,
+            token=fcm_token.token,
+            notification=Notification(title="Beiwe", body="You have a survey to take."),
+        )
+    else:
+        unscheduled_archive.update(status=f"{MESSAGE_SEND_FAILED_PREFIX} {BAD_DEVICE_OS}")
+        messages.error(request, BAD_PARTICIPANT_OS)
+        return return_redirect
+    
+    # real error cases (raised directly when running locally, reported to sentry on a server)
+    try:
+        _response = send_push_notification(message)
+        unscheduled_archive.update(status=MESSAGE_SEND_SUCCESS)
+        messages.success(
+            request, f'{SUCCESSFULLY_SENT_NOTIFICATION_PREFIX} {participant.patient_id}.'
+        )
+    except (ValueError, FirebaseError, UnregisteredError) as e:
+        # misconfiguration is not its own error type for some reason (and makes this code ugly)
+        if isinstance(e, ValueError) and "The default Firebase app does not exist." not in str(e):
+            unscheduled_archive.update(status=MESSAGE_SEND_FAILED_UNKNOWN + " (2)")  # presumably a bug
+            messages.error(request, error_message)
+            if not RUNNING_TEST_OR_IN_A_SHELL:
+                with make_error_sentry(SentryTypes.elastic_beanstalk):
+                    raise
+        else:
+            # normal case, firebase or unregistered error
+            unscheduled_archive.update(status=f"Firebase Error, {MESSAGE_SEND_FAILED_PREFIX} {str(e)}")
+            messages.error(request, error_message)
+            # don't report unregistered
+            if not RUNNING_TEST_OR_IN_A_SHELL and not isinstance(e, UnregisteredError):
+                with make_error_sentry(SentryTypes.elastic_beanstalk):
+                    raise
+    except Exception:
+        unscheduled_archive.update(status=MESSAGE_SEND_FAILED_UNKNOWN)  # presumably a bug
+        messages.error(request, error_message)
+        if not RUNNING_TEST_OR_IN_A_SHELL:
+            with make_error_sentry(SentryTypes.elastic_beanstalk):
+                raise
+    return return_redirect

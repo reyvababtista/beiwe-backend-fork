@@ -5,25 +5,30 @@ import time
 from datetime import datetime, timedelta
 from typing import Union
 
+from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import InMemoryUploadedFile, TemporaryUploadedFile
 from django.http.response import HttpResponse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
+from firebase_admin.messaging import Message, send as send_push_notification
 from sentry_sdk import set_tag
 
 from authentication.participant_authentication import (authenticate_participant,
     authenticate_participant_registration, minimal_validation)
 from config.settings import UPLOAD_LOGGING_ENABLED
 from constants.celery_constants import ANDROID_FIREBASE_CREDENTIALS, IOS_FIREBASE_CREDENTIALS
+from constants.common_constants import API_TIME_FORMAT
 from constants.message_strings import (DEVICE_CHECKED_IN, DEVICE_IDENTIFIERS_HEADER,
     INVALID_EXTENSION_ERROR, NO_FILE_ERROR, UNKNOWN_ERROR)
 from database.data_access_models import FileToProcess
 from database.schedule_models import ScheduledEvent
 from database.survey_models import Survey
 from database.system_models import FileAsText
-from database.user_models_participant import AppHeartbeats, Participant
+from database.user_models_participant import AppHeartbeats, Participant, ParticipantFCMHistory
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
     IosDecryptionKeyDuplicateError, IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
+from libs.firebase_config import check_firebase_instance
 from libs.http_utils import determine_os_api
 from libs.internal_types import ParticipantRequest, ScheduledEventQuerySet
 from libs.participant_file_uploads import (upload_and_create_file_to_process_and_log,
@@ -436,3 +441,82 @@ def format_survey_for_device(survey: Survey, participant: Participant):
     survey_dict['timings'] = survey_timings
     survey_dict["name"] = survey.name
     return survey_dict
+
+
+################################################################################
+########################### NOTIFICATION FUNCTIONS #############################
+################################################################################
+
+
+# TODO: this function incorrectly resets the push_notification_unreachable_count on an unsuccessful
+#   empty push notification.  There is also a race condition at play, and while the current
+#   mechanism works there is inappropriate content within the try statement that obscures the source
+#   of the validation error, which actually occurs at the get-or-create line resulting in the bug.
+#  Probably use a transaction?
+@require_POST
+@authenticate_participant
+def set_fcm_token(request: ParticipantRequest):
+    """ Sets a participants Firebase Cloud Messaging (FCM) instance token, called whenever a new
+    token is generated. Expects a patient_id and and fcm_token in the request body. """
+    request.session_participant.update_only(last_set_fcm_token=timezone.now())
+    participant = request.session_participant
+    token = request.POST.get('fcm_token', "")
+    now = timezone.now()
+    # force to unregistered on success, force every not-unregistered as unregistered.
+    
+    # need to get_or_create rather than catching DoesNotExist to handle if two set_fcm_token
+    # requests are made with the same token one after another and one request.
+    try:
+        ph, _ = ParticipantFCMHistory.objects.get_or_create(token=token, participant=participant)
+        ph.unregistered = None
+        ph.save()  # retain as save, we want last_updated to mutate
+        ParticipantFCMHistory.objects.exclude(token=token).filter(
+            participant=participant, unregistered=None
+        ).update(unregistered=now, last_updated=now)
+    # ValidationError happens when the app sends a blank token
+    except ValidationError:
+        ParticipantFCMHistory.objects.filter(
+            participant=participant, unregistered=None
+        ).update(unregistered=now, last_updated=now)
+    
+    participant.push_notification_unreachable_count = 0
+    participant.save()
+    return HttpResponse(status=204)
+
+
+@require_POST
+@authenticate_participant
+def developer_send_test_notification(request: ParticipantRequest):
+    """ Sends a push notification to the participant, used ONLY for testing.
+    Expects a patient_id in the request body. """
+    print(check_firebase_instance())
+    message = Message(
+        data={'type': 'fake', 'content': 'hello good sir'},
+        token=request.session_participant.get_valid_fcm_token().token,
+    )
+    response = send_push_notification(message)
+    print('Successfully sent notification message:', response)
+    return HttpResponse(status=204)
+
+
+@require_POST
+@authenticate_participant
+def developer_send_survey_notification(request: ParticipantRequest):
+    """ Sends a push notification to the participant with survey data, used ONLY for testing
+    Expects a patient_id in the request body. """
+    participant = request.session_participant
+    survey_ids = list(
+        participant.study.surveys.filter(deleted=False).exclude(survey_type="image_survey")
+            .values_list("object_id", flat=True)[:4]
+    )
+    message = Message(
+        data={
+            'type': 'survey',
+            'survey_ids': json.dumps(survey_ids),
+            'sent_time': datetime.now().strftime(API_TIME_FORMAT),
+        },
+        token=participant.get_valid_fcm_token().token,
+    )
+    response = send_push_notification(message)
+    print('Successfully sent survey message:', response)
+    return HttpResponse(status=204)

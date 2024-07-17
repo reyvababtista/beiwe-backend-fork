@@ -136,7 +136,7 @@
         </tr>
       </table>
 
-      <form action="{{ easy_url("push_notifications_api.resend_push_notification", study_id=study.id, patient_id=participant.patient_id) }}" method="post">
+      <form action="{{ easy_url("participant_endpoints.resend_push_notification", study_id=study.id, patient_id=participant.patient_id) }}" method="post">
       {% if participant.participant_push_enabled %} 
         <input type="hidden" name="survey_id" value="{{ latest_notification_attempt.survey_id }}">
         <button class="btn btn-danger center-block" type="submit" {% if locked %} disabled {% endif %}>

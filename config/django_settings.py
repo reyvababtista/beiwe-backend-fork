@@ -138,6 +138,9 @@ PROJECT_ROOT = "."
 ROOT_URLCONF = "urls"
 STATIC_ROOT = "frontend/static/"
 STATIC_URL = "/static/"
+STATICFILES_DIRS = [
+    "frontend/static/"
+]
 
 TEMPLATES = [
     {

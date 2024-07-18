@@ -82,7 +82,7 @@ services:
 
   forest:
     build:
-      context: .
+      context: ..
       dockerfile: docker_config/forest/prod.Dockerfile
       args:
         - RABBITMQ_PORT=${RABBITMQ_PORT}

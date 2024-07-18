@@ -4,14 +4,13 @@ from os.path import join
 
 import sentry_sdk
 from django.core.exceptions import ImproperlyConfigured
-from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
 
 from config import DB_MODE, DB_MODE_POSTGRES, DB_MODE_SQLITE
 from config.settings import DOMAIN_NAME, FLASK_SECRET_KEY, SENTRY_ELASTIC_BEANSTALK_DSN
 from constants.common_constants import BEIWE_PROJECT_ROOT
 from libs.sentry import normalize_sentry_dsn
-
 
 # SECRET KEY is required by the django management commands, using the flask key is fine because
 # we are not actually using it in any server runtime capacity.
@@ -39,7 +38,6 @@ elif DB_MODE == DB_MODE_POSTGRES:
             'PASSWORD': os.environ['RDS_PASSWORD'],
             'HOST': os.environ['RDS_HOSTNAME'],
             'CONN_MAX_AGE': 0,
-            'OPTIONS': {'sslmode': 'require'},
             "ATOMIC_REQUESTS": True,  # default is True, just being explicit
             'TEST': {
                 'MIGRATE': True,
@@ -55,6 +53,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 DEBUG = 'localhost' in DOMAIN_NAME or '127.0.0.1' in DOMAIN_NAME or '::1' in DOMAIN_NAME
 
 SECURE_SSL_REDIRECT = not DEBUG
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
 
 # mac os homebrew postgres has configuration complexities that are not worth the effort to resolve.
 if not SECURE_SSL_REDIRECT and DB_MODE == DB_MODE_POSTGRES and platform.system() == "Darwin":
@@ -81,6 +82,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django_extensions',
     'timezone_field',
+    'django.contrib.staticfiles'
     # 'static_files',
 ]
 

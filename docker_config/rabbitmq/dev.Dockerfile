@@ -10,6 +10,4 @@ COPY ./docker_config/rabbitmq/entrypoint.sh .
 RUN sed -i 's/\r$//g' ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
-RUN ls
-
 ENTRYPOINT ["./entrypoint.sh"]

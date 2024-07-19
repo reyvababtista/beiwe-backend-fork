@@ -1,3 +1,5 @@
+# DEV UTILS SHOULD NEVER IMPORT FROM FILES THAT IMPORT OR CONTAIN DATABASE MODELS
+
 import cProfile
 import functools
 from collections import defaultdict

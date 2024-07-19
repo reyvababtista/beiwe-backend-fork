@@ -1,4 +1,4 @@
-# UTILS SHOULD NEVER IMPORT FROM FILES THAT IMPORT OR CONTAIN DATABASE MODELS
+# DATE UTILS SHOULD NEVER IMPORT FROM FILES THAT IMPORT OR CONTAIN DATABASE MODELS
 
 from datetime import date, datetime, timedelta, tzinfo
 from typing import Any, Generator, List, Union

@@ -19,9 +19,9 @@ from database.data_access_models import FileToProcess
 from database.study_models import Study
 from database.survey_models import Survey
 from database.user_models_researcher import Researcher, StudyRelation
-from libs.copy_study import (allowed_file_extension, copy_study_from_json, do_duplicate_step,
-    format_study, unpack_json_study)
 from libs.django_forms.forms import StudyEndDateForm, StudySecuritySettingsForm
+from libs.endpoint_helpers.copy_study_helpers import (allowed_file_extension, copy_study_from_json,
+    do_duplicate_step, format_study, unpack_json_study)
 from libs.endpoint_helpers.researcher_helpers import get_administerable_researchers
 from libs.endpoint_helpers.study_helpers import (conditionally_display_study_status_warnings,
     get_administerable_studies_by_name, notify_changes, trim_whitespace, try_update_device_settings,

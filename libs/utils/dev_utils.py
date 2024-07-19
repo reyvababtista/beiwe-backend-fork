@@ -12,7 +12,7 @@ from statistics import mean, stdev
 from time import perf_counter
 from types import FunctionType, MethodType
 
-from libs.security import generate_easy_alphanumeric_string
+from libs.utils.security_utils import generate_easy_alphanumeric_string
 
 
 PROJECT_PATH = __file__.rsplit("/", 2)[0]

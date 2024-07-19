@@ -17,7 +17,7 @@ from constants.user_constants import OS_TYPE_CHOICES
 from database.models import TimestampedModel
 from database.user_models_participant import Participant
 from libs.s3 import s3_retrieve
-from libs.security import chunk_hash
+from libs.utils.security_utils import chunk_hash
 
 
 # this is an import hack to improve IDE assistance

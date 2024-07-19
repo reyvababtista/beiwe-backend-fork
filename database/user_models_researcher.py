@@ -18,9 +18,9 @@ from database.models import TimestampedModel
 from database.study_models import Study
 from database.user_models_common import AbstractPasswordUser
 from database.validators import B32_VALIDATOR, PASSWORD_VALIDATOR, STANDARD_BASE_64_VALIDATOR
-from libs.security import (BadDjangoKeyFormatting, compare_password, django_password_components,
-    generate_random_bytestring, generate_random_string, get_current_mfa_code,
-    to_django_password_components)
+from libs.utils.security_utils import (BadDjangoKeyFormatting, compare_password,
+    django_password_components, generate_random_bytestring, generate_random_string,
+    get_current_mfa_code, to_django_password_components)
 
 
 # This is an import hack to improve IDE assistance.

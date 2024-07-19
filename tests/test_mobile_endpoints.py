@@ -20,7 +20,7 @@ from database.user_models_participant import AppHeartbeats, AppVersionHistory, P
 from libs.rsa import get_RSA_cipher
 from libs.schedules import (get_start_and_end_of_java_timings_week,
     repopulate_absolute_survey_schedule_events, repopulate_relative_survey_schedule_events)
-from libs.security import device_hash
+from libs.utils.security_utils import device_hash
 from tests.common import ParticipantSessionTest
 
 

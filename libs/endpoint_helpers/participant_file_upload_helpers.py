@@ -13,7 +13,7 @@ from database.system_models import GenericEvent
 from database.user_models_participant import Participant
 from libs.encryption import DeviceDataDecryptor
 from libs.s3 import s3_retrieve, s3_upload, smart_s3_list_study_files
-from libs.security import generate_easy_alphanumeric_string
+from libs.utils.security_utils import generate_easy_alphanumeric_string
 
 
 def log(*args, **kwargs):

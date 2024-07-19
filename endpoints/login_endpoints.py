@@ -10,7 +10,7 @@ from constants.message_strings import (MFA_CODE_6_DIGITS, MFA_CODE_DIGITS_ONLY, 
     MFA_CODE_WRONG)
 from database.user_models_researcher import Researcher
 from libs.internal_types import ResearcherRequest
-from libs.security import verify_mfa
+from libs.utils.security_utils import verify_mfa
 
 
 @require_GET

@@ -9,7 +9,7 @@ from constants.user_constants import ResearcherRole
 from database.data_access_models import ChunkRegistry
 from database.security_models import ApiKey
 from database.user_models_participant import Participant
-from libs.security import generate_easy_alphanumeric_string
+from libs.utils.security_utils import generate_easy_alphanumeric_string
 from tests.common import ResearcherSessionTest
 
 

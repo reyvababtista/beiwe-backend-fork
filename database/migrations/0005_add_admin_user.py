@@ -4,7 +4,8 @@ from django.db import migrations
 from django.db.migrations.state import StateApps
 
 from constants.common_constants import RUNNING_TESTS
-from libs.security import generate_hash_and_salt, generate_random_bytestring, generate_random_string
+from libs.utils.security_utils import (generate_hash_and_salt, generate_random_bytestring,
+    generate_random_string)
 
 
 def add_admin_user_if_not_exists(apps: StateApps, schema_editor):

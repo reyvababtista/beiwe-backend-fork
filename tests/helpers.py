@@ -24,12 +24,12 @@ from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, Intervent
     InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
 from database.study_models import DeviceSettings, Study, StudyField
 from database.survey_models import Survey
-from database.user_models_participant import (AppHeartbeats, Participant, ParticipantActionLog,
-    ParticipantDeletionEvent, ParticipantFCMHistory, ParticipantFieldValue, DeviceStatusReportHistory)
+from database.user_models_participant import (AppHeartbeats, DeviceStatusReportHistory, Participant,
+    ParticipantActionLog, ParticipantDeletionEvent, ParticipantFCMHistory, ParticipantFieldValue)
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import Schedule
 from libs.schedules import set_next_weekly
-from libs.security import device_hash, generate_easy_alphanumeric_string
+from libs.utils.security_utils import device_hash, generate_easy_alphanumeric_string
 
 
 CURRENT_TEST_HTML_FILEPATH = BEIWE_PROJECT_ROOT + "private/current_test_page.html"

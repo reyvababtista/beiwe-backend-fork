@@ -29,7 +29,7 @@ from database.user_models_common import AbstractPasswordUser
 from database.validators import ID_VALIDATOR
 from libs.firebase_config import check_firebase_instance
 from libs.s3 import s3_retrieve
-from libs.security import (compare_password, device_hash, django_password_components,
+from libs.utils.security_utils import (compare_password, device_hash, django_password_components,
     generate_easy_alphanumeric_string)
 
 

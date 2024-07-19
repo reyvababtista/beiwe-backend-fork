@@ -22,8 +22,8 @@ from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import ResearcherRequest
 from libs.password_validation import get_min_password_requirement
-from libs.security import generate_easy_alphanumeric_string
 from libs.utils.http_utils import easy_url
+from libs.utils.security_utils import generate_easy_alphanumeric_string
 from middleware.abort_middleware import abort
 
 

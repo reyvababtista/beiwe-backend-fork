@@ -28,8 +28,8 @@ from libs.endpoint_helpers.study_helpers import get_administerable_studies_by_na
 from libs.endpoint_helpers.system_admin_helpers import mfa_clear_allowed
 from libs.internal_types import ResearcherRequest
 from libs.password_validation import check_password_requirements, get_min_password_requirement
-from libs.security import create_mfa_object, qrcode_bas64_png, verify_mfa
 from libs.utils.http_utils import easy_url
+from libs.utils.security_utils import create_mfa_object, qrcode_bas64_png, verify_mfa
 from middleware.abort_middleware import abort
 
 

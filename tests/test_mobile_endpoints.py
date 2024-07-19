@@ -718,7 +718,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertEqual(ftp.last_updated, should_be_identical.last_updated)
         self.assert_one_file_to_process
     
-    @patch("libs.participant_file_uploads.s3_upload")
+    @patch("libs.endpoint_helpers.participant_file_upload_helpers.s3_upload")
     @patch("database.user_models_participant.Participant.get_private_key")
     def test_no_file_content(self, get_private_key: MagicMock, s3_upload: MagicMock):
         self.assertIsNone(self.default_participant.last_upload)
@@ -731,7 +731,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.default_participant.refresh_from_db()
         self.assertIsInstance(self.default_participant.last_upload, datetime)
     
-    @patch("libs.participant_file_uploads.s3_upload")
+    @patch("libs.endpoint_helpers.participant_file_upload_helpers.s3_upload")
     @patch("database.user_models_participant.Participant.get_private_key")
     def test_decryption_key_bad_padding(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
@@ -741,7 +741,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertEqual(GenericEvent.objects.count(), 1)
         self.assertIn("Decryption key not 128 bits", GenericEvent.objects.get().note)
     
-    @patch("libs.participant_file_uploads.s3_upload")
+    @patch("libs.endpoint_helpers.participant_file_upload_helpers.s3_upload")
     @patch("database.user_models_participant.Participant.get_private_key")
     def test_decryption_key_not_base64(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY
@@ -750,7 +750,7 @@ class TestMobileUpload(ParticipantSessionTest):
         self.assertEqual(GenericEvent.objects.count(), 1)
         self.assertIn("Key not base64 encoded:", GenericEvent.objects.get().note)
     
-    @patch("libs.participant_file_uploads.s3_upload")
+    @patch("libs.endpoint_helpers.participant_file_upload_helpers.s3_upload")
     @patch("database.user_models_participant.Participant.get_private_key")
     def test_bad_base64_length(self, get_private_key: MagicMock, s3_upload: MagicMock):
         get_private_key.return_value = self.PRIVATE_KEY

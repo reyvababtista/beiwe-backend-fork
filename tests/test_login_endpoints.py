@@ -16,7 +16,7 @@ from constants.user_constants import EXPIRY_NAME, ResearcherRole
 from database.study_models import Study
 from database.system_models import GlobalSettings
 from database.user_models_researcher import Researcher, ResearcherSession
-from libs.http_utils import easy_url
+from libs.utils.http_utils import easy_url
 from tests.common import BasicSessionTestCase
 
 

@@ -34,7 +34,6 @@ from libs.endpoint_helpers.participant_helpers import (conditionally_display_loc
     get_heartbeats_query, get_survey_names_dict, notification_details_archived_event,
     notification_details_heartbeat, query_values_for_notification_history, render_participant_page)
 from libs.firebase_config import check_firebase_instance
-from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
 from libs.intervention_utils import add_fields_and_interventions
 from libs.participant_purge import add_participant_for_deletion
@@ -42,6 +41,7 @@ from libs.s3 import create_client_key_pair, s3_upload
 from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.sentry import make_error_sentry, SentryTypes
 from libs.streaming_io import StreamingStringsIO
+from libs.utils.http_utils import easy_url
 from middleware.abort_middleware import abort
 
 

@@ -16,8 +16,8 @@ from database.profiling_models import DataAccessRecord
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
-from libs.http_utils import easy_url
 from libs.security import generate_easy_alphanumeric_string
+from libs.utils.http_utils import easy_url
 from tests.common import ResearcherSessionTest, TableauAPITest
 
 

@@ -20,10 +20,10 @@ from constants.user_constants import (ALL_RESEARCHER_TYPES, EXPIRY_NAME, Researc
     SESSION_NAME, SESSION_TIMEOUT_HOURS, SESSION_UUID)
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
-from libs.http_utils import easy_url
 from libs.internal_types import ResearcherRequest
 from libs.password_validation import get_min_password_requirement
 from libs.security import generate_easy_alphanumeric_string
+from libs.utils.http_utils import easy_url
 from middleware.abort_middleware import abort
 
 

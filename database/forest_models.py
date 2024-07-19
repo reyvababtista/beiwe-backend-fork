@@ -72,7 +72,7 @@ class ForestTask(TimestampedModel):
     
     @property
     def sentry_tags(self) -> Dict[str, str]:
-        from libs.http_utils import easy_url
+        from libs.utils.http_utils import easy_url
         url = path_join(DOMAIN_NAME, easy_url("forest_endpoints.task_log", study_id=self.participant.study.id))
         return {
             "participant": self.participant.patient_id,

@@ -14,8 +14,8 @@ from database.schedule_models import ArchivedEvent
 from database.study_models import Study
 from database.user_models_participant import Participant
 from libs.firebase_config import check_firebase_instance
-from libs.http_utils import nice_iso_time_format
 from libs.internal_types import ArchivedEventQuerySet, ResearcherRequest
+from libs.utils.http_utils import nice_iso_time_format
 
 
 def render_participant_page(request: ResearcherRequest, participant: Participant, study: Study):

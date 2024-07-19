@@ -162,7 +162,7 @@ class TestForestDownloadOutput(ResearcherSessionTest):
         self.set_session_study_relation(ResearcherRole.researcher)
         self.smart_get_status_code(403, self.session_study.id, self.default_forest_task.external_id)
     
-    @patch("libs.forest_utils.s3_retrieve")
+    @patch("libs.utils.forest_utils.s3_retrieve")
     def test_study_admin_can(self, s3_retrieve: MagicMock):
         s3_retrieve.return_value = SIMPLE_FILE_CONTENTS
         self.set_session_study_relation(ResearcherRole.study_admin)
@@ -170,7 +170,7 @@ class TestForestDownloadOutput(ResearcherSessionTest):
             200, self.session_study.id, self.default_forest_task.external_id)
         self.assertEqual(resp.content, SIMPLE_FILE_CONTENTS)
     
-    @patch("libs.forest_utils.s3_retrieve")
+    @patch("libs.utils.forest_utils.s3_retrieve")
     def test_site_admin_can(self, s3_retrieve: MagicMock):
         s3_retrieve.return_value = SIMPLE_FILE_CONTENTS
         self.set_session_study_relation(ResearcherRole.site_admin)

@@ -1,4 +1,5 @@
-# DEV UTILS SHOULD NEVER IMPORT FROM FILES THAT IMPORT OR CONTAIN DATABASE MODELS
+# FILES IN UTILS SHOULD HAVE SPARSE IMPORTS SO THAT THEY CAN BE USED ANYWHERE.
+# IF YOU ARE IMPORTING FROM A DATABASE MODEL YOU SHOULD PLACE IT ELSEWHERE. (ANNOTATION IMPORTS ARE OK)
 
 import cProfile
 import functools
@@ -11,8 +12,6 @@ from statistics import mean, stdev
 from time import perf_counter
 from types import FunctionType, MethodType
 
-from database.survey_models import Survey
-from database.user_models_participant import Participant
 from libs.security import generate_easy_alphanumeric_string
 
 
@@ -60,6 +59,9 @@ class TxtClr:
 def disambiguate_participant_survey(func):
     """ This wrapper allows a function to take any combination of (participant, survey)
     Mostly used in debugging push notifications. """
+    
+    from database.survey_models import Survey
+    from database.user_models_participant import Participant
     
     @functools.wraps(func)
     def _disambiguate_participant_survey(*args, **kwargs):

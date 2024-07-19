@@ -102,7 +102,7 @@ SHELL_PLUS_POST_IMPORTS = [
     ["django.utils.timezone", ("localtime", "make_aware", "make_naive")],
     
     # shell
-    ["libs.utils.shell_utils", "*"],
+    ["libs.shell_support", "*"],
     ['libs.utils.dev_utils', "GlobalTimeTracker"],
     
     # s3

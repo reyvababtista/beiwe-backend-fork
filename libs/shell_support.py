@@ -7,7 +7,6 @@ from typing import Dict, List, Tuple, Union
 from dateutil.tz import gettz
 from django.utils import timezone
 from django.utils.timezone import localtime
-from numpy import char
 
 from constants.action_log_messages import HEARTBEAT_PUSH_NOTIFICATION_SENT
 from constants.common_constants import DEV_TIME_FORMAT, DEV_TIME_FORMAT3
@@ -21,6 +20,7 @@ from database.user_models_participant import Participant
 from database.user_models_researcher import Researcher
 from libs.s3 import s3_list_files
 from libs.utils.dev_utils import disambiguate_participant_survey, TxtClr
+
 
 #
 ## This file is referenced directly inside of developer documentation, keep it organized
@@ -187,7 +187,7 @@ def watch_uploads():
 def watch_celery():
     """ Only works on data processing servers.
     Runs a loop that prints out the number of active, scheduled, and reserved tasks in celery. """
-    from libs.celery_control import (watch_celery as watch_celery2)
+    from libs.celery_control import watch_celery as watch_celery2
     watch_celery2()
 
 

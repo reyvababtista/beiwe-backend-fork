@@ -94,7 +94,7 @@ SHELL_PLUS_POST_IMPORTS = [
     "orjson",
     ["collections", ("Counter", "defaultdict")],
     ["pprint", ("pprint",)],
-    
+
     # datetimezone
     "dateutil",  # do not add pytz it is deprecated
     ["dateutil", ('tz',)],
@@ -102,11 +102,11 @@ SHELL_PLUS_POST_IMPORTS = [
     ["time", ("sleep",)],
     ["datetime", ("date", "datetime", "timedelta", "tzinfo")],
     ["django.utils.timezone", ("localtime", "make_aware", "make_naive")],
-    
+
     # shell
     ["libs.utils.shell_utils", "*"],
     ['libs.utils.dev_utils', "GlobalTimeTracker"],
-    
+
     # s3
     [
         "libs.s3",
@@ -115,10 +115,10 @@ SHELL_PLUS_POST_IMPORTS = [
             "s3_retrieve_plaintext"
         )
     ],
-    
+
     # I need to be able to paste code >_O
     ["typing", ("List", "Dict", "Tuple", "Union", 'Counter', 'Deque', 'Dict', 'DefaultDict')],
-    
+
     # really useful constants
     ["constants.user_constants", ("ANDROID_API", "IOS_API", "NULL_OS", "ResearcherRole")],
 ]
@@ -129,7 +129,7 @@ TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 
 # server settings....
 if DEBUG:
-    ALLOWED_HOSTS = ("*", )
+    ALLOWED_HOSTS = ("*",)
 else:
     # we only allow the domain name to be the referrer
     ALLOWED_HOSTS = [DOMAIN_NAME]
@@ -155,7 +155,7 @@ TEMPLATES = [
                 "middleware.context_processors.researcher_context_processor",
                 "django.contrib.messages.context_processors.messages",
             ],
-        "environment": "config.jinja2.environment",
+            "environment": "config.jinja2.environment",
         },
     },
 ]
@@ -185,6 +185,7 @@ our_sentry_dsn = normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN)
 # file processing errors in a weird/unpredictable way. (Possibly after the first page of data? it's
 # not clear.)
 from sentry_sdk.integrations import _AUTO_ENABLING_INTEGRATIONS
+
 if "sentry_sdk.integrations.starlette.StarletteIntegration" not in _AUTO_ENABLING_INTEGRATIONS:
     raise ImproperlyConfigured(
         "We have a bug where the starlette integration is getting auto enabling and then raising "
@@ -206,7 +207,7 @@ sentry_sdk.init(
             signals_spans=False,
             cache_spans=False,
         ),
-        CeleryIntegration( 
+        CeleryIntegration(
             propagate_traces=False,
             monitor_beat_tasks=False,
             exclude_beat_tasks=True

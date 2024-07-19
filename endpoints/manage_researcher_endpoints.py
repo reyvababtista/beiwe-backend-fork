@@ -22,7 +22,7 @@ from constants.user_constants import EXPIRY_NAME, ResearcherRole
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.user_models_researcher import Researcher, StudyRelation
-from forms.django_forms import DisableApiKeyForm, NewApiKeyForm
+from libs.django_forms.forms import DisableApiKeyForm, NewApiKeyForm
 from libs.endpoint_helpers.researcher_helpers import get_administerable_researchers
 from libs.endpoint_helpers.study_helpers import get_administerable_studies_by_name
 from libs.endpoint_helpers.system_admin_helpers import mfa_clear_allowed

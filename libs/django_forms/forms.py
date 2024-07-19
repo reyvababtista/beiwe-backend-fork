@@ -7,7 +7,7 @@ from constants.celery_constants import ForestTaskStatus
 from database.forest_models import ForestTask
 from database.study_models import Study
 from database.user_models_participant import Participant
-from forms.django_form_fields import CommaSeparatedListCharField, CommaSeparatedListChoiceField
+from libs.django_forms.form_fields import CommaSeparatedListCharField, CommaSeparatedListChoiceField
 
 
 class NewApiKeyForm(forms.Form):

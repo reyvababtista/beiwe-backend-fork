@@ -8,7 +8,7 @@ from django.http import HttpResponse, StreamingHttpResponse
 
 from constants.forest_constants import SERIALIZABLE_FIELD_NAMES
 from database.forest_models import SummaryStatisticDaily
-from forms.django_forms import ApiQueryForm
+from libs.django_forms.forms import ApiQueryForm
 from libs.internal_types import ResearcherRequest, TableauRequest
 from libs.utils.effiicient_paginator import EfficientQueryPaginator
 
@@ -35,7 +35,7 @@ def summary_statistics_request_handler(
 def format_summary_data_errors(errors: dict) -> str:
     """ Flattens a django validation error dictionary into a json string. """
     messages = []
-    for field, field_errs in errors.items():
+    for _field, field_errs in errors.items():
         messages.extend([err["message"] for err in field_errs])
     return json.dumps({"errors": messages})
 

@@ -113,7 +113,7 @@ class Participant(AbstractPasswordUser):
     # of them are filler for future features that may or may not be implemented. Some are for
     # backend feature, some are for app features. (features under active development should be
     # annotated in some way but no promises.)
-    # Set help text over in /forms/django_forms.py
+    # Set help text over in libs/django_forms/forms.py
     enable_aggressive_background_persistence = models.BooleanField(default=False)
     enable_binary_uploads = models.BooleanField(default=False)
     enable_new_authentication = models.BooleanField(default=False)

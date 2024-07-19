@@ -12,7 +12,7 @@ from constants.testing_constants import ADMIN_ROLES, ALL_TESTING_ROLES
 from constants.user_constants import ResearcherRole
 from database.study_models import DeviceSettings, Study
 from libs.endpoint_helpers.copy_study_helpers import format_study
-from libs.http_utils import easy_url
+from libs.utils.http_utils import easy_url
 from tests.common import ResearcherSessionTest
 
 

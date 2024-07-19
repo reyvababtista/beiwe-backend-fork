@@ -27,12 +27,12 @@ from libs.endpoint_helpers.study_helpers import (conditionally_display_study_sta
     get_administerable_studies_by_name, notify_changes, trim_whitespace, try_update_device_settings,
     unflatten_consent_sections)
 from libs.firebase_config import check_firebase_instance
-from libs.http_utils import (easy_url, list_of_checkbox_strings_to_booleans,
-    list_of_intlike_strings_to_int)
 from libs.internal_types import ResearcherRequest
 from libs.password_validation import get_min_password_requirement
 from libs.sentry import make_error_sentry, SentryTypes
 from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
+from libs.utils.http_utils import (easy_url, list_of_checkbox_strings_to_booleans,
+    list_of_intlike_strings_to_int)
 
 
 @require_GET

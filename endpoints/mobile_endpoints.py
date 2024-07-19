@@ -33,12 +33,12 @@ from libs.endpoint_helpers.participant_file_upload_helpers import (
     upload_and_create_file_to_process_and_log, upload_problem_file)
 from libs.firebase_config import check_firebase_instance
 from libs.graph_data import get_survey_results
-from libs.http_utils import determine_os_api
 from libs.internal_types import ParticipantRequest, ScheduledEventQuerySet
 from libs.s3 import get_client_public_key_string, s3_upload
 from libs.schedules import (decompose_datetime_to_timings, export_weekly_survey_timings,
     repopulate_all_survey_scheduled_events)
 from libs.sentry import get_sentry_client, SentryTypes
+from libs.utils.http_utils import determine_os_api
 from middleware.abort_middleware import abort
 
 

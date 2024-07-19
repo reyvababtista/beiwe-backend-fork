@@ -8,7 +8,7 @@ from django.urls import reverse
 from jinja2 import Environment
 
 from config.settings import SENTRY_JAVASCRIPT_DSN
-from libs.http_utils import (astimezone_with_tz, easy_url, really_nice_time_format_with_tz,
+from libs.utils.http_utils import (astimezone_with_tz, easy_url, really_nice_time_format_with_tz,
     time_with_tz)
 
 

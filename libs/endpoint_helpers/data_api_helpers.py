@@ -5,8 +5,8 @@ import zstd
 
 from database.user_models_participant import Participant
 from database.user_models_researcher import StudyRelation
+from libs.effiicient_paginator import EfficientQueryPaginator
 from libs.internal_types import ApiStudyResearcherRequest
-from libs.utils.effiicient_paginator import EfficientQueryPaginator
 from middleware.abort_middleware import abort
 
 

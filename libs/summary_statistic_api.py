@@ -9,8 +9,8 @@ from django.http import HttpResponse, StreamingHttpResponse
 from constants.forest_constants import SERIALIZABLE_FIELD_NAMES
 from database.forest_models import SummaryStatisticDaily
 from libs.django_forms.forms import ApiQueryForm
+from libs.effiicient_paginator import EfficientQueryPaginator
 from libs.internal_types import ResearcherRequest, TableauRequest
-from libs.utils.effiicient_paginator import EfficientQueryPaginator
 
 
 def summary_statistics_request_handler(

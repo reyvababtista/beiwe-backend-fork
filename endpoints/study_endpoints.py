@@ -22,13 +22,13 @@ from database.user_models_researcher import Researcher, StudyRelation
 from libs.django_forms.forms import StudyEndDateForm, StudySecuritySettingsForm
 from libs.endpoint_helpers.copy_study_helpers import (allowed_file_extension, copy_study_from_json,
     do_duplicate_step, format_study, unpack_json_study)
+from libs.endpoint_helpers.password_validation_helpers import get_min_password_requirement
 from libs.endpoint_helpers.researcher_helpers import get_administerable_researchers
 from libs.endpoint_helpers.study_helpers import (conditionally_display_study_status_warnings,
     get_administerable_studies_by_name, notify_changes, trim_whitespace, try_update_device_settings,
     unflatten_consent_sections)
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import ResearcherRequest
-from libs.password_validation import get_min_password_requirement
 from libs.sentry import make_error_sentry, SentryTypes
 from libs.timezone_dropdown import ALL_TIMEZONES_DROPDOWN
 from libs.utils.http_utils import (easy_url, list_of_checkbox_strings_to_booleans,

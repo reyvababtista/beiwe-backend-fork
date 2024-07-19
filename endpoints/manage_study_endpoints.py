@@ -14,11 +14,11 @@ from authentication.admin_authentication import (assert_admin, authenticate_admi
 from database.schedule_models import Intervention, InterventionDate
 from database.study_models import Study, StudyField
 from database.user_models_participant import Participant, ParticipantFieldValue
+from libs.endpoint_helpers.participant_table_helpers import (common_data_extraction_for_apis,
+    filtered_participants, get_table_columns, get_values_for_participants_table)
 from libs.internal_types import ResearcherRequest
 from libs.intervention_utils import (correct_bad_interventions, intervention_survey_data,
     survey_history_export)
-from libs.participant_table_api import (common_data_extraction_for_apis, filtered_participants,
-    get_table_columns, get_values_for_participants_table)
 from libs.schedules import repopulate_all_survey_scheduled_events
 from libs.timezone_dropdown import ALL_TIMEZONES
 

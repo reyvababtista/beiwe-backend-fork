@@ -17,10 +17,10 @@ from database.schedule_models import BadWeeklyCount, WeeklySchedule
 from database.user_models_participant import (AppHeartbeats, AppVersionHistory,
     DeviceStatusReportHistory, Participant, ParticipantActionLog, ParticipantDeletionEvent,
     PushNotificationDisabledEvent)
+from libs.endpoint_helpers.participant_table_helpers import determine_registered_status
 from libs.file_processing.utility_functions_simple import BadTimecodeError, binify_from_timecode
 from libs.participant_purge import (confirm_deleted, get_all_file_path_prefixes,
     run_next_queued_participant_data_deletion)
-from libs.participant_table_api import determine_registered_status
 from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_and_schedule,
     NoSchedulesException)
 from libs.utils.forest_utils import get_forest_git_hash

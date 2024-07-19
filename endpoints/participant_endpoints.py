@@ -29,7 +29,7 @@ from database.schedule_models import ArchivedEvent, ScheduledEvent
 from database.study_models import Study
 from database.survey_models import Survey
 from database.user_models_participant import Participant
-from forms.django_forms import ParticipantExperimentForm
+from libs.django_forms.forms import ParticipantExperimentForm
 from libs.endpoint_helpers.participant_helpers import (conditionally_display_locked_message,
     get_heartbeats_query, get_survey_names_dict, notification_details_archived_event,
     notification_details_heartbeat, query_values_for_notification_history, render_participant_page)

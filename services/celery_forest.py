@@ -28,7 +28,7 @@ from database.forest_models import ForestTask, SummaryStatisticDaily
 from database.system_models import ForestVersion
 from database.user_models_participant import Participant
 from libs.celery_control import forest_celery_app, safe_apply_async
-from libs.copy_study import format_study
+from libs.endpoint_helpers.copy_study_helpers import format_study
 from libs.forest_utils import save_all_bv_set_bytes, save_all_memory_dict_bytes, save_output_file
 from libs.internal_types import ChunkRegistryQuerySet
 from libs.intervention_utils import intervention_survey_data

@@ -25,3 +25,4 @@ manager_ip
 
 # Ignore all .env files
 .envs/.env.dev
+.envs/.env.prod

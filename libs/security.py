@@ -3,7 +3,6 @@ import codecs
 import hashlib
 import io
 import random
-from binascii import Error as base64_error
 from os import urandom
 from typing import Tuple
 
@@ -11,56 +10,12 @@ import pyotp
 import pyqrcode
 
 from constants.security_constants import BASE64_GENERIC_ALLOWED_CHARACTERS, EASY_ALPHANUMERIC_CHARS
+from libs.utils.base64_utils import encode_base64
 
 
 # Custom Error Classes
-class DatabaseIsDownError(Exception): pass
-class PaddingException(Exception): pass
-class Base64LengthException(Exception): pass
 class SecurityError(Exception): pass
 class BadDjangoKeyFormatting(Exception): pass
-
-
-################################################################################
-################################### Base64 #####################################
-################################################################################
-
-def encode_generic_base64(data: bytes) -> bytes:
-    """ Creates a url safe base64 representation of an input string, strips all new lines. """
-    return base64.b64encode(data).replace(b"\n", b"")
-
-
-def encode_base64(data: bytes) -> bytes:
-    """ Creates a base64 representation of an input string, strips all new lines. """
-    return base64.urlsafe_b64encode(data).replace(b"\n", b"")
-
-
-def decode_base64(data: bytes, paddiing_fix=0) -> bytes:
-    """ unpacks url safe base64 encoded string. Throws a more obviously named variable when
-    encountering a padding error, which just means that there was no base64 padding for base64
-    blobs of invalid length (possibly invalid base64 ending characters). """
-    try:
-        return base64.urlsafe_b64decode(data)
-    except base64_error as e:
-        # (in python 3.8 the error message is changed to include this information.)
-        length = len(data.strip(b"="))
-        if length % 4 != 0:
-            # stacktrace readers: this means corrupted data.
-            raise Base64LengthException(
-                f"Data provided had invalid length {length} after padding was removed."
-            )
-        
-        if "incorrect padding" in str(e).lower() or "number of data characters" in str(e).lower():
-            # for unknown reasons sometimes the padding is wrong, probably on corrupted data.
-            # Character counts supposed to be divisible by 4. recurring because its easy.
-            if paddiing_fix <= 4:
-                paddiing_fix += 1
-                padding = b"=" * paddiing_fix
-                return decode_base64(data + padding, paddiing_fix=paddiing_fix)
-            # str(data) here is correct, we need a representation of the data, not the raw data.
-            raise PaddingException(f'{str(e)} -- "{str(data)}"')
-        
-        raise  # preserves original stacktrace
 
 
 ################################################################################
@@ -70,6 +25,8 @@ def decode_base64(data: bytes, paddiing_fix=0) -> bytes:
 # noinspection InsecureHash
 def chunk_hash(data: bytes) -> bytes:
     """ We need to hash data in a data stream chunk and store the hash in mongo. """
+    # this is not a use of md5 for security.
+    # trunk-ignore(bandit/B324)
     digest = hashlib.md5(data).digest()
     return codecs.encode(digest, "base64").replace(b"\n", b"")
 
@@ -93,7 +50,7 @@ def django_password_components(password: str) -> Tuple[str, int, bytes, bytes]:
     try:
         algorithm, iterations, password, salt = password.split("$")
     except ValueError as e:
-        raise BadDjangoKeyFormatting(str(e))
+        raise BadDjangoKeyFormatting(str(e)) from e
     return algorithm, int(iterations), password.encode(), salt.encode()
 
 

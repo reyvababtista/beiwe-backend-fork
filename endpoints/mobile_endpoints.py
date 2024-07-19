@@ -29,10 +29,10 @@ from database.system_models import FileAsText
 from database.user_models_participant import AppHeartbeats, Participant, ParticipantFCMHistory
 from libs.encryption import (DecryptionKeyInvalidError, DeviceDataDecryptor,
     IosDecryptionKeyDuplicateError, IosDecryptionKeyNotFoundError, RemoteDeleteFileScenario)
+from libs.endpoint_helpers.graph_data_helpers import get_survey_results
 from libs.endpoint_helpers.participant_file_upload_helpers import (
     upload_and_create_file_to_process_and_log, upload_problem_file)
 from libs.firebase_config import check_firebase_instance
-from libs.graph_data import get_survey_results
 from libs.internal_types import ParticipantRequest, ScheduledEventQuerySet
 from libs.s3 import get_client_public_key_string, s3_upload
 from libs.schedules import (decompose_datetime_to_timings, export_weekly_survey_timings,

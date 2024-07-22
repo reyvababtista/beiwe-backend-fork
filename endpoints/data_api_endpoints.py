@@ -16,6 +16,7 @@ from authentication.tableau_authentication import authenticate_tableau
 from constants.forest_constants import FIELD_TYPE_MAP, SERIALIZABLE_FIELD_NAMES
 from constants.message_strings import MISSING_JSON_CSV_MESSAGE
 from database.forest_models import SummaryStatisticDaily
+from database.study_models import Study
 from database.user_models_researcher import StudyRelation
 from libs.effiicient_paginator import EfficientQueryPaginator
 from libs.endpoint_helpers.data_api_helpers import (check_request_for_omit_keys_param,
@@ -38,10 +39,20 @@ def get_studies(request: ApiResearcherRequest):
     request body.
     :return: string: JSON-dumped dict {object_id: name}
     """
+    # site admin needs to get all non-deleted studies
+    if request.api_researcher.site_admin:
+        return HttpResponse(
+            orjson.dumps(
+                dict(Study.objects.filter(deleted=False).values_list("object_id", "name"))
+            )
+        )
+    
+    # non-site-admins get their related studies
     return HttpResponse(
         orjson.dumps(
-            dict(StudyRelation.objects.filter(researcher=request.api_researcher)
-                    .values_list("study__object_id", "study__name")
+            dict(
+                StudyRelation.objects.filter(researcher=request.api_researcher, study__deleted=False)
+                .values_list("study__object_id", "study__name")
             )
         )
     )

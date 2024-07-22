@@ -1,4 +1,5 @@
 # trunk-ignore-all(bandit/B106)
+# trunk-ignore-all(ruff/B018)
 import json
 from datetime import date, datetime, timedelta
 from unittest.mock import MagicMock, patch
@@ -24,7 +25,114 @@ from libs.utils.security_utils import device_hash
 from tests.common import ParticipantSessionTest
 
 
-# trunk-ignore-all(ruff/B018)
+## we have some meta tests to test side effects of events, stick them at the top
+
+class TestAppVersionHistory(ParticipantSessionTest):
+    ENDPOINT_NAME = "mobile_endpoints.get_latest_surveys"
+    
+    def test_app_version_code_update_triggers_app_version_code_history(self):
+        self.default_participant.update_only(last_version_code="1.0.0")
+        self.assertFalse(AppVersionHistory.objects.exists())
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, version_code="1.0.1")
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.last_version_code, "1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+        # now test that the same event doesn't trigger a new history entry
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, version_code="1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+    
+    def test_app_vaersion_name_update_triggers_app_version_name_history(self):
+        self.default_participant.update_only(last_version_name="1.0.0")
+        self.assertFalse(AppVersionHistory.objects.exists())
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, version_name="1.0.1")
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.last_version_name, "1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+        # now test that the same event doesn't trigger a new history entry
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, version_name="1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+    
+    def test_os_version_update_triggers_os_version_history(self):
+        self.default_participant.update_only(last_os_version="1.0.0")
+        self.assertFalse(AppVersionHistory.objects.exists())
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, os_version="1.0.1")
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.last_os_version, "1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+        # now test that the same event doesn't trigger a new history entry
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, os_version="1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+    
+    def test_version_code_and_name_update_triggers_both(self):
+        # AI generated test
+        self.default_participant.update_only(last_version_code="1.0.0", last_version_name="1.0.0")
+        self.assertFalse(AppVersionHistory.objects.exists())
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, version_code="1.0.1", version_name="1.0.1")
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.last_version_code, "1.0.1")
+        self.assertEqual(self.default_participant.last_version_name, "1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+        # now test that the same event doesn't trigger a new history entry
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, version_code="1.0.1", version_name="1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+    
+    def test_os_version_and_version_code_update_triggers_both(self):
+        # AI generated test
+        self.default_participant.update_only(last_os_version="1.0.0", last_version_code="1.0.0")
+        self.assertFalse(AppVersionHistory.objects.exists())
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, os_version="1.0.1", version_code="1.0.1")
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.last_os_version, "1.0.1")
+        self.assertEqual(self.default_participant.last_version_code, "1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+        # now test that the same event doesn't trigger a new history entry
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, os_version="1.0.1", version_code="1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+    
+    def test_os_version_and_version_name_update_triggers_both(self):
+        # AI generated test
+        self.default_participant.update_only(last_os_version="1.0.0", last_version_name="1.0.0")
+        self.assertFalse(AppVersionHistory.objects.exists())
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, os_version="1.0.1", version_name="1.0.1")
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.last_os_version, "1.0.1")
+        self.assertEqual(self.default_participant.last_version_name, "1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+        # now test that the same event doesn't trigger a new history entry
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, os_version="1.0.1", version_name="1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+    
+    def test_os_version_and_version_name_and_version_code_update_triggers_all(self):
+        # AI generated test
+        self.default_participant.update_only(
+            last_os_version="1.0.0", last_version_name="1.0.0", last_version_code="1.0.0"
+        )
+        self.assertFalse(AppVersionHistory.objects.exists())
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, os_version="1.0.1", version_name="1.0.1", version_code="1.0.1")
+        self.default_participant.refresh_from_db()
+        self.assertEqual(self.default_participant.last_os_version, "1.0.1")
+        self.assertEqual(self.default_participant.last_version_name, "1.0.1")
+        self.assertEqual(self.default_participant.last_version_code, "1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+        # now test that the same event doesn't trigger a new history entry
+        self.INJECT_DEVICE_TRACKER_PARAMS = False
+        self.smart_post_status_code(200, os_version="1.0.1", version_name="1.0.1", version_code="1.0.1")
+        self.assertEqual(AppVersionHistory.objects.count(), 1)
+    
+    
 
 #
 ## mobile endpoints
@@ -81,30 +189,6 @@ class TestGetLatestSurveys(ParticipantSessionTest):
     def test_no_surveys(self):
         resp = self.smart_post_status_code(200)
         self.assertEqual(resp.content, b"[]")
-    
-    def test_version_code_update_triggers_app_version_code_history(self):
-        self.default_participant.update_only(last_version_code="1.0.0")
-        self.assertFalse(AppVersionHistory.objects.exists())
-        self.smart_post_status_code(200, version_code="1.0.1")
-        self.default_participant.refresh_from_db()
-        self.assertEqual(self.default_participant.last_version_code, "1.0.1")
-        self.assertTrue(AppVersionHistory.objects.exists())
-    
-    def test_version_code_update_triggers_app_version_name_history(self):
-        self.default_participant.update_only(last_version_name="1.0.0")
-        self.assertFalse(AppVersionHistory.objects.exists())
-        self.smart_post_status_code(200, version_name="1.0.1")
-        self.default_participant.refresh_from_db()
-        self.assertEqual(self.default_participant.last_version_name, "1.0.1")
-        self.assertTrue(AppVersionHistory.objects.exists())
-    
-    def test_version_code_update_triggers_os_version_history(self):
-        self.default_participant.update_only(last_os_version="1.0.0")
-        self.assertFalse(AppVersionHistory.objects.exists())
-        self.smart_post_status_code(200, os_version="1.0.1")
-        self.default_participant.refresh_from_db()
-        self.assertEqual(self.default_participant.last_os_version, "1.0.1")
-        self.assertTrue(AppVersionHistory.objects.exists())
     
     def test_basic_survey(self):
         self.assertIsNone(self.default_participant.last_get_latest_surveys)

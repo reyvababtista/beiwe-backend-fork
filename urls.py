@@ -218,7 +218,7 @@ path("get-data/v1", raw_data_api.get_data)
 path("get-studies/v1", data_api_endpoints.get_studies)
 path("get-users/v1", data_api_endpoints.get_participant_ids_in_study)  # deprecated June 2024
 path("get-participant-ids/v1", data_api_endpoints.get_participant_ids_in_study)
-path("get-participant-data-info/v1", data_api_endpoints.get_participant_data_info)
+path("get-participant-data-quantities/v1", data_api_endpoints.get_participant_data_quantities)
 path("get-interventions/v1", data_api_endpoints.download_study_interventions)
 path("get-survey-history/v1", data_api_endpoints.download_study_survey_history)
 path("get-participant-upload-history/v1", data_api_endpoints.get_participant_upload_history)

@@ -276,6 +276,7 @@ class SmartRequestsTestCase(BasicSessionTestCase):
     REDIRECT_ENDPOINT_NAME = None
     IGNORE_THIS_ENDPOINT = "ignore this endpoint"  # turns out we need to suppress this sometimes...
     
+    # Never add this test to a subclass
     def test_has_valid_endpoint_name_and_is_placed_in_correct_file(self):
         # case: [currently] subclasses that but are intended to be further subclassed are contained
         # in the tests.common, so they can break the rules.
@@ -498,15 +499,7 @@ class ParticipantSessionTest(SmartRequestsTestCase):
                              msg="last_os_version did not update")
             self.assertEqual(tracker_vals["device_status_report"], post_params["device_status_report"],
                              msg="device_status_report did not update")
-        else:
-            self.assertEqual(tracker_vals["last_version_code"], orig_vals["last_version_code"],
-                             msg="last_version_code updated")
-            self.assertEqual(tracker_vals["last_version_name"], orig_vals["last_version_name"],
-                             msg="last_version_name updated")
-            self.assertEqual(tracker_vals["last_os_version"], orig_vals["last_os_version"],
-                             msg="last_os_version updated")
-            self.assertEqual(tracker_vals["device_status_report"], orig_vals["device_status_report"],
-                             msg="device_status_report updated")
+        
         # reset the toggle after every request
         self.INJECT_DEVICE_TRACKER_PARAMS = True
         return ret

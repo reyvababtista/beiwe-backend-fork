@@ -95,7 +95,7 @@ def download_study_survey_history(request: ApiStudyResearcherRequest):
 
 @require_POST
 @api_study_credential_check()
-def get_participant_data_info(request: ApiStudyResearcherRequest, study_id: str = None):
+def get_participant_data_quantities(request: ApiStudyResearcherRequest, study_id: str = None):
     """ Returns a JSON response of the participant data upload summaries. """
     summary_data = get_participant_data_upload_summary(request.api_study)
     return HttpResponse(orjson.dumps(summary_data), status=200, content_type="application/json")
@@ -139,6 +139,7 @@ def get_participant_table_data(request: ApiStudyResearcherRequest):
 
 
 ## Summary Statistics and Forest Output
+
 
 @require_POST
 @api_study_credential_check()

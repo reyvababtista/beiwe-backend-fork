@@ -1,4 +1,5 @@
-import json
+# trunk-ignore-all(ruff/B018)
+# trunk-ignore-all(bandit/B105)
 from datetime import date, datetime, timedelta
 
 import orjson
@@ -22,68 +23,9 @@ from tests.common import DataApiTest, SmartRequestsTestCase, TableauAPITest
 from tests.helpers import compare_dictionaries, ParticipantTableHelperMixin
 
 
-# trunk-ignore-all(ruff/B018)
-
 #
 ## Data Apis
 #
-
-
-class TestAPIGetStudies(DataApiTest):
-    ENDPOINT_NAME = "data_api_endpoints.get_studies"
-    
-    def test_inactive_credentials(self):
-        """ this test serves as a test of authentication database details. """
-        self.API_KEY.is_active = False
-        self.API_KEY.save()
-        self.smart_post_status_code(403)
-        self.API_KEY.refresh_from_db()
-        self.assertFalse(self.API_KEY.is_active)  # don't change it yet
-        self.assertIsNone(self.API_KEY.last_used)
-        
-        self.API_KEY.update_only(is_active=True) # ok now change it
-        self.smart_post_status_code(200)
-        self.API_KEY.refresh_from_db()
-        self.assertIsInstance(self.API_KEY.last_used, datetime)
-    
-    def test_no_study(self):
-        resp = self.smart_post_status_code(200)
-        self.assertEqual(Study.objects.count(), 0)
-        self.assertEqual(json.loads(resp.content), {})
-    
-    def test_no_study_relation(self):
-        resp = self.smart_post_status_code(200)
-        self.session_study
-        self.assertEqual(Study.objects.count(), 1)
-        self.assertEqual(json.loads(resp.content), {})
-    
-    def test_multiple_studies_one_relation(self):
-        self.set_session_study_relation(ResearcherRole.researcher)
-        self.generate_study("study2")
-        resp = self.smart_post_status_code(200)
-        self.assertEqual(
-            json.loads(resp.content), {self.session_study.object_id: self.DEFAULT_STUDY_NAME}
-        )
-    
-    def test_study_relation(self):
-        self.set_session_study_relation(ResearcherRole.researcher)
-        resp = self.smart_post_status_code(200)
-        self.assertEqual(
-            json.loads(resp.content), {self.session_study.object_id: self.DEFAULT_STUDY_NAME}
-        )
-    
-    def test_multiple_studies(self):
-        self.set_session_study_relation(ResearcherRole.researcher)
-        study2 = self.generate_study("study2")
-        self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
-        resp = self.smart_post_status_code(200)
-        self.assertEqual(
-            json.loads(resp.content), {
-                self.session_study.object_id: self.DEFAULT_STUDY_NAME,
-                study2.object_id: study2.name
-            }
-        )
-
 
 class TestApiCredentialCheck(DataApiTest):
     ENDPOINT_NAME = "data_api_endpoints.get_studies"
@@ -105,7 +47,7 @@ class TestApiCredentialCheck(DataApiTest):
         self.assertEqual(400, resp.status_code)
     
     def test_regex_validation(self):
-        # asserts that the regex validation is working on te secret key
+        # asserts that the regex validation is working on the secret key
         self.API_KEY.access_key_secret = "apples"
         self.assertRaises(ValidationError, self.API_KEY.save)
     
@@ -155,6 +97,81 @@ class TestApiCredentialCheck(DataApiTest):
     def test_study_admin(self):
         self.assign_role(self.session_researcher, ResearcherRole.researcher)
         self.smart_post_status_code(200)
+
+
+class TestAPIGetStudies(DataApiTest):
+    ENDPOINT_NAME = "data_api_endpoints.get_studies"
+    
+    def test_inactive_credentials(self):
+        """ this test serves as a test of authentication database details. """
+        self.API_KEY.is_active = False
+        self.API_KEY.save()
+        self.smart_post_status_code(403)
+        self.API_KEY.refresh_from_db()
+        self.assertFalse(self.API_KEY.is_active)  # don't change it yet
+        self.assertIsNone(self.API_KEY.last_used)
+        
+        self.API_KEY.update_only(is_active=True) # ok now change it
+        self.smart_post_status_code(200)
+        self.API_KEY.refresh_from_db()
+        self.assertIsInstance(self.API_KEY.last_used, datetime)
+    
+    def test_no_study(self):
+        resp = self.smart_post_status_code(200)
+        self.assertEqual(Study.objects.count(), 0)
+        self.assertEqual(orjson.loads(resp.content), {})
+    
+    def test_no_study_relation(self):
+        self.session_study
+        resp = self.smart_post_status_code(200)
+        self.assertEqual(Study.objects.count(), 1)
+        self.assertEqual(orjson.loads(resp.content), {})
+    
+    def test_multiple_studies_one_relation(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.generate_study("study2")
+        resp = self.smart_post_status_code(200)
+        self.assertEqual(
+            orjson.loads(resp.content), {self.session_study.object_id: self.DEFAULT_STUDY_NAME}
+        )
+    
+    def test_study_relation(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        resp = self.smart_post_status_code(200)
+        self.assertEqual(
+            orjson.loads(resp.content), {self.session_study.object_id: self.DEFAULT_STUDY_NAME}
+        )
+    
+    def test_study_relation_deleted(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        self.session_study.update_only(deleted=True)
+        resp = self.smart_post_status_code(200)
+        self.assertEqual(orjson.loads(resp.content), {})
+    
+    def test_multiple_studies(self):
+        self.set_session_study_relation(ResearcherRole.researcher)
+        study2 = self.generate_study("study2")
+        self.generate_study_relation(self.session_researcher, study2, ResearcherRole.researcher)
+        resp = self.smart_post_status_code(200)
+        self.assertEqual(
+            orjson.loads(resp.content), {
+                self.session_study.object_id: self.DEFAULT_STUDY_NAME,
+                study2.object_id: study2.name
+            }
+        )
+    
+    def test_site_admin(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        resp = self.smart_post_status_code(200)
+        self.assertEqual(
+            orjson.loads(resp.content), {self.session_study.object_id: self.DEFAULT_STUDY_NAME}
+        )
+    
+    def test_site_admin_deleted(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        self.session_study.update_only(deleted=True)
+        resp = self.smart_post_status_code(200)
+        self.assertEqual(orjson.loads(resp.content), {})
 
 
 class TestAPIStudyUserAccess(DataApiTest):
@@ -383,7 +400,7 @@ class TestDownloadStudyInterventions(DataApiTest):
         self.default_populated_intervention_date
         self.default_relative_schedule
         resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
-        json_unpacked = json.loads(resp.content)
+        json_unpacked = orjson.loads(resp.content)
         correct_output = {
             self.DEFAULT_PARTICIPANT_NAME:
                 {

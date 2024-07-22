@@ -29,6 +29,9 @@ from libs.internal_types import ApiResearcherRequest, ApiStudyResearcherRequest,
 from libs.intervention_utils import intervention_survey_data, survey_history_export
 
 
+## Study Data API Endpoints
+
+
 @require_POST
 @api_credential_check
 def get_studies(request: ApiResearcherRequest):
@@ -69,14 +72,6 @@ def get_participant_ids_in_study(request: ApiStudyResearcherRequest):
 
 @require_POST
 @api_study_credential_check()
-def get_participant_data_info(request: ApiStudyResearcherRequest, study_id: str = None):
-    """ Returns a JSON response of the participant data upload summaries. """
-    summary_data = get_participant_data_upload_summary(request.api_study)
-    return HttpResponse(orjson.dumps(summary_data), status=200, content_type="application/json")
-
-
-@require_POST
-@api_study_credential_check()
 def download_study_interventions(request: ApiStudyResearcherRequest):
     """ Returns a JSON response of the intervention data for a study. """
     data = intervention_survey_data(request.api_study)
@@ -96,6 +91,14 @@ def download_study_survey_history(request: ApiStudyResearcherRequest):
     )
     fr.set_headers(None)  # django is still stupid?
     return fr
+
+
+@require_POST
+@api_study_credential_check()
+def get_participant_data_info(request: ApiStudyResearcherRequest, study_id: str = None):
+    """ Returns a JSON response of the participant data upload summaries. """
+    summary_data = get_participant_data_upload_summary(request.api_study)
+    return HttpResponse(orjson.dumps(summary_data), status=200, content_type="application/json")
 
 
 @require_POST

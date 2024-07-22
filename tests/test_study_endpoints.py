@@ -158,7 +158,7 @@ class TestUpdateEndDate(ResearcherSessionTest):
         self.session_study.refresh_from_db()
         self.assertEqual(self.session_study.end_date, date(2020, 1, 1))
     
-    def test_has_valid_endpoint_name_and_is_placed_in_correct_file(self):
+    def test_date_in_far_future(self):
         d = date.today()+timedelta(days=200)
         self.set_session_study_relation(ResearcherRole.site_admin)
         self.smart_post_redirect(self.session_study.id, end_date=d.isoformat())

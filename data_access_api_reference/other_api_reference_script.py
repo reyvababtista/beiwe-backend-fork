@@ -24,7 +24,7 @@ MY_BEIWE_SERVER = "https://example.com"
     # Endpoint takes one parameter, study_id, returns a json list of participant ids for that study.
     # This endpoint is provisionally deprecated, it is not guaranteed to be available in the future.
 
-# TARGET_ENDPOINT_URL = f"{MY_BEIWE_SERVER}/get-participant-data-info/v1"
+# TARGET_ENDPOINT_URL = f"{MY_BEIWE_SERVER}/get-participant-data-quantities/v1"
     # Endpoint takes one parameter, study_id, returns complex json of participants and their data
     # quantity metrics as reported on the dashboard.
 

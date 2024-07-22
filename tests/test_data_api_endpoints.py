@@ -284,7 +284,7 @@ class TestGetUsersInStudy(DataApiTest):
 
 
 class TestGetParticipantDataInfo(DataApiTest):
-    ENDPOINT_NAME = "data_api_endpoints.get_participant_data_info"
+    ENDPOINT_NAME = "data_api_endpoints.get_participant_data_quantities"
     
     @property
     def ref_zero_row_output(self):
@@ -386,6 +386,7 @@ class TestGetParticipantDataInfo(DataApiTest):
                 p2.patient_id: ref_row_out_p2,
             }
         )
+
 
 class TestDownloadStudyInterventions(DataApiTest):
     ENDPOINT_NAME = "data_api_endpoints.download_study_interventions"

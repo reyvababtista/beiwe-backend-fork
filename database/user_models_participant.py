@@ -556,6 +556,9 @@ class ParticipantActionLog(UtilityModel):
 
 
 class AppVersionHistory(TimestampedModel):
+    """ We can't apply a unique constraint on these fields because that would cover over some 
+    possible bugs that we want to be able to detect (and further complicate the participant
+    credential code path). """
     participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="app_version_history")
     app_version_code = models.CharField(max_length=16, blank=False, null=False)
     app_version_name = models.CharField(max_length=16, blank=False, null=False)

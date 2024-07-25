@@ -1,3 +1,5 @@
+# trunk-ignore-all(ruff/B018)
+# trunk-ignore-all(ruff/E701)
 import time
 import unittest
 from datetime import datetime, timedelta
@@ -550,7 +552,6 @@ class TestParticipantActive(CommonTestCase):
             'last_set_fcm_token': Optional[datetime],
             'last_get_latest_device_settings': Optional[datetime],
             'last_register_user': Optional[datetime],
-            'last_register_user': Optional[datetime],
             'last_heartbeat_checkin': Optional[datetime],
         }
         self.assertDictEqual(annotes, correct_annotations)
@@ -594,13 +595,13 @@ class TestParticipantActive(CommonTestCase):
         self.assertFalse(p.is_active_one_week)
         
         # assert that it is still false if permanently_retired is set to true
-        setattr(p, "permanently_retired", True)
+        p.permanently_retired = True
         self.assertFalse(p.is_active_one_week)
         
         # test that permanently_retired overrides all fields being valid
         for field_name in ACTIVE_PARTICIPANT_FIELDS:
             setattr(p, field_name, less_than_a_week_ago)
-        setattr(p, "permanently_retired", True)
+        p.permanently_retired = True
         self.assertFalse(p.is_active_one_week)
 
 

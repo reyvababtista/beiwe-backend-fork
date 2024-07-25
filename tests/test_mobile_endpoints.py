@@ -1,6 +1,6 @@
 # trunk-ignore-all(bandit/B106)
 # trunk-ignore-all(ruff/B018)
-import json
+import orjson
 from datetime import date, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -23,7 +23,6 @@ from libs.schedules import (get_start_and_end_of_java_timings_week,
     repopulate_absolute_survey_schedule_events, repopulate_relative_survey_schedule_events)
 from libs.utils.security_utils import device_hash
 from tests.common import ParticipantSessionTest
-
 
 ## we have some meta tests to test side effects of events, stick them at the top
 
@@ -194,7 +193,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         self.assertIsNone(self.default_participant.last_get_latest_surveys)
         self.default_survey
         resp = self.smart_post_status_code(200)
-        output_survey = json.loads(resp.content.decode())
+        output_survey = orjson.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
         # test last_get_latest_surveys is set
         self.session_participant.refresh_from_db()
@@ -203,7 +202,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
     def test_weekly_basics(self):
         self.default_survey
         resp = self.smart_post_status_code(200)
-        output_survey = json.loads(resp.content.decode())
+        output_survey = orjson.loads(resp.content.decode())
         reference_output = self.BASIC_SURVEY_CONTENT
         reference_output[0]["timings"] = MIDNIGHT_EVERY_DAY()
         WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY(), self.default_survey)
@@ -215,7 +214,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         reference_output[0]["timings"] = MIDNIGHT_EVERY_DAY()
         WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY(), self.default_survey)
         resp = self.smart_post_status_code(200)
-        output_survey = json.loads(resp.content.decode())
+        output_survey = orjson.loads(resp.content.decode())
         self.assertEqual(output_survey, reference_output)
     
     @time_machine.travel(THURS_OCT_6_NOON_2022_NY)
@@ -225,7 +224,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         self.default_survey
         for day_of_week_index in self.iterate_weekday_absolute_schedules():
             resp = self.smart_post_status_code(200)
-            api_survey_representation = json.loads(resp.content.decode())
+            api_survey_representation = orjson.loads(resp.content.decode())
             reference_representation = self.BASIC_SURVEY_CONTENT
             reference_representation[0]["timings"][day_of_week_index] = [0]
             self.assertEqual(api_survey_representation, reference_representation)
@@ -250,7 +249,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         self.generate_absolute_schedule(date.today() + timedelta(days=200))
         repopulate_absolute_survey_schedule_events(self.default_survey, self.default_participant)
         resp = self.smart_post_status_code(200)
-        output_survey = json.loads(resp.content.decode())
+        output_survey = orjson.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
     
     def test_absolute_schedule_out_of_range_past(self):
@@ -258,7 +257,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         self.generate_absolute_schedule(date.today() - timedelta(days=200))
         repopulate_absolute_survey_schedule_events(self.default_survey, self.default_participant)
         resp = self.smart_post_status_code(200)
-        output_survey = json.loads(resp.content.decode())
+        output_survey = orjson.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
     
     @time_machine.travel(THURS_OCT_6_NOON_2022_NY)
@@ -271,7 +270,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         self.default_populated_intervention_date.date
         repopulate_relative_survey_schedule_events(self.default_survey, self.default_participant)
         resp = self.smart_post_status_code(200)
-        output_survey = json.loads(resp.content.decode())
+        output_survey = orjson.loads(resp.content.decode())
         output_basic = self.BASIC_SURVEY_CONTENT
         timings_out = output_survey[0].pop("timings")
         timings_basic = output_basic[0].pop("timings")
@@ -287,7 +286,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         self.default_populated_intervention_date
         repopulate_relative_survey_schedule_events(self.default_survey, self.default_participant)
         resp = self.smart_post_status_code(200)
-        output_survey = json.loads(resp.content.decode())
+        output_survey = orjson.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
     
     def test_relative_schedule_out_of_range_past(self):
@@ -297,7 +296,7 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         self.default_populated_intervention_date
         repopulate_relative_survey_schedule_events(self.default_survey, self.default_participant)
         resp = self.smart_post_status_code(200)
-        output_survey = json.loads(resp.content.decode())
+        output_survey = orjson.loads(resp.content.decode())
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
     
     # todo: work out how to iterate over variant relative schedules because that is obnoxious.
@@ -373,7 +372,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         get_client_public_key_string.return_value = "a_private_key"
         resp = self.smart_post_status_code(200, **self.BASIC_PARAMS)
         # include the basic validity of the request doing its thing test
-        response_dict = json.loads(resp.content)
+        response_dict = orjson.loads(resp.content)
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertIsInstance(self.default_participant.last_register_user, datetime)
@@ -383,7 +382,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         old_first_register_user = self.default_participant.first_register_user
         # And then test that the second request Works but doesn't modify the first_register_user.
         # first_register_user should be the same as the last_register_user on these tests.
-        response_dict = json.loads(resp.content)
+        response_dict = orjson.loads(resp.content)
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertIsInstance(self.default_participant.last_register_user, datetime)
@@ -409,7 +408,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         # unenrolled participants have no device id
         self.session_participant.update(device_id="")
         resp = self.smart_post_status_code(200, **self.BASIC_PARAMS)
-        response_dict = json.loads(resp.content)
+        response_dict = orjson.loads(resp.content)
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
@@ -436,7 +435,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         )
         # run test
         resp = self.smart_post_status_code(200, **self.BASIC_PARAMS)
-        response_dict = json.loads(resp.content)
+        response_dict = orjson.loads(resp.content)
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
@@ -462,7 +461,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         params['device_id'] = "hhhhhhhhhhhhhhhhhhh"
         self.session_participant.update(device_id="aosnetuhsaronceu")
         resp = self.smart_post_status_code(200, **params)
-        response_dict = json.loads(resp.content)
+        response_dict = orjson.loads(resp.content)
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
@@ -497,7 +496,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.default_study.update(easy_enrollment=True)
         params['password'] = "nope!"
         resp = self.smart_post_status_code(200, **params)
-        response_dict = json.loads(resp.content)
+        response_dict = orjson.loads(resp.content)
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
@@ -517,7 +516,7 @@ class TestRegisterParticipant(ParticipantSessionTest):
         self.default_participant.update(easy_enrollment=True)
         params['password'] = "nope!"
         resp = self.smart_post_status_code(200, **params)
-        response_dict = json.loads(resp.content)
+        response_dict = orjson.loads(resp.content)
         self.assertEqual("a_private_key", response_dict["client_public_key"])
         self.session_participant.refresh_from_db()
         self.assertTrue(self.session_participant.validate_password(self.NEW_PASSWORD_HASHED))
@@ -608,7 +607,7 @@ class TestGetLatestDeviceSettings(ParticipantSessionTest):
         
         self.assertIsNone(p.last_get_latest_device_settings)
         response = self.smart_post_status_code(200)
-        response_json_loaded = json.loads(response.content.decode())
+        response_json_loaded = orjson.loads(response.content.decode())
         
         self.maxDiff = None
         self.assertDictEqual(correct_data, response_json_loaded)

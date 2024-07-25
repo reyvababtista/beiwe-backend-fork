@@ -3,8 +3,6 @@ from database.survey_models import Survey
 from tests.common import ResearcherSessionTest
 
 
-# trunk-ignore-all(ruff/B018)
-
 #
 ## survey api
 #

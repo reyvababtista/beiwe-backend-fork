@@ -1,3 +1,4 @@
+# trunk-ignore(ruff/E701)
 from datetime import date, datetime, timedelta
 from typing import List, Tuple
 
@@ -36,7 +37,7 @@ def decompose_datetime_to_timings(dt: datetime) -> Tuple[int, int]:
 # Event scheduling
 #
 def set_next_weekly(participant: Participant, survey: Survey) -> Tuple[ScheduledEvent, int]:
-    ''' Create a next ScheduledEvent for a survey for a particular participant. Uses get_or_create. '''
+    """ Create a next ScheduledEvent for a survey for a particular participant. Uses get_or_create. """
     schedule_date, schedule = get_next_weekly_event_and_schedule(survey)
     
     # this handles the case where the schedule was deleted. This is a corner case that shouldn't happen

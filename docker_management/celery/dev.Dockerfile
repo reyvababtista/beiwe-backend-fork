@@ -14,10 +14,10 @@ COPY . .
 
 #RUN cp ./cluster_management/pushed_files/known_hosts ./.ssh/known_hosts
 
-ARG pyenv="/root/.pyenv/bin/pyenv"
+ARG pyenv="/home/ubuntu/.pyenv/bin/pyenv"
 ARG pyenv_env_name="beiwe"
 ARG python_version="3.8.19"
-ENV python="/root/.pyenv/versions/$python_version/envs/beiwe/bin/python"
+ENV python="/home/ubuntu/.pyenv/versions/$python_version/envs/beiwe/bin/python"
 RUN curl https://pyenv.run | bash >> server_log.log
 RUN $pyenv update >> server_log.log
 RUN $pyenv install -v $python_version >> server_log.log

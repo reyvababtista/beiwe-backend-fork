@@ -1,4 +1,4 @@
-FROM python:3.8.19 as beiwe-server-dev-base
+FROM python:3.8.19 AS beiwe-server-dev-base
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1

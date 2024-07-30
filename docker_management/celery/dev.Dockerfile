@@ -28,12 +28,13 @@ RUN $python -m pip install python-dotenv
 
 RUN echo "rabbitmq:${RABBITMQ_PORT}\n${RABBITMQ_PASSWORD}" > ./manager_ip
 
-RUN crontab ./cluster_management/pushed_files/cron_manager_docker.txt
+RUN crontab ./cluster_management/pushed_files/cron_manager.txt
 
-RUN chmod +x ./cluster_management/pushed_files/install_celery_worker_docker.sh
-RUN ./cluster_management/pushed_files/install_celery_worker_docker.sh >> server_log.log
+RUN apt-get update && \
+      apt-get -y install sudo
+
+RUN chmod +x ./cluster_management/pushed_files/install_celery_worker.sh
+RUN ./cluster_management/pushed_files/install_celery_worker.sh >> server_log.log
 RUN cp /etc/supervisord.conf /etc/supervisor/supervisord.conf
-
-RUN cp ./cluster_management/pushed_files/bash_profile_docker.sh .profile
 
 COPY ./.envs/.env.dev .env

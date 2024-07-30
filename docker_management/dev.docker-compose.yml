@@ -1,3 +1,5 @@
+name: beiwe-server
+
 services:
   storage:
     image: minio/minio

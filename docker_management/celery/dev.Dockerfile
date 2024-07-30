@@ -7,7 +7,8 @@ ARG RABBITMQ_PASSWORD
 RUN apt-get update && apt-get install -y supervisor moreutils nload htop ack-grep silversearcher-ag libpq-dev zstd cron vim
 RUN apt-get install -y build-essential curl gcc git libbz2-dev libffi-dev liblzma-dev libncurses5-dev libncursesw5-dev libreadline-dev libsqlite3-dev libssl-dev make zlib1g-dev wget xz-utils zlib1g-dev
 
-WORKDIR /home/ubuntu
+RUN mkdir -p /home/ubuntu/beiwe-backend
+WORKDIR /home/ubuntu/beiwe-backend
 
 COPY . .
 

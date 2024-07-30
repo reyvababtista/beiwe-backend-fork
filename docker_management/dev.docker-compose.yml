@@ -128,6 +128,7 @@ services:
     restart: always
 
   celery:
+    hostname: beiwe-celery
     build:
       context: ..
       dockerfile: docker_management/celery/dev.Dockerfile
@@ -149,8 +150,8 @@ services:
     command: >
       bash -c "/root/.pyenv/versions/beiwe/bin/python ./run_script.py run_custom_ondeploy_script processing &&
       supervisord -c /etc/supervisord.conf &&
-      service cron start
-      && tail -f /dev/null"
+      service cron start && 
+      tail -f /dev/null"
     depends_on:
       - nginx
       - rabbitmq

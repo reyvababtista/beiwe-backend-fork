@@ -146,7 +146,11 @@ services:
       - ../.envs/.env.dev
     ports:
       - 50001:50001
-    command: bash -c "/root/.pyenv/versions/beiwe/bin/python ./run_script.py run_custom_ondeploy_script processing && supervisord -c /etc/supervisord.conf && service cron start && tail -f /dev/null"
+    command: >
+      bash -c "/root/.pyenv/versions/beiwe/bin/python ./run_script.py run_custom_ondeploy_script processing &&
+      supervisord -c /etc/supervisord.conf &&
+      service cron start
+      && tail -f /dev/null"
     depends_on:
       - nginx
       - rabbitmq

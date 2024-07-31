@@ -94,7 +94,7 @@ SHELL_PLUS_POST_IMPORTS = [
     "orjson",
     ["collections", ("Counter", "defaultdict")],
     ["pprint", ("pprint",)],
-
+    
     # datetimezone
     "dateutil",  # do not add pytz it is deprecated
     ["dateutil", ('tz',)],
@@ -102,11 +102,11 @@ SHELL_PLUS_POST_IMPORTS = [
     ["time", ("sleep",)],
     ["datetime", ("date", "datetime", "timedelta", "tzinfo")],
     ["django.utils.timezone", ("localtime", "make_aware", "make_naive")],
-
+    
     # shell
     ["libs.utils.shell_utils", "*"],
     ['libs.utils.dev_utils', "GlobalTimeTracker"],
-
+    
     # s3
     [
         "libs.s3",
@@ -115,10 +115,10 @@ SHELL_PLUS_POST_IMPORTS = [
             "s3_retrieve_plaintext"
         )
     ],
-
+    
     # I need to be able to paste code >_O
     ["typing", ("List", "Dict", "Tuple", "Union", 'Counter', 'Deque', 'Dict', 'DefaultDict')],
-
+    
     # really useful constants
     ["constants.user_constants", ("ANDROID_API", "IOS_API", "NULL_OS", "ResearcherRole")],
 ]

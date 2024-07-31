@@ -9,7 +9,6 @@ services:
       - ../.envs/.env.prod
     volumes:
       - postgres_data:/var/lib/postgresql/data/
-      - /etc/letsencrypt/:/cert/
     ports:
       - 5432:5432
     healthcheck:
@@ -22,7 +21,7 @@ services:
   web:
     build:
       context: ..
-      dockerfile: docker_config/backend/prod.Dockerfile
+      dockerfile: docker_management/backend/prod.Dockerfile
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME}
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
@@ -43,7 +42,7 @@ services:
   nginx:
     build:
       context: ..
-      dockerfile: docker_config/nginx/prod.Dockerfile
+      dockerfile: docker_management/nginx/prod.Dockerfile
     env_file:
       - ../.envs/.env.prod
     volumes:
@@ -59,7 +58,7 @@ services:
   rabbitmq:
     build:
       context: ..
-      dockerfile: docker_config/rabbitmq/prod.Dockerfile
+      dockerfile: docker_management/rabbitmq/prod.Dockerfile
       args:
         - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
         - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
@@ -83,7 +82,7 @@ services:
   forest:
     build:
       context: ..
-      dockerfile: docker_config/forest/prod.Dockerfile
+      dockerfile: docker_management/forest/prod.Dockerfile
       args:
         - RABBITMQ_PORT=${RABBITMQ_PORT}
         - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}

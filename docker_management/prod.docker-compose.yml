@@ -79,10 +79,10 @@ services:
       retries: 3
     restart: always
 
-  forest:
+  celery:
     build:
       context: ..
-      dockerfile: docker_management/forest/prod.Dockerfile
+      dockerfile: docker_management/celery/prod.Dockerfile
       args:
         - RABBITMQ_PORT=${RABBITMQ_PORT}
         - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}

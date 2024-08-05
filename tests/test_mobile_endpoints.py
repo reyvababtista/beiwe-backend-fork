@@ -13,7 +13,7 @@ from constants.message_strings import DEFAULT_HEARTBEAT_MESSAGE
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.study_constants import (ABOUT_PAGE_TEXT, CONSENT_FORM_TEXT, DEFAULT_CONSENT_SECTIONS,
     SURVEY_SUBMIT_SUCCESS_TOAST_TEXT)
-from constants.testing_constants import MIDNIGHT_EVERY_DAY, THURS_OCT_6_NOON_2022_NY
+from constants.testing_constants import MIDNIGHT_EVERY_DAY_OF_WEEK, THURS_OCT_6_NOON_2022_NY
 from database.data_access_models import FileToProcess
 from database.schedule_models import AbsoluteSchedule, ScheduledEvent, WeeklySchedule
 from database.system_models import GenericEvent
@@ -204,15 +204,15 @@ class TestGetLatestSurveys(ParticipantSessionTest):
         resp = self.smart_post_status_code(200)
         output_survey = orjson.loads(resp.content.decode())
         reference_output = self.BASIC_SURVEY_CONTENT
-        reference_output[0]["timings"] = MIDNIGHT_EVERY_DAY()
-        WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY(), self.default_survey)
+        reference_output[0]["timings"] = MIDNIGHT_EVERY_DAY_OF_WEEK()
+        WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY_OF_WEEK(), self.default_survey)
         self.assertEqual(output_survey, self.BASIC_SURVEY_CONTENT)
     
     def test_weekly_basics2(self):
         self.default_survey
         reference_output = self.BASIC_SURVEY_CONTENT
-        reference_output[0]["timings"] = MIDNIGHT_EVERY_DAY()
-        WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY(), self.default_survey)
+        reference_output[0]["timings"] = MIDNIGHT_EVERY_DAY_OF_WEEK()
+        WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY_OF_WEEK(), self.default_survey)
         resp = self.smart_post_status_code(200)
         output_survey = orjson.loads(resp.content.decode())
         self.assertEqual(output_survey, reference_output)

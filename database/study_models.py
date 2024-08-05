@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import operator
-from datetime import datetime, timedelta, tzinfo
+from datetime import datetime, tzinfo
 from typing import Any, Dict, Optional
 
 from dateutil.tz import gettz

@@ -1,6 +1,8 @@
 # trunk-ignore(ruff/E701)
 from datetime import date, datetime, timedelta
-from typing import List, Tuple
+from typing import List, Optional, Tuple
+
+from django.db.models import Q
 
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from database.schedule_models import AbsoluteSchedule, ArchivedEvent, ScheduledEvent, WeeklySchedule
@@ -12,6 +14,13 @@ from libs.utils.date_utils import date_to_end_of_day, date_to_start_of_day
 
 class NoSchedulesException(Exception): pass
 class UnknownScheduleScenario(Exception): pass
+
+
+ENABLE_SCHEDULE_LOGGING = False
+
+def log(*args, **kwargs):
+    if ENABLE_SCHEDULE_LOGGING:
+        print(*args, **kwargs)
 
 
 # Weekly timings lists code
@@ -32,10 +41,31 @@ def decompose_datetime_to_timings(dt: datetime) -> Tuple[int, int]:
     # have to convert to sunday-zero-indoexed
     return (dt.weekday() + 1) % 7, dt.hour * 60 * 60 + dt.minute * 60
 
+#
+## Determining exclusion criteria is just complex, I've found no great way to factor it.
+#
+
+Q_DELETED_TRUE = Q(deleted=True)
+Q_PERMANENTLY_RETIRED = Q(permanently_retired=True)
+Q_RELATED_DELETED_TRUE = Q(participant__deleted=True)
+Q_RELATED_PERMANENTLY_RETIRED = Q(participant__permanently_retired=True)
+
+
+def participant_allowed_surveys(participant: Participant) -> bool:
+    """ Returns whether we should bother to send a participant survey push notifications. """
+    PUSH_NOTIFICATION_EXCLUSION = [
+        ("deleted", True),
+        ("permanently_retired", True),
+    ]
+    for field_name, truthiness_value in PUSH_NOTIFICATION_EXCLUSION:
+        if getattr(participant, field_name) == truthiness_value:
+            return False
+    return True
 
 #
-# Event scheduling
+## Event scheduling
 #
+
 def set_next_weekly(participant: Participant, survey: Survey) -> Tuple[ScheduledEvent, int]:
     """ Create a next ScheduledEvent for a survey for a particular participant. Uses get_or_create. """
     schedule_date, schedule = get_next_weekly_event_and_schedule(survey)
@@ -52,47 +82,61 @@ def set_next_weekly(participant: Participant, survey: Survey) -> Tuple[Scheduled
             scheduled_time=schedule_date,
         )
     else:
-        raise UnknownScheduleScenario("unknown condition reached")
+        raise UnknownScheduleScenario(
+            f"unknown condition reached. schedule_date was {schedule_date}, schedule was {schedule}"
+        )
 
 
 def repopulate_all_survey_scheduled_events(study: Study, participant: Participant = None):
     """ Runs all the survey scheduled event generations on the provided entities. """
+    log("repopulate_all_survey_scheduled_events")
+    
+    duplicate_schedule_events_merged = False
     for survey in study.surveys.all():
         # remove any scheduled events on surveys that have been deleted.
-        if survey.deleted:
+        if survey.deleted or study.deleted or study.manually_stopped or study.end_date_is_in_the_past:
             survey.scheduled_events.all().delete()
             continue
         
-        repopulate_weekly_survey_schedule_events(survey, participant)
-        repopulate_absolute_survey_schedule_events(survey, participant)
+        # log(f"repopulating all for survey {survey.id}")
+        if repopulate_weekly_survey_schedule_events(survey, participant):
+            duplicate_schedule_events_merged = True
+        if repopulate_absolute_survey_schedule_events(survey, participant):
+            duplicate_schedule_events_merged = True
         # there are some cases where we can logically exclude relative surveys.
         # Don't. Do. That. Just. Run. Everything. Always.
-        repopulate_relative_survey_schedule_events(survey, participant)
+        if repopulate_relative_survey_schedule_events(survey, participant):
+            duplicate_schedule_events_merged = True
+        
+    return duplicate_schedule_events_merged
 
 
 #TODO: this will need to be rewritten to examine existing weekly schedules
-def repopulate_weekly_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:
+def repopulate_weekly_survey_schedule_events(survey: Survey, single_participant: Optional[Participant] = None) -> None:
     """ Clear existing schedules, get participants, bulk create schedules Weekly events are
     calculated in a way that we don't bother checking for survey archives, because they only exist
     in the future. """
+    log("weekly schedule events")
     events = survey.scheduled_events.filter(relative_schedule=None, absolute_schedule=None)
     if single_participant:
         events = events.filter(participant=single_participant)
         participant_ids = [single_participant.pk]
     else:
-        participant_ids = survey.study.participants.exclude(deleted=True).values_list("pk", flat=True)
+        participant_ids = survey.study.participants.exclude(Q_DELETED_TRUE | Q_PERMANENTLY_RETIRED).values_list("pk", flat=True)
     
     events.delete()
-    if single_participant and single_participant.deleted:
+    if single_participant and not participant_allowed_surveys(single_participant):
+        log("weekly bad participant")
         return
     
     try:
         # get_next_weekly_event forces tz-aware schedule_date datetime object
         schedule_date, schedule = get_next_weekly_event_and_schedule(survey)
     except NoSchedulesException:
+        log("weekly no schedules configured")
         return
     
-    ScheduledEvent.objects.bulk_create(
+    info = ScheduledEvent.objects.bulk_create(
         [
             ScheduledEvent(
                 survey=survey,
@@ -104,19 +148,24 @@ def repopulate_weekly_survey_schedule_events(survey: Survey, single_participant:
             ) for participant_id in participant_ids
         ]
     )
+    log(f"weekly schedule events created {info}")
+    return bool(len(info))
 
 
 #TODO: this will need to be rewritten to examine existing absolute schedules
-def repopulate_absolute_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:
+def repopulate_absolute_survey_schedule_events(
+        survey: Survey, single_participant: Optional[Participant] = None) -> None:
     """ Creates new ScheduledEvents for the survey's AbsoluteSchedules while deleting the old
     ScheduledEvents related to the survey """
+    log("absolute schedule events")
     # if the event is from an absolute schedule, relative and weekly schedules will be None
     events = survey.scheduled_events.filter(relative_schedule=None, weekly_schedule=None)
     if single_participant:
         events = events.filter(participant=single_participant)
     events.delete()
     
-    if single_participant and single_participant.deleted:
+    if single_participant and not participant_allowed_surveys(single_participant):
+        log("absolute bad participant")
         return
     
     new_events = []
@@ -138,10 +187,17 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
             # don't create events for already sent notifications, or deleted participants
             irrelevant_participants = ArchivedEvent.objects.filter(
                 survey_archive__survey=survey, scheduled_time=scheduled_time,
-            ).values_list("participant_id", flat=True)
+            ).values_list(
+                "participant_id", flat=True
+            )
+            
             relevant_participants = survey.study.participants.exclude(
-                pk__in=irrelevant_participants, deleted=True
-            ).values_list("pk", flat=True)
+                pk__in=irrelevant_participants
+            ).exclude(
+                Q_DELETED_TRUE | Q_PERMANENTLY_RETIRED
+            ).values_list(
+                "pk", flat=True
+            )
         
         # populate the new events
         for participant_id in relevant_participants:
@@ -154,20 +210,28 @@ def repopulate_absolute_survey_schedule_events(survey: Survey, single_participan
                 participant_id=participant_id
             ))
     # save to database
-    ScheduledEvent.objects.bulk_create(new_events)
+    info = ScheduledEvent.objects.bulk_create(new_events)
+    log(f"absolute schedule events created {info}")
+    return bool(len(info))
 
 
-def repopulate_relative_survey_schedule_events(survey: Survey, single_participant: Participant = None) -> None:
+def repopulate_relative_survey_schedule_events(
+        survey: Survey, single_participant: Optional[Participant] = None) -> None:
     """ Creates new ScheduledEvents for the survey's RelativeSchedules while deleting the old
     ScheduledEvents related to the survey. """
+    log("relative schedule events")
     # Clear out existing events.
     events = survey.scheduled_events.filter(absolute_schedule=None, weekly_schedule=None)
     if single_participant:
         events = events.filter(participant=single_participant)
     events.delete()
     
-    if single_participant and single_participant.deleted:
+    if single_participant and not participant_allowed_surveys(single_participant):
+        log("relative bad participant")
         return
+    
+    # our query for participants is off of a related field... but as an includes.... (see below)
+    # includes = {"participant__" + field: truthiness_value for field, truthiness_value in EXCLUDE.items()}
     
     # This is per schedule, and a participant can't have more than one intervention date per
     # intervention per schedule.  It is also per survey and all we really care about is
@@ -179,11 +243,13 @@ def repopulate_relative_survey_schedule_events(survey: Survey, single_participan
         # deleted, restrict on the single user case, get data points.
         intervention_dates_query = relative_schedule.intervention.intervention_dates.filter(
             date__isnull=False,
-            participant__deleted=False  # do not refactor to .exclude!
+            # participant__deleted=False  # do not refactor to .exclude! -- superceded, retain for clarity
+            # **includes # the excludes... go in ... includes... right
             # Subtle [Django?] Bug that I don't understand: you can't exclude null database values?
             #   intervention_dates_query.exclude(date__isnull=True, ...)
             #  The above query.exclude returns instances where date is None, same for `date=None`
-        )
+        ).exclude(Q_RELATED_DELETED_TRUE | Q_RELATED_PERMANENTLY_RETIRED)
+        
         if single_participant:
             intervention_dates_query = intervention_dates_query.filter(participant=single_participant)
         intervention_dates_query = intervention_dates_query.values_list("participant_id", "date")
@@ -212,7 +278,9 @@ def repopulate_relative_survey_schedule_events(survey: Survey, single_participan
                 scheduled_time=schedule_time,
             ))
     
-    ScheduledEvent.objects.bulk_create(new_events)
+    info = ScheduledEvent.objects.bulk_create(new_events)
+    log(f"relative schedule events created {info}")
+    return bool(len(info))
 
 
 def get_next_weekly_event_and_schedule(survey: Survey) -> Tuple[datetime, WeeklySchedule]:

@@ -379,7 +379,7 @@ def get_interventions_data(forest_task: ForestTask):
 def get_study_config_data(forest_task: ForestTask):
     """ Generates a study config file for the participant's survey and returns the path to it. """
     ensure_folders_exist(forest_task)
-    with open(forest_task.study_config_path, "w") as f:
+    with open(forest_task.study_config_path, "wb") as f:
         f.write(format_study(forest_task.participant.study))
 
 

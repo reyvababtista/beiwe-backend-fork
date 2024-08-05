@@ -1,21 +1,27 @@
 # trunk-ignore-all(ruff/B018)
 # trunk-ignore-all(ruff/E701)
+# trunk-ignore-all(bandit/B101)
 import time
 import unittest
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import date, datetime, timedelta
+from typing import List, Optional
 from unittest.mock import MagicMock, patch
 
 import dateutil
+import time_machine
+from dateutil import tz
 from dateutil.tz import gettz
 from django.utils import timezone
 
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
-from constants.testing_constants import MIDNIGHT_EVERY_DAY
+from constants.testing_constants import (EDT_WEEK, EST_WEEK, MIDNIGHT_EVERY_DAY_OF_WEEK,
+    NOON_EVERY_DAY_OF_WEEK, THURS_OCT_6_NOON_2022_NY)
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS
 from database.data_access_models import IOSDecryptionKey
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
-from database.schedule_models import BadWeeklyCount, WeeklySchedule
+from database.schedule_models import (AbsoluteSchedule, ArchivedEvent, BadWeeklyCount, Intervention,
+    InterventionDate, RelativeSchedule, ScheduledEvent, WeeklySchedule)
+from database.survey_models import Survey
 from database.user_models_participant import (AppHeartbeats, AppVersionHistory,
     DeviceStatusReportHistory, Participant, ParticipantActionLog, ParticipantDeletionEvent,
     PushNotificationDisabledEvent)
@@ -24,7 +30,9 @@ from libs.file_processing.utility_functions_simple import BadTimecodeError, bini
 from libs.participant_purge import (confirm_deleted, get_all_file_path_prefixes,
     run_next_queued_participant_data_deletion)
 from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_and_schedule,
-    NoSchedulesException)
+    get_start_and_end_of_java_timings_week, NoSchedulesException,
+    repopulate_absolute_survey_schedule_events, repopulate_all_survey_scheduled_events,
+    repopulate_relative_survey_schedule_events, repopulate_weekly_survey_schedule_events)
 from libs.utils.forest_utils import get_forest_git_hash
 from tests.common import CommonTestCase
 
@@ -83,7 +91,7 @@ class TestTimingsSchedules(CommonTestCase):
             timings[day_of_week].append(0)  # time of day defaults to zero
         # assert tehre are 7 weekly surveys, that they are one per day, at midnight (0)
         self.assertEqual(WeeklySchedule.objects.count(), 7)
-        self.assertEqual(timings, MIDNIGHT_EVERY_DAY())
+        self.assertEqual(timings, MIDNIGHT_EVERY_DAY_OF_WEEK())
         self.assertEqual(timings, export_weekly_survey_timings(self.default_survey))
     
     def test_create_weekly_schedules(self):
@@ -91,7 +99,7 @@ class TestTimingsSchedules(CommonTestCase):
         WeeklySchedule.create_weekly_schedules(EMPTY_WEEKLY_SURVEY_TIMINGS(), self.default_survey)
         self.assertEqual(WeeklySchedule.objects.count(), 0)
         # assert we created a survey for every week
-        WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY(), self.default_survey)
+        WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY_OF_WEEK(), self.default_survey)
         self.assertEqual(WeeklySchedule.objects.count(), 7)
         self.assertEqual(
             sorted(list(WeeklySchedule.objects.values_list("day_of_week", flat=True))),
@@ -133,22 +141,22 @@ class TestTimingsSchedules(CommonTestCase):
     
     def test_create_weekly_clears(self):
         # test that deleted surveys and empty timings lists delete stuff
-        duplicates = WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY(), self.default_survey)
+        duplicates = WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY_OF_WEEK(), self.default_survey)
         self.assertFalse(duplicates)
         self.assertEqual(WeeklySchedule.objects.count(), 7)
         duplicates = WeeklySchedule.create_weekly_schedules([], self.default_survey)
         self.assertFalse(duplicates)
         self.assertEqual(WeeklySchedule.objects.count(), 0)
-        duplicates = WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY(), self.default_survey)
+        duplicates = WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY_OF_WEEK(), self.default_survey)
         self.assertFalse(duplicates)
         self.assertEqual(WeeklySchedule.objects.count(), 7)
         self.default_survey.update(deleted=True)
-        duplicates = WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY(), self.default_survey)
+        duplicates = WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY_OF_WEEK(), self.default_survey)
         self.assertFalse(duplicates)
         self.assertEqual(WeeklySchedule.objects.count(), 0)
     
     def test_duplicates_return_value(self):
-        timings = MIDNIGHT_EVERY_DAY()
+        timings = MIDNIGHT_EVERY_DAY_OF_WEEK()
         timings[0].append(0)
         duplicates = WeeklySchedule.create_weekly_schedules(timings, self.default_survey)
         self.assertTrue(duplicates)
@@ -610,3 +618,252 @@ class TestForestHash(unittest.TestCase):
     def test_get_forest_git_hash(self):
         hash = get_forest_git_hash()
         self.assertNotEqual(hash, "")
+
+
+
+class TestSchedules(CommonTestCase):    
+    # originally started as copy of TestGetLatestSurveys in test_mobile_endpoints.py
+    
+    @staticmethod
+    def assert_is_a_week_in_correct_timezone_period(
+        week: List[datetime], timezone: tz.tzfile, tz_subperiod_str: str
+    ):
+        # test that the data our fake data actually matches what we want
+        for dt in week:
+            assert dt.tzinfo == timezone
+            assert tz_subperiod_str == dt.strftime("%Z")  # tz as name of timezone
+            assert dt.hour == 12
+        
+        # assert that these are sequential days starting on a monday testing each day of the week
+        for i in range(0, 7):
+            assert week[i].date() == week[0].date() + timedelta(days=i) 
+            assert week[0].weekday() == 0
+    
+    def test_weeks_are_in_correct_timezones(self):
+        # test that the weeks are in the correct timezones
+        eastern = tz.gettz("America/New_York")
+        self.assert_is_a_week_in_correct_timezone_period(EST_WEEK, eastern, "EST")
+        self.assert_is_a_week_in_correct_timezone_period(EDT_WEEK, eastern, "EDT")
+        
+    
+    #
+    ## helper functions
+    #
+    
+    def create_weekly_midnight(self):
+        WeeklySchedule.create_weekly_schedules(MIDNIGHT_EVERY_DAY_OF_WEEK(), self.default_survey)
+    
+    def create_weekly_noon(self):
+        WeeklySchedule.create_weekly_schedules(NOON_EVERY_DAY_OF_WEEK(), self.default_survey)
+    
+    def iterate_weekday_absolute_schedules(self):
+        # iterates over days of the week and populates absolute schedules and scheduled events
+        start, _ = get_start_and_end_of_java_timings_week(timezone.now())
+        for i in range(0, 7):
+            AbsoluteSchedule.objects.all().delete()
+            ScheduledEvent.objects.all().delete()
+            a_date = start.date() + timedelta(days=i)
+            self.generate_absolute_schedule(a_date)
+            repopulate_absolute_survey_schedule_events(
+                self.default_survey, self.default_participant
+            )
+            # correct weekday for sunday-zero-index
+            yield (a_date.weekday() + 1) % 7
+    
+    @property
+    def generate_a_valid_schedule_of_each_type(self):
+        # valid here meaning it should create a scheduled event on a valid participant
+        self.default_populated_intervention_date
+        self.generate_relative_schedule(self.default_survey, self.default_intervention, days_after=0)
+        self.generate_weekly_schedule(self.default_survey, day_of_week=0)  # monday
+        self.generate_absolute_schedule(timezone.now().date())
+    
+    @property
+    def assert_one_of_each_scheduled_event(self):
+        self.assertEqual(ScheduledEvent.objects.count(), 3)
+        self.assertEqual(ScheduledEvent.objects.filter(weekly_schedule__isnull=False).count(), 1)
+        self.assertEqual(ScheduledEvent.objects.filter(relative_schedule__isnull=False).count(), 1)
+        self.assertEqual(ScheduledEvent.objects.filter(absolute_schedule__isnull=False).count(), 1)
+    
+    @property   
+    def assert_no_scheduled_events(self):
+        def info():
+            weekly_schedule = ScheduledEvent.objects.filter(weekly_schedule__isnull=False).count()
+            relative_schedule = ScheduledEvent.objects.filter(relative_schedule__isnull=False).count()
+            absolute_schedule = ScheduledEvent.objects.filter(absolute_schedule__isnull=False).count()
+            return f"weekly_schedules: {weekly_schedule}, relative_schedules: {relative_schedule}, absolute_schedules: {absolute_schedule}"
+        assert ScheduledEvent.objects.count() == 0, "ASSERT_NO_SCHEDULED_EVENTS: " + info()
+    
+    @time_machine.travel(THURS_OCT_6_NOON_2022_NY)
+    def test_that_iteration_function(self):
+        # test for absolute surveys that they show up regardless of the day of the week they fall on,
+        # as long as that day is within the current week.
+        self.default_survey
+        for i, day_of_week_index in enumerate(self.iterate_weekday_absolute_schedules()):
+            # week_day = i % 4  # correct for it being thursday
+            # print(i, week_day, day_of_week_index)
+            self.assertEqual(i, day_of_week_index)
+        self.assertEqual(i, 6)  # this should fail it should be 6
+    
+    #
+    ## basic event creation tests
+    #
+    
+    def test_relative_survey_basic_event_generation(self):
+        self.default_survey, self.default_participant
+        # make sure test infrastructure does not have weird database side effects
+        self.assertEqual(RelativeSchedule.objects.count(), 0)
+        self.assert_no_scheduled_events
+        self.generate_relative_schedule(self.default_survey, self.default_intervention, days_after=0)
+        repopulate_relative_survey_schedule_events(self.default_survey, self.default_participant)
+        self.assertEqual(RelativeSchedule.objects.count(), 1)  # change
+        self.assert_no_scheduled_events    # no change
+        self.default_populated_intervention_date
+        self.assertEqual(RelativeSchedule.objects.count(), 1)  # no change
+        self.assert_no_scheduled_events    # no change
+        repopulate_relative_survey_schedule_events(self.default_survey, self.default_participant)
+        self.assertEqual(RelativeSchedule.objects.count(), 1)  # no change
+        self.assertEqual(ScheduledEvent.objects.count(), 1)    # change
+        self.assertEqual(ArchivedEvent.objects.count(), 0)
+    
+    def test_relative_survey_basic_event_generation_no_participant_in_call(self):
+        self.default_populated_intervention_date
+        self.generate_relative_schedule(self.default_survey, self.default_intervention, days_after=0)
+        repopulate_relative_survey_schedule_events(self.default_survey)
+        self.assertEqual(ScheduledEvent.objects.count(), 1)
+    
+    def test_absolute_schedule_basic_event_generation(self):
+        self.default_survey, self.default_participant
+        # make sure test infrastructure does not have weird database side effects
+        self.assertEqual(AbsoluteSchedule.objects.count(), 0)
+        self.assert_no_scheduled_events
+        self.generate_absolute_schedule(timezone.now().date())
+        self.assertEqual(AbsoluteSchedule.objects.count(), 1) # change
+        self.assert_no_scheduled_events   # no change
+        repopulate_absolute_survey_schedule_events(self.default_survey, self.default_participant)
+        self.assertEqual(AbsoluteSchedule.objects.count(), 1) # no change
+        self.assertEqual(ScheduledEvent.objects.count(), 1)   # change
+        self.assertEqual(ArchivedEvent.objects.count(), 0)
+    
+    def test_absolute_schedule_basic_event_generation_no_participant_in_call(self):
+        self.using_default_participant()
+        self.generate_absolute_schedule(timezone.now().date())
+        repopulate_absolute_survey_schedule_events(self.default_survey)
+        self.assertEqual(ScheduledEvent.objects.count(), 1)
+        self.assertEqual(ArchivedEvent.objects.count(), 0)
+    
+    def test_weekly_schedule_basic_event_generation(self):
+        self.default_survey, self.default_participant
+        # make sure test infrastructure does not have weird database side effects
+        self.assertEqual(WeeklySchedule.objects.count(), 0)
+        self.assert_no_scheduled_events
+        self.generate_weekly_schedule(self.default_survey, day_of_week=0)  # monday
+        self.assertEqual(WeeklySchedule.objects.count(), 1)  # change
+        self.assert_no_scheduled_events  # no change
+        repopulate_weekly_survey_schedule_events(self.default_survey, self.default_participant)
+        self.assertEqual(WeeklySchedule.objects.count(), 1)  # no change
+        self.assertEqual(ScheduledEvent.objects.count(), 1)  # change
+        self.assertEqual(ArchivedEvent.objects.count(), 0)
+    
+    def test_weekly_schedule_basic_event_generation_no_participant_in_call(self):
+        self.generate_weekly_schedule(self.default_survey, day_of_week=0)  # monday
+        self.using_default_participant()
+        repopulate_weekly_survey_schedule_events(self.default_survey)
+        self.assertEqual(WeeklySchedule.objects.count(), 1)
+        self.assertEqual(ArchivedEvent.objects.count(), 0)
+     
+    def test_all_schedules_basic_event_generation(self):
+        self.assertEqual(Survey.objects.count(), 0)
+        repopulate_all_survey_scheduled_events(self.default_study, self.default_participant)
+        self.assertEqual(Survey.objects.count(), 0)
+        self.assertEqual(AbsoluteSchedule.objects.count(), 0)
+        self.assertEqual(RelativeSchedule.objects.count(), 0)
+        self.assertEqual(WeeklySchedule.objects.count(), 0)
+        self.assert_no_scheduled_events
+        # one last test of no database side effects...
+        self.default_survey
+        repopulate_all_survey_scheduled_events(self.default_study, self.default_participant)
+        self.assertEqual(Survey.objects.count(), 1)
+        self.assertEqual(AbsoluteSchedule.objects.count(), 0)
+        self.assertEqual(RelativeSchedule.objects.count(), 0)
+        self.assertEqual(WeeklySchedule.objects.count(), 0)
+        self.assert_no_scheduled_events
+        self.assertEqual(Intervention.objects.count(), 0)
+        self.assertEqual(InterventionDate.objects.count(), 0)
+        # test that the default schedules are created, then all 3 ScheduledEvent types
+        self.generate_a_valid_schedule_of_each_type
+        self.assert_no_scheduled_events
+        repopulate_all_survey_scheduled_events(self.default_study, self.default_participant)
+        self.assert_one_of_each_scheduled_event
+        self.assertEqual(ArchivedEvent.objects.count(), 0)
+    
+    def test_repopulate_all_basic_event_generation_no_participant_in_call(self):
+        self.generate_a_valid_schedule_of_each_type
+        self.assert_no_scheduled_events
+        repopulate_all_survey_scheduled_events(self.default_study)
+        self.assert_one_of_each_scheduled_event
+    
+    #
+    ## test conditions where ScheduledEvents should not be created
+    # 
+    
+    def test_deleted_survey(self):
+        self.default_survey.update(deleted=True)
+        self.generate_a_valid_schedule_of_each_type
+        repopulate_all_survey_scheduled_events(self.default_study, self.default_participant)
+        self.assert_no_scheduled_events
+        repopulate_all_survey_scheduled_events(self.default_study)  # always test both arg setups
+        self.assert_no_scheduled_events
+    
+    def test_deleted_participant_gets_no_schedules(self):
+        self.default_participant.update(deleted=True)
+        self.generate_a_valid_schedule_of_each_type
+        repopulate_all_survey_scheduled_events(self.default_study, self.default_participant)
+        self.assert_no_scheduled_events
+        repopulate_all_survey_scheduled_events(self.default_study)  # always test both arg setups
+        self.assert_no_scheduled_events
+    
+    def test_permanently_retired_participant_gets_no_schedules(self):
+        self.default_participant.update(permanently_retired=True)
+        self.generate_a_valid_schedule_of_each_type
+        repopulate_all_survey_scheduled_events(self.default_study, self.default_participant)
+        self.assert_no_scheduled_events
+        repopulate_all_survey_scheduled_events(self.default_study)  # always test both arg setups
+        self.assert_no_scheduled_events
+    
+    def test_deleted_study_gets_no_schedules(self):
+        self.default_study.update(deleted=True)
+        self.using_default_participant()
+        self.generate_a_valid_schedule_of_each_type
+        repopulate_all_survey_scheduled_events(self.default_study, self.default_participant)
+        self.assert_no_scheduled_events
+        repopulate_all_survey_scheduled_events(self.default_study)
+    
+    def test_manually_stopped_study_gets_no_schedules(self):
+        self.default_study.update(manually_stopped=True)
+        self.using_default_participant()
+        self.generate_a_valid_schedule_of_each_type
+        repopulate_all_survey_scheduled_events(self.default_study, self.default_participant)
+        self.assert_no_scheduled_events
+    
+    def test_ended_study_gets_no_events(self):
+        self.default_study.update(end_date=date.today() - timedelta(days=10))
+        self.using_default_participant()
+        self.generate_a_valid_schedule_of_each_type
+        repopulate_all_survey_scheduled_events(self.default_study, self.default_participant)
+        self.assert_no_scheduled_events
+        repopulate_all_survey_scheduled_events(self.default_study)
+        self.assert_no_scheduled_events
+    
+    def test_no_participants_in_study_generates_no_events(self):
+        self.default_study.update(end_date=date.today() - timedelta(days=10))
+        self.generate_a_valid_schedule_of_each_type
+        repopulate_all_survey_scheduled_events(self.default_study)
+        self.assert_no_scheduled_events
+    
+    #
+    ## test time conditions
+    #
+    
+    # def test_absolute_schedule_midnight_ETD(self):
+        

@@ -23,7 +23,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    restart: always
+    restart: unless-stopped
 
   storage-client:
     image: minio/mc
@@ -42,7 +42,8 @@ services:
     env_file:
       - ../.envs/.env.dev
     depends_on:
-      - storage
+      storage:
+        condition: service_healthy
 
   postgres:
     image: postgres
@@ -51,7 +52,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
     env_file:
-      - ../.envs/.env.dev
+      - ${PWD}/.envs/.env.dev
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     ports:
@@ -61,7 +62,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
-    restart: always
+    restart: unless-stopped
 
   web:
     build:
@@ -87,7 +88,7 @@ services:
         condition: service_healthy
       storage-client:
         condition: service_completed_successfully
-    restart: always
+    restart: unless-stopped
 
   nginx:
     build:
@@ -101,7 +102,7 @@ services:
       - 80:80
     depends_on:
       - web
-    restart: always
+    restart: unless-stopped
 
   rabbitmq:
     build:
@@ -125,7 +126,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
-    restart: always
+    restart: unless-stopped
 
   celery:
     hostname: beiwe-celery
@@ -148,14 +149,14 @@ services:
     ports:
       - 50001:50001
     command: >
-      bash -c "/root/.pyenv/versions/beiwe/bin/python ./run_script.py run_custom_ondeploy_script processing &&
+      bash -c "/home/ubuntu/.pyenv/versions/beiwe/bin/python ./run_script.py run_custom_ondeploy_script processing &&
       supervisord -c /etc/supervisord.conf &&
       service cron start && 
       tail -f /dev/null"
     depends_on:
       - nginx
       - rabbitmq
-    restart: always
+    restart: unless-stopped
 
 volumes:
   storage_data:

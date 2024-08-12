@@ -10,7 +10,7 @@ services:
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - S3_BUCKET=${S3_BUCKET}
     env_file:
-      - ../.envs/.env.dev
+      - ${PWD}/.envs/.env.dev
     volumes:
       - storage_data:/data
     ports:
@@ -40,7 +40,7 @@ services:
       exit 0;
       "
     env_file:
-      - ../.envs/.env.dev
+      - ${PWD}/.envs/.env.dev
     depends_on:
       storage:
         condition: service_healthy
@@ -66,7 +66,7 @@ services:
 
   web:
     build:
-      context: ..
+      context: ${PWD}
       dockerfile: docker_management/backend/dev.Dockerfile
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME}
@@ -77,7 +77,7 @@ services:
       - BEIWE_SERVER_AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY}
       - BEIWE_SERVER_AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_KEY}
     env_file:
-      - ../.envs/.env.dev
+      - ${PWD}/.envs/.env.dev
     command: uwsgi --yaml uwsgi-config.yml
     volumes:
       - static_volume:/home/app/web/staticfiles/
@@ -92,10 +92,10 @@ services:
 
   nginx:
     build:
-      context: ..
+      context: ${PWD}
       dockerfile: docker_management/nginx/dev.Dockerfile
     env_file:
-      - ../.envs/.env.dev
+      - ${PWD}/.envs/.env.dev
     volumes:
       - static_volume:/www/static/
     ports:
@@ -106,7 +106,7 @@ services:
 
   rabbitmq:
     build:
-      context: ..
+      context: ${PWD}
       dockerfile: docker_management/rabbitmq/dev.Dockerfile
       args:
         - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
@@ -115,7 +115,7 @@ services:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
     env_file:
-      - ../.envs/.env.dev
+      - ${PWD}/.envs/.env.dev
     expose:
       - 50000
       - 50002
@@ -131,7 +131,7 @@ services:
   celery:
     hostname: beiwe-celery
     build:
-      context: ..
+      context: ${PWD}
       dockerfile: docker_management/celery/dev.Dockerfile
       args:
         - RABBITMQ_PORT=${RABBITMQ_PORT}
@@ -145,7 +145,7 @@ services:
       - BEIWE_SERVER_AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY}
       - BEIWE_SERVER_AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_KEY}
     env_file:
-      - ../.envs/.env.dev
+      - ${PWD}/.envs/.env.dev
     ports:
       - 50001:50001
     command: >

@@ -1,12 +1,14 @@
 dev-up-build-detach:
 	$(MAKE) dev-base-build
-	$(MAKE) dev-build -d
+	$(MAKE) dev-build args=-d
 	$(MAKE) dev-migrate
 	$(MAKE) dev-collect-static
 
 dev-up-build:
 	$(MAKE) dev-base-build
 	$(MAKE) dev-build
+
+dev-migrate:
 	$(MAKE) dev-migrate
 	$(MAKE) dev-collect-static
 
@@ -16,7 +18,7 @@ dev-base-build:
 
 dev-build:
 	echo "Building images and running containers.."
-	@ docker compose -f docker_management/dev.docker-compose.yml --env-file ./.envs/.env.dev up --build
+	docker compose -f docker_management/dev.docker-compose.yml --env-file ./.envs/.env.dev up --build $(args)
 
 dev-migrate:
 	echo "Migrating database.."

@@ -6,7 +6,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
     env_file:
-      - ${PWD}/.envs/.env.prod
+      - ../.envs/.env.prod
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     ports:
@@ -20,7 +20,7 @@ services:
 
   web:
     build:
-      context: ${PWD}
+      context: ..
       dockerfile: docker_management/backend/prod.Dockerfile
     environment:
       - DOMAIN_NAME=${DOMAIN_NAME}
@@ -28,7 +28,7 @@ services:
       - S3_BUCKET=${S3_BUCKET}
       - SYSADMIN_EMAILS=${SYSADMIN_EMAILS}
     env_file:
-      - ${PWD}/.envs/.env.prod
+      - ../.envs/.env.prod
     command: uwsgi --yaml uwsgi-config.yml
     volumes:
       - static_volume:/home/app/web/staticfiles/
@@ -41,10 +41,10 @@ services:
 
   nginx:
     build:
-      context: ${PWD}
+      context: ..
       dockerfile: docker_management/nginx/prod.Dockerfile
     env_file:
-      - ${PWD}/.envs/.env.prod
+      - ../.envs/.env.prod
     volumes:
       - static_volume:/www/static/
       - /etc/letsencrypt/:/cert/
@@ -57,7 +57,7 @@ services:
 
   rabbitmq:
     build:
-      context: ${PWD}
+      context: ..
       dockerfile: docker_management/rabbitmq/prod.Dockerfile
       args:
         - RABBITMQ_USERNAME=${RABBITMQ_USERNAME}
@@ -66,7 +66,7 @@ services:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
     env_file:
-      - ${PWD}/.envs/.env.prod
+      - ../.envs/.env.prod
     expose:
       - 50000
       - 50002
@@ -82,7 +82,7 @@ services:
   celery:
     hostname: beiwe-celery
     build:
-      context: ${PWD}
+      context: ..
       dockerfile: docker_management/celery/prod.Dockerfile
       args:
         - RABBITMQ_PORT=${RABBITMQ_PORT}
@@ -93,7 +93,7 @@ services:
       - S3_BUCKET=${S3_BUCKET}
       - SYSADMIN_EMAILS=${SYSADMIN_EMAILS}
     env_file:
-      - ${PWD}/.envs/.env.prod
+      - ../.envs/.env.prod
     ports:
       - 50001:50001
     command: >

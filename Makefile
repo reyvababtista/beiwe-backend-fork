@@ -8,7 +8,7 @@ dev-up-build:
 	$(MAKE) dev-base-build
 	$(MAKE) dev-build
 
-dev-migrate:
+dev-post-build:
 	$(MAKE) dev-migrate
 	$(MAKE) dev-collect-static
 

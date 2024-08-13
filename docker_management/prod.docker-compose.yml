@@ -39,6 +39,23 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  certbot:
+    image: certbot/certbot
+    env_file:
+      - ../.envs/.env.prod
+    volumes:
+      - /etc/letsencrypt/:/etc/letsencrypt/
+      - /var/lib/letsencrypt:/var/lib/letsencrypt
+      - acme_challenge:/www/.well-known/acme-challenge/
+    command: >
+      bash -c "certonly 
+      --email ${SYSADMIN_EMAILS} 
+      --domain ${PUBLIC_DOMAIN_NAME}"
+      --webroot --webroot-path=/www
+      --agree-tos 
+      --no-eff-email 
+      --force-renewal"
+
   nginx:
     build:
       context: ..
@@ -47,12 +64,16 @@ services:
       - ../.envs/.env.prod
     volumes:
       - static_volume:/www/static/
+      - acme_challenge:/www/.well-known/acme-challenge/
       - /etc/letsencrypt/:/cert/
     ports:
       - 80:80
       - 443:443
     depends_on:
-      - web
+      web:
+        condition: service_completed_successfully
+      certbot:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   rabbitmq:
@@ -109,3 +130,4 @@ services:
 volumes:
   postgres_data:
   static_volume:
+  acme_challenge:

@@ -8,8 +8,8 @@ services:
       - /var/lib/letsencrypt:/var/lib/letsencrypt
     command: certonly --standalone --email ${SYSADMIN_EMAILS} --domain ${PUBLIC_DOMAIN_NAME} --agree-tos --no-eff-email --keep-until-expiring
     ports:
-      - 80:80
-      - 443:443
+      - "80:80"
+      - "443:443"
 
   postgres:
     image: postgres

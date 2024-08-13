@@ -50,7 +50,7 @@ services:
     command: >
       bash -c "certonly 
       --email ${SYSADMIN_EMAILS} 
-      --domain ${PUBLIC_DOMAIN_NAME}"
+      --domain ${PUBLIC_DOMAIN_NAME}
       --webroot --webroot-path=/www
       --agree-tos 
       --no-eff-email 

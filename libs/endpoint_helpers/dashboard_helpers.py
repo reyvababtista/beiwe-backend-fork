@@ -1,13 +1,17 @@
 import json
+import operator
 from collections import defaultdict
-from datetime import date, datetime, timedelta, tzinfo
-from typing import Any, Dict, List, Optional, Tuple, Union
+from datetime import date, datetime, timedelta
+from functools import reduce
+from typing import Any, DefaultDict, Dict, List, Optional, Tuple, Union
 
-from django.utils.timezone import make_aware
+from django.db.models import Max, Min, Q
 
 from constants.common_constants import API_DATE_FORMAT, EARLIEST_POSSIBLE_DATA_DATETIME
+from constants.data_stream_constants import ALL_DATA_STREAMS
+from constants.forest_constants import DATA_QUANTITY_FIELD_MAP, DATA_QUANTITY_FIELD_NAMES
 from database.dashboard_models import DashboardColorSetting, DashboardGradient, DashboardInflection
-from database.data_access_models import ChunkRegistry
+from database.forest_models import SummaryStatisticDaily
 from database.study_models import Study
 from database.user_models_participant import Participant
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest
@@ -20,47 +24,59 @@ DATETIME_FORMAT_ERROR = 'Dates and times provided to this endpoint must be forma
 def parse_data_streams(
     request: ResearcherRequest, study: Study, data_stream: str, participant_objects: ParticipantQuerySet
 ):
-    start, end = extract_date_args_from_request(request, study.timezone)
-    first_day, last_day = dashboard_chunkregistry_date_query(study, data_stream)
+    start, end = extract_date_args_from_request(request)
+    first_day, last_day = get_first_and_last_days_of_data(study, data_stream)
     data_exists = False
     unique_dates = []
     byte_streams = {}
     if first_day is not None:
-        stream_data = dashboard_chunkregistry_query(participant_objects, data_stream=data_stream)
+        stream_data = dashboard_summarystatistics_query(participant_objects, data_stream=data_stream)
         unique_dates, _, _ = get_unique_dates(start, end, first_day, last_day)
         
         # get the byte streams per date for each patient for a specific data stream for those dates
-        byte_streams = dict(
-            (participant.patient_id,
-                [get_bytes_date_match(stream_data[participant.patient_id], date) for date in unique_dates])
-            for participant in participant_objects
-        )
+        for participant in participant_objects:
+            byte_streams[participant.patient_id] = [
+                get_bytes_date_match(stream_data[participant.patient_id], date)
+                for date in unique_dates
+            ]
+        
         # check if there is data to display
         data_exists = len([data for patient in byte_streams for data in byte_streams[patient] if data is not None]) > 0
     
     return data_exists, first_day, last_day, unique_dates, byte_streams
 
 
-def get_unique_dates(start: datetime, end: datetime, first_day: date, last_day: date, chunks=None):
+# FIXME document EXACTLY what this return looks like
+def get_unique_dates(
+    start: Optional[datetime],
+    end: Optional[datetime],
+    first_day: Optional[date],
+    last_day: Optional[date],
+    chunks: Dict[str, List[Dict[str, Union[date, str, int]]]]=None
+):
     """ Create a list of all the unique days in which data was recorded for this study """
-    first_date_data_entry = last_date_data_entry = None
     
+    # This code used to operate on datetimes, there was timezone conversion code, we can drop it
+    
+    first_date_data_entry = last_date_data_entry = None
     if chunks:
         # chunks are sourced from dashboard_chunkregistry_query, so should be in the study timezone
-        all_dates = sorted(
-            chunk["time_bin"].date() for chunk in chunks if chunk["time_bin"].date() >= first_day
-            # must be >= first day bc there are some point for 1970 that get filtered out bc obv are garbage
-        )
+        # must be >= first day bc there are some point for 1970 that get filtered out bc obv are garbage
+        all_dates: List[date] = [chunk["date"] for chunk in chunks if chunk["date"] >= first_day]
+        all_dates.sort()
         
         # create a list of all of the valid days in this study
         first_date_data_entry = all_dates[0]
         last_date_data_entry = all_dates[-1]
     
-    # validate start date is before end date
-    if start and end and (end.date() - start.date()).days < 0:
+    # ensure start date is before end date, n
+    if start and end and (end_date - start_date).days < 0:
         temp = start
         start = end
         end = temp
+    
+    start_date = start.date() if start else None
+    end_date = end.date() if end else None
     
     # unique_dates is all of the dates for the week we are showing
     if start is None:  # if start is none default to end
@@ -70,20 +86,20 @@ def get_unique_dates(start: datetime, end: datetime, first_day: date, last_day: 
         ]
     elif end is None:
         # if end is none default to 7 days
-        end_num = min((last_day - start.date()).days + 1, 7)
-        unique_dates = [(start.date() + timedelta(days=date)) for date in range(end_num)]
-    elif (start.date() - first_day).days < 0:
+        end_num = min((last_day - start_date).days + 1, 7)
+        unique_dates = [(start_date + timedelta(days=date)) for date in range(end_num)]
+    elif (start_date - first_day).days < 0:
         # case: out of bounds at beginning to keep the duration the same
-        end_num = (end.date() - first_day).days + 1
+        end_num = (end_date - first_day).days + 1
         unique_dates = [(first_day + timedelta(days=date)) for date in range(end_num)]
-    elif (last_day - end.date()).days < 0:
+    elif (last_day - end_date).days < 0:
         # case: out of bounds at end to keep the duration the same
-        end_num = (last_day - start.date()).days + 1
-        unique_dates = [(start.date() + timedelta(days=date)) for date in range(end_num)]
+        end_num = (last_day - start_date).days + 1
+        unique_dates = [(start_date + timedelta(days=date)) for date in range(end_num)]
     else:
         # case: if they specify both start and end
-        end_num = (end.date() - start.date()).days + 1
-        unique_dates = [(start.date() + timedelta(days=date)) for date in range(end_num)]
+        end_num = (end_date - start_date).days + 1
+        unique_dates = [(start_date + timedelta(days=date)) for date in range(end_num)]
     
     return unique_dates, first_date_data_entry, last_date_data_entry
 
@@ -130,70 +146,124 @@ def get_bytes_data_stream_match(chunks: List[Dict[str, datetime]], a_date: date,
     # these time_bin datetime objects should be in the appropriate timezone
     return sum(
         chunk.get("bytes", 0) or 0 for chunk in chunks
-        if chunk["time_bin"].date() == a_date and chunk["data_stream"] == stream
+        if chunk["date"] == a_date and chunk["data_stream"] == stream
     )
 
 
-def get_bytes_date_match(stream_data: List[Dict[str, datetime]], a_date: date) -> int or None:
-    """ Returns byte value for correct stream based on ate. """
+# FIXME: we don't need this anymore after purging chunksregistry
+def get_bytes_date_match(stream_data: List[Dict[str, datetime]], a_date: date) -> Optional[int]:
+    """ Returns byte values for the declared stream based on a date. """
     return sum(
         data_point.get("bytes", 0) or 0 for data_point in stream_data
-        if (data_point["time_bin"]).date() == a_date
+        if (data_point["date"]) == a_date
     )
 
 
-def dashboard_chunkregistry_date_query(
-    study: Study, data_stream: str = None, participant: Participant = None
+# operator.or_ is the same as |, the bitwise or operator, reduce applies it to all the Q objects.
+# The Q objects look like `Q(beiwe_accelerometer_bytes__isnull=False)`
+# eg. filter on all streams where any data quantity field is not null
+FILTER_ALL_STREAMS_WHERE_ANY_DATA_QUANTITY_FIELD_IS_NOT_NULL = reduce(
+    operator.or_,
+    [
+        Q(**{data_stream + "__isnull": False}) for data_stream in DATA_QUANTITY_FIELD_NAMES
+    ]
+)
+
+
+def get_first_and_last_days_of_data(
+    study: Study, data_stream: Optional[str] = None, participant: Optional[Participant] = None
 ) -> Tuple[Optional[date], Optional[date]]:
-    """ Gets the first and last days in the study excluding 1/1/1970 bc that is obviously an error
-    and makes the frontend annoying to use """
-    kwargs = {"study_id": study.id}
-    if data_stream:
-        kwargs["data_type"] = data_stream
-    if participant:
-        kwargs["participant"] = participant
+    """ Gets the first and last days in the study, filters some junk data.
+    This code used to operate on the ChunkRegisty model, that got quite slow on large servers, 
+    it has been rewritted to use the SummaryStatisticDaily. This data should be the same. """
     
-    # this process as queries with .first() and .last() is slow even as size of all_time_bins grows.
-    all_time_bins: List[datetime] = list(
-        ChunkRegistry.objects.filter(**kwargs)
-        .exclude(time_bin__lt=EARLIEST_POSSIBLE_DATA_DATETIME)
-        .order_by("time_bin")
-        .values_list("time_bin", flat=True)
+    if participant is None:
+        kwargs = {"participant__study_id": study.id}
+    else:
+        kwargs = {"participant_id": participant.id}
+    
+    filter_args = []
+    if data_stream:
+        data_stream = DATA_QUANTITY_FIELD_MAP[data_stream]
+        kwargs[data_stream + "__isnull"] = False  # when it is one data stream use a simple filter
+    else:
+        # when it is all data streams we populate this with a complex filter
+        filter_args = [FILTER_ALL_STREAMS_WHERE_ANY_DATA_QUANTITY_FIELD_IS_NOT_NULL]
+    
+    
+    # Performance notes on this query after a bunch of testing:
+    # - There is a .union method, you do `q1[:1].union(q2[:1]).values_list("date", flat=True)`
+    #     but it is simply slower than every other method.
+    # - The really hard testing was done on ChunkRegistry, SummaryStatisticDaily is filtering
+    #     a more complex query on the all data stream case, but it is much faster, it is:
+    #        number_of_participants*number_of_days e.g.: 100 * 365 = 36,500
+    #     vs
+    #        number_of_participants*number_of_hours*number_of_streams: 100 * (24*365) * 19 = 16,644,000
+    #     which is a 456x reduction in record count, plus we had to deal with a timezone conversion.
+    # - !!!!! When these numbers (again, as ChunkRegistry) get very large it became faster to
+    #     PULL IN ALL THE VALUES and get the min and max in Python.  I don't know why.
+    
+    # (min, max, Min, Max, MIN, MAX - this namespace is getting crowded)
+    MIN, MAX = (
+        SummaryStatisticDaily.objects.filter(*filter_args, **kwargs)
+        .exclude(date__lt=EARLIEST_POSSIBLE_DATA_DATETIME)
+        # .order_by("date")  # have not tested whether this affects speed
+        .aggregate(min=Min("date"), max=Max("date"))
+        # at this point it is now a dict like {'min': datetime, 'max': datetime}, order is guaranteed
+        .values()
     )
     
-    # default behavior for 1 or 0 time_bins
-    if len(all_time_bins) < 1:
+    # if either one is missing we just return None, None
+    if MIN is None or MAX is None:
         return None, None
-    
-    # and get as study timezone... which might be unnecessary
-    return all_time_bins[0].astimezone(study.timezone).date(), \
-           all_time_bins[-1].astimezone(study.timezone).date()
+    return MIN, MAX
 
 
-def dashboard_chunkregistry_query(
-    participants: Union[ParticipantQuerySet, Participant], data_stream: str = None
-):
+def dashboard_summarystatistics_query(
+    participants: ParticipantQuerySet, data_stream: str = None
+) -> Dict[str, List[Dict[str, Union[date, str, int]]]]:
     """ Queries ChunkRegistry based on the provided parameters and returns a list of dictionaries
     with 3 keys: bytes, data_stream, and time_bin. """
-    if isinstance(participants, Participant):
-        timezone: tzinfo = participants.study.timezone
-        kwargs = {"participant": participants}
-    else:
-        timezone: tzinfo = participants.first().study.timezone
-        kwargs = {"participant_id__in": participants}
     
+    query_kwargs = {"participant_id__in": participants}
     if data_stream:
-        kwargs["data_type"] = data_stream
+        # get specific the translated field names
+        query_kwargs[ DATA_QUANTITY_FIELD_MAP[data_stream] + "__isnull"] = False
+        values_args = [DATA_QUANTITY_FIELD_MAP[data_stream]]
+    else:
+        values_args = ALL_DATA_STREAMS  # we transform all
     
+    # Make the field names the stream names instoad of "beime_accelerometer_bytes" etc.
+    # this mechanism of changing the field names is very fast, but it is also definitely very stupid
+    stream_bytes_per_day = SummaryStatisticDaily.objects \
+        .extra(select=DATA_QUANTITY_FIELD_MAP) \
+        .filter(**query_kwargs) \
+        .order_by("date") \
+        .values("date", "participant__patient_id", *values_args)
+    
+    patient_id_to_datapoints: DefaultDict[str, List[Dict[str, Union[date, str, int]]]] = defaultdict(list)
+    # list of participant ids mapped to a list of dictionaries with keys "bytes", "data_stream", "date"
+    for stream_bytes_day in stream_bytes_per_day:
+        day = stream_bytes_day.pop("date")
+        patient_id = stream_bytes_day.pop("participant__patient_id")
+        for stream_name, stream_bytes in stream_bytes_day.items():
+            # value can be null, we will exclude those results entirely; fixme: rue the day.
+            if stream_bytes is not None:
+                patient_id_to_datapoints[patient_id].append(
+                    # {bytes: 123, data_stream: "accelerometer", date: datetime}
+                    {"data_stream": stream_name, "bytes": stream_bytes, "date": day}
+                )
     # rename the data_type and file_size fields in the db query itself for speed
-    chunks = ChunkRegistry.objects.filter(**kwargs).extra(
-        select={'data_stream': 'data_type', 'bytes': 'file_size'}
-    ).values("participant__patient_id", "bytes", "data_stream", "time_bin")
+    # chunks = ChunkRegistry.objects.filter(**kwargs).extra(
+    #     select={'data_stream': 'data_type', 'bytes': 'file_size'}
+    # ).values("participant__patient_id", "bytes", "data_stream", "time_bin")
     
-    patient_id_to_datapoints = defaultdict(list)
-    for chunk in chunks:
-        chunk["time_bin"] = chunk["time_bin"].astimezone(timezone)
-        patient_id_to_datapoints[chunk.pop("participant__patient_id")].append(chunk)
+    # chunkregistry brought it's own data_stream property
+    # patient_id_to_datapoints = defaultdict(list)
+    # for chunk in chunks:
+    #     chunk["time_bin"] = chunk["time_bin"].astimezone(timezone)
+    #     # is now a dict like {bytes: 123, data_stream: "accelerometer", time_bin: datetime}
+    #     patient_id_to_datapoints[chunk.pop("participant__patient_id")].append(chunk)
     
     # populate participants with no data, values don't need to be present.
     if not isinstance(participants, Participant):
@@ -203,16 +273,16 @@ def dashboard_chunkregistry_query(
     return dict(patient_id_to_datapoints)
 
 
-def extract_date_args_from_request(request: ResearcherRequest, timezone: tzinfo) -> Tuple[Optional[datetime], Optional[datetime]]:
+def extract_date_args_from_request(request: ResearcherRequest) -> Tuple[Optional[date], Optional[date]]:
     """ Gets start and end arguments from GET/POST params, throws 400 on date formatting errors. """
     # "or None" handles the case of an empty string getting passed in.
     start = argument_grabber(request, "start", None) or None
     end = argument_grabber(request, "end", None) or None
     try:
         if start:
-            start = make_aware(datetime.strptime(start, API_DATE_FORMAT), timezone)
+            start = datetime.strptime(start, API_DATE_FORMAT).date()
         if end:
-            end = make_aware(datetime.strptime(end, API_DATE_FORMAT), timezone)
+            end = datetime.strptime(end, API_DATE_FORMAT).date()
     except ValueError:
         return abort(400, DATETIME_FORMAT_ERROR)
     

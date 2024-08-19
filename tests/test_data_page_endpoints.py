@@ -72,18 +72,33 @@ class TestDashboardStream(ResearcherSessionTest):
     ENDPOINT_NAME = "data_page_endpoints.get_data_for_dashboard_datastream_display"
     
     def test_no_participant(self):
-        self.do_data_stream_test(create_summaries=False, number_participants=0)
+        self.do_data_stream_test(number_summaries=0, number_participants=0)
     
     def test_one_participant_no_data(self):
-        self.do_data_stream_test(create_summaries=False, number_participants=1)
+        self.do_data_stream_test(number_summaries=0, number_participants=1)
     
     def test_three_participants_no_data(self):
-        self.do_data_stream_test(create_summaries=False, number_participants=3)
+        self.do_data_stream_test(number_summaries=0, number_participants=3)
     
     def test_five_participants_with_data(self):
-        self.do_data_stream_test(create_summaries=True, number_participants=5)
+        self.do_data_stream_test(number_summaries=1, number_participants=5)
     
-    def do_data_stream_test(self, create_summaries=False, number_participants=1):
+    def test_one_participant_with_data_on_a_specified_date(self):
+        self.do_data_stream_test(
+            number_summaries=10, number_participants=1, start=date.today(), end=date.today()
+        )
+    
+    def test_one_participant_with_data_on_a_specified_date_bracketted_by_two_weeks_of_data(self):
+        self.do_data_stream_test(
+            number_summaries=30,
+            number_participants=1,
+            start=date.today() + timedelta(days=7),
+            end=date.today() + timedelta(days=14),
+        )
+    
+    def do_data_stream_test(
+        self, number_summaries=0, number_participants=1, start=None, end=None
+    ):
         # this is slow because it make SO MANY REQUESTS
         
         # self.default_participant  < -- breaks, collision with default name.
@@ -95,18 +110,28 @@ class TestDashboardStream(ResearcherSessionTest):
             for i in range(number_participants)
         ]
         
-        if create_summaries:
+        for i in range(number_summaries):
             for participant in participants:
                 self.generate_summary_statistic_daily(
-                    a_date=date.today(),
-                    participant=participant,
+                    a_date=date.today() + timedelta(days=i), participant=participant
                 )
         
-        # technically the endpoint accepts post and get. We don't care enouhg to test both.
+        # this might actually be wrong math and we don't have a test that causes such a bug.
+        # the page does have "END must be greater than START" logic.
+        number_days = ((end - start).days + 1) if start and end else 1
+        
+        # we need to know the byte count we are injecting for each data stream
         byte_count_match_by_field_name = self.default_summary_statistic_daily_cheatsheet()
         
         for data_stream in DASHBOARD_DATA_STREAMS:
-            html = self.smart_get_status_code(200, self.session_study.id, data_stream).content
+            # technically the endpoint accepts post and get
+            args = (200, self.session_study.id, data_stream)
+            kwargs = {}
+            if start:
+                kwargs["start"] = start.isoformat()
+            if end:
+                kwargs["end"] = end.isoformat()
+            html = self.smart_post_status_code(*args, **kwargs).content
             
             # get the byte count for the data stream, populate some html
             byte_count = byte_count_match_by_field_name[DATA_QUANTITY_FIELD_MAP[data_stream]]
@@ -115,16 +140,17 @@ class TestDashboardStream(ResearcherSessionTest):
             title = COMPLETE_DATA_STREAM_DICT[data_stream]  # explodes if everything is broken
             self.assert_present(title, html)
             
-            for i, participant in enumerate(participants, start=0):
-                if create_summaries:
+            for participant in participants:
+                if number_summaries:
                     self.assert_present(participant.patient_id, html)
                     self.assert_not_present("There is no data currently available for", html)
-                    self.assertEqual(html.count(x), number_participants)
+                    # the number of times there should be data counts total on the page
+                    self.assertEqual(html.count(x), number_participants*number_days)
                 else:
                     self.assert_not_present(participant.patient_id, html)
                     self.assert_present(f"There is no data currently available for {title}", html)
             
-            if not participants or not create_summaries:
+            if not participants or not number_summaries:
                 self.assert_present(f"There is no data currently available for {title}", html)
 
 
@@ -159,8 +185,8 @@ class TestDashboardParticipantDisplay(ResearcherSessionTest):
         ).content
         
         # sanity check that the number of fields has not changed (update test if they do)
-        field_names = [f.name for f in SummaryStatisticDaily._meta.local_fields 
-                       if f.name.startswith("beiwe_") and f.name.endswith("_bytes")] 
+        field_names = [f.name for f in SummaryStatisticDaily._meta.local_fields
+                       if f.name.startswith("beiwe_") and f.name.endswith("_bytes")]
         self.assertEqual(len(field_names), 19)
         
         # there should be 7 of each byte count one for each day in the forced 7 day period, from 8

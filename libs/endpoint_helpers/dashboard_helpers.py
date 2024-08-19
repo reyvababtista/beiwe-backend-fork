@@ -48,15 +48,19 @@ def parse_data_streams(
 
 # FIXME document EXACTLY what this return looks like
 def get_unique_dates(
-    start: Optional[datetime],
-    end: Optional[datetime],
+    start_date: Optional[date],
+    end_date: Optional[date],
     first_day: Optional[date],
     last_day: Optional[date],
     chunks: Dict[str, List[Dict[str, Union[date, str, int]]]]=None
 ):
     """ Create a list of all the unique days in which data was recorded for this study """
+    # This code used to operate on datetimes and had timezone conversions, it was way more complex.
     
-    # This code used to operate on datetimes, there was timezone conversion code, we can drop it
+    if start_date and end_date and (end_date - start_date).days < 0:
+        temp = start_date
+        start_date = end_date
+        end_date = temp
     
     first_date_data_entry = last_date_data_entry = None
     if chunks:
@@ -70,21 +74,14 @@ def get_unique_dates(
         last_date_data_entry = all_dates[-1]
     
     # ensure start date is before end date, n
-    if start and end and (end_date - start_date).days < 0:
-        temp = start
-        start = end
-        end = temp
-    
-    start_date = start.date() if start else None
-    end_date = end.date() if end else None
     
     # unique_dates is all of the dates for the week we are showing
-    if start is None:  # if start is none default to end
+    if start_date is None:  # if start is none default to end
         end_num = min((last_day - first_day).days + 1, 7)
         unique_dates = [
             (last_day - timedelta(days=end_num - 1)) + timedelta(days=days) for days in range(end_num)
         ]
-    elif end is None:
+    elif end_date is None:
         # if end is none default to 7 days
         end_num = min((last_day - start_date).days + 1, 7)
         unique_dates = [(start_date + timedelta(days=date)) for date in range(end_num)]
@@ -104,22 +101,26 @@ def get_unique_dates(
     return unique_dates, first_date_data_entry, last_date_data_entry
 
 
-def create_next_past_urls(first_day: date, last_day: date, start: datetime, end: datetime) -> Tuple[str, str]:
+def create_next_past_urls(
+    first_day: Optional[date], last_day: Optional[date], start: Optional[date], end: Optional[date],
+) -> Tuple[str, str]:
     """ set the URLs of the next/past pages for patient and data stream dashboard """
     # note: in the "if" cases, the dates are intentionally allowed outside the data collection date
     # range so that the duration stays the same if you page backwards instead of resetting
-    # to the number currently shown
+    # to the number currently shown on the page.
+    
+    # populate duration, if either start or end are missing default to 1 week of most recent data.
     if start and end:
-        duration = (end.date() - start.date()).days
-        start: date = start.date()
-        end: date = end.date()
+        duration = (end - start).days
     else:
         duration = 6
-        start: date = datetime.combine(last_day - timedelta(days=6), datetime.min.time()).date()
-        end: date = datetime.combine(last_day, datetime.min.time()).date()
+        start: date = last_day - timedelta(days=6)
+        end: date = last_day
+    
     days_duration = timedelta(days=duration + 1)
     one_day = timedelta(days=1)
     
+    # christ this is impossible to parse
     if 0 < (start - first_day).days < duration:
         past_url = "?start=" + (start - timedelta(days=(duration + 1))).strftime(API_DATE_FORMAT) + \
                    "&end=" + (start - one_day).strftime(API_DATE_FORMAT)

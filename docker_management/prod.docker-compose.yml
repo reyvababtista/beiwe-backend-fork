@@ -58,6 +58,8 @@ services:
     build:
       context: ..
       dockerfile: docker_management/nginx/prod.Dockerfile
+      args:
+        - PUBLIC_DOMAIN_NAME=${PUBLIC_DOMAIN_NAME}
     env_file:
       - ../.envs/.env.prod
     volumes:

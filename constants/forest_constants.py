@@ -1,9 +1,8 @@
 from django.db.models.fields import (BooleanField, CharField, DateField, DateTimeField, FloatField,
     IntegerField, TextField)
 
+from constants.data_stream_constants import *
 from constants import DjangoDropdown
-from constants.data_stream_constants import (ACCELEROMETER, CALL_LOG, GPS, SURVEY_ANSWERS,
-    SURVEY_TIMINGS, TEXTS_LOG)
 
 from forest.constants import Frequency
 
@@ -197,28 +196,29 @@ NICE_SUMMARY_METADATA_FIELD_NAMES = [
 ]
 
 # Data quantities
-DATA_QUANTITY_FIELD_NAMES = [
-    "beiwe_accelerometer_bytes",
-    "beiwe_ambient_audio_bytes",
-    "beiwe_app_log_bytes",
-    "beiwe_bluetooth_bytes",
-    "beiwe_calls_bytes",
-    "beiwe_devicemotion_bytes",
-    "beiwe_gps_bytes",
-    "beiwe_gyro_bytes",
-    "beiwe_identifiers_bytes",
-    "beiwe_ios_log_bytes",
-    "beiwe_magnetometer_bytes",
-    "beiwe_power_state_bytes",
-    "beiwe_proximity_bytes",
-    "beiwe_reachability_bytes",
-    "beiwe_survey_answers_bytes",
-    "beiwe_survey_timings_bytes",
-    "beiwe_texts_bytes",
-    "beiwe_audio_recordings_bytes",
-    "beiwe_wifi_bytes",
-]
+DATA_QUANTITY_FIELD_MAP = {
+    ACCELEROMETER: "beiwe_accelerometer_bytes",
+    AMBIENT_AUDIO: "beiwe_ambient_audio_bytes",
+    ANDROID_LOG_FILE: "beiwe_app_log_bytes",
+    BLUETOOTH: "beiwe_bluetooth_bytes",
+    CALL_LOG: "beiwe_calls_bytes",
+    DEVICEMOTION: "beiwe_devicemotion_bytes",
+    GPS: "beiwe_gps_bytes",
+    GYRO: "beiwe_gyro_bytes",
+    IDENTIFIERS: "beiwe_identifiers_bytes",
+    IOS_LOG_FILE: "beiwe_ios_log_bytes",
+    MAGNETOMETER: "beiwe_magnetometer_bytes",
+    POWER_STATE: "beiwe_power_state_bytes",
+    PROXIMITY: "beiwe_proximity_bytes",
+    REACHABILITY: "beiwe_reachability_bytes",
+    SURVEY_ANSWERS: "beiwe_survey_answers_bytes",
+    SURVEY_TIMINGS: "beiwe_survey_timings_bytes",
+    TEXTS_LOG: "beiwe_texts_bytes",
+    VOICE_RECORDING: "beiwe_audio_recordings_bytes",
+    WIFI: "beiwe_wifi_bytes",
+}
 
+DATA_QUANTITY_FIELD_NAMES = list(DATA_QUANTITY_FIELD_MAP.values())
 NICE_BEIWE_DATA_QUANTITY_FIELD_NAMES = [
     name.replace("beiwe_", "").replace("_", " ").title() for name in DATA_QUANTITY_FIELD_NAMES
 ]

@@ -1,15 +1,14 @@
+from datetime import date, timedelta
 from typing import List
 
 from django.http.response import HttpResponse
-from django.utils import timezone
 
-from constants.data_stream_constants import (ACCELEROMETER, COMPLETE_DATA_STREAM_DICT,
-    DASHBOARD_DATA_STREAMS)
+from constants.data_stream_constants import COMPLETE_DATA_STREAM_DICT, DASHBOARD_DATA_STREAMS
+from constants.forest_constants import DATA_QUANTITY_FIELD_MAP
 from constants.user_constants import ResearcherRole
-from database.data_access_models import ChunkRegistry
+from database.forest_models import SummaryStatisticDaily
 from database.security_models import ApiKey
 from database.user_models_participant import Participant
-from libs.utils.security_utils import generate_easy_alphanumeric_string
 from tests.common import ResearcherSessionTest
 
 
@@ -69,74 +68,71 @@ class TestDashboard(ResearcherSessionTest):
         self.assert_data_streams_present(resp)
 
 
-# FIXME: dashboard is going to require a fixture to populate data.
 class TestDashboardStream(ResearcherSessionTest):
     ENDPOINT_NAME = "data_page_endpoints.get_data_for_dashboard_datastream_display"
     
     def test_no_participant(self):
-        self.do_data_stream_test(create_chunkregistries=False, number_participants=0)
+        self.do_data_stream_test(create_summaries=False, number_participants=0)
     
     def test_one_participant_no_data(self):
-        self.do_data_stream_test(create_chunkregistries=False, number_participants=1)
+        self.do_data_stream_test(create_summaries=False, number_participants=1)
     
     def test_three_participants_no_data(self):
-        self.do_data_stream_test(create_chunkregistries=False, number_participants=3)
+        self.do_data_stream_test(create_summaries=False, number_participants=3)
     
     def test_five_participants_with_data(self):
-        self.do_data_stream_test(create_chunkregistries=True, number_participants=5)
+        self.do_data_stream_test(create_summaries=True, number_participants=5)
     
-    def do_data_stream_test(self, create_chunkregistries=False, number_participants=1):
+    def do_data_stream_test(self, create_summaries=False, number_participants=1):
         # this is slow because it make SO MANY REQUESTS
         
         # self.default_participant  < -- breaks, collision with default name.
         self.set_session_study_relation()
+        
+        # create all the participants we need, populate some summaries
         participants: List[Participant] = [
             self.generate_participant(self.session_study, patient_id=f"patient{i+1}")
             for i in range(number_participants)
         ]
-        # create all the participants we need
-        if create_chunkregistries:
-            # miniscule optimization...
-            bulk = []
-            for i, participant in enumerate(participants, start=0):
-                bulk.append(ChunkRegistry(
-                    study=self.session_study,
-                    participant=participant,
-                    data_type="junk",
-                    chunk_path=generate_easy_alphanumeric_string(),
-                    chunk_hash=generate_easy_alphanumeric_string(),
-                    time_bin=timezone.localtime().replace(hour=i, minute=0, second=0, microsecond=0),
-                    file_size=123456 + i,
-                    is_chunkable=False,
-                ))
-            ChunkRegistry.objects.bulk_create(bulk)
         
-        # technically the end point accepts post and get. We don't care enouhg to test both.
+        if create_summaries:
+            for participant in participants:
+                self.generate_summary_statistic_daily(
+                    a_date=date.today(),
+                    participant=participant,
+                )
+        
+        # technically the endpoint accepts post and get. We don't care enouhg to test both.
+        byte_count_match_by_field_name = self.default_summary_statistic_daily_cheatsheet()
+        
         for data_stream in DASHBOARD_DATA_STREAMS:
-            if create_chunkregistries:  # force correct data type
-                ChunkRegistry.objects.all().update(data_type=data_stream)
-            
             html = self.smart_get_status_code(200, self.session_study.id, data_stream).content
-            title = COMPLETE_DATA_STREAM_DICT[data_stream]
+            
+            # get the byte count for the data stream, populate some html
+            byte_count = byte_count_match_by_field_name[DATA_QUANTITY_FIELD_MAP[data_stream]]
+            x = f'calculateColor({byte_count})" data-number="{byte_count}">{byte_count}</td>'.encode()
+            
+            title = COMPLETE_DATA_STREAM_DICT[data_stream]  # explodes if everything is broken
             self.assert_present(title, html)
             
             for i, participant in enumerate(participants, start=0):
-                comma_separated = str(123456 + i)[:-3] + "," + str(123456 + i)[3:]
-                if create_chunkregistries:
+                if create_summaries:
                     self.assert_present(participant.patient_id, html)
-                    self.assert_present(comma_separated, html)
+                    self.assert_not_present("There is no data currently available for", html)
+                    self.assertEqual(html.count(x), number_participants)
                 else:
                     self.assert_not_present(participant.patient_id, html)
-                    self.assert_not_present(comma_separated, html)
-            if not participants or not create_chunkregistries:
+                    self.assert_present(f"There is no data currently available for {title}", html)
+            
+            if not participants or not create_summaries:
                 self.assert_present(f"There is no data currently available for {title}", html)
 
 
 # FIXME: this page renders with almost no data
-class TestDashboardPatientDisplay(ResearcherSessionTest):
+class TestDashboardParticipantDisplay(ResearcherSessionTest):
     ENDPOINT_NAME = "data_page_endpoints.dashboard_participant_page"
     
-    def test_patient_display_no_data(self):
+    def test_participant_display_no_data(self):
         self.set_session_study_relation()
         resp = self.smart_get_status_code(
             200, self.session_study.id, self.default_participant.patient_id
@@ -149,12 +145,9 @@ class TestDashboardPatientDisplay(ResearcherSessionTest):
         self.set_session_study_relation()
         
         for i in range(10):
-            self.generate_chunkregistry(
-                self.session_study,
-                self.default_participant,
-                ACCELEROMETER,  # data_stream
-                file_size=123456,
-                time_bin=timezone.localtime().replace(hour=i, minute=0, second=0, microsecond=0),
+            self.generate_summary_statistic_daily(
+                a_date=date.today() - timedelta(days=i),
+                participant=self.default_participant,
             )
         
         # need to be post and get requests, it was just built that way
@@ -164,16 +157,21 @@ class TestDashboardPatientDisplay(ResearcherSessionTest):
         html2 = self.smart_post_status_code(
             200, self.session_study.id, self.default_participant.patient_id
         ).content
-        title = COMPLETE_DATA_STREAM_DICT[ACCELEROMETER]
-        self.assert_present(title, html1)
-        self.assert_present(title, html2)
-        # test for value of 10x for 1 day of 10 hours of data
-        comma_separated = "1,234,560"
+        
+        # sanity check that the number of fields has not changed (update test if they do)
+        field_names = [f.name for f in SummaryStatisticDaily._meta.local_fields 
+                       if f.name.startswith("beiwe_") and f.name.endswith("_bytes")] 
+        self.assertEqual(len(field_names), 19)
+        
+        # there should be 7 of each byte count one for each day in the forced 7 day period, from 8
+        # to 25 based on the summary statistic cheat sheet.
+        for i in range(6, 25):
+            self.assertEqual(html1.count(f'<td class="bytes"> {i} </td>'.encode()), 7)
+            self.assertEqual(html2.count(f'<td class="bytes"> {i} </td>'.encode()), 7)
+        
         for title in COMPLETE_DATA_STREAM_DICT.values():
             self.assert_present(title, html1)
             self.assert_present(title, html2)
         
         self.assert_present(self.default_participant.patient_id, html1)
         self.assert_present(self.default_participant.patient_id, html2)
-        self.assert_present(comma_separated, html1)
-        self.assert_present(comma_separated, html2)

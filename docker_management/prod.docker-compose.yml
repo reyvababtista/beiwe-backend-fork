@@ -62,6 +62,8 @@ services:
         - PUBLIC_DOMAIN_NAME=${PUBLIC_DOMAIN_NAME}
     env_file:
       - ../.envs/.env.prod
+    environment:
+      - PUBLIC_DOMAIN_NAME=${PUBLIC_DOMAIN_NAME}
     volumes:
       - static_volume:/www/static/
       - /etc/letsencrypt/:/cert/

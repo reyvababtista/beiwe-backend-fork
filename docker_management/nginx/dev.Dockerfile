@@ -5,4 +5,4 @@ RUN mkdir -p /www/static && \
 
 WORKDIR /www
 
-COPY docker_management/nginx/dev.nginx.conf /etc/nginx/conf.d
+COPY docker_management/nginx/dev.nginx.conf /etc/nginx/conf.d/default.conf

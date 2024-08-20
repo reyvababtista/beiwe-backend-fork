@@ -11,9 +11,9 @@ from constants.data_stream_constants import (ALL_DATA_STREAMS, COMPLETE_DATA_STR
     DASHBOARD_DATA_STREAMS)
 from database.study_models import Study
 from database.user_models_participant import Participant
-from libs.endpoint_helpers.dashboard_helpers import (create_next_past_urls,
-    dashboard_summarystatistics_query, extract_date_args_from_request, get_bytes_data_stream_match,
-    get_first_and_last_days_of_data, get_unique_dates, handle_filters, parse_data_streams)
+from libs.endpoint_helpers.dashboard_helpers import (create_next_past_urls, dashboard_data_query,
+    extract_date_args_from_request, get_bytes_data_stream_match, get_first_and_last_days_of_data,
+    get_unique_dates, handle_filters, parse_data_streams)
 from libs.endpoint_helpers.study_helpers import conditionally_display_study_status_warnings
 from libs.internal_types import ResearcherRequest
 
@@ -124,7 +124,7 @@ def dashboard_participant_page(request: ResearcherRequest, study_id, patient_id)
     participant = get_object_or_404(Participant, patient_id=patient_id, study_id=study_id)
     
     # query is optimized for bulk participants, so this is a little weird, and need to get our participant
-    chunks = dashboard_summarystatistics_query(Participant.objects.filter(study=study_id))
+    chunks, _, _ = dashboard_data_query(Participant.objects.filter(id=participant.id))
     chunks = chunks[participant.patient_id] if participant.patient_id in chunks else {}
     
     # ----------------- dates for bytes data streams -----------------------

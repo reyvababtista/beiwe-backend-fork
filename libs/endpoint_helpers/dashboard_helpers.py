@@ -30,7 +30,7 @@ def parse_data_streams(
     unique_dates = []
     byte_streams = {}
     if first_day is not None:
-        stream_data = dashboard_summarystatistics_query(participant_objects, data_stream=data_stream)
+        stream_data, _, _ = dashboard_data_query(participant_objects, data_stream=data_stream)
         unique_dates, _, _ = get_unique_dates(start, end, first_day, last_day)
         
         # get the byte streams per date for each patient for a specific data stream for those dates
@@ -220,58 +220,87 @@ def get_first_and_last_days_of_data(
     return MIN, MAX
 
 
-def dashboard_summarystatistics_query(
+def dashboard_data_query(
     participants: ParticipantQuerySet, data_stream: str = None
 ) -> Dict[str, List[Dict[str, Union[date, str, int]]]]:
     """ Queries ChunkRegistry based on the provided parameters and returns a list of dictionaries
     with 3 keys: bytes, data_stream, and time_bin. """
     
-    query_kwargs = {"participant_id__in": participants}
+    stream_bytes_per_day = do_dashboard_summarystatistics_query(participants, data_stream)
+    patient_id_to_datapoints, earliest_date, latest_date = build_participant_data(stream_bytes_per_day)
+    
+    # populate participants with no data, values don't need to be present.
+    for participant in participants:
+        if participant.patient_id not in patient_id_to_datapoints:
+            patient_id_to_datapoints[participant.patient_id] = []
+    
+    return patient_id_to_datapoints, earliest_date, latest_date
+
+
+def do_dashboard_summarystatistics_query(participants: ParticipantQuerySet, data_stream: str = None):
+    """ Business logic to make the database query as fast as possible. """
+    
+    filter_kwargs = {"participant_id__in": participants}
+    
     if data_stream:
-        # get specific the translated field names
-        query_kwargs[ DATA_QUANTITY_FIELD_MAP[data_stream] + "__isnull"] = False
-        values_args = [DATA_QUANTITY_FIELD_MAP[data_stream]]
+        # the specific translated field name
+        filter_kwargs[DATA_QUANTITY_FIELD_MAP[data_stream] + "__isnull"] = False
+        filter_arg = Q()
+        data_streams = [data_stream]
     else:
-        values_args = ALL_DATA_STREAMS  # we transform all
+        # filters items with no data in any stream on a day, can be a substantial speedup, saw 4x.
+        filter_arg = FILTER_ALL_STREAMS_WHERE_ANY_DATA_QUANTITY_FIELD_IS_NOT_NULL
+        data_streams = ALL_DATA_STREAMS
     
-    # Make the field names the stream names instoad of "beime_accelerometer_bytes" etc.
-    # this mechanism of changing the field names is very fast, but it is also definitely very stupid
-    stream_bytes_per_day = SummaryStatisticDaily.objects \
-        .extra(select=DATA_QUANTITY_FIELD_MAP) \
-        .filter(**query_kwargs) \
-        .order_by("date") \
-        .values("date", "participant__patient_id", *values_args)
+    # Rename fields to real stream names (unclear if this is an optimization over DATA_QUANTITY_FIELD_MAP)
+    # This mechanism of changing the field names is very fast, but it is also definitely very stupid 
+    select_args = {stream: DATA_QUANTITY_FIELD_MAP[stream] for stream in data_streams}
     
-    patient_id_to_datapoints: DefaultDict[str, List[Dict[str, Union[date, str, int]]]] = defaultdict(list)
+    # including the filter FILTER_ALL_STREAMS_WHERE actually makes the query
+    stream_bytes_per_day: Tuple[date, str, Optional[int]] = list(
+        # trunk-ignore(bandit/B610): extra here takes a static dictionary, it is not a security risk.
+        SummaryStatisticDaily.objects
+        .extra(select=select_args)
+        .filter(filter_arg, **filter_kwargs)
+        .order_by("date")
+        .values("date", "participant__patient_id", *data_streams)
+    )
+    return stream_bytes_per_day
+
+
+def build_participant_data(
+    stream_bytes_per_day: Tuple[date, str, Optional[int]]
+) -> Tuple[Dict[str, List[Dict[str, Union[date, str, int]]]], date, date]:
+    """ Builds a dictionary of participant ids mapped to a list of dictionaries like
+        {"bytes": 5," data_stream": "gyro", "date": a_date}
+    Also returns the earliest and latest dates in the data set. """
+    
+    # unambiguous date values
+    latest_date = original_latest = date.today() - timedelta(days=1000*365)
+    earliest_date = original_earliest = date.today() + timedelta(days=1000*365)
+    
     # list of participant ids mapped to a list of dictionaries with keys "bytes", "data_stream", "date"
+    patient_id_to_datapoints: DefaultDict[str, List[Dict[str, Union[date, str, int]]]] = defaultdict(list)
     for stream_bytes_day in stream_bytes_per_day:
         day = stream_bytes_day.pop("date")
         patient_id = stream_bytes_day.pop("participant__patient_id")
+        
+        earliest_date = day if day < earliest_date else earliest_date
+        latest_date = day if day > latest_date else latest_date
+        
         for stream_name, stream_bytes in stream_bytes_day.items():
-            # value can be null, we will exclude those results entirely; fixme: rue the day.
+            # value can be null with multiple data streams, we exclude those results entirely
             if stream_bytes is not None:
                 patient_id_to_datapoints[patient_id].append(
-                    # {bytes: 123, data_stream: "accelerometer", date: datetime}
                     {"data_stream": stream_name, "bytes": stream_bytes, "date": day}
                 )
-    # rename the data_type and file_size fields in the db query itself for speed
-    # chunks = ChunkRegistry.objects.filter(**kwargs).extra(
-    #     select={'data_stream': 'data_type', 'bytes': 'file_size'}
-    # ).values("participant__patient_id", "bytes", "data_stream", "time_bin")
     
-    # chunkregistry brought it's own data_stream property
-    # patient_id_to_datapoints = defaultdict(list)
-    # for chunk in chunks:
-    #     chunk["time_bin"] = chunk["time_bin"].astimezone(timezone)
-    #     # is now a dict like {bytes: 123, data_stream: "accelerometer", time_bin: datetime}
-    #     patient_id_to_datapoints[chunk.pop("participant__patient_id")].append(chunk)
+    # force Nones if the dates were still those silly values
+    earliest_date = earliest_date if earliest_date is not original_earliest else None
+    latest_date = latest_date if latest_date is not original_latest else None
     
-    # populate participants with no data, values don't need to be present.
-    if not isinstance(participants, Participant):
-        for participant in participants:
-            patient_id_to_datapoints[participant.patient_id]
-    
-    return dict(patient_id_to_datapoints)
+    # clear the defaultdict to a normal dict
+    return dict(patient_id_to_datapoints), earliest_date, latest_date
 
 
 def extract_date_args_from_request(request: ResearcherRequest) -> Tuple[Optional[date], Optional[date]]:

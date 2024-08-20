@@ -154,7 +154,6 @@ class TestDashboardStream(ResearcherSessionTest):
                 self.assert_present(f"There is no data currently available for {title}", html)
 
 
-# FIXME: this page renders with almost no data
 class TestDashboardParticipantDisplay(ResearcherSessionTest):
     ENDPOINT_NAME = "data_page_endpoints.dashboard_participant_page"
     
@@ -167,7 +166,7 @@ class TestDashboardParticipantDisplay(ResearcherSessionTest):
             "There is no data currently available for patient1 of Study", resp.content
         )
     
-    def test_five_participants_with_data(self):
+    def test_five_summarystatistic_days_with_data(self):
         self.set_session_study_relation()
         
         for i in range(10):
@@ -178,10 +177,10 @@ class TestDashboardParticipantDisplay(ResearcherSessionTest):
         
         # need to be post and get requests, it was just built that way
         html1 = self.smart_get_status_code(
-            200, self.session_study.id, self.default_participant.patient_id
+            200, self.session_study.id, self.default_participant.patient_id,
         ).content
         html2 = self.smart_post_status_code(
-            200, self.session_study.id, self.default_participant.patient_id
+            200, self.session_study.id, self.default_participant.patient_id,
         ).content
         
         # sanity check that the number of fields has not changed (update test if they do)

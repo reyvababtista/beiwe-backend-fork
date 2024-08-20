@@ -294,7 +294,7 @@ def pwrap(a_function):
     return wrapper
 
 
-def p(timer_label=0, caller_stack_location=1, quiet=False):
+def p(timer_label=0, caller_stack_location=1, quiet=False, name=None):
     """ Handy little function that prints the file name line number it was called on and the
         amount of time since the function was last called.
         If you provide a label (anything with a string representation) that will be printed
@@ -335,6 +335,10 @@ def p(timer_label=0, caller_stack_location=1, quiet=False):
     # Change the print statement by shifting the stack location where the caller name is sourced from.
     # Only very occasionally useful, values other than 1 and 2 are probably never useful.
     caller = getframeinfo(stack()[caller_stack_location][0])
+    
+    # Sometimes you need to make a name pop out.
+    if name:
+        timer_label = name
     
     print("%s:%.f -- %s --" % (relpath(caller.filename), caller.lineno, timer_label), end=" ")
     # the first call to get_timer results in a zero elapsed time, so we can skip it.

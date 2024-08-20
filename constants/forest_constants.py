@@ -1,6 +1,9 @@
+# trunk-ignore-all(ruff/F405)
+
 from django.db.models.fields import (BooleanField, CharField, DateField, DateTimeField, FloatField,
     IntegerField, TextField)
 
+# trunk-ignore(ruff/F403)
 from constants.data_stream_constants import *
 from constants import DjangoDropdown
 

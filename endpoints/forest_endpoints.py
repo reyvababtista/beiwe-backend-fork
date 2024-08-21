@@ -29,7 +29,7 @@ from database.study_models import Study
 from database.system_models import ForestVersion
 from database.user_models_participant import Participant
 from libs.django_forms.forms import CreateTasksForm
-from libs.effiicient_paginator import EfficientQueryPaginator
+from libs.efficient_paginator import EfficientQueryPaginator
 from libs.endpoint_helpers.summary_statistic_helpers import SummaryStatisticsPaginator
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest
 from libs.s3 import NoSuchKeyException

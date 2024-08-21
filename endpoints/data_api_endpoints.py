@@ -18,7 +18,7 @@ from constants.message_strings import MISSING_JSON_CSV_MESSAGE
 from database.forest_models import SummaryStatisticDaily
 from database.study_models import Study
 from database.user_models_researcher import StudyRelation
-from libs.effiicient_paginator import EfficientQueryPaginator
+from libs.efficient_paginator import EfficientQueryPaginator
 from libs.endpoint_helpers.data_api_helpers import (check_request_for_omit_keys_param,
     DeviceStatusHistoryPaginator, get_validate_participant_from_request)
 from libs.endpoint_helpers.participant_table_helpers import (common_data_extraction_for_apis,

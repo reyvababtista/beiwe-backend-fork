@@ -1,4 +1,5 @@
 import json
+import re
 from io import BytesIO
 
 import bleach
@@ -224,6 +225,9 @@ def create_study(request: ResearcherRequest):
                 raise Exception("Someone tried to create a study with a suspiciously long name.")
         messages.error(request, 'the study name you provided was too long and was rejected, please try again.')
         return redirect('/create_study')
+    
+    # normalize all sequences of whitespace to a single space
+    name = re.sub("\s", " ", name)
     
     if escape(name) != name:
         if not RUNNING_TEST_OR_FROM_A_SHELL:

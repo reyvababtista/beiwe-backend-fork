@@ -18,7 +18,7 @@ from firebase_admin.messaging import (AndroidConfig, Message, Notification,
 
 from authentication.admin_authentication import authenticate_researcher_study_access
 from config.settings import ENABLE_EXPERIMENTS
-from constants.common_constants import API_DATE_FORMAT, API_TIME_FORMAT, RUNNING_TEST_OR_IN_A_SHELL
+from constants.common_constants import API_DATE_FORMAT, API_TIME_FORMAT, RUNNING_TEST_OR_FROM_A_SHELL
 from constants.message_strings import (BAD_DEVICE_OS, BAD_PARTICIPANT_OS,
     DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_PREFIX, MESSAGE_SEND_FAILED_UNKNOWN,
     MESSAGE_SEND_SUCCESS, NO_DELETION_PERMISSION, NOT_IN_STUDY, PARTICIPANT_RETIRED_SUCCESS,
@@ -372,7 +372,7 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
         if isinstance(e, ValueError) and "The default Firebase app does not exist." not in str(e):
             unscheduled_archive.update(status=MESSAGE_SEND_FAILED_UNKNOWN + " (2)")  # presumably a bug
             messages.error(request, error_message)
-            if not RUNNING_TEST_OR_IN_A_SHELL:
+            if not RUNNING_TEST_OR_FROM_A_SHELL:
                 with make_error_sentry(SentryTypes.elastic_beanstalk):
                     raise
         else:
@@ -380,13 +380,13 @@ def resend_push_notification(request: ResearcherRequest, study_id: int, patient_
             unscheduled_archive.update(status=f"Firebase Error, {MESSAGE_SEND_FAILED_PREFIX} {str(e)}")
             messages.error(request, error_message)
             # don't report unregistered
-            if not RUNNING_TEST_OR_IN_A_SHELL and not isinstance(e, UnregisteredError):
+            if not RUNNING_TEST_OR_FROM_A_SHELL and not isinstance(e, UnregisteredError):
                 with make_error_sentry(SentryTypes.elastic_beanstalk):
                     raise
     except Exception:
         unscheduled_archive.update(status=MESSAGE_SEND_FAILED_UNKNOWN)  # presumably a bug
         messages.error(request, error_message)
-        if not RUNNING_TEST_OR_IN_A_SHELL:
+        if not RUNNING_TEST_OR_FROM_A_SHELL:
             with make_error_sentry(SentryTypes.elastic_beanstalk):
                 raise
     return return_redirect
@@ -512,7 +512,7 @@ def participant_page(request: ResearcherRequest, study_id: int, patient_id: str)
 
 @authenticate_researcher_study_access
 def experiments_page(request: ResearcherRequest, study_id: int, patient_id: str):
-    if not ENABLE_EXPERIMENTS and not RUNNING_TEST_OR_IN_A_SHELL:
+    if not ENABLE_EXPERIMENTS and not RUNNING_TEST_OR_FROM_A_SHELL:
         raise Exception("YO EXPERIMENTS ARE DISABLED HOW IS THIS RUNNING 1")
     participant = get_object_or_404(Participant, patient_id=patient_id)
     # just render the page with the current state of the ParticipantExperimentForm.
@@ -529,7 +529,7 @@ def experiments_page(request: ResearcherRequest, study_id: int, patient_id: str)
 
 @authenticate_researcher_study_access
 def update_experiments(request: ResearcherRequest, study_id: int, patient_id: str):
-    if not ENABLE_EXPERIMENTS and not RUNNING_TEST_OR_IN_A_SHELL:
+    if not ENABLE_EXPERIMENTS and not RUNNING_TEST_OR_FROM_A_SHELL:
         raise Exception("YO EXPERIMENTS ARE DISABLED HOW IS THIS RUNNING 2")
     # use the ParticipantExperimentForm to validate the input, update the participant
     # and then redirect back to the participant page.

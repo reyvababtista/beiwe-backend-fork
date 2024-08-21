@@ -12,7 +12,7 @@ from markupsafe import escape
 from authentication.admin_authentication import (abort, assert_admin, assert_site_admin,
     authenticate_admin, authenticate_researcher_login, authenticate_researcher_study_access,
     get_researcher_allowed_studies_as_query_set)
-from constants.common_constants import DISPLAY_TIME_FORMAT, RUNNING_TEST_OR_IN_A_SHELL
+from constants.common_constants import DISPLAY_TIME_FORMAT, RUNNING_TEST_OR_FROM_A_SHELL
 from constants.study_constants import CHECKBOX_TOGGLES, TIMER_VALUES
 from constants.user_constants import ResearcherRole
 from database.data_access_models import FileToProcess
@@ -219,14 +219,14 @@ def create_study(request: ResearcherRequest):
     forest_enabled = request.POST.get('forest_enabled', "").lower() == 'true'
     
     if len(name) > 5000:
-        if not RUNNING_TEST_OR_IN_A_SHELL:
+        if not RUNNING_TEST_OR_FROM_A_SHELL:
             with make_error_sentry(SentryTypes.elastic_beanstalk):
                 raise Exception("Someone tried to create a study with a suspiciously long name.")
         messages.error(request, 'the study name you provided was too long and was rejected, please try again.')
         return redirect('/create_study')
     
     if escape(name) != name:
-        if not RUNNING_TEST_OR_IN_A_SHELL:
+        if not RUNNING_TEST_OR_FROM_A_SHELL:
             with make_error_sentry(SentryTypes.elastic_beanstalk):
                 raise Exception("Someone tried to create a study with unsafe characters in its name.")
         messages.error(request, 'the study name you provided contained unsafe characters and was rejected, please try again.')

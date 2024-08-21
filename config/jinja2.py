@@ -77,15 +77,15 @@ class WhiteSpaceCollapser(Extension):
         self, source, name, filename
     ) -> str:
         # all horizontal whitespace at the start and end of lines
-        # cleaned_text = re.sub(r'^[ \t]+|[ \t]+$', '', source, flags=re.MULTILINE)
+        return re.sub(r'^[ \t]+|[ \t]+$', '', source, flags=re.MULTILINE)
         
         # collapse multiple successive identical whitespace characters
-        # cleaned_text = re.sub(r'[ \t][ \t]+|\n\n+', '', source, flags=re.MULTILINE)
+        # return re.sub(r'[ \t][ \t]+|\n\n+', '', source, flags=re.MULTILINE)
         
         # collapse most extended whitespace sequences down to just the first character, except
         # newlines, sequences of newlines are collapsed to a single newline. (and register returns)
-        cleaned_text = re.sub(r'[ \t][ \t]+|[\n\r]+[ \t\n\r]*[\n\r]+', '', source, flags=re.MULTILINE)
-        return cleaned_text
+        # has errors on at least the dashboard page
+        # return re.sub(r'[ \t][ \t]+|[\n\r]+[ \t\n\r]*[\n\r]+', '', source, flags=re.MULTILINE)
 
 
 def environment(**options):
@@ -105,6 +105,7 @@ def environment(**options):
         extensions=[WhiteSpaceCollapser],
         **options
     )
+    
     env.globals.update(
         {
             "static": staticfiles_storage.url,

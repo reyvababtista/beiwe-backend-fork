@@ -12,7 +12,7 @@ from django.db.models.query import QuerySet
 from django.utils import timezone
 
 from config.settings import REQUIRE_SITE_ADMIN_MFA
-from constants.common_constants import RUNNING_TEST_OR_IN_A_SHELL
+from constants.common_constants import RUNNING_TEST_OR_FROM_A_SHELL
 from constants.user_constants import ResearcherRole, SESSION_NAME
 from database.models import TimestampedModel
 from database.study_models import Study
@@ -78,7 +78,7 @@ class Researcher(AbstractPasswordUser):
     
     def _force_set_password(self, password: str, fake_password_length: int = 8):
         # literally only for use in tests, not even in a terminal shell.
-        if not RUNNING_TEST_OR_IN_A_SHELL:
+        if not RUNNING_TEST_OR_FROM_A_SHELL:
             class UncatchableException(BaseException): pass
             raise UncatchableException("completely illegal operation")
         self.password_last_changed = timezone.now()

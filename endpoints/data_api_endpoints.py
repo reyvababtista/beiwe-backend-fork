@@ -259,7 +259,7 @@ def get_participant_version_history(request: ApiStudyResearcherRequest):
     """ Returns a streaming JSON response of the app and os version history of a participant. """
     participant = get_validate_participant_from_request(request)
     omit_keys = check_request_for_omit_keys_param(request)
-    FIELDS_TO_SERIALIZE = ["app_version_code", "app_version_name", "os_version"]
+    FIELDS_TO_SERIALIZE = ["app_version_code", "app_version_name", "os_version", "created_on"]
     
     query = participant.app_version_history.order_by("created_on")
     paginator = EfficientQueryPaginator(

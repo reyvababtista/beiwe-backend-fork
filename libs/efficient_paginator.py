@@ -47,7 +47,7 @@ class EfficientQueryPaginator:
     def __iter__(self) -> Generator[Any, None, None]:
         """ Grab a page of PKs, the results via iteration. (_Might_ have better memory usage.) """
         pks = []
-        for count, pk in enumerate(self.pk_query, start=1):
+        for count, pk in enumerate(self.pk_query, start=1).iterator():
             pks.append(pk)
             if count % self.page_size == 0:
                 for result in self.value_query.filter(pk__in=pks):

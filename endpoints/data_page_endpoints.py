@@ -52,7 +52,11 @@ def data_api_web_form_page(request: ResearcherRequest):
 def dashboard_page(request: ResearcherRequest, study_id: int):
     """ information for the general dashboard view for a study """
     study = get_object_or_404(Study, pk=study_id)
-    participants = list(Participant.objects.filter(study=study_id).values_list("patient_id", flat=True))
+    participants = list(
+        Participant.objects.filter(study=study_id)
+        .order_by("patient_id")
+        .values_list("patient_id", flat=True)
+    )
     conditionally_display_study_status_warnings(request, study)
     return render(
         request,

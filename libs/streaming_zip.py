@@ -102,7 +102,7 @@ class ZipGenerator:
                 self.total_bytes += len(one_file_in_a_zip)
                 yield one_file_in_a_zip
                 # print "%s: %sK, %sM" % (random_id, total_bytes / 1024, total_bytes / 1024 / 1024)
-
+                
                 del one_file_in_a_zip
                 zip_output.empty()
             

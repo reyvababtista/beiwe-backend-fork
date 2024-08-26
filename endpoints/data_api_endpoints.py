@@ -18,7 +18,7 @@ from constants.message_strings import MISSING_JSON_CSV_MESSAGE
 from database.forest_models import SummaryStatisticDaily
 from database.study_models import Study
 from database.user_models_researcher import StudyRelation
-from libs.effiicient_paginator import EfficientQueryPaginator
+from libs.efficient_paginator import EfficientQueryPaginator
 from libs.endpoint_helpers.data_api_helpers import (check_request_for_omit_keys_param,
     DeviceStatusHistoryPaginator, get_validate_participant_from_request)
 from libs.endpoint_helpers.participant_table_helpers import (common_data_extraction_for_apis,
@@ -259,7 +259,7 @@ def get_participant_version_history(request: ApiStudyResearcherRequest):
     """ Returns a streaming JSON response of the app and os version history of a participant. """
     participant = get_validate_participant_from_request(request)
     omit_keys = check_request_for_omit_keys_param(request)
-    FIELDS_TO_SERIALIZE = ["app_version_code", "app_version_name", "os_version"]
+    FIELDS_TO_SERIALIZE = ["app_version_code", "app_version_name", "os_version", "created_on"]
     
     query = participant.app_version_history.order_by("created_on")
     paginator = EfficientQueryPaginator(

@@ -52,7 +52,13 @@ def PARTICIPANT(patient_id: Union[str, int]):
     try:
         return Participant.objects.get(patient_id=patient_id)
     except Participant.DoesNotExist:
-        return Participant.objects.filter(patient_id__icontains=patient_id).get()
+        participants = Participant.objects.filter(patient_id__icontains=patient_id)
+        if participants.count() == 0:
+            raise Participant.DoesNotExist() from None
+        if participants.count() == 1:
+            return participants.get()
+        pprint(list(participants.values_list("patient_id", "id")))
+
 
 P = PARTICIPANT  # Shorthand for PARTICIPANT, just type p = P("someone") and you are done
 
@@ -64,7 +70,12 @@ def RESEARCHER(username: Union[str, int]):
     try:
         return Researcher.objects.get(username=username)
     except Researcher.DoesNotExist:
-        return Researcher.objects.get(username__icontains=username)
+        researchers = Researcher.objects.filter(username__icontains=username)
+        if researchers.count() == 0:
+            raise Researcher.DoesNotExist() from None
+        if researchers.count() == 1:
+            return researchers.get()
+        pprint(list(researchers.values_list("name", "id")))
 
 R = RESEARCHER  # Shorthand for RESEARCHER, just type r = R("someone") and you are done
 
@@ -76,7 +87,12 @@ def SURVEY(id_or_name: Union[str, int]):
     try:
         return Survey.objects.get(object_id=id_or_name)
     except Survey.DoesNotExist:
-        return Survey.objects.get(name__icontains=id_or_name)
+        surveys = Survey.objects.filter(name__icontains=id_or_name)
+        if surveys.count() == 0:
+            raise Survey.DoesNotExist() from None
+        if surveys.count() == 1:
+            return surveys.get()
+        pprint(list(surveys.values_list("name", "id")))
 
 
 def STUDY(id_or_name: Union[str, int]):
@@ -86,7 +102,13 @@ def STUDY(id_or_name: Union[str, int]):
     try:
         return Study.objects.get(object_id=id_or_name)
     except Study.DoesNotExist:
-        return Study.objects.get(name__icontains=id_or_name)
+        studies = Study.objects.filter(name__icontains=id_or_name)
+        count = studies.count()
+        if count == 1:
+            return studies.get()
+        if count < 1:
+            raise Study.DoesNotExist() from None
+        pprint(list(studies.values_list("name", "id")))
 
 
 def file_process_count():

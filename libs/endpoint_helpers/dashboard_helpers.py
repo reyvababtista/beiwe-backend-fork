@@ -64,7 +64,7 @@ def get_unique_dates(
     
     first_date_data_entry = last_date_data_entry = None
     if chunks:
-        # chunks are sourced from dashboard_chunkregistry_query, so should be in the study timezone
+        # chunks are sourced from dashboard_data_query, so should be in the study timezone
         # must be >= first day bc there are some point for 1970 that get filtered out bc obv are garbage
         all_dates: List[date] = [chunk["date"] for chunk in chunks if chunk["date"] >= first_day]
         all_dates.sort()
@@ -223,7 +223,7 @@ def get_first_and_last_days_of_data(
 def dashboard_data_query(
     participants: ParticipantQuerySet, data_stream: str = None
 ) -> Dict[str, List[Dict[str, Union[date, str, int]]]]:
-    """ Queries ChunkRegistry based on the provided parameters and returns a list of dictionaries
+    """ Queries SummaryStatistics based on the provided parameters and returns a list of dictionaries
     with 3 keys: bytes, data_stream, and time_bin. """
     
     stream_bytes_per_day = do_dashboard_summarystatistics_query(participants, data_stream)

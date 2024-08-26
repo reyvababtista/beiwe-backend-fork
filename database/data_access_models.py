@@ -31,6 +31,17 @@ class UnchunkableDataTypeError(Exception): pass
 class ChunkableDataTypeError(Exception): pass
 
 
+#
+# BIG FAT WARNING: the ChunkRegistry gets Huge. If you are in the context of a webserver endpoint
+# and querying it for any other purpose than downloading files from s3 then you are doing it wrong,
+# and you may even lock up the website due to database contention.  You should instead query summary
+# SummaryStatistics. Any queries to ChunkRegistry should use .iterator() and .values_list() in
+# carefully constructed queries to avoid loading extra objects into memory, both in Python and on
+# the database. The Dashboard pages make use of this pattern, but are at time of commenting a bit
+# messy and can be further optimized.
+#
+
+
 class ChunkRegistry(TimestampedModel):
     # the last_updated field's index legacy, removing it is slow to deploy on large servers.
     # TODO: remove this db_index? it doesn't harm anything...

@@ -1,6 +1,7 @@
+# trunk-ignore-all(bandit/B404,bandit/B105,ruff/B018)
 import subprocess
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, tzinfo
 from typing import List, Tuple
 
 from django.db.models import (AutoField, CharField, DateField, FloatField, ForeignKey, IntegerField,
@@ -70,7 +71,7 @@ class DatabaseHelperMixin:
     ## Study objects
     #
     @property
-    def session_study(self) -> Study:
+    def default_study(self) -> Study:
         """ Gets or creates a default study object.  Note that this has the side effect of creating
         a study settings db object as well.  This is a default object, and will be auto-populated
         in scenarios where such an object is required but not provided. """
@@ -82,19 +83,24 @@ class DatabaseHelperMixin:
         return self._default_study
     
     @property
-    def default_study(self):
-        """ alias for session_study """
-        return self.session_study
+    def session_study(self):
+        """ alias for default_study """
+        return self.default_study
     
     def generate_study(
-        self, name: str, encryption_key: str = None, object_id: str = None, forest_enabled: bool = None
+        self,
+        name: str,
+        encryption_key: str = None,
+        object_id: str = None,
+        forest_enabled: bool = None
     ):
         study = Study(
             name=name,
             encryption_key=encryption_key or "thequickbrownfoxjumpsoverthelazy",
             object_id=object_id or generate_objectid_string(),
             forest_enabled=forest_enabled or True,
-            timezone_name="UTC",
+            # timezone_name="UTC",
+            timezone_name="America/New_York",
             deleted=False,
         )
         study.save()
@@ -277,7 +283,10 @@ class DatabaseHelperMixin:
         return self._default_participant_field_value
     
     def generate_participant_field_value(
-        self, study_field: StudyField, participant: Participant, value: str = None
+        self,
+        study_field: StudyField,
+        participant: Participant,
+        value: str = None
     ) -> ParticipantFieldValue:
         pfv = ParticipantFieldValue(
             participant=participant,
@@ -292,7 +301,8 @@ class DatabaseHelperMixin:
         return [self.generate_participant(self.session_study) for _ in range(10)]
     
     def generate_participant(
-            self, study: Study, patient_id: str = None, ios=False, device_id=None) -> Participant:
+        self, study: Study, patient_id: str = None, ios=False, device_id=None
+    ) -> Participant:
         participant = Participant(
             patient_id=patient_id or generate_easy_alphanumeric_string(),
             os_type=IOS_API if ios else ANDROID_API,
@@ -318,10 +328,9 @@ class DatabaseHelperMixin:
             return self._default_populated_intervention_date
         except AttributeError:
             pass
-        self._default_populated_intervention_date = \
-            self.generate_intervention_date(
-                self.default_participant, self.default_intervention, self.CURRENT_DATE
-            )
+        self._default_populated_intervention_date = self.generate_intervention_date(
+            self.default_participant, self.default_intervention, self.CURRENT_DATE
+        )
         return self._default_populated_intervention_date
     
     @property
@@ -344,8 +353,12 @@ class DatabaseHelperMixin:
         return intervention_date
     
     def generate_file_to_process(
-        self, path: str, study: Study = None, participant: Participant = None,
-        deleted: bool = False, os_type: str = NULL_OS,
+        self,
+        path: str,
+        study: Study = None,
+        participant: Participant = None,
+        deleted: bool = False,
+        os_type: str = NULL_OS,
     ):
         ftp = FileToProcess(
             s3_file_path=path,
@@ -374,7 +387,11 @@ class DatabaseHelperMixin:
         return self._default_participant_deletion_event
     
     def generate_participant_deletion_event(
-        self, participant: Participant, deleted_count: int = 0, confirmed: datetime = None, last_updated: datetime = None
+        self,
+        participant: Participant,
+        deleted_count: int = 0,
+        confirmed: datetime = None,
+        last_updated: datetime = None
     ) -> ParticipantDeletionEvent:
         
         deletion_event = ParticipantDeletionEvent(
@@ -389,37 +406,8 @@ class DatabaseHelperMixin:
         return deletion_event
     
     #
-    # schedule and schedule-adjacent objects
+    ## Heartbeats
     #
-    def generate_archived_event(
-        self, survey: Survey, participant: Participant, schedule_type: str = None,
-        scheduled_time: datetime = None, status: str = None
-    ):
-        archived_event = ArchivedEvent(
-            survey_archive=survey.archives.first(),
-            participant=participant,
-            schedule_type=schedule_type or ScheduleTypes.weekly,
-            scheduled_time=scheduled_time or timezone.now(),
-            status=status or MESSAGE_SEND_SUCCESS,
-        )
-        archived_event.save()
-        return archived_event
-    
-    def bulk_generate_archived_events(
-        self, quantity: int, survey: Survey, participant: Participant, schedule_type: str = None,
-        scheduled_time: datetime = None, status: str = None
-    ):
-        events = [
-            ArchivedEvent(
-                survey_archive=survey.archives.first(),
-                participant=participant,
-                schedule_type=schedule_type or ScheduleTypes.weekly,
-                scheduled_time=scheduled_time or timezone.now(),
-                status=status or MESSAGE_SEND_SUCCESS,
-            )
-            for _ in range(quantity)
-        ]
-        return ArchivedEvent.objects.bulk_create(events)
     
     def generate_heartbeat(self, participant: Participant = None, time: datetime = None):
         if time is None:
@@ -430,7 +418,13 @@ class DatabaseHelperMixin:
         heartbeat.save()
         return heartbeat
     
-    def generate_participant_action_log(self, participant: Participant = None, time: datetime = None):
+    #
+    # Schedules
+    #
+    
+    def generate_participant_action_log(
+        self, participant: Participant = None, time: datetime = None
+    ):
         if time is None:
             time = timezone.now()
         if participant is None:
@@ -440,7 +434,11 @@ class DatabaseHelperMixin:
         return heartbeat
     
     def generate_weekly_schedule(
-        self, survey: Survey = None, day_of_week: int = 0, hour: int = 0, minute: int = 0
+        self,
+        survey: Survey = None,
+        day_of_week: int = 0,
+        hour: int = 0,
+        minute: int = 0
     ) -> WeeklySchedule:
         weekly = WeeklySchedule(
             survey=survey or self.default_survey,
@@ -462,21 +460,29 @@ class DatabaseHelperMixin:
         return self._default_relative_schedule
     
     def generate_relative_schedule(
-        self, survey: Survey, intervention: Intervention = None, days_after: int = 0,
-        hour: int = 0, minute: int = 0,
+        self,
+        survey: Survey,
+        intervention: Intervention = None,
+        days_after: int = 0,
+        hours_after: int = 0,
+        minutes_after: int = 0,
     ) -> RelativeSchedule:
         relative = RelativeSchedule(
             survey=survey or self.default_survey,
             intervention=intervention or self.default_intervention,
             days_after=days_after,
-            hour=hour,
-            minute=minute,
+            hour=hours_after,
+            minute=minutes_after,
         )
         relative.save()
         return relative
     
     def generate_absolute_schedule(
-        self, a_date: date, survey: Survey = None, hour: int = 0, minute: int = 0,
+        self,
+        a_date: date,
+        survey: Survey = None,
+        hour: int = 0,
+        minute: int = 0,
     ) -> RelativeSchedule:
         absolute = AbsoluteSchedule(
             survey=survey or self.default_survey,
@@ -497,22 +503,26 @@ class DatabaseHelperMixin:
         absolute.save()
         return absolute
     
-    def generate_easy_absolute_schedule_event_with_schedule(self, time: timedelta):
-        """ Note that no intervention is marked, this just creates the schedule basics """
+    #
+    ## ScheduledEvents
+    #
+    
+    def generate_easy_absolute_schedule_event_with_absolute_schedule(self, time: datetime):
+        """ Note that no intervention is marked, this just creates the schedule basics. """
         schedule = self.generate_absolute_schedule_from_datetime(self.default_survey, time)
         return self.generate_scheduled_event(
             self.default_survey, self.default_participant, schedule, time
         )
     
-    def generate_easy_relative_schedule_event_with_schedule(self, event_time_offset_now: timedelta):
+    def generate_easy_relative_schedule_event_with_relative_schedule(self, event_time_offset_now: timedelta):
         """ Note that no intervention is marked, this just creates the schedule basics """
         now = timezone.now() + event_time_offset_now
         schedule = self.generate_relative_schedule(
             self.default_survey,
             self.default_intervention,
             days_after=event_time_offset_now.days,
-            hour=event_time_offset_now.seconds // 60 // 60,  # the offset isn't perfect but 
-            minute=event_time_offset_now.seconds // 60 % 60,  # this is fine for tests...
+            hours_after=event_time_offset_now.seconds // 60 // 60,  # the offset isn't perfect but 
+            minutes_after=event_time_offset_now.seconds // 60 % 60,  # this is fine for tests...
         )
         return self.generate_scheduled_event(
             self.default_survey, self.default_participant, schedule, now
@@ -548,8 +558,80 @@ class DatabaseHelperMixin:
         return scheduled_event
     
     #
-    ## Forest objects
+    ## ArchivedEvent
     #
+    
+    def generate_archived_event(
+        self,
+        survey: Survey,
+        participant: Participant,
+        schedule_type: str = None,
+        scheduled_time: datetime = None,
+        status: str = None
+    ):
+        archived_event = ArchivedEvent(
+            survey_archive=survey.archives.first(),
+            participant=participant,
+            schedule_type=schedule_type or ScheduleTypes.weekly,
+            scheduled_time=scheduled_time or timezone.now(),
+            status=status or MESSAGE_SEND_SUCCESS,
+        )
+        archived_event.save()
+        return archived_event
+    
+    def bulk_generate_archived_events(
+        self, quantity: int, survey: Survey, participant: Participant, schedule_type: str = None,
+        scheduled_time: datetime = None, status: str = None
+    ):
+        events = [
+            ArchivedEvent(
+                survey_archive=survey.archives.first(),
+                participant=participant,
+                schedule_type=schedule_type or ScheduleTypes.weekly,
+                scheduled_time=scheduled_time or timezone.now(),
+                status=status or MESSAGE_SEND_SUCCESS,
+            )
+            for _ in range(quantity)
+        ]
+        return ArchivedEvent.objects.bulk_create(events)
+    
+    def generate_archived_event_for_absolute_schedule(self, absolute: AbsoluteSchedule):
+        # absolute is super easy
+        return self.generate_archived_event(
+            absolute.survey, self.default_participant, ScheduleTypes.absolute, absolute.event_time
+        )
+    
+    def generate_archived_event_for_relative_schedule(
+        self, relative: RelativeSchedule, participant: Participant = None, override_tz=tzinfo
+    ):
+        if not relative.intervention:
+            raise ValueError("relative schedule must have an intervention")
+        
+        if not participant.intervention_dates.filter(intervention=relative.intervention).exists():
+            raise ValueError("participant must have an intervention date shared with the relative schedule")
+        
+        the_intervention_date: date = participant.intervention_dates.filter(
+            intervention=relative.intervention
+        ).values_list("date", flat=True).get()
+        
+        # at some point we have to call real code for the relative schedule to get the output time,
+        # the point of this is to generate a correct one.
+        the_time = relative.merge_computed_intervention_date_with_time_and_timezone(
+            the_intervention_date + timedelta(days=1), participant.timezone
+        )
+        
+        return self.generate_archived_event(
+            relative.survey,
+            participant,
+            ScheduleTypes.relative,
+            # status defaults to the success message, MESSAGE_SEND_SUCCESS
+            the_time,
+        )
+    
+    #
+    ## Forest Task
+    #
+    
     @property
     def default_forest_task(self) -> ForestTask:
         try:
@@ -582,6 +664,7 @@ class DatabaseHelperMixin:
     #
     ## ChunkRegistry
     #
+    
     @property
     def default_chunkregistry(self) -> ChunkRegistry:
         # the default chunkrestry object is an identifiers instance, this is likely irrelevant.
@@ -619,6 +702,10 @@ class DatabaseHelperMixin:
         chunk_reg.save()
         return chunk_reg
     
+    #
+    ## SummaryStatisticDaily
+    #
+    
     @property
     def default_summary_statistic_daily(self) -> SummaryStatisticDaily:
         try:
@@ -627,22 +714,6 @@ class DatabaseHelperMixin:
             # its empty, this is ok
             self._default_summary_statistic_daily = self.generate_summary_statistic_daily()
             return self._default_summary_statistic_daily
-    
-    def default_summary_statistic_daily_cheatsheet(self):
-        # this is used to populate default values in a SummaryStatisticDaily
-        field_dict = {}
-        for i, field in enumerate(SummaryStatisticDaily._meta.fields):
-            if isinstance(field, (ForeignKey, DateField, AutoField)):
-                continue
-            elif isinstance(field, IntegerField):
-                field_dict[field.name] = i
-            elif isinstance(field, FloatField):
-                field_dict[field.name] = float(i)
-            elif isinstance(field, (TextField, CharField)):
-                field_dict[field.name] = str(i)
-            else:
-                raise TypeError(f"encountered unhandled SummaryStatisticDaily type: {type(field)}")
-        return field_dict
     
     def generate_summary_statistic_daily(self, a_date: date = None, participant: Participant = None) -> SummaryStatisticDaily:
         field_dict = self.default_summary_statistic_daily_cheatsheet()
@@ -659,6 +730,28 @@ class DatabaseHelperMixin:
         stats = SummaryStatisticDaily(**params)
         stats.save()
         return stats
+    
+    def default_summary_statistic_daily_cheatsheet(self):
+        # this is used to populate default values in a SummaryStatisticDaily in a way that creates
+        # legible output when something goes wrong.  The meaning of these values is literally never
+        # important in the context of the Beiwe Backend, they are purely hosted for download.
+        field_dict = {}
+        for i, field in enumerate(SummaryStatisticDaily._meta.fields):
+            if isinstance(field, (ForeignKey, DateField, AutoField)):
+                continue
+            elif isinstance(field, IntegerField):
+                field_dict[field.name] = i
+            elif isinstance(field, FloatField):
+                field_dict[field.name] = float(i)
+            elif isinstance(field, (TextField, CharField)):
+                field_dict[field.name] = str(i)
+            else:
+                raise TypeError(f"encountered unhandled SummaryStatisticDaily type: {type(field)}")
+        return field_dict
+    
+    #
+    ## DeviceStatusReportHistory
+    #
     
     def generate_device_status_report_history(
             self, participant: Participant = None,

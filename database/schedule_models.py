@@ -76,12 +76,12 @@ class RelativeSchedule(TimestampedModel):
     # related field typings (IDE halp)
     scheduled_events: Manager[ScheduledEvent]
     
-    def scheduled_time(self, intervention_date: date, tz: tzinfo) -> datetime:
+    def merge_computed_intervention_date_with_time_and_timezone(self, intervention_date: date, tz: tzinfo) -> datetime:
         """ Constructs a datetime object for the correct time, on the correct day, in the given timezone. """
         # Timezone should be the study timezone, but this is in a potentially performance sensitive
         #  location so we don't want to do the lookup. Instead we pass it in? We don't do that for
         #  absolute schedules.
-
+        
         # The time of day (hour, minute) are not offsets, they are absolute.
         # make_aware fixes the pytz America/New_York 4 minute offset, if you use pytz timezones.
         #  - which we don't do anymore so we can probably delete this comment. We won't do that tho.
@@ -92,7 +92,7 @@ class RelativeSchedule(TimestampedModel):
     @staticmethod
     def create_relative_schedules(timings: List[List[int]], survey: Survey) -> bool:
         """ Creates new RelativeSchedule objects from a frontend-style list of interventions and times
-        If you modify this please update create_relative_schedules_by_name in libs.copy_study too. """
+        If you modify this you must check create_relative_schedules_by_name in libs.schedules too. """
         survey.relative_schedules.all().delete()
         if survey.deleted or not timings:
             return False
@@ -293,4 +293,4 @@ class InterventionDate(TimestampedModel):
     intervention: Intervention = models.ForeignKey('Intervention', on_delete=models.CASCADE, related_name='intervention_dates')
     
     class Meta:
-        unique_together = ('participant', 'intervention',)
+        unique_together = ('participant', 'intervention', )

@@ -168,6 +168,7 @@ class TestDashboardParticipantDisplay(ResearcherSessionTest):
     
     def test_five_summarystatistic_days_with_data(self):
         self.set_session_study_relation()
+        self.session_study.update(timezone_name="UTC")  # changed default timezone, forcing old tz.
         
         for i in range(10):
             self.generate_summary_statistic_daily(

@@ -451,7 +451,7 @@ class TestHeartbeatQuery(TestCelery):
         self.default_participant.refresh_from_db()
         self.assertIsNone(self.default_participant.last_heartbeat_notification)
     
-    @patch("services.celery_push_notifications.send_notification")
+    @patch("libs.push_notification_helpers.send_notification")
     @patch("services.celery_push_notifications.check_firebase_instance")
     def test_heartbeat_notification_one_participant(
         self, check_firebase_instance: MagicMock, send_notification: MagicMock,
@@ -466,7 +466,7 @@ class TestHeartbeatQuery(TestCelery):
         self.assertIsNotNone(self.default_participant.last_heartbeat_notification)
         self.assertIsInstance(self.default_participant.last_heartbeat_notification, datetime)
     
-    @patch("services.celery_push_notifications.send_notification")
+    @patch("libs.push_notification_helpers.send_notification")
     @patch("services.celery_push_notifications.check_firebase_instance")
     def test_heartbeat_notification_two_participants(
         self, check_firebase_instance: MagicMock, send_notification: MagicMock,
@@ -489,7 +489,7 @@ class TestHeartbeatQuery(TestCelery):
         self.assertIsNotNone(p2.last_heartbeat_notification)
         self.assertIsInstance(p2.last_heartbeat_notification, datetime)
     
-    @patch("services.celery_push_notifications.send_notification")
+    @patch("libs.push_notification_helpers.send_notification")
     @patch("services.celery_push_notifications.check_firebase_instance")
     def test_heartbeat_notification_two_participants_one_failure(
         self, check_firebase_instance: MagicMock, send_notification: MagicMock,
@@ -512,7 +512,7 @@ class TestHeartbeatQuery(TestCelery):
         self.assertIsNotNone(p2.last_heartbeat_notification)
         self.assertIsInstance(p2.last_heartbeat_notification, datetime)
     
-    @patch("services.celery_push_notifications.send_custom_notification_raw")
+    @patch("libs.push_notification_helpers.send_custom_notification_raw")
     @patch("services.celery_push_notifications.check_firebase_instance")
     def test_heartbeat_notification_errors(
         self, check_firebase_instance: MagicMock, send_custom_notification_raw: MagicMock,
@@ -532,7 +532,7 @@ class TestHeartbeatQuery(TestCelery):
         self.assertIsNone(self.default_participant.last_heartbeat_notification)
         self.assertIsNone(self.default_participant.fcm_tokens.first().unregistered)
     
-    @patch("services.celery_push_notifications.send_custom_notification_raw")
+    @patch("libs.push_notification_helpers.send_custom_notification_raw")
     @patch("services.celery_push_notifications.check_firebase_instance")
     def test_heartbeat_notification_errors_swallowed(
         self, check_firebase_instance: MagicMock, send_custom_notification_raw: MagicMock,

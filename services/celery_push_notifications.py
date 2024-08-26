@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from functools import reduce
 from typing import List, Tuple
 
-from cronutils import null_error_handler
 from cronutils.error_handler import ErrorSentry
 from dateutil.tz import gettz
 from django.db.models import Q
@@ -25,17 +24,15 @@ from constants.message_strings import (ACCOUNT_NOT_FOUND, CONNECTION_ABORTED,
 from constants.schedule_constants import ScheduleTypes
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API
-from database.schedule_models import ArchivedEvent, ScheduledEvent
-from database.study_models import Study
-from database.survey_models import Survey
+from database.schedule_models import ScheduledEvent
 from database.user_models_participant import (Participant, ParticipantActionLog,
     ParticipantFCMHistory, PushNotificationDisabledEvent)
 from libs.celery_control import push_send_celery_app, safe_apply_async
 from libs.firebase_config import check_firebase_instance
 from libs.internal_types import DictOfStrStr, DictOfStrToListOfStr
+from libs.push_notification_helpers import get_stopped_study_ids, send_custom_notification_safely
 from libs.schedules import set_next_weekly
 from libs.sentry import make_error_sentry, SentryTypes
-from libs.utils.date_utils import date_is_in_the_past
 
 
 logger = logging.getLogger("push_notifications")
@@ -51,78 +48,21 @@ logd = logger.debug
 
 UTC = gettz("UTC")
 
-#
-## Somewhat common code (regular SURVEY notifications have extra logic)
-#
 
-def send_custom_notification_safely(fcm_token:str, os_type: str, logging_tag: str, message: str) -> bool:
-    """ Our wrapper around the firebase send_notification function. Returns True if successful,
-    False if unsuccessful, and may raise errors that have been seen over time.  Any errors raised
-    SHOULD be raised and reported because they are unknown failure modes. This code is taken and
-    modified from the Survey Push Notification logic, which has special cases because those
-    notifications recur on known schedules, this function is more for one-off type of notifications.
-    (Though we do log the events outside of the scopes of this function.) """
-    # for full documentation of these errors see celery_send_survey_push_notification.
-    try:
-        send_custom_notification_raw(fcm_token, os_type, message)
-        return True
-    except UnregisteredError:
-        # this is the only "real" error we handle here because we may as well update the fcm
-        # token as invalid as soon as we know.  DON'T raise the error, this is normal behavior.
-        log(f"\n{logging_tag} - UnregisteredError\n")
-        ParticipantFCMHistory.objects.filter(token=fcm_token).update(unregistered=timezone.now())
-        return False
-    
-    except ThirdPartyAuthError as e:
-        logw(f"\n{logging_tag} - ThirdPartyAuthError\n")
-        if str(e) != "Auth error from APNS or Web Push Service":
-            raise
-        return False
-    
-    except ValueError as e:
-        logw(f"\n{logging_tag} - ValueError\n")
-        if "The default Firebase app does not exist" not in str(e):
-            raise
-        return False
-    
-    except (SenderIdMismatchError, QuotaExceededError):
-        return False
-
-
-def send_custom_notification_raw(fcm_token: str, os_type: str, message: str):
-    """ Our wrapper around the firebase send_notification function. """
-    # we need a nonce because duplicate notifications won't be delivered.
-    data_kwargs = {
-        # trunk-ignore(bandit/B311)
-        'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32)),
-    }
-    # os requires different setup
-    if os_type == ANDROID_API:
-        data_kwargs['type'] = 'message'
-        data_kwargs['message'] = message
-        message = Message(android=AndroidConfig(data=data_kwargs, priority='high'), token=fcm_token)
+def get_or_mock_schedules(schedule_pks: List[str], debug: bool) -> Tuple[ScheduledEvent, List[ScheduledEvent]]:
+    """ In order to have debug functions and certain tests run we need to be able to mock a schedule
+    object. In all other cases we query the database. """
+    if not debug:
+        # use the earliest timed schedule as our reference for the sent_time parameter.
+        schedules = ScheduledEvent.objects.filter(pk__in=schedule_pks)
+        reference_schedule = schedules.order_by("scheduled_time").first()
+        return reference_schedule, schedules
     else:
-        message = Message(
-            data=data_kwargs, token=fcm_token, notification=Notification(title="Beiwe", body=message)
-        )
-    send_notification(message)
-
-
-def get_stopped_study_ids() -> List[int]:
-    """ Returns a list of study ids that are stopped or deleted (and should not have *stuff* happen.)"""
-    bad_study_ids = []
-    
-    # we don't really care about performance, there are AT MOST hundreds of studies.
-    query = Study.objects.values_list("id", "deleted", "manually_stopped", "end_date", "timezone_name")
-    for study_id, deleted, manually_stopped, end_date, timezone_name in query:
-        if deleted or manually_stopped:
-            bad_study_ids.append(study_id)
-            continue
-        if end_date:
-            if date_is_in_the_past(end_date, timezone_name):
-                bad_study_ids.append(study_id)
-    
-    return bad_study_ids
+        # object needs a scheduled_time attribute, and a falsey uuid attribute.
+        class mock_reference_schedule:
+            scheduled_time = timezone.now()
+            uuid = ""
+        return mock_reference_schedule, []
 
 
 ####################################################################################################
@@ -131,7 +71,7 @@ def get_stopped_study_ids() -> List[int]:
 # There are two senses in which the term "heartbeat" is used in this codebase. One is with respect
 # to the push notification that this celery task pushes to the app, the other is with respect to
 # the periodic checkin that the app makes to the backend.  The periodic checkin is app-code, it hits
-# the moblile_api.mobile_heartbeat endpoint.
+# the mobile_endpoints.mobile_heartbeat endpoint.
 
 
 def heartbeat_query() -> List[Tuple[int, str, str, str]]:
@@ -412,70 +352,6 @@ def create_survey_push_notification_tasks():
             )
 
 
-def debug_send_valid_survey_push_notification(participant: Participant, now: datetime = None):
-    """ Runs the REAL LOGIC for sending push notifications based on the time passed in, but without
-    the ErrorSentry. """
-    if not now:
-        now = timezone.now()
-    # get_surveys_and_schedules for one participant, extra args are query filters on ScheduledEvents.
-    surveys, schedules, _ = get_surveys_and_schedules(now, participant=participant)
-    
-    if len(surveys) == 0:
-        print(f"There are no surveys to send push notifications for {participant}.")
-        return
-    if len(surveys) > 1:
-        print("There are multiple participants to send push notifications for...")
-        return
-    
-    # it is exactly one participant, get the number of surveys in item one
-    survey_object_ids = list(surveys.values())[0]
-    print(f"sending {len(survey_object_ids)} notifications to", participant)
-    for survey in Survey.objects.filter(object_id__in=survey_object_ids):
-        print(f"Sending notification for survey '{survey.name if survey.name else survey.object_id}'")
-    
-    if not check_firebase_instance():
-        print("Firebase is not configured, cannot queue notifications.")
-        return
-    
-    for fcm_token in surveys.keys():
-        send_survey_push_notification_logic(
-            fcm_token, surveys[fcm_token], schedules[fcm_token], null_error_handler
-        )
-
-
-def debug_send_all_survey_push_notification(participant: Participant):
-    """ Debugging function that sends a survey notification for all surveys on a study. """
-    fcm_token = participant.get_valid_fcm_token().token
-    if not fcm_token:
-        print("no valid token")
-        return
-    
-    surveys: List[Survey] = list(participant.study.surveys.filter(deleted=False))
-    if not surveys:
-        print(f"There are no surveys to send push notifications for {participant}.")
-        return
-    
-    print(f"Sending {len(surveys)} notifications to", participant)
-    for survey in surveys:
-        print(f"Sending notification for survey '{survey.name if survey.name else survey.object_id}'")
-    
-    survey_obj_ids = [survey.object_id for survey in surveys]
-    print(survey_obj_ids)
-    send_survey_push_notification_logic(fcm_token, survey_obj_ids, None, null_error_handler, debug=True)
-    
-    # and create some fake archived events
-    timezone.now()
-    for survey in surveys:
-        ArchivedEvent(
-            survey_archive=survey.most_recent_archive(),
-            participant=participant,
-            schedule_type="DEBUG",
-            scheduled_time=None,
-            status=MESSAGE_SEND_SUCCESS,
-            uuid=None,
-        ).save()
-
-
 @push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
 def celery_send_survey_push_notification(
     fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]
@@ -512,7 +388,7 @@ def send_survey_push_notification_logic(
         log(f"Sending push notification to {patient_id} for {survey_obj_ids}...")
         
         # we need to mock the reference_schedule object in debug mode... it is stupid.
-        reference_schedule, schedules = get_or_mock_schedule(schedule_pks, debug)
+        reference_schedule, schedules = get_or_mock_schedules(schedule_pks, debug)
         try:
             inner_send_survey_push_notification(
                 participant, reference_schedule, survey_obj_ids, fcm_token
@@ -570,21 +446,6 @@ def send_survey_push_notification_logic(
             raise
         
         success_send_handler(participant, fcm_token, schedules)
-
-
-def get_or_mock_schedule(schedule_pks: List[str], debug: bool) -> Tuple[ScheduledEvent, List[ScheduledEvent]]:
-    # in debug mode we need to mock a schedule object, in production we need to get the earliest one.
-    if not debug:
-        # use the earliest timed schedule as our reference for the sent_time parameter.
-        schedules = ScheduledEvent.objects.filter(pk__in=schedule_pks)
-        reference_schedule = schedules.order_by("scheduled_time").first()
-        return reference_schedule, schedules
-    else:
-        # object needs a scheduled_time attribute, and a falsey uuid attribute.
-        class mock_reference_schedule:
-            scheduled_time = timezone.now()
-            uuid = ""
-        return mock_reference_schedule, []
 
 
 def inner_send_survey_push_notification(

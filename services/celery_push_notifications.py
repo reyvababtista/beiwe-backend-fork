@@ -406,14 +406,14 @@ def send_survey_push_notification_logic(
             # sysadmin attention and probably new development to allow multiple firebase
             # credentials. Read comments in settings.py if toggling.
             if BLOCK_QUOTA_EXCEEDED_ERROR:
-                failed_send_handler(participant, fcm_token, str(e), schedules, debug)
+                failed_send_survey_handler(participant, fcm_token, str(e), schedules, debug)
                 return
             else:
                 raise
         
         except ThirdPartyAuthError as e:
             loge("\nThirdPartyAuthError\n")
-            failed_send_handler(participant, fcm_token, str(e), schedules, debug)
+            failed_send_survey_handler(participant, fcm_token, str(e), schedules, debug)
             # This means the credentials used were wrong for the target app instance.  This can occur
             # both with bad server credentials, and with bad device credentials.
             # We have only seen this error statement, error name is generic so there may be others.
@@ -427,7 +427,7 @@ def send_survey_push_notification_logic(
             # executes.)
             loge("\nSenderIdMismatchError:\n")
             loge(e)
-            failed_send_handler(participant, fcm_token, str(e), schedules, debug)
+            failed_send_survey_handler(participant, fcm_token, str(e), schedules, debug)
             return
         
         except ValueError as e:
@@ -442,10 +442,10 @@ def send_survey_push_notification_logic(
                 raise
         
         except Exception as e:
-            failed_send_handler(participant, fcm_token, str(e), schedules, debug)
+            failed_send_survey_handler(participant, fcm_token, str(e), schedules, debug)
             raise
         
-        success_send_handler(participant, fcm_token, schedules)
+        success_send_survey_handler(participant, fcm_token, schedules)
 
 
 def inner_send_survey_push_notification(
@@ -476,7 +476,7 @@ def inner_send_survey_push_notification(
     send_notification(message)
 
 
-def success_send_handler(participant: Participant, fcm_token: str, schedules: List[ScheduledEvent]):
+def success_send_survey_handler(participant: Participant, fcm_token: str, schedules: List[ScheduledEvent]):
     # If the query was successful archive the schedules.  Clear the fcm unregistered flag
     # if it was set (this shouldn't happen. ever. but in case we hook in a ui element we need it.)
     log(f"Survey push notification send succeeded for {participant.patient_id}.")
@@ -494,7 +494,7 @@ def success_send_handler(participant: Participant, fcm_token: str, schedules: Li
     enqueue_weekly_surveys(participant, schedules)
 
 
-def failed_send_handler(
+def failed_send_survey_handler(
     participant: Participant,
     fcm_token: str,
     error_message: str,

@@ -141,9 +141,6 @@ RESEND_CLICKED = "resend clicked"
 DEVICE_CHECKED_IN = "device checked in"
 DEVICE_HAS_NO_REGISTERED_TOKEN = "device has no registered token"
 PUSH_NOTIFICATIONS_NOT_CONFIGURED = "Push notifications not configured"
-MESSAGE_SEND_SUCCESS = "success"  # for historical reasons don't change this without writing a migration
-MESSAGE_SEND_FAILED_PREFIX = "message send failed:"
-MESSAGE_SEND_FAILED_UNKNOWN = "message send failed: unknown"
 SUCCESSFULLY_SENT_NOTIFICATION_PREFIX = "Successfully sent notification to"
 BAD_DEVICE_OS = "bad device OS"
 BAD_PARTICIPANT_OS = "This participant is not properly registered and cannot be sent push notifications until the re-register."
@@ -162,3 +159,14 @@ MANUALLY_STOPPED_STUDY_MESSAGE = "This study has been manually stopped. No furth
 ENDED_STUDY_MESSAGE = "This study ended at the end of the day on {}. No further data uploaded by participants in this study will be stored."
 
 MISSING_JSON_CSV_MESSAGE = b"Invalid required data_format parameter, only 'csv' and 'json' supported"
+
+# push notification status details, not actually comprehensive.
+MESSAGE_SEND_SUCCESS = "success"  # for historical reasons don't change this without writing a migration
+MESSAGE_SEND_FAILED_PREFIX = "message send failed:"
+MESSAGE_SEND_FAILED_UNKNOWN = "message send failed: unknown"
+# imported in migration 128
+UNEXPECTED_SERVICE_RESPONSE = "Unexpected HTTP response from push notification service."
+UNKNOWN_REMOTE_ERROR = "Unknown error while making a remote service call"
+FAILED_TO_ESTABLISH_CONNECTION = "Failed to establish connection to push notification service."
+CONNECTION_ABORTED = "Connection to push notification service aborted."
+ACCOUNT_NOT_FOUND = "Account not found by push notification service."

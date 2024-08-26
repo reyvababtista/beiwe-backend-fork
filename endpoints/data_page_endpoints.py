@@ -11,10 +11,9 @@ from constants.data_stream_constants import (ALL_DATA_STREAMS, COMPLETE_DATA_STR
     DASHBOARD_DATA_STREAMS)
 from database.study_models import Study
 from database.user_models_participant import Participant
-from libs.endpoint_helpers.dashboard_helpers import (create_next_past_urls,
-    dashboard_chunkregistry_date_query, dashboard_chunkregistry_query,
-    extract_date_args_from_request, get_bytes_data_stream_match, get_unique_dates, handle_filters,
-    parse_data_streams)
+from libs.endpoint_helpers.dashboard_helpers import (create_next_past_urls, dashboard_data_query,
+    extract_date_args_from_request, get_bytes_data_stream_match, get_first_and_last_days_of_data,
+    get_unique_dates, handle_filters, parse_data_streams)
 from libs.endpoint_helpers.study_helpers import conditionally_display_study_status_warnings
 from libs.internal_types import ResearcherRequest
 
@@ -53,7 +52,11 @@ def data_api_web_form_page(request: ResearcherRequest):
 def dashboard_page(request: ResearcherRequest, study_id: int):
     """ information for the general dashboard view for a study """
     study = get_object_or_404(Study, pk=study_id)
-    participants = list(Participant.objects.filter(study=study_id).values_list("patient_id", flat=True))
+    participants = list(
+        Participant.objects.filter(study=study_id)
+        .order_by("patient_id")
+        .values_list("patient_id", flat=True)
+    )
     conditionally_display_study_status_warnings(request, study)
     return render(
         request,
@@ -87,7 +90,7 @@ def get_data_for_dashboard_datastream_display(
     if first_day is None or not data_exists:
         next_url = past_url = ""
     else:
-        start, end = extract_date_args_from_request(request, study.timezone)
+        start, end = extract_date_args_from_request(request)
         next_url, past_url = create_next_past_urls(first_day, last_day, start=start, end=end)
     
     show_color, color_low_range, color_high_range, all_flags_list = handle_filters(
@@ -124,14 +127,14 @@ def dashboard_participant_page(request: ResearcherRequest, study_id, patient_id)
     study = get_object_or_404(Study, pk=study_id)
     participant = get_object_or_404(Participant, patient_id=patient_id, study_id=study_id)
     
-    # query is optimized for bulk participants, so this is a little weird
-    chunk_data = dashboard_chunkregistry_query(participant)
-    chunks = chunk_data[participant.patient_id] if participant.patient_id in chunk_data else {}
+    # query is optimized for bulk participants, so this is a little weird, and need to get our participant
+    chunks, _, _ = dashboard_data_query(Participant.objects.filter(id=participant.id))
+    chunks = chunks[participant.patient_id] if participant.patient_id in chunks else {}
     
     # ----------------- dates for bytes data streams -----------------------
     if chunks:
-        start, end = extract_date_args_from_request(request, study.timezone)
-        first_day, last_day = dashboard_chunkregistry_date_query(study, participant=participant)
+        start, end = extract_date_args_from_request(request)
+        first_day, last_day = get_first_and_last_days_of_data(study, participant=participant)
         unique_dates, first_date_data_entry, last_date_data_entry = get_unique_dates(
             start, end, first_day, last_day, chunks
         )

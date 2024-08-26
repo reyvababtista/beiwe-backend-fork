@@ -29,7 +29,8 @@ from database.study_models import Study
 from database.system_models import ForestVersion
 from database.user_models_participant import Participant
 from libs.django_forms.forms import CreateTasksForm
-from libs.effiicient_paginator import EfficientQueryPaginator
+from libs.efficient_paginator import EfficientQueryPaginator
+from libs.endpoint_helpers.dashboard_helpers import get_first_and_last_days_of_data
 from libs.endpoint_helpers.summary_statistic_helpers import SummaryStatisticsPaginator
 from libs.internal_types import ParticipantQuerySet, ResearcherRequest
 from libs.s3 import NoSuchKeyException
@@ -75,11 +76,6 @@ def forest_tasks_progress(request: ResearcherRequest, study_id=None):
     # number of forest tasks shouldn't be the bottleneck here.
     tasks = ForestTask.objects.filter(participant__in=participants).order_by("created_on")
     
-    # these are quite optimized buuuuut it is still slow.
-    start_date = (study.get_earliest_data_time_bin() or study.created_on).date()
-    end_date = (study.get_latest_data_time_bin() or timezone.now()).date()
-    
-    params = {}
     results = defaultdict(lambda: "-")
     chart_elements_lookup = {False: "N", None: "?"}
     # this loop builds the chart of whether there are forest results for date ranges
@@ -102,7 +98,10 @@ def forest_tasks_progress(request: ResearcherRequest, study_id=None):
                 # 3. If in_table is a ? we can just skip it because we cannot upgrade from ? to Y here.
                 #  So, we just skip if we are already at ? in the chart element, and otherwise we do the lookup.
                 results[key] = chart_elements_lookup[output_exists]
-            params[key] = task.safe_unpickle_parameters_as_string()
+    
+    start_date, end_date = get_first_and_last_days_of_data(study)
+    start_date = start_date or study.created_on.date()
+    end_date = end_date or timezone.now().date()
     
     # generate the date range for the chart, we need it many times.
     dates = list(daterange(start_date, end_date, inclusive=True))
@@ -114,14 +113,6 @@ def forest_tasks_progress(request: ResearcherRequest, study_id=None):
                 [results[(participant.id, tree_name, date)] for date in dates]
             chart.append(row)
     
-    # ensure that within each tree, only a single set of param values are used (only the most recent runs
-    # are considered, and unsuccessful runs are assumed to invalidate old runs, clearing params)
-    params_conflict = False
-    for tree_name in {k[1] for k in params.keys()}:
-        if len({m for k, m in params.items() if m is not None and k[1] == tree_name}) > 1:
-            params_conflict = True
-            break
-    
     chart_json = orjson.dumps(chart).decode()  # may be huge, but orjson is very fast.
     return render(
         request,
@@ -130,7 +121,6 @@ def forest_tasks_progress(request: ResearcherRequest, study_id=None):
             study=study,
             chart_columns=["participant", "tree"] + dates,
             status_choices=ForestTaskStatus,
-            params_conflict=params_conflict,
             start_date=start_date,
             end_date=end_date,
             chart=chart_json  # this uses the jinja safe filter and should never involve user input

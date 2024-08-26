@@ -1,6 +1,7 @@
 """ Original Document sourced from 
 https://samuh.medium.com/using-jinja2-with-django-1-8-onwards-9c58fe1204dc """
 
+import re
 from datetime import date
 
 from django.contrib.staticfiles.storage import staticfiles_storage
@@ -65,16 +66,46 @@ class CdnAssets:
 ASSETS = CdnAssets
 
 
+from jinja2.ext import Extension
+
+
+class WhiteSpaceCollapser(Extension):
+    """ Pretty simple Jinja2 extension that collapses whitespace what could possibly fgo wrong. """
+    
+    def preprocess(
+        # self, source: str, name: t.Optional[str], filename: t.Optional[str] = None
+        self, source, name, filename
+    ) -> str:
+        # all horizontal whitespace at the start and end of lines
+        return re.sub(r'^[ \t]+|[ \t]+$', '', source, flags=re.MULTILINE)
+        
+        # collapse multiple successive identical whitespace characters
+        # return re.sub(r'[ \t][ \t]+|\n\n+', '', source, flags=re.MULTILINE)
+        
+        # collapse most extended whitespace sequences down to just the first character, except
+        # newlines, sequences of newlines are collapsed to a single newline. (and register returns)
+        # has errors on at least the dashboard page
+        # return re.sub(r'[ \t][ \t]+|[\n\r]+[ \t\n\r]*[\n\r]+', '', source, flags=re.MULTILINE)
+
+
 def environment(**options):
     """ This enables us to use Django template tags like
     {% url “index” %} or {% static “path/to/static/file.js” %}
     in our Jinja2 templates.  """
+    
+    assert "autoescape" in options and options["autoescape"] is True
+    
+    # trunk-ignore(bandit/B701)
     env = Environment(
         line_comment_prefix="{#",
         comment_start_string="{% comment %}",
         comment_end_string="{% endcomment %}",
+        trim_blocks=True,
+        lstrip_blocks=True,
+        extensions=[WhiteSpaceCollapser],
         **options
     )
+    
     env.globals.update(
         {
             "static": staticfiles_storage.url,

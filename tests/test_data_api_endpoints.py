@@ -7,6 +7,7 @@ import zstd
 from dateutil.tz import UTC
 from django.core.exceptions import ValidationError
 from django.http import StreamingHttpResponse
+from django.utils import timezone
 
 from authentication.tableau_authentication import (check_tableau_permissions,
     TableauAuthenticationFailed, TableauPermissionDenied, X_ACCESS_KEY_ID, X_ACCESS_KEY_SECRET)
@@ -277,7 +278,7 @@ class TestGetUsersInStudy(DataApiTest):
         resp = self.smart_post_status_code(200, study_id=self.session_study.object_id)
         # ordering here is random because because generate_participant is random, need to handle it.
         match = [self.default_participant.patient_id, p2.patient_id]
-        match.sort()     
+        match.sort()
         from_json = orjson.loads(resp.content)
         from_json.sort()
         self.assertEqual(from_json, match)
@@ -361,7 +362,7 @@ class TestGetParticipantDataInfo(DataApiTest):
         self.default_summary_statistic_daily.update(**{k: 10 for k in DATA_QUANTITY_FIELD_NAMES})
         # patient0 would be an invalid patient id because it has a 0 in it, we just need something
         # that sorts before patient1
-        p0 = self.generate_participant(self.session_study, "atient11")  
+        p0 = self.generate_participant(self.session_study, "atient11")
         self.generate_summary_statistic_daily(date.today(), p0).update(**{k: 100 for k in DATA_QUANTITY_FIELD_NAMES})
         p2 = self.generate_participant(self.session_study, "patient2")
         self.generate_summary_statistic_daily(date.today(), p2).update(**{k: 1000 for k in DATA_QUANTITY_FIELD_NAMES})
@@ -839,9 +840,29 @@ class TestParticipantHeartbeatHistory(DataApiTest):
 class TestParticipantVersionHistory(DataApiTest):
     ENDPOINT_NAME = "data_api_endpoints.get_participant_version_history"
     
+    def setUp(self) -> None:
+        # we need a timestamp to sanity check against, generated at the beginning of each test
+        self.test_start = timezone.now()
+        return super().setUp()
+    
+    @property
+    def format_the_test_start_correctly(self):
+        options = orjson.OPT_OMIT_MICROSECONDS | orjson.OPT_UTC_Z
+        # need to strip the brackets and off the ends
+        return orjson.dumps([self.test_start], option=options).decode()[1:-1]
+    
+    @property
+    def a_values_string(self) -> bytes:
+        return '{"app_version_code":"1","app_version_name":"1.0","os_version":"1.0","created_on"' \
+            f':{self.format_the_test_start_correctly}'.encode() + b'}'
+    
+    @property
+    def a_values_list_string(self) -> bytes:
+        return f'["1","1.0","1.0",{self.format_the_test_start_correctly}]'.encode()
+    
     def create_a_version(self):
         self.default_participant.app_version_history.create(
-            app_version_code="1", app_version_name="1.0", os_version="1.0"
+            app_version_code="1", app_version_name="1.0", os_version="1.0", created_on=self.test_start
         )
     
     def test_no_participant_parameter(self):
@@ -884,9 +905,7 @@ class TestParticipantVersionHistory(DataApiTest):
         self.create_a_version()
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
         content = b"".join(resp.streaming_content)
-        self.assertEqual(
-            content, b'[{"app_version_code":"1","app_version_name":"1.0","os_version":"1.0"}]'
-        )
+        self.assertEqual(content, b"[" + self.a_values_string + b"]")
     
     def test_one_participant_one_version_values_list(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -896,7 +915,7 @@ class TestParticipantVersionHistory(DataApiTest):
             200, participant_id=self.default_participant.patient_id, omit_keys="true"
         )
         content = b"".join(resp.streaming_content)
-        self.assertEqual(content, b'[["1","1.0","1.0"]]')
+        self.assertEqual(content, b"[" + self.a_values_list_string + b"]")
     
     def test_ten_versions_values(self):
         self.set_session_study_relation(ResearcherRole.researcher)
@@ -905,9 +924,10 @@ class TestParticipantVersionHistory(DataApiTest):
             self.create_a_version()
         resp = self.smart_post_status_code(200, participant_id=self.default_participant.patient_id)
         content = b"".join(resp.streaming_content)
-        text = b'{"app_version_code":"1","app_version_name":"1.0","os_version":"1.0"}'
+        text = self.a_values_string
+        repeat = b',' + text
         for _ in range(9):
-            text += b',{"app_version_code":"1","app_version_name":"1.0","os_version":"1.0"}'
+            text += repeat
         text = b"[" + text + b"]"
         self.assertEqual(content, text)
     
@@ -920,9 +940,9 @@ class TestParticipantVersionHistory(DataApiTest):
             200, participant_id=self.default_participant.patient_id, omit_keys="true"
         )
         content = b"".join(resp.streaming_content)
-        text = b'["1","1.0","1.0"]'
+        text = self.a_values_list_string
         for _ in range(9):
-            text += b',["1","1.0","1.0"]'
+            text += b"," + self.a_values_list_string
         text = b"[" + text + b"]"
         self.assertEqual(content, text)
 

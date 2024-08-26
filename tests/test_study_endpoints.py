@@ -363,6 +363,17 @@ class TestCreateStudy(ResearcherSessionTest):
         resp = self.smart_post_status_code(302, **params)
         self.assert_present(resp.content, b"you provided contained unsafe characters")
         self.assert_no_new_study
+    
+    def create_study_with_too_much_whitespace_gets_normalized(self):
+        self.set_session_study_relation(ResearcherRole.site_admin)
+        params = self.create_study_params()
+        params["name"] = "name                             hello"
+        resp = self.smart_post_status_code(302, **params)
+        self.assertEqual(resp.url, easy_url("study_endpoints.create_study"))
+        self.assert_not_present(
+            resp.content, b"the study name you provided was too long and was rejected"
+        )
+        self.assertIsNotNone(Study.objects.get(name="name hello"))  # ok this will crash
 
 
 class TestHideStudy(ResearcherSessionTest):

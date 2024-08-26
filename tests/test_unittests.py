@@ -35,7 +35,7 @@ from libs.schedules import (export_weekly_survey_timings, get_next_weekly_event_
     repopulate_absolute_survey_schedule_events, repopulate_all_survey_scheduled_events,
     repopulate_relative_survey_schedule_events, repopulate_weekly_survey_schedule_events)
 from libs.utils.forest_utils import get_forest_git_hash
-from services.celery_push_notifications import failed_send_handler
+from services.celery_push_notifications import failed_send_survey_handler
 from tests.common import CommonTestCase
 
 
@@ -947,7 +947,7 @@ PUSH_NOTIFICATION_INVALID_GRANT = "('invalid_grant: Invalid grant: account not f
 class TestFailedSendHander(CommonTestCase):
     
     def test_weird_html_502_error(self):
-        failed_send_handler(
+        failed_send_survey_handler(
             participant=self.default_participant,
             fcm_token="a",
             error_message=PUSH_NOTIFICATION_OBSCURE_HTML_ERROR_CONTENT,
@@ -958,7 +958,7 @@ class TestFailedSendHander(CommonTestCase):
         self.assertEqual(archive.status, UNEXPECTED_SERVICE_RESPONSE)
     
     def test_error_invalid_length(self):
-        failed_send_handler(
+        failed_send_survey_handler(
             participant=self.default_participant,
             fcm_token="a",
             error_message=PUSH_NOTIFICATION_ERROR_INVALID_LENGTH,
@@ -969,7 +969,7 @@ class TestFailedSendHander(CommonTestCase):
         self.assertEqual(archive.status, UNKNOWN_REMOTE_ERROR)
     
     def test_error_connection_pool(self):
-        failed_send_handler(
+        failed_send_survey_handler(
             participant=self.default_participant,
             fcm_token="a",
             error_message=PUSH_NOTIFICATION_ERROR_CONNECTION_POOL,
@@ -980,7 +980,7 @@ class TestFailedSendHander(CommonTestCase):
         self.assertEqual(archive.status, FAILED_TO_ESTABLISH_CONNECTION)
     
     def test_error_aborted(self):
-        failed_send_handler(
+        failed_send_survey_handler(
             participant=self.default_participant,
             fcm_token="a",
             error_message=PUSH_NOTIFICATION_ERROR_ABORTED,
@@ -991,7 +991,7 @@ class TestFailedSendHander(CommonTestCase):
         self.assertEqual(archive.status, CONNECTION_ABORTED)
     
     def test_invalid_grant(self):
-        failed_send_handler(
+        failed_send_survey_handler(
             participant=self.default_participant,
             fcm_token="a",
             error_message=PUSH_NOTIFICATION_INVALID_GRANT,

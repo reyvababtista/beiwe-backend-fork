@@ -1,4 +1,5 @@
 import logging
+import traceback
 from functools import wraps
 from itertools import chain
 from os.path import join as path_join
@@ -21,6 +22,7 @@ from database.study_models import Study
 from database.user_models_participant import Participant
 from database.user_models_researcher import Researcher, StudyRelation
 from libs.internal_types import ResponseOrRedirect, StrOrBytes
+from libs.shell_support import diff_strings
 from libs.utils.security_utils import generate_easy_alphanumeric_string
 from tests.helpers import DatabaseHelperMixin, render_test_html_file
 from urls import urlpatterns
@@ -153,6 +155,31 @@ class CommonTestCase(TestCase, DatabaseHelperMixin):
                 # from None suppresses the original stack trace.
             else:
                 raise
+    
+    def _assertEqual(self, first, second, msg=None):
+        # we need to be able to bypass our override of assertEqual
+        return super().assertEqual(first, second, msg)
+    
+    def assertEqual(self, first, second, msg=None):
+        """ Overrides and inserts our diff_strings func to make the error easy to parse. """
+        try:
+            return super().assertEqual(first, second, msg)
+        except AssertionError:
+            # do type check first because the stack walking is slow
+            if isinstance(first, (bytes, str)) and isinstance(second, (bytes, str)):
+                # walk stack, look for presence of assertRaises
+                found = False
+                for frame in traceback.extract_stack():
+                    if "assertRaises" in frame.name:
+                        found = True
+                        break
+                
+                # inject our nice diff_strings function
+                if not found:
+                    diff_strings(first, second)
+            
+            # and then raise
+            raise
     
     def assert_researcher_relation(self, researcher: Researcher, study: Study, relationship: str):
         try:

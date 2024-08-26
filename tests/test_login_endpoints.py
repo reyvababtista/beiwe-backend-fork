@@ -549,9 +549,9 @@ class TestResearcherRedirectionLogic(BasicSessionTestCase):
     
     def assert_url_match(self, url: str, resp: HttpResponse):
         try:
-            self.assertEqual(url, resp.url)
+            self._assertEqual(url, resp.url)
         except AssertionError:
-            self.assertEqual("/" + url, resp.url)
+            self._assertEqual("/" + url, resp.url)
     
     def test_page_list_is_correct(self):
         # Now go create an explicit test for that page. These tests exist to ensure we don't have

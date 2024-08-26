@@ -19,7 +19,9 @@ from config.settings import BLOCK_QUOTA_EXCEEDED_ERROR, PUSH_NOTIFICATION_ATTEMP
 from constants import action_log_messages
 from constants.celery_constants import PUSH_NOTIFICATION_SEND_QUEUE
 from constants.common_constants import API_TIME_FORMAT, RUNNING_TESTS
-from constants.message_strings import MESSAGE_SEND_SUCCESS
+from constants.message_strings import (ACCOUNT_NOT_FOUND, CONNECTION_ABORTED,
+    FAILED_TO_ESTABLISH_CONNECTION, MESSAGE_SEND_SUCCESS, UNEXPECTED_SERVICE_RESPONSE,
+    UNKNOWN_REMOTE_ERROR)
 from constants.schedule_constants import ScheduleTypes
 from constants.security_constants import OBJECT_ID_ALLOWED_CHARS
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS, ANDROID_API, IOS_API
@@ -50,14 +52,14 @@ logd = logger.debug
 UTC = gettz("UTC")
 
 #
-## Somewhat common code (regular survey notifications have extra logic)
+## Somewhat common code (regular SURVEY notifications have extra logic)
 #
 
 def send_custom_notification_safely(fcm_token:str, os_type: str, logging_tag: str, message: str) -> bool:
     """ Our wrapper around the firebase send_notification function. Returns True if successful,
     False if unsuccessful, and may raise errors that have been seen over time.  Any errors raised
-    SHOIULD be raised and reported because they are unknown failure modes. This code is taken and
-    modified from the Survey Push Notifcation logic, which has special cases because those
+    SHOULD be raised and reported because they are unknown failure modes. This code is taken and
+    modified from the Survey Push Notification logic, which has special cases because those
     notifications recur on known schedules, this function is more for one-off type of notifications.
     (Though we do log the events outside of the scopes of this function.) """
     # for full documentation of these errors see celery_send_survey_push_notification.
@@ -66,10 +68,9 @@ def send_custom_notification_safely(fcm_token:str, os_type: str, logging_tag: st
         return True
     except UnregisteredError:
         # this is the only "real" error we handle here because we may as well update the fcm
-        # token as invalid as soon as we know.
+        # token as invalid as soon as we know.  DON'T raise the error, this is normal behavior.
         log(f"\n{logging_tag} - UnregisteredError\n")
         ParticipantFCMHistory.objects.filter(token=fcm_token).update(unregistered=timezone.now())
-        # DON'T raise the error, this is normal behavior.
         return False
     
     except ThirdPartyAuthError as e:
@@ -89,7 +90,7 @@ def send_custom_notification_safely(fcm_token:str, os_type: str, logging_tag: st
 
 
 def send_custom_notification_raw(fcm_token: str, os_type: str, message: str):
-    """ our wrapper around the firebase send_notification function. Raises errors. """
+    """ Our wrapper around the firebase send_notification function. """
     # we need a nonce because duplicate notifications won't be delivered.
     data_kwargs = {
         # trunk-ignore(bandit/B311)
@@ -122,82 +123,6 @@ def get_stopped_study_ids() -> List[int]:
                 bad_study_ids.append(study_id)
     
     return bad_study_ids
-
-
-# This feature is both not named well and not enabled or even tested.
-####################################################################################################
-###################################### RESURRECTION ###############################################
-####################################################################################################
-
-# def create_hard_exit_check_tasks() -> List[Tuple[int, str]]:
-#     # the safety check for not having multiple hard exits in the database should be in the endpoint
-#     # the app hits when it does that.
-#     expiry = (timezone.now() + timedelta(minutes=5)).replace(second=30, microsecond=0)
-#     # The big query we would have to make here gets the most recent heartbeat for each participant
-#     # and compares it to the most recent hard exit for each participant. That's very hard, so we are
-#     # pushing it into celery_resurrection_notification even though that may cause database load
-#     # because the the number of concurrent participants with this occurring is very low.
-#     pks = IOSHardExits.objects.filter(handled=None).values_list("participant_id", flat=True)
-#     for participant_id in pks:
-#         safe_apply_async(
-#             celery_resurrection_notification,
-#             args=participant_id,
-#             max_retries=0,
-#             expires=expiry,
-#             task_track_started=True,
-#             task_publish_retry=False,
-#             retry=False,
-#         )
-
-
-# @push_send_celery_app.task(queue=PUSH_NOTIFICATION_SEND_QUEUE)
-# def celery_resurrection_notification(participant_id: int):
-#     if not check_firebase_instance():
-#         loge("Resurrection - Surveys - Firebase credentials are not configured.")
-#         return
-#     with make_error_sentry(sentry_type=SentryTypes.data_processing):
-#         resurrection_notification(participant_id)
-
-#TODO: add ParticipantActionLog
-# def resurrection_notification(participant_id: int):
-#     # check the most recent heartbeat and the most recent hard exit, if the hard exit is newer
-#     # send the notifications. We only need the most recent timestamp
-#     hard_exit_timestamp = (
-#         IOSHardExits.objects.filter(participant_id=participant_id, handled=None)
-#         .order_by("-timestamp")
-#         .values_list("timestamp", flat=True)
-#         .first()
-#     )
-#    
-#     # exit early if there are no hard exits because the participant hit the heartbeat endpoint
-#     # between the original query and now.
-#     if hard_exit_timestamp is None:
-#         return
-#    
-#     # exit early if there is a later heartbeat - this is potentially expensive? the index Should be
-#     # a timestamp ordering index, but it may not be?
-#     there_is_a_later_heartbeat = AppHeartbeats.objects.filter(
-#         participant_id=participant_id, timestamp__gt=hard_exit_timestamp).exists()
-#    
-#     if there_is_a_later_heartbeat:
-#         log(f"Participant {participant_id} already restarted app.")
-#         IOSHardExits.objects.filter(participant_id=participant_id, handled=None).update(handled=timezone.now())
-#         return
-#    
-#     # get the fcm token and send them the notification to reopen the app:
-#     fcm_token = (
-#         ParticipantFCMHistory.objects
-#         .filter(participant_id=participant_id, unregistered=None)
-#         .values_list("token", flat=True)
-#         .first()
-#     )
-#    
-#     # just give up if they don't have a token and mark as handled because otherwise they are
-#     # impossible to get rid of.
-#     if not fcm_token:
-#         IOSHardExits.objects.filter(participant_id=participant_id, handled=None).update(handled=timezone.now())
-#    
-#     send_notification_safely(fcm_token, IOS_API, "Resurrection")
 
 
 ####################################################################################################
@@ -264,7 +189,7 @@ def heartbeat_query() -> List[Tuple[int, str, str, str]]:
             "participant__last_heartbeat_checkin",
         )\
         .order_by("?")  # cover for some slowness by at least not making it predictable... (dumb)
-        # .exclude(participant__id__in=participant_ids_with_recent_heartbeats)
+    # .exclude(participant__id__in=participant_ids_with_recent_heartbeats)
     
     # We used to use the AppHeartbeats table inside a clever query, but when we added customizeable
     # per-study heartbeat timers that query became too complex. Now we filter out participants that
@@ -717,6 +642,19 @@ def failed_send_handler(
 ):
     """ Contains body of code for unregistering a participants push notification behavior.
         Participants get reenabled when they next touch the app checkin endpoint. """
+    
+    # we have encountered some really weird error behavior, we need to normalize the error messages,
+    # see TestFailedSendHander
+    if "DOCTYPE" in error_message:
+        error_message = UNEXPECTED_SERVICE_RESPONSE  # this one is like a 502 proxy error?
+    elif "Unknown error while making a remote service call:" in error_message:
+        error_message = UNKNOWN_REMOTE_ERROR
+    elif "Failed to establish a connection" in error_message:
+        error_message = FAILED_TO_ESTABLISH_CONNECTION
+    elif "Connection aborted." in error_message:
+        error_message = CONNECTION_ABORTED
+    elif "invalid_grant" in error_message:
+        error_message = ACCOUNT_NOT_FOUND
     
     if participant.push_notification_unreachable_count >= PUSH_NOTIFICATION_ATTEMPT_COUNT:
         now = timezone.now()

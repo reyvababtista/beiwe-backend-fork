@@ -53,7 +53,7 @@ UTC = gettz("UTC")
 ## Somewhat common code (regular survey notifications have extra logic)
 #
 
-def send_notification_safely(fcm_token:str, os_type: str, logging_tag: str, message: str) -> bool:
+def send_custom_notification_safely(fcm_token:str, os_type: str, logging_tag: str, message: str) -> bool:
     """ Our wrapper around the firebase send_notification function. Returns True if successful,
     False if unsuccessful, and may raise errors that have been seen over time.  Any errors raised
     SHOIULD be raised and reported because they are unknown failure modes. This code is taken and
@@ -62,7 +62,7 @@ def send_notification_safely(fcm_token:str, os_type: str, logging_tag: str, mess
     (Though we do log the events outside of the scopes of this function.) """
     # for full documentation of these errors see celery_send_survey_push_notification.
     try:
-        _send_notification(fcm_token, os_type, message)
+        send_custom_notification_raw(fcm_token, os_type, message)
         return True
     except UnregisteredError:
         # this is the only "real" error we handle here because we may as well update the fcm
@@ -88,7 +88,7 @@ def send_notification_safely(fcm_token:str, os_type: str, logging_tag: str, mess
         return False
 
 
-def _send_notification(fcm_token: str, os_type: str, message: str):
+def send_custom_notification_raw(fcm_token: str, os_type: str, message: str):
     """ our wrapper around the firebase send_notification function. Raises errors. """
     # we need a nonce because duplicate notifications won't be delivered.
     data_kwargs = {
@@ -337,7 +337,7 @@ def celery_heartbeat_send_push_notification(participant_id: int, fcm_token: str,
             loge("Heartbeat - Firebase credentials are not configured.")
             return
         
-        if send_notification_safely(fcm_token, os_type, "Heartbeat", message):
+        if send_custom_notification_safely(fcm_token, os_type, "Heartbeat", message):
             # update the last heartbeat time using minimal database operations, create log entry.
             Participant.objects.filter(pk=participant_id).update(last_heartbeat_notification=now)
             ParticipantActionLog.objects.create(
@@ -447,6 +447,7 @@ def get_surveys_and_schedules(now: datetime, **filter_kwargs) -> Tuple[DictOfStr
             logd("nope, participant time is considered in the future")
             logd(f"{now} > {participant_time}")
             continue
+        
         logd("yup, participant time is considered in the past")
         logd(f"{now} <= {participant_time}")
         surveys[fcm].append(survey_obj_id)
@@ -458,7 +459,8 @@ def get_surveys_and_schedules(now: datetime, **filter_kwargs) -> Tuple[DictOfStr
 
 def create_survey_push_notification_tasks():
     # we reuse the high level strategy from data processing celery tasks, see that documentation.
-    expiry = (datetime.utcnow() + timedelta(minutes=5)).replace(second=30, microsecond=0)
+    # (this used datetime.utcnow().... I hope nothing breaks?)
+    expiry = (timezone.now().astimezone(UTC) + timedelta(minutes=5)).replace(second=30, microsecond=0)
     now = timezone.now()
     surveys, schedules, patient_ids = get_surveys_and_schedules(now)
     log("Surveys:", surveys)
@@ -511,7 +513,7 @@ def debug_send_valid_survey_push_notification(participant: Participant, now: dat
         return
     
     for fcm_token in surveys.keys():
-        do_send_survey_push_notification(
+        send_survey_push_notification_logic(
             fcm_token, surveys[fcm_token], schedules[fcm_token], null_error_handler
         )
 
@@ -534,7 +536,7 @@ def debug_send_all_survey_push_notification(participant: Participant):
     
     survey_obj_ids = [survey.object_id for survey in surveys]
     print(survey_obj_ids)
-    do_send_survey_push_notification(fcm_token, survey_obj_ids, None, null_error_handler, debug=True)
+    send_survey_push_notification_logic(fcm_token, survey_obj_ids, None, null_error_handler, debug=True)
     
     # and create some fake archived events
     timezone.now()
@@ -544,7 +546,7 @@ def debug_send_all_survey_push_notification(participant: Participant):
             participant=participant,
             schedule_type="DEBUG",
             scheduled_time=None,
-            status="success",
+            status=MESSAGE_SEND_SUCCESS,
             uuid=None,
         ).save()
 
@@ -554,7 +556,7 @@ def celery_send_survey_push_notification(
     fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]
 ):
     """ Passthrough for the survey push notification function, just a wrapper for celery. """
-    do_send_survey_push_notification(
+    send_survey_push_notification_logic(
         fcm_token,
         survey_obj_ids,
         schedule_pks,
@@ -562,7 +564,7 @@ def celery_send_survey_push_notification(
     )
 
 
-def do_send_survey_push_notification(
+def send_survey_push_notification_logic(
     fcm_token: str,
     survey_obj_ids: List[str],
     schedule_pks: List[int],
@@ -587,7 +589,7 @@ def do_send_survey_push_notification(
         # we need to mock the reference_schedule object in debug mode... it is stupid.
         reference_schedule, schedules = get_or_mock_schedule(schedule_pks, debug)
         try:
-            send_survey_push_notification(
+            inner_send_survey_push_notification(
                 participant, reference_schedule, survey_obj_ids, fcm_token
             )
         # error types are documented at firebase.google.com/docs/reference/fcm/rest/v1/ErrorCode
@@ -660,7 +662,7 @@ def get_or_mock_schedule(schedule_pks: List[str], debug: bool) -> Tuple[Schedule
         return mock_reference_schedule, []
 
 
-def send_survey_push_notification(
+def inner_send_survey_push_notification(
     participant: Participant, reference_schedule: ScheduledEvent, survey_obj_ids: List[str],
     fcm_token: str
 ) -> str:

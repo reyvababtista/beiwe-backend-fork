@@ -1,6 +1,7 @@
 # trunk-ignore-all(ruff/B018)
 # trunk-ignore-all(ruff/E701)
 # trunk-ignore-all(bandit/B101)
+
 import time
 import unittest
 from datetime import date, datetime, timedelta
@@ -15,7 +16,7 @@ from django.utils import timezone
 
 from constants.schedule_constants import EMPTY_WEEKLY_SURVEY_TIMINGS
 from constants.testing_constants import (EDT_WEEK, EST_WEEK, MIDNIGHT_EVERY_DAY_OF_WEEK,
-    NOON_EVERY_DAY_OF_WEEK, THURS_OCT_6_NOON_2022_NY)
+    MONDAY_JUNE_NOON_6_2022_EDT, NOON_EVERY_DAY_OF_WEEK, THURS_OCT_6_NOON_2022_NY)
 from constants.user_constants import ACTIVE_PARTICIPANT_FIELDS
 from database.data_access_models import IOSDecryptionKey
 from database.profiling_models import EncryptionErrorMetadata, LineEncryptionError, UploadTracking
@@ -315,7 +316,7 @@ class TestParticipantDataDeletion(CommonTestCase):
         self.assert_confirm_deletion_raises_then_reset_last_updated
         run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)  # errors means test failure
-        
+    
     @data_purge_mock_s3_calls
     def test_confirm_SummaryStatisticDaily(self):
         self.default_summary_statistic_daily
@@ -423,7 +424,7 @@ class TestParticipantDataDeletion(CommonTestCase):
         self.assert_confirm_deletion_raises_then_reset_last_updated
         run_next_queued_participant_data_deletion()
         confirm_deleted(self.default_participant_deletion_event)
-        
+    
     @data_purge_mock_s3_calls
     def test_confirm_ParticipantActionLog(self):
         # this test is weird, we create an action log inside the deletion event.
@@ -496,6 +497,7 @@ class TestParticipantTimeZone(CommonTestCase):
         self.assertEqual(p.timezone_name, "America/New_York")
         self.assertIs(p.timezone, THE_ONE_TRUE_TIMEZONE)
         self.assertEqual(p.unknown_timezone, True)  # A
+        self.default_study.update(timezone_name="UTC")
         p.try_set_timezone("a bad string")
         # behavior should be to grab the study's timezone name, which for tests was unexpectedly UTC...
         self.assertEqual(p.timezone_name, "UTC")
@@ -508,8 +510,8 @@ class TestParticipantTimeZone(CommonTestCase):
         self.assertEqual(p.timezone_name, "America/New_York")
         self.assertIs(p.timezone, THE_ONE_TRUE_TIMEZONE)
         self.assertEqual(p.unknown_timezone, False)  # A
+        self.default_study.update(timezone_name="UTC")
         p.try_set_timezone("a bad string")
-        # behavior should be to grab the study's timezone name, which for tests was unexpectedly UTC...
         self.assertEqual(p.timezone_name, "UTC")
         self.assertIs(p.timezone, THE_OTHER_ACCEPTABLE_TIMEZONE)
         self.assertEqual(p.unknown_timezone, True)  # B
@@ -621,7 +623,7 @@ class TestForestHash(unittest.TestCase):
 
 
 
-class TestSchedules(CommonTestCase):    
+class TestSchedules(CommonTestCase):
     # originally started as copy of TestGetLatestSurveys in test_mobile_endpoints.py
     
     @staticmethod
@@ -636,7 +638,7 @@ class TestSchedules(CommonTestCase):
         
         # assert that these are sequential days starting on a monday testing each day of the week
         for i in range(0, 7):
-            assert week[i].date() == week[0].date() + timedelta(days=i) 
+            assert week[i].date() == week[0].date() + timedelta(days=i)
             assert week[0].weekday() == 0
     
     def test_weeks_are_in_correct_timezones(self):
@@ -644,7 +646,7 @@ class TestSchedules(CommonTestCase):
         eastern = tz.gettz("America/New_York")
         self.assert_is_a_week_in_correct_timezone_period(EST_WEEK, eastern, "EST")
         self.assert_is_a_week_in_correct_timezone_period(EDT_WEEK, eastern, "EDT")
-        
+    
     
     #
     ## helper functions
@@ -685,7 +687,7 @@ class TestSchedules(CommonTestCase):
         self.assertEqual(ScheduledEvent.objects.filter(relative_schedule__isnull=False).count(), 1)
         self.assertEqual(ScheduledEvent.objects.filter(absolute_schedule__isnull=False).count(), 1)
     
-    @property   
+    @property
     def assert_no_scheduled_events(self):
         def info():
             weekly_schedule = ScheduledEvent.objects.filter(weekly_schedule__isnull=False).count()
@@ -771,7 +773,7 @@ class TestSchedules(CommonTestCase):
         repopulate_weekly_survey_schedule_events(self.default_survey)
         self.assertEqual(WeeklySchedule.objects.count(), 1)
         self.assertEqual(ArchivedEvent.objects.count(), 0)
-     
+    
     def test_all_schedules_basic_event_generation(self):
         self.assertEqual(Survey.objects.count(), 0)
         repopulate_all_survey_scheduled_events(self.default_study, self.default_participant)
@@ -805,7 +807,7 @@ class TestSchedules(CommonTestCase):
     
     #
     ## test conditions where ScheduledEvents should not be created
-    # 
+    #
     
     def test_deleted_survey(self):
         self.default_survey.update(deleted=True)
@@ -862,8 +864,43 @@ class TestSchedules(CommonTestCase):
         self.assert_no_scheduled_events
     
     #
-    ## test time conditions
+    ## The above are checks for the repopulate_all* functions, now we need to test some more
+    ## complex behavior that connect to push notifications and when to send them.
     #
     
-    # def test_absolute_schedule_midnight_ETD(self):
+    def test_good_archive_event_with_absolute_schedule_helper_is_reasonable(self):
+        d = MONDAY_JUNE_NOON_6_2022_EDT
+        abs_sched = self.generate_absolute_schedule_from_datetime(self.default_survey, d)
+        abs_archive = self.generate_archived_event_for_absolute_schedule(abs_sched)
+        # some real simple asserts that the archived event points at the correct items
+        self.assertEqual(abs_archive.survey_archive.survey.id, self.default_survey.id)
+        self.assertEqual(abs_archive.scheduled_time, MONDAY_JUNE_NOON_6_2022_EDT)
+        self.assertIsNone(abs_archive.uuid)
+    
+    def test_good_archive_event_with_relative_schedule_helper_is_reasonable(self):
+        rel_sched = self.generate_relative_schedule(
+            self.default_survey, self.default_intervention, days_after=1, hours_after=1, minutes_after=1
+        )
+        # self.default_populated_intervention_date is defined as the current date
+        # we are literally manually constructing a datetime here
+        d = self.default_populated_intervention_date.date
+        reference_time = datetime(
+            year=d.year,
+            month=d.month,
+            day=d.day + 1,
+            hour=1,
+            minute=1,
+            tzinfo=THE_ONE_TRUE_TIMEZONE
+        )
+        # reference_time = datetime.combine(
+        #     self.default_populated_intervention_date.date,
+        #     dt_time(hour=1, minute=1),
+        #     tzinfo=THE_ONE_TRUE_TIMEZONE,
+        # ) + timedelta(days=1)
         
+        rel_archive = self.generate_archived_event_for_relative_schedule(
+            rel_sched, self.default_participant
+        )
+        self.assertEqual(rel_archive.scheduled_time, reference_time)
+        self.assertEqual(rel_archive.survey_archive.survey.id, self.default_survey.id)
+        self.assertIsNone(rel_archive.uuid)

@@ -63,6 +63,17 @@ class LineEncryptionError(TimestampedModel):
     participant: Participant = models.ForeignKey(Participant, null=True, on_delete=models.PROTECT)
 
 
+
+# WARNING: this table is huge. Several-to-many multiples of ChunkRegistry, though it is not as
+# complex and rows are individually less bulky. Never pull this table into memory, always use
+# .iterator() in combination with .values() or .values_list() and test your query on your largest
+# server to benchmark it.  This table is not indexed, it is for record keeping and debugging
+# purposes, and it can be used to repopulate FilesToProcess with items to reprocess a participants
+# data when something goes wrong.
+# Participant.upload_trackers is probably the only safe way to access this, a participant probably
+# will never upload a million files and shouldn't MemoryError your server to oblivion.
+
+
 class UploadTracking(UtilityModel):
     file_path = models.CharField(max_length=256)
     file_size = models.PositiveIntegerField()
@@ -226,6 +237,9 @@ class UploadTracking(UtilityModel):
     
     @classmethod
     def weekly_stats(cls, days=7, get_usernames=False):
+        """ This gets a rough statement of data uploads and number of participants uploading data in
+        the time range given. This is slow, only to be run in a shell manually. Do not attach this
+        to an endpoint. """
         ALL_FILETYPES = UPLOAD_FILE_TYPE_MAPPING.values()
         if get_usernames:
             data = {filetype: {"megabytes": 0., "count": 0, "users": set()} for filetype in ALL_FILETYPES}

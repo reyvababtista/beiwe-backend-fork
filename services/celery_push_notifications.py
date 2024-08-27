@@ -456,6 +456,7 @@ def inner_send_survey_push_notification(
     # we include a nonce in case of notification deduplication, and a schedule_uuid to for the
     #  checkin after the push notification is sent.
     data_kwargs = {
+        # trunk-ignore(bandit/B311): this is a nonce, not a password.
         'nonce': ''.join(random.choice(OBJECT_ID_ALLOWED_CHARS) for _ in range(32)),
         'sent_time': reference_schedule.scheduled_time.strftime(API_TIME_FORMAT),
         'type': 'survey',
@@ -505,7 +506,7 @@ def failed_send_survey_handler(
         Participants get reenabled when they next touch the app checkin endpoint. """
     
     # we have encountered some really weird error behavior, we need to normalize the error messages,
-    # see TestFailedSendHander
+    # see TestFailedSendHandler
     if "DOCTYPE" in error_message:
         error_message = UNEXPECTED_SERVICE_RESPONSE  # this one is like a 502 proxy error?
     elif "Unknown error while making a remote service call:" in error_message:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import base64
-from typing import Tuple, Union
+from typing import Union
 
 from django.contrib.sessions.backends.db import SessionStore as DBStore
 from django.contrib.sessions.base_session import AbstractBaseSession
@@ -17,10 +17,10 @@ from constants.user_constants import ResearcherRole, SESSION_NAME
 from database.models import TimestampedModel
 from database.study_models import Study
 from database.user_models_common import AbstractPasswordUser
-from database.validators import B32_VALIDATOR, PASSWORD_VALIDATOR, STANDARD_BASE_64_VALIDATOR
+from database.validators import B32_VALIDATOR
 from libs.utils.security_utils import (BadDjangoKeyFormatting, compare_password,
-    django_password_components, generate_random_bytestring, generate_random_string,
-    get_current_mfa_code, to_django_password_components)
+    django_password_components, generate_random_bytestring, get_current_mfa_code,
+    to_django_password_components)
 
 
 # This is an import hack to improve IDE assistance.

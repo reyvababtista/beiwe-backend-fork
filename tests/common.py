@@ -176,6 +176,10 @@ class CommonTestCase(TestCase, DatabaseHelperMixin):
                 
                 # inject our nice diff_strings function
                 if not found:
+                    print("first:", first)
+                    print()
+                    print("second:", second)
+                    print()
                     diff_strings(first, second)
             
             # and then raise

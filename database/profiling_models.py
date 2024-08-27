@@ -14,13 +14,6 @@ from database.models import JSONTextField, TimestampedModel
 from database.user_models_participant import Participant
 
 
-# this is an import hack to improve IDE assistance
-try:
-    from database.user_models_researcher import Researcher
-except ImportError:
-    pass
-
-
 class EncryptionErrorMetadata(TimestampedModel):
     file_name = models.CharField(max_length=256)
     total_lines = models.PositiveIntegerField()
@@ -192,6 +185,7 @@ class UploadTracking(UtilityModel):
         """ Re-adds the most recent [limit] files that have been uploaded recently to FiletToProcess.
             (this is fairly optimized because it is part of debugging file processing) """
         from database.data_access_models import FileToProcess
+
         # ordering by file path happens to be A) deterministic and B) sequential time order C)
         # results in ideal back-fill
         query = participant.upload_trackers.values_list("file_path", flat=True).order_by("file_path").distinct()
@@ -283,16 +277,3 @@ class UploadTracking(UtilityModel):
             del data["totals"]["users"]
         
         return data
-
-
-class DataAccessRecord(TimestampedModel):
-    researcher: Researcher = models.ForeignKey(
-        "Researcher", on_delete=models.SET_NULL, related_name="data_access_record", null=True
-    )
-    # model must have a username for when a researcher is deleted
-    username = models.CharField(max_length=32, null=False)
-    query_params = models.TextField(null=False, blank=False)
-    error = models.TextField(null=True, blank=True)
-    registry_dict_size = models.PositiveBigIntegerField(null=True, blank=True)
-    time_end: datetime = models.DateTimeField(null=True, blank=True)
-    bytes = models.PositiveBigIntegerField(null=True, blank=True)

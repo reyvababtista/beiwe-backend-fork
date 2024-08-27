@@ -944,7 +944,7 @@ PUSH_NOTIFICATION_ERROR_ABORTED = "('Connection aborted.', RemoteDisconnected('R
 PUSH_NOTIFICATION_INVALID_GRANT = "('invalid_grant: Invalid grant: account not found', {'error': 'invalid_grant', 'error_description': 'Invalid grant: account not found'})"
 
 
-class TestFailedSendHander(CommonTestCase):
+class TestFailedSendHandler(CommonTestCase):
     
     def test_weird_html_502_error(self):
         failed_send_survey_handler(

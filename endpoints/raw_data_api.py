@@ -15,7 +15,7 @@ from constants.common_constants import API_TIME_FORMAT
 from constants.data_stream_constants import ALL_DATA_STREAMS
 from constants.raw_data_constants import CHUNK_FIELDS
 from database.data_access_models import ChunkRegistry
-from database.profiling_models import DataAccessRecord
+from database.system_models import DataAccessRecord
 from database.user_models_participant import Participant
 from libs.internal_types import ApiStudyResearcherRequest
 from libs.streaming_zip import ZipGenerator

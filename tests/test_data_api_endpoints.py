@@ -18,7 +18,7 @@ from database.profiling_models import UploadTracking
 from database.security_models import ApiKey
 from database.study_models import Study
 from database.survey_models import Survey, SurveyArchive
-from database.user_models_participant import AppHeartbeats
+from database.user_models_participant import AppHeartbeats, AppVersionHistory
 from database.user_models_researcher import StudyRelation
 from tests.common import DataApiTest, SmartRequestsTestCase, TableauAPITest
 from tests.helpers import compare_dictionaries, ParticipantTableHelperMixin
@@ -860,10 +860,12 @@ class TestParticipantVersionHistory(DataApiTest):
     def a_values_list_string(self) -> bytes:
         return f'["1","1.0","1.0",{self.format_the_test_start_correctly}]'.encode()
     
-    def create_a_version(self):
-        self.default_participant.app_version_history.create(
-            app_version_code="1", app_version_name="1.0", os_version="1.0", created_on=self.test_start
+    def create_a_version(self) -> AppVersionHistory:
+        history = self.default_participant.app_version_history.create(
+            app_version_code="1", app_version_name="1.0", os_version="1.0"
         )
+        history.update_only(created_on=self.test_start)  # annoyingly this can't be specified above
+        return history
     
     def test_no_participant_parameter(self):
         # it should 400

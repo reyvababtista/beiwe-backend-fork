@@ -357,7 +357,7 @@ def celery_send_survey_push_notification(
     fcm_token: str, survey_obj_ids: List[str], schedule_pks: List[int]
 ):
     """ Passthrough for the survey push notification function, just a wrapper for celery. """
-    send_survey_push_notification_logic(
+    send_scheduled_event_survey_push_notification_logic(
         fcm_token,
         survey_obj_ids,
         schedule_pks,
@@ -365,7 +365,7 @@ def celery_send_survey_push_notification(
     )
 
 
-def send_survey_push_notification_logic(
+def send_scheduled_event_survey_push_notification_logic(
     fcm_token: str,
     survey_obj_ids: List[str],
     schedule_pks: List[int],
@@ -388,7 +388,7 @@ def send_survey_push_notification_logic(
         log(f"Sending push notification to {patient_id} for {survey_obj_ids}...")
         
         # we need to mock the reference_schedule object in debug mode... it is stupid.
-        reference_schedule, schedules = get_or_mock_schedules(schedule_pks, debug)
+        reference_schedule, scheduled_events = get_or_mock_schedules(schedule_pks, debug)
         try:
             inner_send_survey_push_notification(
                 participant, reference_schedule, survey_obj_ids, fcm_token
@@ -406,14 +406,14 @@ def send_survey_push_notification_logic(
             # sysadmin attention and probably new development to allow multiple firebase
             # credentials. Read comments in settings.py if toggling.
             if BLOCK_QUOTA_EXCEEDED_ERROR:
-                failed_send_survey_handler(participant, fcm_token, str(e), schedules, debug)
+                failed_send_survey_handler(participant, fcm_token, str(e), scheduled_events, debug)
                 return
             else:
                 raise
         
         except ThirdPartyAuthError as e:
             loge("\nThirdPartyAuthError\n")
-            failed_send_survey_handler(participant, fcm_token, str(e), schedules, debug)
+            failed_send_survey_handler(participant, fcm_token, str(e), scheduled_events, debug)
             # This means the credentials used were wrong for the target app instance.  This can occur
             # both with bad server credentials, and with bad device credentials.
             # We have only seen this error statement, error name is generic so there may be others.
@@ -427,7 +427,7 @@ def send_survey_push_notification_logic(
             # executes.)
             loge("\nSenderIdMismatchError:\n")
             loge(e)
-            failed_send_survey_handler(participant, fcm_token, str(e), schedules, debug)
+            failed_send_survey_handler(participant, fcm_token, str(e), scheduled_events, debug)
             return
         
         except ValueError as e:
@@ -436,16 +436,16 @@ def send_survey_push_notification_logic(
             # condition? Error should be transient, and like all other cases we enqueue the next
             # weekly surveys regardless.
             if "The default Firebase app does not exist" in str(e):
-                enqueue_weekly_surveys(participant, schedules)
+                enqueue_weekly_surveys(participant, scheduled_events)
                 return
             else:
                 raise
         
         except Exception as e:
-            failed_send_survey_handler(participant, fcm_token, str(e), schedules, debug)
+            failed_send_survey_handler(participant, fcm_token, str(e), scheduled_events, debug)
             raise
         
-        success_send_survey_handler(participant, fcm_token, schedules)
+        success_send_survey_handler(participant, fcm_token, scheduled_events)
 
 
 def inner_send_survey_push_notification(

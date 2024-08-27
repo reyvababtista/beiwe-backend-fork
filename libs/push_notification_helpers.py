@@ -113,13 +113,14 @@ def get_stopped_study_ids() -> List[int]:
 ## Some Debugging code for use in a terminal
 #
 
+# TODO: update these with new non-scheduled-event paradigm
 
 def debug_send_valid_survey_push_notification(participant: Participant, now: datetime = None):
     """ Runs the REAL LOGIC for sending push notifications based on the time passed in, but without
     the ErrorSentry. """
     
     from services.celery_push_notifications import (check_firebase_instance,
-        get_surveys_and_schedules, send_survey_push_notification_logic)
+        get_surveys_and_schedules, send_scheduled_event_survey_push_notification_logic)
     
     if not now:
         now = timezone.now()
@@ -144,7 +145,7 @@ def debug_send_valid_survey_push_notification(participant: Participant, now: dat
         return
     
     for fcm_token in surveys.keys():
-        send_survey_push_notification_logic(
+        send_scheduled_event_survey_push_notification_logic(
             fcm_token, surveys[fcm_token], schedules[fcm_token], null_error_handler
         )
 
@@ -152,7 +153,7 @@ def debug_send_valid_survey_push_notification(participant: Participant, now: dat
 def debug_send_all_survey_push_notification(participant: Participant):
     """ Debugging function that sends a survey notification for all surveys on a study. """
     
-    from services.celery_push_notifications import send_survey_push_notification_logic
+    from services.celery_push_notifications import send_scheduled_event_survey_push_notification_logic
     
     fcm_token = participant.get_valid_fcm_token().token
     if not fcm_token:
@@ -170,7 +171,7 @@ def debug_send_all_survey_push_notification(participant: Participant):
     
     survey_obj_ids = [survey.object_id for survey in surveys]
     print(survey_obj_ids)
-    send_survey_push_notification_logic(fcm_token, survey_obj_ids, None, null_error_handler, debug=True)
+    send_scheduled_event_survey_push_notification_logic(fcm_token, survey_obj_ids, None, null_error_handler, debug=True)
     
     # and create some fake archived events
     timezone.now()

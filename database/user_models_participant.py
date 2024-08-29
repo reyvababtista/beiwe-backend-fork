@@ -255,43 +255,6 @@ class Participant(AbstractPasswordUser):
     ################################################################################################
     ################################## PARTICIPANT STATE ###########################################
     ################################################################################################
-    # FIXME: make this a cached value
-    
-    @property
-    def last_app_heartbeat(self) -> Optional[datetime]:
-        """ Returns the last time the app sent a heartbeat. 
-        `self.heartbeats.latest("timestamp")` emits the following SQL:
-            SELECT "database_appheartbeats"."id",
-            "database_appheartbeats"."participant_id",
-            "database_appheartbeats"."timestamp",
-            "database_appheartbeats"."message"
-            FROM "database_appheartbeats"
-            WHERE "database_appheartbeats"."participant_id" = 8051
-            ORDER BY "database_appheartbeats"."timestamp" DESC
-            LIMIT 1
-        This is slow because it is... slow.
-        
-        `self.heartbeats.aggregate(min=Min("timestamp"))` emits
-            SELECT MIN("database_appheartbeats"."timestamp") AS "min"
-            FROM "database_appheartbeats"
-            WHERE "database_appheartbeats"."participant_id" = 8051
-        is like 10x faster but still too slow, the where clause is probably not using the index?
-        
-        Current implementation:
-        `.values_list("heartbeats__timestamp").aggregate(min=Min("heartbeats__timestamp"))` emits
-            SELECT MIN("database_appheartbeats"."timestamp") AS "min"
-            FROM "database_participant"
-            LEFT OUTER JOIN "database_appheartbeats"
-              ON ("database_participant"."id" = "database_appheartbeats"."participant_id")
-            WHERE "database_participant"."id" = 8051
-        
-        This can take 10ms, it seems to get cached.
-        """
-        return (
-            Participant.objects.filter(id=self.id)
-            .values_list("heartbeats__timestamp")
-            .aggregate(min=Min("heartbeats__timestamp"))['min']
-        )
     
     @property
     def is_active_one_week(self) -> bool:
@@ -551,7 +514,7 @@ class ParticipantDeletionEvent(TimestampedModel):
 class AppHeartbeats(UtilityModel):
     """ Storing heartbeats is intended as a debugging tool for monitoring app uptime, the idea is 
     that the app checks in every 5 minutes so we can see when it doesn't. (And then send it a push
-    notification)  """
+    notification) """
     participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="heartbeats")
     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
     # TODO: message is not intended to be surfaced to anyone other than developers, at time of comment
@@ -560,6 +523,7 @@ class AppHeartbeats(UtilityModel):
     
     @classmethod
     def create(cls, participant: Participant, timestamp: datetime, message: str = None):
+        participant.update_only(last_heartbeat_checkin=timestamp)
         return cls.objects.create(participant=participant, timestamp=timestamp, message=message)
 
 

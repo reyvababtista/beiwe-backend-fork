@@ -306,8 +306,8 @@ def mobile_heartbeat(request: ParticipantRequest, OS_API=""):
     This endpoint is hit every 5 minutes by the app, at time of writing it is ios-only.  """
     # a field on the participant model is WAY easier to deal with when querying data for push notifications
     now = timezone.now()
-    request.session_participant.update_only(last_heartbeat_checkin=now)
     # AppHeartbeats is the historical record of app checkins.
+    # .create updates the field on the participant.
     AppHeartbeats.create(participant=request.session_participant, timestamp=now,
                          message = request.POST.get("message", None))
     return HttpResponse(status=200)

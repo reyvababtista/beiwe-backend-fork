@@ -1,6 +1,6 @@
 import functools
 from datetime import datetime, tzinfo
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, List, Optional, Union
 
 from dateutil import tz
 from django.http.request import HttpRequest
@@ -39,7 +39,7 @@ def nice_iso_time_format(dt: datetime, timezone: Union[tzinfo, str]) -> str:
     return final_dt.strftime('%A %Y-%m-%d, %-I:%M %p')
 
 
-def really_nice_time_format_with_tz(dt: datetime, timezone: Union[tzinfo, str]) -> str:
+def really_nice_time_format_with_tz(dt: Optional[datetime], timezone: Union[tzinfo, str]) -> str:
     """ output looks like Tuesday Aug 25, 2020, 4:31 PM (EST) """
     if dt is None:
         return ""

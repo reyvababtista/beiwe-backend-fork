@@ -53,7 +53,6 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
     )
     
     conditionally_display_locked_message(request, participant)
-    last_app_heartbeat = participant.last_app_heartbeat
     study_interventions_exists = study.interventions.exists()
     study_fields_exists = study.fields.exists()
     relation = request.session_researcher.get_study_relation(study.id)
@@ -76,7 +75,6 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
             locked=participant.is_dead,
             can_delete=can_delete,
             study_timezone=participant.study.timezone,
-            participant_last_app_heartbeat=last_app_heartbeat,
             study_interventions_exists=study_interventions_exists,
             study_fields_exists=study_fields_exists,
         )

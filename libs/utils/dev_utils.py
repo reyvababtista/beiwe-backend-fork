@@ -286,9 +286,9 @@ timers = defaultdict(timer_class)
 def pwrap(a_function):
     @functools.wraps(a_function)
     def wrapper(*args, **kwargs):
-        p(a_function.__name__, quiet=True)
+        p(a_function.__name__, quiet=True, name="Start " + a_function.__name__)
         ret = a_function(*args, **kwargs)
-        p(a_function.__name__)
+        p(a_function.__name__, name="Finished " + a_function.__name__)
         return ret
     
     return wrapper

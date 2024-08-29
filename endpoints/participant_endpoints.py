@@ -18,7 +18,8 @@ from firebase_admin.messaging import (AndroidConfig, Message, Notification,
 
 from authentication.admin_authentication import authenticate_researcher_study_access
 from config.settings import ENABLE_EXPERIMENTS
-from constants.common_constants import API_DATE_FORMAT, API_TIME_FORMAT, RUNNING_TEST_OR_FROM_A_SHELL
+from constants.common_constants import (API_DATE_FORMAT, API_TIME_FORMAT,
+    RUNNING_TEST_OR_FROM_A_SHELL)
 from constants.message_strings import (BAD_DEVICE_OS, BAD_PARTICIPANT_OS,
     DEVICE_HAS_NO_REGISTERED_TOKEN, MESSAGE_SEND_FAILED_PREFIX, MESSAGE_SEND_FAILED_UNKNOWN,
     MESSAGE_SEND_SUCCESS, NO_DELETION_PERMISSION, NOT_IN_STUDY, PARTICIPANT_RETIRED_SUCCESS,

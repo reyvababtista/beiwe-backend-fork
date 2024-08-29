@@ -13,7 +13,7 @@ from dateutil.tz import gettz
 from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import MinLengthValidator
 from django.db import models
-from django.db.models import Manager, QuerySet
+from django.db.models import Manager, Min, QuerySet
 from django.utils import timezone
 
 from config.settings import DOMAIN_NAME
@@ -257,21 +257,12 @@ class Participant(AbstractPasswordUser):
     ################################################################################################
     
     @property
-    def last_app_heartbeat(self) -> Optional[datetime]:
-        """ Returns the last time the app sent a heartbeat. """
-        try:
-            return self.heartbeats.latest("timestamp").timestamp
-        except AppHeartbeats.DoesNotExist:
-            return None
-    
-    @property
     def is_active_one_week(self) -> bool:
         return Participant._is_active(self, timezone.now() - timedelta(days=7))
     
-    
     @staticmethod
     def _is_active(participant: Participant, activity_threshold: datetime) -> bool:
-        """ Logic to determine if a participnat counts as active. """
+        """ Logic to determine if a participant counts as active. """
         # get the most recent timestamp from the list of fields, and check if it is more recent than
         # now the participant is considered active.
         
@@ -523,7 +514,7 @@ class ParticipantDeletionEvent(TimestampedModel):
 class AppHeartbeats(UtilityModel):
     """ Storing heartbeats is intended as a debugging tool for monitoring app uptime, the idea is 
     that the app checks in every 5 minutes so we can see when it doesn't. (And then send it a push
-    notification)  """
+    notification) """
     participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="heartbeats")
     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
     # TODO: message is not intended to be surfaced to anyone other than developers, at time of comment
@@ -532,6 +523,7 @@ class AppHeartbeats(UtilityModel):
     
     @classmethod
     def create(cls, participant: Participant, timestamp: datetime, message: str = None):
+        participant.update_only(last_heartbeat_checkin=timestamp)
         return cls.objects.create(participant=participant, timestamp=timestamp, message=message)
 
 
@@ -545,14 +537,6 @@ class ParticipantActionLog(UtilityModel):
     @classmethod
     def heartbeat_notifications(cls) -> QuerySet[ParticipantActionLog]:
         return cls.objects.filter(action=HEARTBEAT_PUSH_NOTIFICATION_SENT)
-
-
-# feature disabled, untested
-# class IOSHardExits(UtilityModel):
-#     participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="ios_hard_exits")
-#     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
-#     # handled means there was a notification sent to the user, or we got a heartbeat.
-#     handled = models.DateTimeField(null=False, blank=False, db_index=True)
 
 
 class AppVersionHistory(TimestampedModel):

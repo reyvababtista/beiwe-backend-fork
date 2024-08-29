@@ -34,7 +34,7 @@
   <div class="col-md-6 col-sm-12 well">
     <h3 class="text-center"> <b>Activity Information </b></h3>
     <table class="table table-hover">
-
+      
       <!-- Phone OS info -->
       <tr>
         <td><b>Phone operating system:</b></td>
@@ -64,34 +64,34 @@
       </tr>
       <tr>
         <td><b>Registration</b></td>
-        <td>{{ really_nice_time_format_with_tz(participant.last_register_user, participant.study.timezone) }}</td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_register_user, study_timezone) }}</td>
       </tr>
       <tr>
         <td><b>Last Heartbeat</b></td>
-        <td>{{ really_nice_time_format_with_tz(participant.last_app_heartbeat, participant.study.timezone) }}</td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_heartbeat_checkin, study_timezone) }}</td>
       </tr>
       <tr>
         <td><b>Last check-in for updated surveys</b></td>
-        <td>{{ really_nice_time_format_with_tz(participant.last_get_latest_surveys, participant.study.timezone) }}</td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_get_latest_surveys, study_timezone) }}</td>
       </tr>
       <tr>
         <td><b>Last file upload event</b></td>
-        <td>{{ really_nice_time_format_with_tz(participant.last_upload, participant.study.timezone) }}</td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_upload, study_timezone) }}</td>
       </tr>
   {% comment %}
   {# This is just going to confuse people until we change the way passwords work. #}
       <tr>
         <td><b>Last participant password reset</b></td>
-        <td>{{ really_nice_time_format_with_tz(participant.last_set_password, participant.study.timezone) }}</td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_set_password, study_timezone) }}</td>
       </tr>
   {% endcomment %}
       <tr>
         <td><b>Last notification credential update</b></td>
-        <td>{{ really_nice_time_format_with_tz(participant.last_set_fcm_token, participant.study.timezone) }}</td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_set_fcm_token, study_timezone) }}</td>
       </tr>
       <tr>
         <td><b>Last device settings update</b></td>
-        <td>{{ really_nice_time_format_with_tz(participant.last_get_latest_device_settings, participant.study.timezone) }}</td>
+        <td>{{ really_nice_time_format_with_tz(participant.last_get_latest_device_settings, study_timezone) }}</td>
       </tr>
     </table>
   </div>
@@ -135,7 +135,7 @@
           <td>{{ latest_notification_attempt.status }}</td>
         </tr>
       </table>
-
+      
       <form action="{{ easy_url("participant_endpoints.resend_push_notification", study_id=study.id, patient_id=participant.patient_id) }}" method="post">
       {% if participant.participant_push_enabled %} 
         <input type="hidden" name="survey_id" value="{{ latest_notification_attempt.survey_id }}">
@@ -295,7 +295,7 @@
     </div>
   {% endif %}
 
-  {% if study.interventions.exists() %}
+  {% if study_interventions_exists %}
     <div class="col-md-6 col-sm-12 well">
       <form action="/view_study/{{ study.id }}/participant/{{ participant.patient_id }}" class="form-horizontal" method="POST">
       {% if push_notifications_enabled_for_ios or push_notifications_enabled_for_android %}
@@ -318,7 +318,7 @@
     </div>
   {% endif %}
     
-  {% if study.fields.exists() %}
+  {% if study_fields_exists %}
     <div class="col-md-6 col-sm-12 well">
       <h3>Custom Fields</h3>
     
@@ -335,11 +335,12 @@
   {% endif %}
 
   {% if not readonly %}
-    {% if study.interventions.exists() or study.fields.exists() %}
+    {% if study_interventions_exists or study_fields_exists %}
       <button class="btn btn-primary btn-block" type="submit"
         {% if locked %} disabled {% endif %}>Save Changes</button>
     {% endif %}
   {% endif %}
   </form>
-{% endblock %}
 </div>
+
+{% endblock %}

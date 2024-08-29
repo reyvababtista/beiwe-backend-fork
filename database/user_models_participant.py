@@ -13,7 +13,7 @@ from dateutil.tz import gettz
 from django.core.exceptions import ImproperlyConfigured
 from django.core.validators import MinLengthValidator
 from django.db import models
-from django.db.models import Manager, QuerySet
+from django.db.models import Manager, Min, QuerySet
 from django.utils import timezone
 
 from config.settings import DOMAIN_NAME
@@ -255,23 +255,51 @@ class Participant(AbstractPasswordUser):
     ################################################################################################
     ################################## PARTICIPANT STATE ###########################################
     ################################################################################################
+    # FIXME: make this a cached value
     
     @property
     def last_app_heartbeat(self) -> Optional[datetime]:
-        """ Returns the last time the app sent a heartbeat. """
-        try:
-            return self.heartbeats.latest("timestamp").timestamp
-        except AppHeartbeats.DoesNotExist:
-            return None
+        """ Returns the last time the app sent a heartbeat. 
+        `self.heartbeats.latest("timestamp")` emits the following SQL:
+            SELECT "database_appheartbeats"."id",
+            "database_appheartbeats"."participant_id",
+            "database_appheartbeats"."timestamp",
+            "database_appheartbeats"."message"
+            FROM "database_appheartbeats"
+            WHERE "database_appheartbeats"."participant_id" = 8051
+            ORDER BY "database_appheartbeats"."timestamp" DESC
+            LIMIT 1
+        This is slow because it is... slow.
+        
+        `self.heartbeats.aggregate(min=Min("timestamp"))` emits
+            SELECT MIN("database_appheartbeats"."timestamp") AS "min"
+            FROM "database_appheartbeats"
+            WHERE "database_appheartbeats"."participant_id" = 8051
+        is like 10x faster but still too slow, the where clause is probably not using the index?
+        
+        Current implementation:
+        `.values_list("heartbeats__timestamp").aggregate(min=Min("heartbeats__timestamp"))` emits
+            SELECT MIN("database_appheartbeats"."timestamp") AS "min"
+            FROM "database_participant"
+            LEFT OUTER JOIN "database_appheartbeats"
+              ON ("database_participant"."id" = "database_appheartbeats"."participant_id")
+            WHERE "database_participant"."id" = 8051
+        
+        This can take 10ms, it seems to get cached.
+        """
+        return (
+            Participant.objects.filter(id=self.id)
+            .values_list("heartbeats__timestamp")
+            .aggregate(min=Min("heartbeats__timestamp"))['min']
+        )
     
     @property
     def is_active_one_week(self) -> bool:
         return Participant._is_active(self, timezone.now() - timedelta(days=7))
     
-    
     @staticmethod
     def _is_active(participant: Participant, activity_threshold: datetime) -> bool:
-        """ Logic to determine if a participnat counts as active. """
+        """ Logic to determine if a participant counts as active. """
         # get the most recent timestamp from the list of fields, and check if it is more recent than
         # now the participant is considered active.
         
@@ -545,14 +573,6 @@ class ParticipantActionLog(UtilityModel):
     @classmethod
     def heartbeat_notifications(cls) -> QuerySet[ParticipantActionLog]:
         return cls.objects.filter(action=HEARTBEAT_PUSH_NOTIFICATION_SENT)
-
-
-# feature disabled, untested
-# class IOSHardExits(UtilityModel):
-#     participant = models.ForeignKey(Participant, null=False, on_delete=models.PROTECT, related_name="ios_hard_exits")
-#     timestamp = models.DateTimeField(null=False, blank=False, db_index=True)
-#     # handled means there was a notification sent to the user, or we got a heartbeat.
-#     handled = models.DateTimeField(null=False, blank=False, db_index=True)
 
 
 class AppVersionHistory(TimestampedModel):

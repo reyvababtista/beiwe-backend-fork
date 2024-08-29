@@ -52,10 +52,13 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
         get_survey_names_dict(study)
     )
     
+    conditionally_display_locked_message(request, participant)
+    last_app_heartbeat = participant.last_app_heartbeat
+    study_interventions_exists = study.interventions.exists()
+    study_fields_exists = study.fields.exists()
     relation = request.session_researcher.get_study_relation(study.id)
     can_delete = request.session_researcher.site_admin or relation in DATA_DELETION_ALLOWED_RELATIONS
     
-    conditionally_display_locked_message(request, participant)
     return render(
         request,
         'participant.html',
@@ -72,6 +75,10 @@ def render_participant_page(request: ResearcherRequest, participant: Participant
             participant_easy_enrollment=participant.easy_enrollment,
             locked=participant.is_dead,
             can_delete=can_delete,
+            study_timezone=participant.study.timezone,
+            participant_last_app_heartbeat=last_app_heartbeat,
+            study_interventions_exists=study_interventions_exists,
+            study_fields_exists=study_fields_exists,
         )
     )
 
@@ -104,7 +111,9 @@ def get_survey_names_dict(study: Study):
 
 
 def notification_details_archived_event(
-    archived_event: Dict, study_timezone: tzinfo, survey_names: Dict) -> Dict[str, str]:
+    archived_event: Dict, study_timezone: tzinfo, survey_names: Dict
+) -> Dict[str, str]:
+    """ assembles the details of a notification attempt for display on a page. """
     if archived_event is None:
         return {}
     return {
@@ -148,8 +157,8 @@ def get_heartbeats_query(participant: Participant, archived_events_page: Paginat
     """ Using the elements in the archived pages, determine the bounds for the query of heartbeats,
     and then construct and return that query. """
     
-    # tested, this does return the size of the page 
-    count = archived_events_page.object_list.count()  
+    # tested, this does return the size of the page
+    count = archived_events_page.object_list.count()
     
     if page_number == 1 and count < 25:
         # fewer than 25 notifications on the first page means that is all of them. So, get all the

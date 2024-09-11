@@ -76,18 +76,11 @@ class RelativeSchedule(TimestampedModel):
     # related field typings (IDE halp)
     scheduled_events: Manager[ScheduledEvent]
     
-    def merge_computed_intervention_date_with_time_and_timezone(self, intervention_date: date, tz: tzinfo) -> datetime:
-        """ Constructs a datetime object for the correct time, on the correct day, in the given timezone. """
-        # Timezone should be the study timezone, but this is in a potentially performance sensitive
-        #  location so we don't want to do the lookup. Instead we pass it in? We don't do that for
-        #  absolute schedules.
-        
-        # The time of day (hour, minute) are not offsets, they are absolute.
-        # make_aware fixes the pytz America/New_York 4 minute offset, if you use pytz timezones.
-        #  - which we don't do anymore so we can probably delete this comment. We won't do that tho.
-        return make_aware(
-            datetime.combine(intervention_date, time(self.hour, self.minute)), tz
-        )
+    def notification_time_from_intervention_date_and_timezone(self, a_date: date, tz: tzinfo) -> datetime:
+        """ TIMEZONE SHOULD BE THE STUDY TIMEZONE. The timezone is used to determine the "canonical
+        time" of the ScheduledEvent, which is shifted to the participant timezone. """
+        # The time of day (hour, minute) are not offsets, they are absolute times of day.
+        return make_aware(datetime.combine(a_date, time(self.hour, self.minute)), tz)
     
     @staticmethod
     def create_relative_schedules(timings: List[List[int]], survey: Survey) -> bool:

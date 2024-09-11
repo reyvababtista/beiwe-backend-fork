@@ -616,7 +616,7 @@ class DatabaseHelperMixin:
         
         # at some point we have to call real code for the relative schedule to get the output time,
         # the point of this is to generate a correct one.
-        the_time = relative.merge_computed_intervention_date_with_time_and_timezone(
+        the_time = relative.notification_time_from_intervention_date_and_timezone(
             the_intervention_date + timedelta(days=1), participant.timezone
         )
         

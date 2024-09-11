@@ -73,41 +73,45 @@ def get_or_mock_schedules(schedule_pks: List[str], debug: bool) -> Tuple[Schedul
 # the periodic checkin that the app makes to the backend.  The periodic checkin is app-code, it hits
 # the mobile_endpoints.mobile_heartbeat endpoint.
 
-
-def heartbeat_query() -> List[Tuple[int, str, str, str]]:
-    """ Handles logic of finding all active participants and providing the information required to
-    send them all the "heartbeat" push notification to keep them up and running. """
-    # active is premised on all of the active participant fields being within the last week
-    now = timezone.now()
-    one_week_ago = now - timedelta(days=7)
-    
-    # get all participants that have an activity field more recent that the past week.
+def generate_active_participant_Q_object(one_week_ago: datetime) -> Q:
+    """ Generates a Q object that is compatible with any database table that has a foreign key
+    relation to a participant. Add the Q object to .filter to get participants that have been active
+    in the past week.  Does not filter by the permanently_retired field. """
     # (e.g. filter out participants that have not been active in the past week.)
     activity_qs = [
         # Need to do string interpolation to get the field name, using a **{} inline dict unpacking.
         # Creates a Q object like: Q(participant__last_upload__gte=one_week_ago)
-        Q(**{f"participant__{field_name}__gte": one_week_ago}) for field_name in ACTIVE_PARTICIPANT_FIELDS
-            if field_name != "permanently_retired"  # handled in main query below.
+        Q(**{f"participant__{field_name}__gte": one_week_ago}) for field_name in
+        ACTIVE_PARTICIPANT_FIELDS if field_name != "permanently_retired"  # handled in main query below.
     ]
     
     # uses operator.or_ (note the underscore) to combine all those Q objects as an any match query.
-    # (operator.or_ is the same as |, it is the bitwise or operator) (reduce just applies it)
-    any_activity_field_gt_one_week_ago = reduce(operator.or_, activity_qs)
+    # (operator.or_ is the same as |, it is the bitwise or operator. Reduce applies it to all items.)
+    any_activity_field_gte_one_week_ago = reduce(operator.or_, activity_qs) 
+    return any_activity_field_gte_one_week_ago
+
+
+def heartbeat_query() -> List[Tuple[int, str, str, str]]:
+    """ Handles logic of finding all active participants and providing the information required to
+    send them all the "heartbeat" push notification to keep them up and running. """
+    now = timezone.now()
+    one_week_ago = now - timedelta(days=7)
+    any_activity_field_gte_one_week_ago = generate_active_participant_Q_object(one_week_ago)
     
     # Get fcm tokens and participant pk for all participants, filter for only participants with
     # ACTIVE_PARTICIPANT_FIELDS that were updated in the last week, exclude deleted and
-    # permanently_retired participants, exclude partipcants that do not have heartbeat enabled,
+    # permanently_retired participants, exclude participants that do not have heartbeat enabled,
     # and only where there is a valid FCM token (unregistered=None).
     # This query could theoretically return multiple fcm tokens per participant, which is not ideal,
     # but we haven't had obvious problems in the normal push notification logic ever, and it would
     # require a race condition in the endpoint where fcm tokens are set, and ... its just a push
     # notification.
     query = ParticipantFCMHistory.objects.filter(
-            any_activity_field_gt_one_week_ago,
+            any_activity_field_gte_one_week_ago,       # participants active in the past week
             
             participant__deleted=False,                # no deleted participants
-            participant__permanently_retired=False,    # should be rendundant with deleted.
-            unregistered=None,                         # this is fcm-speak for non-retired fcm token
+            participant__permanently_retired=False,    # not redundant with deleted.
+            unregistered=None,                         # this is fcm-speak for "has non-retired fcm token"
             participant__os_type__in=[ANDROID_API, IOS_API],  # participants need to _have an OS_.
         ).exclude(
             participant__study_id__in=get_stopped_study_ids()  # no stopped studies
@@ -127,11 +131,9 @@ def heartbeat_query() -> List[Tuple[int, str, str, str]]:
             'participant__last_get_latest_device_settings',
             'participant__last_register_user',
             "participant__last_heartbeat_checkin",
-        )\
-        .order_by("?")  # cover for some slowness by at least not making it predictable... (dumb)
-    # .exclude(participant__id__in=participant_ids_with_recent_heartbeats)
+        )
     
-    # We used to use the AppHeartbeats table inside a clever query, but when we added customizeable
+    # We used to use the AppHeartbeats table inside a clever query, but when we added customizable
     # per-study heartbeat timers that query became too complex. Now we filter out participants that
     # have ACTIVE_PARTICIPANT_FIELDS that are too recent manually in python. All of the information
     # is contained within a single query, which is much more performant than running extra queries

@@ -260,7 +260,7 @@ def repopulate_relative_survey_schedule_events(
             # "unsupported operand type(s) for +: 'NoneType' and 'datetime.timedelta'"
             # (the order of items in the error statements reflects the code, so intervention_date was None.)
             scheduled_date = intervention_date + timedelta(days=relative_schedule.days_after)
-            schedule_time = relative_schedule.merge_computed_intervention_date_with_time_and_timezone(scheduled_date, study_timezone)
+            schedule_time = relative_schedule.notification_time_from_intervention_date_and_timezone(scheduled_date, study_timezone)
             # skip if already sent (archived event matching participant, survey, and schedule time)
             if ArchivedEvent.objects.filter(
                 participant_id=participant_id,
@@ -319,30 +319,31 @@ def export_weekly_survey_timings(survey: Survey) -> List[List[int]]:
 
 #
 ## new code that compares against archived events
-#
+#  This code was developed as part of a review of push notifications. The review found no
+#  Issues, but thi code may be advantageous in the future.
 
 
 def get_participant_ids_with_absolute_notification_history(schedule: AbsoluteSchedule) -> List[int]:
-    # Notes:
-    # 1) ScheduledEvents for absolute schedules are created with the "canonical time" indicated by
-    #    the date and time on the AbsoluteSchedule object as calculated by the "event_time"
-    #    property, which returns a timezone aware datetime in the study's timezone at that time of
-    #    day.
-    # 2) When the Celery task checks for scheduled events it does the calculation for a full day
-    #    ahead of the current time, and skips participants for whom that participant-tz time has not
-    #    yet passed.
-    # 3) But, the creation of an ArchivedEvent uses the ScheduledEvent time as the target, eg. the
-    #    "canonical time", so we should always be able to find that events scheduled canonical time
-    # 4) ArchivedEvents point at a survey archives, so we need to get a list of survey archive db
-    #    ids and filter on that.
-    # 5) we already don't really support live studies shifting timezones mid study, so we can ignore
-    #    that case.
-    # survey = schedule.survey
+    """ Notes:
+    1) ScheduledEvents for absolute schedules are created with the "canonical time" indicated by
+       the date and time on the AbsoluteSchedule object as calculated by the "event_time"
+       property, which returns a timezone aware datetime in the study's timezone at that time of
+       day.
+    2) When the Celery task checks for scheduled events it does the calculation for a full day
+       ahead of the current time, and skips participants for whom that participant-tz time has not
+       yet passed.
+    3) But, the creation of an ArchivedEvent uses the ScheduledEvent time as the target, eg. the
+       "canonical time", so we should always be able to find that events scheduled canonical time
+    4) ArchivedEvents point at a survey archives, so we need to get a list of survey archive db
+       ids and filter on that.
+    5) we already don't really support live studies shifting timezones mid study, so we can ignore
+       that case.
+    survey = schedule.survey
     valid_survey_archive_ids = schedule.survey.archives.values_list("id", flat=True)
-    # study = survey.study
-    # study_timezone = study.timezone
-    # scheduled_time = schedule.event_time
-    
+    study = survey.study
+    study_timezone = study.timezone
+    scheduled_time = schedule.event_time
+    """
     return list(
         ArchivedEvent.objects.filter(
             scheduled_time=schedule.event_time,
@@ -355,19 +356,22 @@ def get_participant_ids_with_absolute_notification_history(schedule: AbsoluteSch
 
 
 def get_participant_ids_with_relative_notification_history(schedule: RelativeSchedule) -> List[int]:
-    # Notes:
-    # 1) ScheduledEvents for relative schedules have the same logical constraints as absolute
-    #    schedules, e.g. scheduled events will use the eventual calculated time.
-    # 2) Calculation of when to send a relative schedule notification is based on the presence of an
-    #    intervention date. This means that if the intervention date changes than relative schedules
-    #    will no longer match historical data in the ArchivedEvents, and the notifications will be
-    #    recalculated and become a new, unsent, notification.
-    # 3) But we can easily filter out participants that don't have the relevant intervention date
-    #    for this relative intervention populated.
-    # 4) The calculation time here is mostly in the timezone/datetime computation, which is up to
-    #    the number of participants total, and then pulling in the number of historical objects on
-    #    this survey, which is up to the number of relative schedules times the number of
-    #    participants.
+    """ Returns a list of participant database pks that need to have a notification sent base on a
+    relative schedule. 
+    Notes:
+    1) ScheduledEvents for relative schedules have the same logical constraints as absolute
+       schedules, e.g. scheduled events will use the eventual calculated time.
+    2) Calculation of when to send a relative schedule notification is based on the presence of an
+       intervention date. This means that if the intervention date changes than relative schedules
+       will no longer match historical data in the ArchivedEvents, and the notifications will be
+       recalculated and become a new, unsent, notification.
+    3) But we can easily filter out participants that don't have the relevant intervention date
+       for this relative intervention populated.
+    4) The calculation time here is mostly in the timezone/datetime computation, which is up to
+       the number of participants total, and then pulling in the number of historical objects on
+       this survey, which is up to the number of relative schedules times the number of
+       participants.
+    """
     valid_survey_archive_ids = schedule.survey.archives.values_list("id", flat=True)
     
     potentially_valid_participants = list(schedule.intervention.intervention_dates.filter(
@@ -388,7 +392,7 @@ def get_participant_ids_with_relative_notification_history(schedule: RelativeSch
     participants_to_calculated_times = defaultdict(list)
     for participant_id, vention_date, timezone_name in potentially_valid_participants:
         # 'days_after' is negative or 0 for days before and day of
-        schedule_time = schedule.merge_computed_intervention_date_with_time_and_timezone(
+        schedule_time = schedule.notification_time_from_intervention_date_and_timezone(
             vention_date + timedelta(days=schedule.days_after),  # computed date
             gettz(timezone_name)  # timezone lookup based on a string is cached
         )

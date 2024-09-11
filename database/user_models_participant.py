@@ -289,6 +289,13 @@ class Participant(AbstractPasswordUser):
         return False
     
     @property
+    def most_recent_activity(self):
+        # get the most recent timestamp out of the active participant fields, handle Nones
+        values = [getattr(self, key) for key in ACTIVE_PARTICIPANT_FIELDS]
+        return max([v for v in values if v is not None], default=None)
+    
+    
+    @property
     def is_dead(self) -> bool:
         return self.deleted or self.has_deletion_event
     

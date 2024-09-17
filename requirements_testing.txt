@@ -3,3 +3,4 @@ coverage
 tblib
 redgreenunittest
 time-machine
+isort

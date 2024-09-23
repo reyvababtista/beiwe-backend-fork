@@ -34,7 +34,7 @@ RUN curl https://pyenv.run | bash >> server_log.log && \
     $python -m pip install -r ./requirements.txt >> server_log.log && \
     $python -m pip install python-dotenv
 
-COPY ./.envs/.env.dev .env
+COPY docker_management/.envs/.env.dev .env
 
 USER root
 RUN ./cluster_management/pushed_files/install_celery_worker.sh >> server_log.log && \

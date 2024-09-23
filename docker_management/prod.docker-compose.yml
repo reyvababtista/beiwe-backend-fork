@@ -2,7 +2,7 @@ services:
   certbot:
     image: certbot/certbot
     env_file:
-      - ../.envs/.env.prod
+      - .envs/.env.prod
     volumes:
       - /etc/letsencrypt/:/etc/letsencrypt/
       - /var/lib/letsencrypt:/var/lib/letsencrypt
@@ -18,7 +18,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
     env_file:
-      - ../.envs/.env.prod
+      - .envs/.env.prod
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     ports:
@@ -43,7 +43,7 @@ services:
       - S3_BUCKET=${S3_BUCKET}
       - SYSADMIN_EMAILS=${SYSADMIN_EMAILS}
     env_file:
-      - ../.envs/.env.prod
+      - .envs/.env.prod
     command: uwsgi --yaml uwsgi-config.yml
     volumes:
       - static_volume:/home/app/web/staticfiles/
@@ -61,7 +61,7 @@ services:
       args:
         - PUBLIC_DOMAIN_NAME=${PUBLIC_DOMAIN_NAME}
     env_file:
-      - ../.envs/.env.prod
+      - .envs/.env.prod
     environment:
       - PUBLIC_DOMAIN_NAME=${PUBLIC_DOMAIN_NAME}
     volumes:
@@ -86,7 +86,7 @@ services:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
     env_file:
-      - ../.envs/.env.prod
+      - .envs/.env.prod
     expose:
       - 50000
       - 50002
@@ -118,7 +118,7 @@ services:
       - S3_BUCKET=${S3_BUCKET}
       - SYSADMIN_EMAILS=${SYSADMIN_EMAILS}
     env_file:
-      - ../.envs/.env.prod
+      - .envs/.env.prod
     ports:
       - "50001:50001"
     command: >

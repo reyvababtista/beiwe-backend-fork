@@ -13,20 +13,20 @@ dev-post-build:
 	$(MAKE) dev-collect-static
 
 dev-base-build:
-	echo "Building base image.."
+	@echo "\n\n\nBuilding base image.."
 	docker build -f docker_management/backend/dev.base.Dockerfile -t beiwe-server-dev-base .
 
 dev-build:
-	echo "Building images and running containers.."
-	docker compose -f docker_management/dev.docker-compose.yml --env-file ./.envs/.env.dev up --build $(args)
+	@echo "\n\n\nBuilding images and running containers.."
+	docker compose -f docker_management/dev.docker-compose.yml --env-file docker_management/.envs/.env.dev up --build $(args)
 
 dev-migrate:
-	echo "Migrating database.."
-	docker compose -f docker_management/dev.docker-compose.yml --env-file .envs/.env.dev exec -u 0 web python manage.py migrate --noinput
+	@echo "\n\n\nMigrating database.."
+	docker compose -f docker_management/dev.docker-compose.yml --env-file docker_management/.envs/.env.dev exec -u 0 web python manage.py migrate --noinput
 
 dev-collect-static:
-	echo "Collecting static files.."
-	docker compose -f docker_management/dev.docker-compose.yml --env-file .envs/.env.dev exec -u 0 web python manage.py collectstatic --no-input --clear
+	@echo "\n\n\nCollecting static files.."
+	docker compose -f docker_management/dev.docker-compose.yml --env-file docker_management/.envs/.env.dev exec -u 0 web python manage.py collectstatic --no-input --clear
 
 prod-up-build-detach:
 	$(MAKE) prod-base-build
@@ -43,17 +43,17 @@ prod-post-build:
 	$(MAKE) prod-collect-static
 
 prod-base-build:
-	echo "Building base image.."
+	@echo "\n\n\nBuilding base image.."
 	docker build -f docker_management/backend/prod.base.Dockerfile -t beiwe-server-prod-base .
 
 prod-build:
-	echo "Building images and running containers.."
-	docker compose -f docker_management/prod.docker-compose.yml --env-file ./.envs/.env.prod up --build $(args)
+	@echo "\n\n\nBuilding images and running containers.."
+	docker compose -f docker_management/prod.docker-compose.yml --env-file docker_management/.envs/.env.prod up --build $(args)
 
 prod-migrate:
-	echo "Migrating database.."
-	docker compose -f docker_management/prod.docker-compose.yml --env-file .envs/.env.prod exec -u 0 web python manage.py migrate --noinput
+	@echo "\n\n\nMigrating database.."
+	docker compose -f docker_management/prod.docker-compose.yml --env-file docker_management/.envs/.env.prod exec -u 0 web python manage.py migrate --noinput
 
 prod-collect-static:
-	echo "Collecting static files.."
-	docker compose -f docker_management/prod.docker-compose.yml --env-file .envs/.env.prod exec -u 0 web python manage.py collectstatic --no-input --clear
+	@echo "\n\n\nCollecting static files.."
+	docker compose -f docker_management/prod.docker-compose.yml --env-file docker_management/.envs/.env.prod exec -u 0 web python manage.py collectstatic --no-input --clear

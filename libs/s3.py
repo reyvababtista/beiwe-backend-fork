@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import Generator, List, Optional, Tuple
 
 import boto3
-from Cryptodome.PublicKey import RSA
 from botocore.client import BaseClient, Paginator
 from cronutils import ErrorHandler
+from Cryptodome.PublicKey import RSA
 
 from config.settings import (BEIWE_SERVER_AWS_ACCESS_KEY_ID,
                              BEIWE_SERVER_AWS_SECRET_ACCESS_KEY, S3_BUCKET,

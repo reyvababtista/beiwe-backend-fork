@@ -5,68 +5,71 @@ import re
 import shutil
 import sys
 from os import environ
-from os.path import abspath, join as path_join, relpath
+from os.path import abspath
+from os.path import join as path_join
+from os.path import relpath
 from time import sleep
 
-from fabric.api import cd, env as fabric_env, put, run, sudo
+from fabric.api import cd
+from fabric.api import env as fabric_env
+from fabric.api import put, run, sudo
 
-from deployment_helpers.aws.elastic_beanstalk import (check_if_eb_environment_exists,
-                                                      create_eb_environment, fix_deploy)
-from deployment_helpers.aws.elastic_compute_cloud import (create_processing_control_server,
-                                                          create_processing_server,
-                                                          get_manager_instance_by_eb_environment_name,
-                                                          get_manager_private_ip,
-                                                          get_manager_public_ip, get_worker_public_ips,
-                                                          terminate_all_processing_servers)
+from deployment_helpers.aws.elastic_beanstalk import (
+    check_if_eb_environment_exists, create_eb_environment, fix_deploy)
+from deployment_helpers.aws.elastic_compute_cloud import (
+    create_processing_control_server, create_processing_server,
+    get_manager_instance_by_eb_environment_name, get_manager_private_ip,
+    get_manager_public_ip, get_worker_public_ips,
+    terminate_all_processing_servers)
 from deployment_helpers.aws.iam import iam_purge_instance_profiles
 from deployment_helpers.aws.rds import create_new_rds_instance
-from deployment_helpers.configuration_utils import (are_aws_credentials_present,
-                                                    create_finalized_configuration,
-                                                    create_processing_server_configuration_file,
-                                                    create_rabbit_mq_password_file, get_rabbit_mq_password,
-                                                    is_global_configuration_valid,
-                                                    reference_data_processing_server_configuration,
-                                                    reference_environment_configuration_file,
-                                                    validate_beiwe_environment_config)
-from deployment_helpers.constants import (APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS,
-                                          APT_WORKER_INSTALLS, CLONE_ENVIRONMENT_HELP, CREATE_ENVIRONMENT_HELP,
-                                          CREATE_MANAGER_HELP,
-                                          CREATE_WORKER_HELP, DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH,
-                                          DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, DEV_HELP, DEV_MODE, DO_CREATE_CLONE,
-                                          DO_CREATE_ENVIRONMENT,
-                                          DO_SETUP_EB_UPDATE_OPEN, ENVIRONMENT_NAME_RESTRICTIONS,
-                                          EXTANT_ENVIRONMENT_PROMPT,
-                                          FILES_TO_PUSH_EARLY, FILES_TO_PUSH_LATE,
-                                          FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP,
-                                          get_beiwe_environment_variables_file_path, get_db_credentials_file_path,
-                                          get_finalized_settings_file_path, get_finalized_settings_variables,
-                                          get_global_config,
-                                          GET_MANAGER_IP_ADDRESS_HELP, get_pushed_full_processing_server_env_file_path,
-                                          get_server_configuration_variables, get_server_configuration_variables_path,
-                                          GET_WORKER_IP_ADDRESS_HELP, HELP_SETUP_NEW_ENVIRONMENT,
-                                          HELP_SETUP_NEW_ENVIRONMENT_END,
-                                          HELP_SETUP_NEW_ENVIRONMENT_HELP, LOCAL_AMI_ENV_CONFIG_FILE_PATH,
-                                          LOCAL_APACHE_CONFIG_FILE_PATH,
-                                          LOCAL_CRONJOB_MANAGER_FILE_PATH, LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH,
-                                          LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_INSTALL_CELERY_WORKER,
-                                          LOCAL_RABBIT_MQ_CONFIG_FILE_PATH,
-                                          LOG_FILE, MANAGER_SERVER_INSTANCE_TYPE, PURGE_COMMAND_BLURB,
-                                          PURGE_INSTANCE_PROFILES_HELP,
-                                          PUSHED_FILES_FOLDER, RABBIT_MQ_PORT, REMOTE_APACHE_CONFIG_FILE_PATH,
-                                          REMOTE_CRONJOB_FILE_PATH,
-                                          REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_PROJECT_DIR,
-                                          REMOTE_RABBIT_MQ_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH,
-                                          REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH, REMOTE_USERNAME, STAGED_FILES,
-                                          TERMINATE_PROCESSING_SERVERS_HELP, WORKER_SERVER_INSTANCE_TYPE)
-from deployment_helpers.general_utils import current_time_string, do_zip_reduction, EXIT, log, retry
+from deployment_helpers.configuration_utils import (
+    are_aws_credentials_present, create_finalized_configuration,
+    create_processing_server_configuration_file,
+    create_rabbit_mq_password_file, get_rabbit_mq_password,
+    is_global_configuration_valid,
+    reference_data_processing_server_configuration,
+    reference_environment_configuration_file,
+    validate_beiwe_environment_config)
+from deployment_helpers.constants import (
+    APT_MANAGER_INSTALLS, APT_SINGLE_SERVER_AMI_INSTALLS, APT_WORKER_INSTALLS,
+    CLONE_ENVIRONMENT_HELP, CREATE_ENVIRONMENT_HELP, CREATE_MANAGER_HELP,
+    CREATE_WORKER_HELP, DEPLOYMENT_ENVIRON_SETTING_REMOTE_FILE_PATH,
+    DEPLOYMENT_SPECIFIC_CONFIG_FOLDER, DEV_HELP, DEV_MODE, DO_CREATE_CLONE,
+    DO_CREATE_ENVIRONMENT, DO_SETUP_EB_UPDATE_OPEN,
+    ENVIRONMENT_NAME_RESTRICTIONS, EXTANT_ENVIRONMENT_PROMPT,
+    FILES_TO_PUSH_EARLY, FILES_TO_PUSH_LATE,
+    FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP, GET_MANAGER_IP_ADDRESS_HELP,
+    GET_WORKER_IP_ADDRESS_HELP, HELP_SETUP_NEW_ENVIRONMENT,
+    HELP_SETUP_NEW_ENVIRONMENT_END, HELP_SETUP_NEW_ENVIRONMENT_HELP,
+    LOCAL_AMI_ENV_CONFIG_FILE_PATH, LOCAL_APACHE_CONFIG_FILE_PATH,
+    LOCAL_CRONJOB_MANAGER_FILE_PATH, LOCAL_CRONJOB_SINGLE_SERVER_AMI_FILE_PATH,
+    LOCAL_CRONJOB_WORKER_FILE_PATH, LOCAL_INSTALL_CELERY_WORKER,
+    LOCAL_RABBIT_MQ_CONFIG_FILE_PATH, LOG_FILE, MANAGER_SERVER_INSTANCE_TYPE,
+    PURGE_COMMAND_BLURB, PURGE_INSTANCE_PROFILES_HELP, PUSHED_FILES_FOLDER,
+    RABBIT_MQ_PORT, REMOTE_APACHE_CONFIG_FILE_PATH, REMOTE_CRONJOB_FILE_PATH,
+    REMOTE_HOME_DIR, REMOTE_INSTALL_CELERY_WORKER, REMOTE_PROJECT_DIR,
+    REMOTE_RABBIT_MQ_CONFIG_FILE_PATH, REMOTE_RABBIT_MQ_FINAL_CONFIG_FILE_PATH,
+    REMOTE_RABBIT_MQ_PASSWORD_FILE_PATH, REMOTE_USERNAME, STAGED_FILES,
+    TERMINATE_PROCESSING_SERVERS_HELP, WORKER_SERVER_INSTANCE_TYPE,
+    get_beiwe_environment_variables_file_path, get_db_credentials_file_path,
+    get_finalized_settings_file_path, get_finalized_settings_variables,
+    get_global_config, get_pushed_full_processing_server_env_file_path,
+    get_server_configuration_variables,
+    get_server_configuration_variables_path)
+from deployment_helpers.general_utils import (EXIT, current_time_string,
+                                              do_zip_reduction, log, retry)
 
 
 # Fabric configuration
 class FabricExecutionError(Exception): pass
+
+
 fabric_env.abort_exception = FabricExecutionError
 fabric_env.abort_on_prompts = False
 
 parser = argparse.ArgumentParser(description="interactive set of commands for deploying a Beiwe Cluster")
+
 
 ####################################################################################################
 ################################### Fabric Operations ##############################################
@@ -157,7 +160,8 @@ def setup_python():
     python = "/home/ubuntu/.pyenv/versions/beiwe/bin/python"
     
     log.info("downloading and setting up pyenv. This has a bunch of suppressed spam.")
-    run(f"curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash >> {LOG_FILE}", quiet=True)
+    run(f"curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash >> {LOG_FILE}",
+        quiet=True)
     run(f"{pyenv} update >> {LOG_FILE}", quiet=True)
     log.warning("For technical reasons we need to compile python. This will take some time.")
     # /home/ubuntu/.pyenv/bin/pyenv install --list
@@ -166,10 +170,12 @@ def setup_python():
     versions: str = run(f"{pyenv} install --list", quiet=True)  # its a weird string-like object
     versions = [v.strip() for v in versions.splitlines() if v.strip().startswith("3.8")]
     most_recent_three_point_eight = versions[-1]
-    log.info(f"It is {most_recent_three_point_eight}!, installing... (Suppressing a lot of spam, this will take a while.)")
+    log.info(
+        f"It is {most_recent_three_point_eight}!, installing... (Suppressing a lot of spam, this will take a while.)")
     run(f"{pyenv} install -v {most_recent_three_point_eight} >> {LOG_FILE}", quiet=True)
     run(f"{pyenv} virtualenv {most_recent_three_point_eight} beiwe >> {LOG_FILE}", quiet=True)
-    log.info("It installed successfully! Now installing python requirements... (again with the spam and the suppressing.)")
+    log.info(
+        "It installed successfully! Now installing python requirements... (again with the spam and the suppressing.)")
     run(f"{python} -m pip install --upgrade pip setuptools wheel >> {LOG_FILE}", quiet=True)
     run(f'{python} -m pip install -r {REMOTE_HOME_DIR}/beiwe-backend/requirements.txt >> {LOG_FILE}', quiet=True)
     log.info("Done installing python!")
@@ -241,7 +247,6 @@ def setup_rabbitmq(eb_environment_name):
 
 
 def apt_installs(manager=False, single_server_ami=False):
-    
     if manager:
         apt_install_list = APT_MANAGER_INSTALLS
     elif single_server_ami:
@@ -363,6 +368,7 @@ def prompt_for_extant_eb_environment_name():
     validate_beiwe_environment_config(name)
     return name
 
+
 ####################################################################################################
 ##################################### AWS Operations ###############################################
 ####################################################################################################
@@ -400,7 +406,8 @@ def do_setup_eb_update():
     do_zip_reduction(file_name, STAGED_FILES, output_file_name)
     log.info("Done processing %s." % file_name)
     log.info("The new file %s has been placed in %s" % (output_file_name, STAGED_FILES))
-    print("You can now provide Elastic Beanstalk with %s to run an automated deployment of the new code." % output_file_name)
+    print(
+        "You can now provide Elastic Beanstalk with %s to run an automated deployment of the new code." % output_file_name)
     EXIT(0)
 
 
@@ -566,7 +573,7 @@ def do_create_worker():
     push_manager_private_ip_and_password(name)
     setup_worker_cron()
     setup_celery_worker()
-    run_custom_ondeploy_script() 
+    run_custom_ondeploy_script()
     log.warning("Server is almost up.  Waiting 20 seconds to avoid a race condition...")
     sleep(20)
     run("supervisord")
@@ -639,7 +646,8 @@ def cli_args_validation():
     parser.add_argument('-create-manager', action="count", help=CREATE_MANAGER_HELP)
     parser.add_argument('-create-worker', action="count", help=CREATE_WORKER_HELP)
     parser.add_argument("-help-setup-new-environment", action="count", help=HELP_SETUP_NEW_ENVIRONMENT_HELP)
-    parser.add_argument("-fix-health-checks-blocking-deployment", action="count", help=FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP)
+    parser.add_argument("-fix-health-checks-blocking-deployment", action="count",
+                        help=FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP)
     parser.add_argument("-dev", action="count", help=DEV_HELP)
     parser.add_argument("-purge-instance-profiles", action="count", help=PURGE_INSTANCE_PROFILES_HELP)
     parser.add_argument("-terminate-processing-servers", action="count", help=TERMINATE_PROCESSING_SERVERS_HELP)

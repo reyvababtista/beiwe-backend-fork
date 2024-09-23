@@ -12,6 +12,7 @@ from config.settings import DOMAIN_NAME, FLASK_SECRET_KEY, SENTRY_ELASTIC_BEANST
 from constants.common_constants import BEIWE_PROJECT_ROOT
 from libs.sentry import normalize_sentry_dsn
 
+
 # SECRET KEY is required by the django management commands, using the flask key is fine because
 # we are not actually using it in any server runtime capacity.
 SECRET_KEY = FLASK_SECRET_KEY
@@ -189,6 +190,7 @@ our_sentry_dsn = normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN)
 # file processing errors in a weird/unpredictable way. (Possibly after the first page of data? it's
 # not clear.)
 from sentry_sdk.integrations import _AUTO_ENABLING_INTEGRATIONS
+
 
 if "sentry_sdk.integrations.starlette.StarletteIntegration" not in _AUTO_ENABLING_INTEGRATIONS:
     raise ImproperlyConfigured(

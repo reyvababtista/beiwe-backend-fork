@@ -39,6 +39,7 @@ elif DB_MODE == DB_MODE_POSTGRES:
             'PASSWORD': os.environ['RDS_PASSWORD'],
             'HOST': os.environ['RDS_HOSTNAME'],
             'CONN_MAX_AGE': 0,
+            'OPTIONS': {'sslmode': 'require'},
             "ATOMIC_REQUESTS": True,  # default is True, just being explicit
             'TEST': {
                 'MIGRATE': True,
@@ -59,7 +60,7 @@ CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG
 
 # mac os homebrew postgres has configuration complexities that are not worth the effort to resolve.
-if not SECURE_SSL_REDIRECT and DB_MODE == DB_MODE_POSTGRES and platform.system() == "Darwin":
+if (not SECURE_SSL_REDIRECT and DB_MODE == DB_MODE_POSTGRES and platform.system() == "Darwin") or os.environ.get("RUNNING_IN_DOCKER", False):
     DATABASES['default']['OPTIONS']['sslmode'] = 'disable'
 
 MIDDLEWARE = [

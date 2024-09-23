@@ -10,10 +10,6 @@ from os.path import join as path_join
 from os.path import relpath
 from time import sleep
 
-from fabric.api import cd
-from fabric.api import env as fabric_env
-from fabric.api import put, run, sudo
-
 from deployment_helpers.aws.elastic_beanstalk import (
     check_if_eb_environment_exists, create_eb_environment, fix_deploy)
 from deployment_helpers.aws.elastic_compute_cloud import (
@@ -59,6 +55,9 @@ from deployment_helpers.constants import (
     get_server_configuration_variables_path)
 from deployment_helpers.general_utils import (EXIT, current_time_string,
                                               do_zip_reduction, log, retry)
+from fabric.api import cd
+from fabric.api import env as fabric_env
+from fabric.api import put, run, sudo
 
 
 # Fabric configuration

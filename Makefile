@@ -1,5 +1,5 @@
 dev-up-build-detach:
-	$(MAKE) dev-base-build
+	$(MAKE) dev-base-build # $(MAKE) command calls on this Makefile
 	$(MAKE) dev-build args=-d
 	$(MAKE) dev-migrate
 	$(MAKE) dev-collect-static

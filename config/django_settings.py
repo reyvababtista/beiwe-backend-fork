@@ -4,8 +4,8 @@ from os.path import join
 
 import sentry_sdk
 from django.core.exceptions import ImproperlyConfigured
-from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
 
 from config import DB_MODE, DB_MODE_POSTGRES, DB_MODE_SQLITE
 from config.settings import DOMAIN_NAME, FLASK_SECRET_KEY, SENTRY_ELASTIC_BEANSTALK_DSN
@@ -55,9 +55,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 DEBUG = 'localhost' in DOMAIN_NAME or '127.0.0.1' in DOMAIN_NAME or '::1' in DOMAIN_NAME
 
 SECURE_SSL_REDIRECT = not DEBUG
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
 
 # mac os homebrew postgres has configuration complexities that are not worth the effort to resolve.
-if not SECURE_SSL_REDIRECT and DB_MODE == DB_MODE_POSTGRES and platform.system() == "Darwin":
+if (not SECURE_SSL_REDIRECT and DB_MODE == DB_MODE_POSTGRES and platform.system() == "Darwin") or os.environ.get("RUNNING_IN_DOCKER", False):
     DATABASES['default']['OPTIONS']['sslmode'] = 'disable'
 
 MIDDLEWARE = [
@@ -81,6 +84,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django_extensions',
     'timezone_field',
+    'django.contrib.staticfiles'
     # 'static_files',
 ]
 
@@ -131,15 +135,18 @@ TEST_RUNNER = 'django.test.runner.DiscoverRunner'
 
 # server settings....
 if DEBUG:
-    ALLOWED_HOSTS = ("*", )
+    ALLOWED_HOSTS = ("*",)
 else:
     # we only allow the domain name to be the referrer
     ALLOWED_HOSTS = [DOMAIN_NAME]
 
 PROJECT_ROOT = "."
 ROOT_URLCONF = "urls"
-STATIC_ROOT = "frontend/static/"
+STATIC_ROOT = "staticfiles"
 STATIC_URL = "/static/"
+STATICFILES_DIRS = [
+    "frontend/static/"
+]
 
 TEMPLATES = [
     {
@@ -154,7 +161,7 @@ TEMPLATES = [
                 "middleware.context_processors.researcher_context_processor",
                 "django.contrib.messages.context_processors.messages",
             ],
-        "environment": "config.jinja2.environment",
+            "environment": "config.jinja2.environment",
         },
     },
 ]
@@ -184,6 +191,8 @@ our_sentry_dsn = normalize_sentry_dsn(SENTRY_ELASTIC_BEANSTALK_DSN)
 # file processing errors in a weird/unpredictable way. (Possibly after the first page of data? it's
 # not clear.)
 from sentry_sdk.integrations import _AUTO_ENABLING_INTEGRATIONS
+
+
 if "sentry_sdk.integrations.starlette.StarletteIntegration" not in _AUTO_ENABLING_INTEGRATIONS:
     raise ImproperlyConfigured(
         "We have a bug where the starlette integration is getting auto enabling and then raising "
@@ -205,7 +214,7 @@ sentry_sdk.init(
             signals_spans=False,
             cache_spans=False,
         ),
-        CeleryIntegration( 
+        CeleryIntegration(
             propagate_traces=False,
             monitor_beat_tasks=False,
             exclude_beat_tasks=True

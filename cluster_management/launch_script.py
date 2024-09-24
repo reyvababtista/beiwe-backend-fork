@@ -46,10 +46,13 @@ from fabric.api import cd, env as fabric_env, put, run, sudo
 
 # Fabric configuration
 class FabricExecutionError(Exception): pass
+
+
 fabric_env.abort_exception = FabricExecutionError
 fabric_env.abort_on_prompts = False
 
 parser = argparse.ArgumentParser(description="interactive set of commands for deploying a Beiwe Cluster")
+
 
 ####################################################################################################
 ################################### Fabric Operations ##############################################
@@ -140,7 +143,8 @@ def setup_python():
     python = "/home/ubuntu/.pyenv/versions/beiwe/bin/python"
     
     log.info("downloading and setting up pyenv. This has a bunch of suppressed spam.")
-    run(f"curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash >> {LOG_FILE}", quiet=True)
+    run(f"curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash >> {LOG_FILE}",
+        quiet=True)
     run(f"{pyenv} update >> {LOG_FILE}", quiet=True)
     log.warning("For technical reasons we need to compile python. This will take some time.")
     # /home/ubuntu/.pyenv/bin/pyenv install --list
@@ -149,10 +153,12 @@ def setup_python():
     versions: str = run(f"{pyenv} install --list", quiet=True)  # its a weird string-like object
     versions = [v.strip() for v in versions.splitlines() if v.strip().startswith("3.8")]
     most_recent_three_point_eight = versions[-1]
-    log.info(f"It is {most_recent_three_point_eight}!, installing... (Suppressing a lot of spam, this will take a while.)")
+    log.info(
+        f"It is {most_recent_three_point_eight}!, installing... (Suppressing a lot of spam, this will take a while.)")
     run(f"{pyenv} install -v {most_recent_three_point_eight} >> {LOG_FILE}", quiet=True)
     run(f"{pyenv} virtualenv {most_recent_three_point_eight} beiwe >> {LOG_FILE}", quiet=True)
-    log.info("It installed successfully! Now installing python requirements... (again with the spam and the suppressing.)")
+    log.info(
+        "It installed successfully! Now installing python requirements... (again with the spam and the suppressing.)")
     run(f"{python} -m pip install --upgrade pip setuptools wheel >> {LOG_FILE}", quiet=True)
     run(f'{python} -m pip install -r {REMOTE_HOME_DIR}/beiwe-backend/requirements.txt >> {LOG_FILE}', quiet=True)
     log.info("Done installing python!")
@@ -169,7 +175,7 @@ def setup_celery_worker():
     # make it executable and execute it.
     put(LOCAL_INSTALL_CELERY_WORKER, REMOTE_INSTALL_CELERY_WORKER)
     run(f'chmod +x {REMOTE_INSTALL_CELERY_WORKER}')
-    run(f'{REMOTE_INSTALL_CELERY_WORKER} >> {LOG_FILE}')
+    sudo(f'{REMOTE_INSTALL_CELERY_WORKER} >> {LOG_FILE}')
 
 
 def manager_fix():
@@ -224,7 +230,6 @@ def setup_rabbitmq(eb_environment_name):
 
 
 def apt_installs(manager=False, single_server_ami=False):
-    
     if manager:
         apt_install_list = APT_MANAGER_INSTALLS
     elif single_server_ami:
@@ -346,6 +351,7 @@ def prompt_for_extant_eb_environment_name():
     validate_beiwe_environment_config(name)
     return name
 
+
 ####################################################################################################
 ##################################### AWS Operations ###############################################
 ####################################################################################################
@@ -383,7 +389,8 @@ def do_setup_eb_update():
     do_zip_reduction(file_name, STAGED_FILES, output_file_name)
     log.info("Done processing %s." % file_name)
     log.info("The new file %s has been placed in %s" % (output_file_name, STAGED_FILES))
-    print("You can now provide Elastic Beanstalk with %s to run an automated deployment of the new code." % output_file_name)
+    print(
+        "You can now provide Elastic Beanstalk with %s to run an automated deployment of the new code." % output_file_name)
     EXIT(0)
 
 
@@ -549,7 +556,7 @@ def do_create_worker():
     push_manager_private_ip_and_password(name)
     setup_worker_cron()
     setup_celery_worker()
-    run_custom_ondeploy_script() 
+    run_custom_ondeploy_script()
     log.warning("Server is almost up.  Waiting 20 seconds to avoid a race condition...")
     sleep(20)
     run("supervisord")
@@ -622,7 +629,8 @@ def cli_args_validation():
     parser.add_argument('-create-manager', action="count", help=CREATE_MANAGER_HELP)
     parser.add_argument('-create-worker', action="count", help=CREATE_WORKER_HELP)
     parser.add_argument("-help-setup-new-environment", action="count", help=HELP_SETUP_NEW_ENVIRONMENT_HELP)
-    parser.add_argument("-fix-health-checks-blocking-deployment", action="count", help=FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP)
+    parser.add_argument("-fix-health-checks-blocking-deployment", action="count",
+                        help=FIX_HEALTH_CHECKS_BLOCKING_DEPLOYMENT_HELP)
     parser.add_argument("-dev", action="count", help=DEV_HELP)
     parser.add_argument("-purge-instance-profiles", action="count", help=PURGE_INSTANCE_PROFILES_HELP)
     parser.add_argument("-terminate-processing-servers", action="count", help=TERMINATE_PROCESSING_SERVERS_HELP)

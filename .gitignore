@@ -22,3 +22,7 @@ private/*
 
 # Celery local config
 manager_ip
+
+# Ignore all .env files
+docker_management/.envs/.env.dev
+docker_management/.envs/.env.prod
